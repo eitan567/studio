@@ -134,7 +134,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       const photosCopy = [...photos];
        // First page (single)
       const firstPagePhotoCount = config.photosPerSpread > 1 ? Math.ceil(config.photosPerSpread / 2) : 1;
-      if (photosCopy.length > 0) {
+      if (photosCopy.length > 0 && config.photosPerSpread > 1) {
         pages.push({
           type: 'single',
           photos: photosCopy.splice(0, firstPagePhotoCount),
