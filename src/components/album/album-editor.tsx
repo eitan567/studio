@@ -7,12 +7,14 @@ import {
   Sparkles,
   UploadCloud,
   Wand2,
+  PlusSquare,
 } from 'lucide-react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
+import { v4 as uuidv4 } from 'uuid';
 
-import type { Photo, AlbumConfig, AlbumPage } from '@/lib/types';
+import type { Photo, AlbumConfig, AlbumPage, PhotoPanAndZoom } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlbumPreview } from './album-preview';
@@ -39,14 +41,22 @@ interface AlbumEditorProps {
 }
 
 const configSchema = z.object({
-  photosPerSpread: z.enum(['1', '2', '4', '6']),
   size: z.enum(['20x20', '25x25', '30x30']),
 });
 
 type ConfigFormData = z.infer<typeof configSchema>;
 
+// Mock function to get available photos. In a real app, this would come from a server or context.
+const getAvailablePhotos = (allPhotos: Photo[], usedPhotoIds: Set<string>): Photo[] => {
+  return allPhotos.filter(p => !usedPhotoIds.has(p.id));
+}
+
 export function AlbumEditor({ albumId }: AlbumEditorProps) {
-  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [allPhotos, setAllPhotos] = useState<Photo[]>([]);
+  const [albumPages, setAlbumPages] = useState<AlbumPage[]>(() => [
+    { id: 'cover', type: 'spread', photos: [], layout: 'cover', isCover: true }
+  ]);
+  
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
@@ -56,7 +66,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
   useEffect(() => {
     // Generate random seed only on client-side to avoid hydration mismatch
-    setRandomSeed(Math.random().toString(36));
+    setRandomSeed(Math.random().toString(36).substring(7));
     const suggestions = [
       "For a more dynamic feel, try a 6-photo spread for pages with action shots.",
       "The portrait on page 3 would 'pop' more with increased contrast.",
@@ -68,14 +78,78 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const form = useForm<ConfigFormData>({
     resolver: zodResolver(configSchema),
     defaultValues: {
-      photosPerSpread: '4',
       size: '20x20',
     },
   });
 
   const config: AlbumConfig = {
-    photosPerSpread: parseInt(form.watch('photosPerSpread')) as AlbumConfig['photosPerSpread'],
     size: form.watch('size') as '20x20',
+  };
+
+  const usedPhotoIds = useMemo(() => {
+    return new Set(albumPages.flatMap(p => p.photos.map(photo => photo.id)));
+  }, [albumPages]);
+
+
+  const addPage = (type: 'single' | 'spread' = 'spread') => {
+    const availablePhotos = getAvailablePhotos(allPhotos, usedPhotoIds);
+    const photosForNewPage = availablePhotos.slice(0, 2); // Default to 2 photos for a new page
+    
+    const newPage: AlbumPage = {
+      id: uuidv4(),
+      type: type,
+      photos: photosForNewPage.map(p => ({...p, panAndZoom: { scale: 1, x: 50, y: 50 }})),
+      layout: '2'
+    };
+    
+    // In a real app, you might want to insert before the last page if it's a special back cover
+    setAlbumPages(prev => [...prev, newPage]);
+    toast({
+      title: "Page Added",
+      description: `A new ${type} page with ${photosForNewPage.length} photos has been added.`,
+    })
+  };
+
+  const deletePage = (pageId: string) => {
+    setAlbumPages(prev => prev.filter(p => p.id !== pageId));
+    toast({
+      title: "Page Deleted",
+      variant: "destructive"
+    })
+  }
+
+  const updatePageLayout = (pageId: string, newLayout: string) => {
+    setAlbumPages(prev => prev.map(page => {
+      if (page.id !== pageId) return page;
+
+      const newPhotoCount = parseInt(newLayout, 10);
+      const currentPhotos = page.photos;
+      let newPhotos = [...currentPhotos];
+
+      if (newPhotoCount > currentPhotos.length) {
+        const availablePhotos = getAvailablePhotos(allPhotos, usedPhotoIds);
+        const photosToAddCount = newPhotoCount - currentPhotos.length;
+        const photosToAdd = availablePhotos.slice(0, photosToAddCount);
+        newPhotos.push(...photosToAdd.map(p => ({...p, panAndZoom: { scale: 1, x: 50, y: 50 }})));
+      } else if (newPhotoCount < currentPhotos.length) {
+        newPhotos = newPhotos.slice(0, newPhotoCount);
+      }
+
+      return { ...page, layout: newLayout, photos: newPhotos };
+    }));
+  };
+  
+  const updatePhotoPanAndZoom = (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => {
+      setAlbumPages(pages => pages.map(page => {
+          if (page.id !== pageId) return page;
+          return {
+              ...page,
+              photos: page.photos.map(photo => {
+                  if (photo.id !== photoId) return photo;
+                  return { ...photo, panAndZoom };
+              })
+          };
+      }));
   };
 
   const generateDummyPhotos = () => {
@@ -102,11 +176,11 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           alt: `Dummy photo ${i + 1}`,
         };
       });
-      setPhotos(dummyPhotos);
+      setAllPhotos(dummyPhotos);
       setIsLoading(false);
       toast({
         title: 'Photos Generated',
-        description: '100 dummy photos have been added to your album.',
+        description: '100 dummy photos have been added to your library.',
       });
     }, 1500);
   };
@@ -119,48 +193,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     setAiSuggestion(randomSuggestion);
     setIsGenerating(false);
   };
-
-  const albumPages = useMemo((): AlbumPage[] => {
-    const pages: AlbumPage[] = [];
-    pages.push({
-      type: 'spread',
-      photos: [],
-      isCover: true,
-    });
   
-    if (photos.length > 0) {
-      const photosCopy = [...photos];
-      
-      // Always create the first single page if there are photos
-      const firstPagePhotoCount =
-        config.photosPerSpread > 1
-          ? Math.ceil(config.photosPerSpread / 2)
-          : 1;
-
-      if (photosCopy.length > 0) {
-         pages.push({
-          type: 'single',
-          photos: photosCopy.splice(0, firstPagePhotoCount),
-        });
-      }
-  
-      while (photosCopy.length >= config.photosPerSpread) {
-        pages.push({
-          type: 'spread',
-          photos: photosCopy.splice(0, config.photosPerSpread),
-        });
-      }
-  
-      // If there are leftover photos, put them on a final single page
-      if (photosCopy.length > 0) {
-        pages.push({ type: 'single', photos: photosCopy });
-      }
-    }
-  
-    return pages;
-  }, [photos, config]);
-  
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div className="lg:col-span-1 space-y-6">
@@ -171,29 +204,6 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           <CardContent>
             <Form {...form}>
               <form className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="photosPerSpread"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Photos per Spread</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select layout" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="1">1 Photo</SelectItem>
-                          <SelectItem value="2">2 Photos</SelectItem>
-                          <SelectItem value="4">4 Photos</SelectItem>
-                          <SelectItem value="6">6 Photos</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
                  <FormField
                   control={form.control}
                   name="size"
@@ -244,8 +254,11 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
               )}
               Generate 100 Dummy Photos
             </Button>
+            <Button className="w-full" variant="outline" onClick={() => addPage('spread')} disabled={allPhotos.length === 0}>
+                <PlusSquare className="mr-2 h-4 w-4" /> Add Page Spread
+            </Button>
              <p className="text-sm text-muted-foreground text-center pt-2">
-                {photos.length} photos loaded.
+                {allPhotos.length - usedPhotoIds.size} photos available.
             </p>
           </CardContent>
         </Card>
@@ -258,7 +271,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             </CardHeader>
             <CardContent className="space-y-4">
                  <p className="text-sm text-muted-foreground">Let our AI analyze your album and provide suggestions for improvements and layouts.</p>
-                <Button variant="outline" className="w-full border-accent text-accent hover:bg-accent hover:text-accent-foreground" onClick={handleAiEnhance} disabled={isGenerating || photos.length === 0}>
+                <Button variant="outline" className="w-full border-accent text-accent hover:bg-accent hover:text-accent-foreground" onClick={handleAiEnhance} disabled={isGenerating || allPhotos.length === 0}>
                     {isGenerating ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing...</>) : (<>Enhance with AI</>)}
                 </Button>
 
@@ -273,7 +286,13 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         </Card>
       </div>
       <div className="lg:col-span-2">
-        <AlbumPreview pages={albumPages} config={config} />
+        <AlbumPreview 
+          pages={albumPages} 
+          config={config} 
+          onDeletePage={deletePage}
+          onUpdateLayout={updatePageLayout}
+          onUpdatePhotoPanAndZoom={updatePhotoPanAndZoom}
+        />
       </div>
     </div>
   );

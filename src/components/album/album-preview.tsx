@@ -1,7 +1,8 @@
 'use client';
 
 import Image from 'next/image';
-import { BookOpenText, Info } from 'lucide-react';
+import { BookOpenText, Info, Trash2, LayoutTemplate, Crop } from 'lucide-react';
+import React, { useState } from 'react';
 
 import type { AlbumPage, AlbumConfig, Photo } from '@/lib/types';
 import {
@@ -14,13 +15,25 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { PhotoEditorDialog } from './photo-editor-dialog';
+import type { PhotoPanAndZoom } from '@/lib/types';
 
-interface AlbumPreviewProps {
-  pages: AlbumPage[];
-  config: AlbumConfig;
+
+interface PageLayoutProps {
+  photos: Photo[];
+  layout: string;
 }
 
-function PageLayout({ photos }: { photos: Photo[] }) {
+function PageLayout({ photos, layout }: PageLayoutProps) {
+  const photoCount = parseInt(layout) || photos.length;
+  
   const gridClasses: { [key: number]: string } = {
     1: 'grid-cols-1 grid-rows-1',
     2: 'grid-cols-2 grid-rows-1',
@@ -38,20 +51,15 @@ function PageLayout({ photos }: { photos: Photo[] }) {
     5: ['col-span-2 row-span-2', '', '', '', ''],
     6: ['col-span-2', 'col-span-2', 'col-span-2', 'col-span-2', 'col-span-2', 'col-span-2'],
   };
-  
-  if (photos.length === 6) {
-    photoSpanClasses[6] = ['col-span-2', 'col-span-2', 'col-span-2', 'col-span-2', 'col-span-2', 'col-span-2'];
-  }
-
 
   const getGridClass = (index: number) => {
-    if (photos.length in photoSpanClasses) {
-      return photoSpanClasses[photos.length][index];
+    if (photoCount in photoSpanClasses) {
+      return photoSpanClasses[photoCount][index];
     }
     return '';
   };
   
-  const baseGrid = gridClasses[photos.length] || 'grid-cols-2 grid-rows-2';
+  const baseGrid = gridClasses[photoCount] || 'grid-cols-2 grid-rows-2';
 
   return (
     <div
@@ -61,7 +69,7 @@ function PageLayout({ photos }: { photos: Photo[] }) {
         <div
           key={photo.id}
           className={cn(
-            'relative rounded-md overflow-hidden bg-muted',
+            'relative rounded-md overflow-hidden bg-muted group/photo',
             getGridClass(index)
           )}
         >
@@ -70,8 +78,16 @@ function PageLayout({ photos }: { photos: Photo[] }) {
             alt={photo.alt}
             fill
             className="object-cover"
+            style={{
+              transform: `scale(${photo.panAndZoom?.scale ?? 1}) translate(${
+                (photo.panAndZoom?.x ?? 50) - 50
+              }%, ${(photo.panAndZoom?.y ?? 50) - 50}%)`,
+            }}
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           />
+           <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center">
+                <PhotoEditorTrigger pageId={photo.id} photo={photo} />
+           </div>
         </div>
       ))}
     </div>
@@ -88,15 +104,43 @@ function CoverPageLayout({ side }: { side: 'front' | 'back' }) {
   );
 }
 
+interface AlbumPreviewProps {
+  pages: AlbumPage[];
+  config: AlbumConfig;
+  onDeletePage: (pageId: string) => void;
+  onUpdateLayout: (pageId: string, newLayout: string) => void;
+  onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
+}
 
-export function AlbumPreview({ pages, config }: AlbumPreviewProps) {
-  if (pages.length <= 1 && pages[0]?.isCover) {
+let photoToEdit: { pageId: string, photo: Photo } | null = null;
+let setDialogState: React.Dispatch<React.SetStateAction<boolean>> | null = null;
+
+function PhotoEditorTrigger({ pageId, photo }: { pageId: string, photo: Photo }) {
+    return (
+        <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+                photoToEdit = { pageId, photo };
+                setDialogState?.(true);
+            }}
+        >
+            <Crop className="mr-2 h-4 w-4" /> Edit
+        </Button>
+    );
+}
+
+export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUpdatePhotoPanAndZoom }: AlbumPreviewProps) {
+  const [isPhotoEditorOpen, setIsPhotoEditorOpen] = useState(false);
+  setDialogState = setIsPhotoEditorOpen;
+  
+  if (pages.length <= 0) {
     return (
       <Card className="flex h-[80vh] w-full items-center justify-center bg-muted/50 border-2 border-dashed">
         <div className="text-center text-muted-foreground">
           <BookOpenText className="mx-auto h-12 w-12" />
           <h3 className="mt-4 text-lg font-semibold">Your Album Preview</h3>
-          <p>Add photos to begin creating your photobook.</p>
+          <p>Add photos and pages to begin creating your photobook.</p>
         </div>
       </Card>
     );
@@ -112,7 +156,7 @@ export function AlbumPreview({ pages, config }: AlbumPreviewProps) {
       >
         <CarouselContent className="-ml-2">
           {pages.map((page, index) => (
-            <CarouselItem key={index} className="pl-8 md:basis-full">
+            <CarouselItem key={page.id} className="pl-8 md:basis-full">
               <div className="flex justify-center">
                 <div
                   className={cn(
@@ -121,7 +165,7 @@ export function AlbumPreview({ pages, config }: AlbumPreviewProps) {
                   )}
                 >
                   <AspectRatio ratio={page.type === 'spread' ? 2 / 1 : 1 / 1}>
-                    <Card className="h-full w-full shadow-lg">
+                    <Card className="h-full w-full shadow-lg group/page">
                       <CardContent className="flex h-full w-full items-center justify-center p-0">
                         {page.type === 'spread' ? (
                           <div className="relative h-full w-full">
@@ -136,17 +180,36 @@ export function AlbumPreview({ pages, config }: AlbumPreviewProps) {
                                     <CoverPageLayout side="front" />
                                 </div>
                             ) : (
-                                <PageLayout photos={page.photos} />
+                                <PageLayout photos={page.photos} layout={page.layout} />
                             )}
                           </div>
                         ) : (
                            <div className="w-full h-full flex justify-center">
                                 <div className="w-full h-full">
-                                    <PageLayout photos={page.photos} />
+                                    <PageLayout photos={page.photos} layout={page.layout} />
                                 </div>
                             </div>
                         )}
                       </CardContent>
+                      {!page.isCover && (
+                         <div className="absolute top-2 right-2 z-20 flex items-center gap-2 opacity-0 group-hover/page:opacity-100 transition-opacity">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="secondary" size="sm"><LayoutTemplate className="mr-2 h-4 w-4" /> Layout</Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                {[1, 2, 3, 4, 6].map(num => (
+                                    <DropdownMenuItem key={num} onSelect={() => onUpdateLayout(page.id, num.toString())}>
+                                    {num} Photo{num > 1 ? 's' : ''}
+                                    </DropdownMenuItem>
+                                ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                           <Button variant="destructive" size="sm" onClick={() => onDeletePage(page.id)}>
+                             <Trash2 className="h-4 w-4" />
+                           </Button>
+                         </div>
+                       )}
                     </Card>
                   </AspectRatio>
                   <div className="pt-2 text-center text-sm text-muted-foreground">
@@ -160,6 +223,15 @@ export function AlbumPreview({ pages, config }: AlbumPreviewProps) {
         <CarouselPrevious className="-left-4" />
         <CarouselNext className="-right-4" />
       </Carousel>
+
+      <PhotoEditorDialog
+        isOpen={isPhotoEditorOpen}
+        setIsOpen={setIsPhotoEditorOpen}
+        photo={photoToEdit?.photo}
+        pageId={photoToEdit?.pageId}
+        onSave={onUpdatePhotoPanAndZoom}
+      />
+
       <div className="mt-4 flex items-center rounded-lg border bg-card p-4 text-sm text-muted-foreground">
         <Info className="mr-3 h-5 w-5 shrink-0" />
         This is a digital preview. Colors and cropping may vary slightly in the
