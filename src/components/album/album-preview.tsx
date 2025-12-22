@@ -102,8 +102,8 @@ export function AlbumPreview({ pages, config }: AlbumPreviewProps) {
                                     </>
                                 ) : (
                                     <>
-                                        <PageLayout photos={page.photos.slice(0, page.photos.length / 2)} />
-                                        <PageLayout photos={page.photos.slice(page.photos.length / 2)} />
+                                        <PageLayout photos={page.photos.slice(0, Math.ceil(page.photos.length / 2))} />
+                                        <PageLayout photos={page.photos.slice(Math.ceil(page.photos.length / 2))} />
                                     </>
                                 )}
                             </div>
