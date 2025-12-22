@@ -45,7 +45,7 @@ const configSchema = z.object({
 
 type ConfigFormData = z.infer<typeof configSchema>;
 
-function AlbumCreator({ config }: { config: AlbumConfig }) {
+export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -64,6 +64,19 @@ function AlbumCreator({ config }: { config: AlbumConfig }) {
     ];
     setRandomSuggestion(suggestions[Math.floor(Math.random() * suggestions.length)]);
   }, []);
+  
+  const form = useForm<ConfigFormData>({
+    resolver: zodResolver(configSchema),
+    defaultValues: {
+      photosPerSpread: '4',
+      size: '20x20',
+    },
+  });
+
+  const config: AlbumConfig = {
+    photosPerSpread: parseInt(form.watch('photosPerSpread')) as AlbumConfig['photosPerSpread'],
+    size: form.watch('size') as '20x20',
+  };
 
   const generateDummyPhotos = () => {
     if (!randomSeed) {
@@ -150,83 +163,6 @@ function AlbumCreator({ config }: { config: AlbumConfig }) {
       <div className="lg:col-span-1 space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle className="font-headline flex items-center gap-2">
-              <UploadCloud className="h-6 w-6" /> Photo Management
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button className="w-full" onClick={() => { /* Mock upload */ toast({title: 'Feature coming soon!'})}}>
-              <Cloud className="mr-2 h-4 w-4" /> Upload from Computer
-            </Button>
-            <Button
-              className="w-full"
-              variant="secondary"
-              onClick={generateDummyPhotos}
-              disabled={isLoading || !randomSeed}
-            >
-              {isLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Wand2 className="mr-2 h-4 w-4" />
-              )}
-              Generate 100 Dummy Photos
-            </Button>
-             <p className="text-sm text-muted-foreground text-center pt-2">
-                {photos.length} photos loaded.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-            <CardHeader>
-                <CardTitle className="font-headline flex items-center gap-2">
-                    <Sparkles className="h-6 w-6 text-accent" /> AI Album Assistant
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                 <p className="text-sm text-muted-foreground">Let our AI analyze your album and provide suggestions for improvements and layouts.</p>
-                <Button variant="outline" className="w-full border-accent text-accent hover:bg-accent hover:text-accent-foreground" onClick={handleAiEnhance} disabled={isGenerating || photos.length === 0}>
-                    {isGenerating ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing...</>) : (<>Enhance with AI</>)}
-                </Button>
-
-                {aiSuggestion && (
-                    <Alert>
-                        <Sparkles className="h-4 w-4" />
-                        <AlertTitle>AI Suggestion</AlertTitle>
-                        <AlertDescription>{aiSuggestion}</AlertDescription>
-                    </Alert>
-                )}
-            </CardContent>
-        </Card>
-      </div>
-      <div className="lg:col-span-2">
-        <AlbumPreview pages={albumPages} config={config} />
-      </div>
-    </div>
-  );
-}
-
-
-export function AlbumEditor({ albumId }: AlbumEditorProps) {
-
-  const form = useForm<ConfigFormData>({
-    resolver: zodResolver(configSchema),
-    defaultValues: {
-      photosPerSpread: '4',
-      size: '20x20',
-    },
-  });
-
-  const config: AlbumConfig = {
-    photosPerSpread: parseInt(form.watch('photosPerSpread')) as AlbumConfig['photosPerSpread'],
-    size: form.watch('size') as '20x20',
-  };
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <div className="lg:col-span-1 space-y-6">
-        <Card>
-          <CardHeader>
             <CardTitle className="font-headline">Album Configuration</CardTitle>
           </CardHeader>
           <CardContent>
@@ -281,7 +217,60 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             </Form>
           </CardContent>
         </Card>
-        <AlbumCreator config={config} />
+        
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-headline flex items-center gap-2">
+              <UploadCloud className="h-6 w-6" /> Photo Management
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button className="w-full" onClick={() => { /* Mock upload */ toast({title: 'Feature coming soon!'})}}>
+              <Cloud className="mr-2 h-4 w-4" /> Upload from Computer
+            </Button>
+            <Button
+              className="w-full"
+              variant="secondary"
+              onClick={generateDummyPhotos}
+              disabled={isLoading || !randomSeed}
+            >
+              {isLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Wand2 className="mr-2 h-4 w-4" />
+              )}
+              Generate 100 Dummy Photos
+            </Button>
+             <p className="text-sm text-muted-foreground text-center pt-2">
+                {photos.length} photos loaded.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+            <CardHeader>
+                <CardTitle className="font-headline flex items-center gap-2">
+                    <Sparkles className="h-6 w-6 text-accent" /> AI Album Assistant
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                 <p className="text-sm text-muted-foreground">Let our AI analyze your album and provide suggestions for improvements and layouts.</p>
+                <Button variant="outline" className="w-full border-accent text-accent hover:bg-accent hover:text-accent-foreground" onClick={handleAiEnhance} disabled={isGenerating || photos.length === 0}>
+                    {isGenerating ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing...</>) : (<>Enhance with AI</>)}
+                </Button>
+
+                {aiSuggestion && (
+                    <Alert>
+                        <Sparkles className="h-4 w-4" />
+                        <AlertTitle>AI Suggestion</AlertTitle>
+                        <AlertDescription>{aiSuggestion}</AlertDescription>
+                    </Alert>
+                )}
+            </CardContent>
+        </Card>
+      </div>
+      <div className="lg:col-span-2">
+        <AlbumPreview pages={albumPages} config={config} />
       </div>
     </div>
   );
