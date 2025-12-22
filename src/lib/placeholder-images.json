@@ -1,3 +1,28 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "hero",
+      "description": "A beautifully crafted open photo album lies on a wooden table, showcasing cherished memories.",
+      "imageUrl": "https://images.unsplash.com/photo-1627353802168-e8e8a81e51f6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxwaG90byUyMGFsYnVtfGVufDB8fHx8MTc2NjQwMjU1OHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "photo album"
+    },
+    {
+      "id": "album-cover-1",
+      "description": "A placeholder for a user's album cover.",
+      "imageUrl": "https://images.unsplash.com/photo-1530250418330-cb2c35da5277?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHx0cmF2ZWwlMjBwaG90b2dyYXBoeXxlbnwwfHx8fDE3NjY0MDI1NTh8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "travel photography"
+    },
+    {
+      "id": "album-cover-2",
+      "description": "A placeholder for another user's album cover.",
+      "imageUrl": "https://images.unsplash.com/photo-1667662200250-a10df4b5eab0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxmYW1pbHklMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjYzMTEwMTF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "family portrait"
+    },
+    {
+      "id": "album-cover-3",
+      "description": "A placeholder for a third user's album cover.",
+      "imageUrl": "https://images.unsplash.com/photo-1606216794079-73f85bbd57d5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHx3ZWRkaW5nJTIwZGF5fGVufDB8fHx8MTc2NjQwMjU1OHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "wedding day"
+    }
+  ]
 }
