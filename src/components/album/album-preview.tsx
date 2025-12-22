@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/carousel';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { AspectRatio } from '@radix-ui/react-aspect-ratio';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 interface AlbumPreviewProps {
   pages: AlbumPage[];

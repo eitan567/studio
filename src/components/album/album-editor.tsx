@@ -73,7 +73,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     // Simulate network delay
     setTimeout(() => {
       const dummyPhotos: Photo[] = Array.from({ length: 100 }, (_, i) => {
-        const seed = Math.random().toString(36).substring(7);
+        const seed = i + 1;
         return {
           id: `dummy-${seed}-${i}`,
           src: `https://picsum.photos/seed/${seed}/800/800`,
@@ -119,18 +119,22 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   }, [photos, config]);
 
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
+  const [randomSuggestion, setRandomSuggestion] = useState('');
+
+  useEffect(() => {
+    const suggestions = [
+      "For a more dynamic feel, try a 6-photo spread for pages with action shots.",
+      "The portrait on page 3 would 'pop' more with increased contrast.",
+      "Consider a black and white filter for the photos on pages 8-9 for a timeless look.",
+    ];
+    setRandomSuggestion(suggestions[Math.floor(Math.random() * suggestions.length)]);
+  }, []);
 
   const handleAiEnhance = async () => {
     setIsGenerating(true);
     setAiSuggestion(null);
     // Mock AI analysis
     await new Promise((res) => setTimeout(res, 2000));
-    const suggestions = [
-      "For a more dynamic feel, try a 6-photo spread for pages with action shots.",
-      "The portrait on page 3 would 'pop' more with increased contrast.",
-      "Consider a black and white filter for the photos on pages 8-9 for a timeless look.",
-    ];
-    const randomSuggestion = suggestions[Math.floor(Math.random() * suggestions.length)];
     setAiSuggestion(randomSuggestion);
     setIsGenerating(false);
   };
