@@ -22,7 +22,7 @@ interface AlbumPreviewProps {
 
 function PageLayout({ photos }: { photos: Photo[] }) {
   const gridClasses: { [key: number]: string } = {
-    1: 'grid-cols-2 grid-rows-1',
+    1: 'grid-cols-1 grid-rows-1',
     2: 'grid-cols-2 grid-rows-1',
     3: 'grid-cols-2 grid-rows-2',
     4: 'grid-cols-2 grid-rows-2',
@@ -31,13 +31,18 @@ function PageLayout({ photos }: { photos: Photo[] }) {
   };
 
   const photoSpanClasses: { [key: number]: string[] } = {
-    1: ['col-span-2 row-span-1'],
+    1: ['col-span-full row-span-full'],
     2: ['', ''],
-    3: ['row-span-2', '', ''],
+    3: ['row-span-2 col-span-1', 'col-span-1', 'col-span-1'],
     4: ['', '', '', ''],
     5: ['col-span-2 row-span-2', '', '', '', ''],
-    6: ['', '', '', '', '', ''],
+    6: ['col-span-2', 'col-span-2', 'col-span-2', 'col-span-2', 'col-span-2', 'col-span-2'],
   };
+  
+  if (photos.length === 6) {
+    photoSpanClasses[6] = ['col-span-2', 'col-span-2', 'col-span-2', 'col-span-2', 'col-span-2', 'col-span-2'];
+  }
+
 
   const getGridClass = (index: number) => {
     if (photos.length in photoSpanClasses) {
@@ -45,12 +50,12 @@ function PageLayout({ photos }: { photos: Photo[] }) {
     }
     return '';
   };
+  
+  const baseGrid = gridClasses[photos.length] || 'grid-cols-2 grid-rows-2';
 
   return (
     <div
-      className={`grid ${
-        gridClasses[photos.length] || 'grid-cols-2 grid-rows-2'
-      } gap-2 h-full w-full p-4`}
+      className={`grid ${baseGrid} gap-2 h-full w-full p-4`}
     >
       {photos.map((photo, index) => (
         <div
@@ -111,7 +116,8 @@ export function AlbumPreview({ pages, config }: AlbumPreviewProps) {
               <div className="flex justify-center">
                 <div
                   className={cn(
-                    page.type === 'spread' ? 'w-full' : 'w-1/2'
+                    'w-full',
+                    page.type === 'spread' ? 'md:w-full' : 'md:w-1/2'
                   )}
                 >
                   <AspectRatio ratio={page.type === 'spread' ? 2 / 1 : 1 / 1}>
@@ -134,7 +140,11 @@ export function AlbumPreview({ pages, config }: AlbumPreviewProps) {
                             )}
                           </div>
                         ) : (
-                          <PageLayout photos={page.photos} />
+                           <div className="w-full h-full flex justify-center">
+                                <div className="w-full h-full">
+                                    <PageLayout photos={page.photos} />
+                                </div>
+                            </div>
                         )}
                       </CardContent>
                     </Card>

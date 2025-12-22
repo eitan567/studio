@@ -5,7 +5,7 @@ export type Photo = {
 };
 
 export type AlbumConfig = {
-  photosPerSpread: 2 | 4 | 6;
+  photosPerSpread: 1 | 2 | 4 | 6;
   size: '20x20' | '25x25' | '30x30';
 };
 

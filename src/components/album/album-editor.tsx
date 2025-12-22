@@ -39,7 +39,7 @@ interface AlbumEditorProps {
 }
 
 const configSchema = z.object({
-  photosPerSpread: z.enum(['2', '4', '6']),
+  photosPerSpread: z.enum(['1', '2', '4', '6']),
   size: z.enum(['20x20', '25x25', '30x30']),
 });
 
@@ -66,7 +66,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   });
 
   const config: AlbumConfig = {
-    photosPerSpread: parseInt(form.watch('photosPerSpread')) as 4, // Type assertion
+    photosPerSpread: parseInt(form.watch('photosPerSpread')) as AlbumConfig['photosPerSpread'],
     size: form.watch('size') as '20x20',
   };
 
@@ -117,7 +117,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       const photosCopy = [...photos];
        // First page (single)
       const firstPagePhotoCount = Math.ceil(config.photosPerSpread / 2);
-      if (photosCopy.length > 0) {
+      if (photosCopy.length > 0 && config.photosPerSpread > 1) {
         pages.push({
           type: 'single',
           photos: photosCopy.splice(0, firstPagePhotoCount),
@@ -215,6 +215,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                          <SelectItem value="1">1 Photo</SelectItem>
                           <SelectItem value="2">2 Photos</SelectItem>
                           <SelectItem value="4">4 Photos</SelectItem>
                           <SelectItem value="6">6 Photos</SelectItem>
