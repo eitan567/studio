@@ -45,30 +45,25 @@ const configSchema = z.object({
 
 type ConfigFormData = z.infer<typeof configSchema>;
 
-export function AlbumEditor({ albumId }: AlbumEditorProps) {
+function AlbumCreator({ config }: { config: AlbumConfig }) {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
   const [randomSeed, setRandomSeed] = useState('');
+  const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
+  const [randomSuggestion, setRandomSuggestion] = useState('');
 
   useEffect(() => {
     // Generate random seed only on client-side to avoid hydration mismatch
     setRandomSeed(Math.random().toString(36));
+    const suggestions = [
+      "For a more dynamic feel, try a 6-photo spread for pages with action shots.",
+      "The portrait on page 3 would 'pop' more with increased contrast.",
+      "Consider a black and white filter for the photos on pages 8-9 for a timeless look.",
+    ];
+    setRandomSuggestion(suggestions[Math.floor(Math.random() * suggestions.length)]);
   }, []);
-
-  const form = useForm<ConfigFormData>({
-    resolver: zodResolver(configSchema),
-    defaultValues: {
-      photosPerSpread: '4',
-      size: '20x20',
-    },
-  });
-
-  const config: AlbumConfig = {
-    photosPerSpread: parseInt(form.watch('photosPerSpread')) as AlbumConfig['photosPerSpread'],
-    size: form.watch('size') as '20x20',
-  };
 
   const generateDummyPhotos = () => {
     if (!randomSeed) {
@@ -103,6 +98,15 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     }, 1500);
   };
 
+  const handleAiEnhance = async () => {
+    setIsGenerating(true);
+    setAiSuggestion(null);
+    // Mock AI analysis
+    await new Promise((res) => setTimeout(res, 2000));
+    setAiSuggestion(randomSuggestion);
+    setIsGenerating(false);
+  };
+
   const albumPages = useMemo((): AlbumPage[] => {
     const pages: AlbumPage[] = [];
      // Add cover page
@@ -116,8 +120,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     if (photos.length > 0) {
       const photosCopy = [...photos];
        // First page (single)
-      const firstPagePhotoCount = Math.ceil(config.photosPerSpread / 2);
-      if (photosCopy.length > 0 && config.photosPerSpread > 1) {
+      const firstPagePhotoCount = config.photosPerSpread > 1 ? Math.ceil(config.photosPerSpread / 2) : 1;
+      if (photosCopy.length > 0) {
         pages.push({
           type: 'single',
           photos: photosCopy.splice(0, firstPagePhotoCount),
@@ -140,28 +144,6 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     
     return pages;
   }, [photos, config]);
-
-  const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
-  const [randomSuggestion, setRandomSuggestion] = useState('');
-
-  useEffect(() => {
-    const suggestions = [
-      "For a more dynamic feel, try a 6-photo spread for pages with action shots.",
-      "The portrait on page 3 would 'pop' more with increased contrast.",
-      "Consider a black and white filter for the photos on pages 8-9 for a timeless look.",
-    ];
-    setRandomSuggestion(suggestions[Math.floor(Math.random() * suggestions.length)]);
-  }, []);
-
-  const handleAiEnhance = async () => {
-    setIsGenerating(true);
-    setAiSuggestion(null);
-    // Mock AI analysis
-    await new Promise((res) => setTimeout(res, 2000));
-    setAiSuggestion(randomSuggestion);
-    setIsGenerating(false);
-  };
-
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -195,6 +177,54 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           </CardContent>
         </Card>
 
+        <Card>
+            <CardHeader>
+                <CardTitle className="font-headline flex items-center gap-2">
+                    <Sparkles className="h-6 w-6 text-accent" /> AI Album Assistant
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                 <p className="text-sm text-muted-foreground">Let our AI analyze your album and provide suggestions for improvements and layouts.</p>
+                <Button variant="outline" className="w-full border-accent text-accent hover:bg-accent hover:text-accent-foreground" onClick={handleAiEnhance} disabled={isGenerating || photos.length === 0}>
+                    {isGenerating ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing...</>) : (<>Enhance with AI</>)}
+                </Button>
+
+                {aiSuggestion && (
+                    <Alert>
+                        <Sparkles className="h-4 w-4" />
+                        <AlertTitle>AI Suggestion</AlertTitle>
+                        <AlertDescription>{aiSuggestion}</AlertDescription>
+                    </Alert>
+                )}
+            </CardContent>
+        </Card>
+      </div>
+      <div className="lg:col-span-2">
+        <AlbumPreview pages={albumPages} config={config} />
+      </div>
+    </div>
+  );
+}
+
+
+export function AlbumEditor({ albumId }: AlbumEditorProps) {
+
+  const form = useForm<ConfigFormData>({
+    resolver: zodResolver(configSchema),
+    defaultValues: {
+      photosPerSpread: '4',
+      size: '20x20',
+    },
+  });
+
+  const config: AlbumConfig = {
+    photosPerSpread: parseInt(form.watch('photosPerSpread')) as AlbumConfig['photosPerSpread'],
+    size: form.watch('size') as '20x20',
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="lg:col-span-1 space-y-6">
         <Card>
           <CardHeader>
             <CardTitle className="font-headline">Album Configuration</CardTitle>
@@ -251,32 +281,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             </Form>
           </CardContent>
         </Card>
-
-        <Card>
-            <CardHeader>
-                <CardTitle className="font-headline flex items-center gap-2">
-                    <Sparkles className="h-6 w-6 text-accent" /> AI Album Assistant
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                 <p className="text-sm text-muted-foreground">Let our AI analyze your album and provide suggestions for improvements and layouts.</p>
-                <Button variant="outline" className="w-full border-accent text-accent hover:bg-accent hover:text-accent-foreground" onClick={handleAiEnhance} disabled={isGenerating || photos.length === 0}>
-                    {isGenerating ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing...</>) : (<>Enhance with AI</>)}
-                </Button>
-
-                {aiSuggestion && (
-                    <Alert>
-                        <Sparkles className="h-4 w-4" />
-                        <AlertTitle>AI Suggestion</AlertTitle>
-                        <AlertDescription>{aiSuggestion}</AlertDescription>
-                    </Alert>
-                )}
-            </CardContent>
-        </Card>
-
-      </div>
-      <div className="lg:col-span-2">
-        <AlbumPreview pages={albumPages} config={config} />
+        <AlbumCreator config={config} />
       </div>
     </div>
   );
