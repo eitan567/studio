@@ -130,12 +130,15 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   
     if (photos.length > 0) {
       const photosCopy = [...photos];
-      if (photosCopy.length > 0 && config.photosPerSpread > 1) {
-        const firstPagePhotoCount =
-          config.photosPerSpread > 1
-            ? Math.ceil(config.photosPerSpread / 2)
-            : 1;
-        pages.push({
+      
+      // Always create the first single page if there are photos
+      const firstPagePhotoCount =
+        config.photosPerSpread > 1
+          ? Math.ceil(config.photosPerSpread / 2)
+          : 1;
+
+      if (photosCopy.length > 0) {
+         pages.push({
           type: 'single',
           photos: photosCopy.splice(0, firstPagePhotoCount),
         });
@@ -148,6 +151,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         });
       }
   
+      // If there are leftover photos, put them on a final single page
       if (photosCopy.length > 0) {
         pages.push({ type: 'single', photos: photosCopy });
       }
