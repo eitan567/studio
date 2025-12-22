@@ -12,4 +12,5 @@ export type AlbumConfig = {
 export type AlbumPage = {
   type: 'single' | 'spread';
   photos: Photo[];
+  isCover?: boolean;
 };

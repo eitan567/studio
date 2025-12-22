@@ -50,6 +50,12 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
+  const [randomSeed, setRandomSeed] = useState('');
+
+  useEffect(() => {
+    // Generate random seed only on client-side to avoid hydration mismatch
+    setRandomSeed(Math.random().toString(36));
+  }, []);
 
   const form = useForm<ConfigFormData>({
     resolver: zodResolver(configSchema),
@@ -65,6 +71,14 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   };
 
   const generateDummyPhotos = () => {
+    if (!randomSeed) {
+      toast({
+        title: 'Please wait',
+        description: 'Component is initializing.',
+        variant: 'destructive'
+      });
+      return;
+    }
     setIsLoading(true);
     toast({
       title: 'Generating Dummy Photos',
@@ -73,7 +87,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     // Simulate network delay
     setTimeout(() => {
       const dummyPhotos: Photo[] = Array.from({ length: 100 }, (_, i) => {
-        const seed = i + 1;
+        const seed = `${randomSeed}-${i}`;
         return {
           id: `dummy-${seed}-${i}`,
           src: `https://picsum.photos/seed/${seed}/800/800`,
@@ -90,31 +104,40 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   };
 
   const albumPages = useMemo((): AlbumPage[] => {
-    if (photos.length === 0) return [];
-
     const pages: AlbumPage[] = [];
-    const photosCopy = [...photos];
-
-    // First page (single)
-    const firstPagePhotoCount = Math.ceil(config.photosPerSpread / 2);
-    pages.push({
-      type: 'single',
-      photos: photosCopy.splice(0, firstPagePhotoCount),
+     // Add cover page
+     pages.push({
+      type: 'spread',
+      photos: [],
+      isCover: true,
     });
 
-    // Middle pages (spreads)
-    while (photosCopy.length > config.photosPerSpread) {
-      pages.push({
-        type: 'spread',
-        photos: photosCopy.splice(0, config.photosPerSpread),
-      });
-    }
 
-    // Last page (single)
-    if (photosCopy.length > 0) {
-      pages.push({ type: 'single', photos: photosCopy });
-    }
+    if (photos.length > 0) {
+      const photosCopy = [...photos];
+       // First page (single)
+      const firstPagePhotoCount = Math.ceil(config.photosPerSpread / 2);
+      if (photosCopy.length > 0) {
+        pages.push({
+          type: 'single',
+          photos: photosCopy.splice(0, firstPagePhotoCount),
+        });
+      }
 
+      // Middle pages (spreads)
+      while (photosCopy.length >= config.photosPerSpread) {
+        pages.push({
+          type: 'spread',
+          photos: photosCopy.splice(0, config.photosPerSpread),
+        });
+      }
+
+      // Last page (single)
+      if (photosCopy.length > 0) {
+        pages.push({ type: 'single', photos: photosCopy });
+      }
+    }
+    
     return pages;
   }, [photos, config]);
 
@@ -157,7 +180,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
               className="w-full"
               variant="secondary"
               onClick={generateDummyPhotos}
-              disabled={isLoading}
+              disabled={isLoading || !randomSeed}
             >
               {isLoading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

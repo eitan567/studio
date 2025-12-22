@@ -20,7 +20,17 @@ interface AlbumPreviewProps {
   config: AlbumConfig;
 }
 
-function PageLayout({ photos }: { photos: Photo[] }) {
+function PageLayout({ photos, isCover, side }: { photos: Photo[], isCover?: boolean, side?: 'front' | 'back' }) {
+    if (isCover) {
+        return (
+          <div className="relative h-full w-full bg-muted flex items-center justify-center">
+            <span className="text-6xl font-bold text-black/10 select-none uppercase">
+              {side}
+            </span>
+          </div>
+        );
+      }
+
   const gridClasses = {
     1: 'grid-cols-1 grid-rows-1',
     2: 'grid-cols-2 grid-rows-1',
@@ -54,7 +64,7 @@ function PageLayout({ photos }: { photos: Photo[] }) {
 }
 
 export function AlbumPreview({ pages, config }: AlbumPreviewProps) {
-  if (pages.length === 0) {
+  if (pages.length <= 1 && pages[0]?.isCover) {
     return (
       <Card className="flex h-[80vh] w-full items-center justify-center bg-muted/50 border-2 border-dashed">
         <div className="text-center text-muted-foreground">
@@ -76,7 +86,7 @@ export function AlbumPreview({ pages, config }: AlbumPreviewProps) {
       >
         <CarouselContent className="-ml-2">
           {pages.map((page, index) => (
-            <CarouselItem key={index} className="pl-8 md:basis-1/1 lg:basis-full">
+            <CarouselItem key={index} className={cn("pl-8", page.type === 'spread' ? "md:basis-full" : "md:basis-1/2")}>
                 <AspectRatio ratio={page.type === 'spread' ? 2/1 : 1/1}>
                     <Card className="h-full w-full shadow-lg">
                         <CardContent className="flex h-full w-full items-center justify-center p-0">
@@ -85,8 +95,17 @@ export function AlbumPreview({ pages, config }: AlbumPreviewProps) {
                                 <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10"></div>
                                 <div className="absolute inset-y-0 left-1/2 w-4 -ml-2 bg-gradient-to-r from-transparent to-black/10 z-10"></div>
                                  <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10"></div>
-                                <PageLayout photos={page.photos.slice(0, page.photos.length / 2)} />
-                                <PageLayout photos={page.photos.slice(page.photos.length / 2)} />
+                                 {page.isCover ? (
+                                    <>
+                                        <PageLayout photos={[]} isCover={true} side="back" />
+                                        <PageLayout photos={[]} isCover={true} side="front" />
+                                    </>
+                                ) : (
+                                    <>
+                                        <PageLayout photos={page.photos.slice(0, page.photos.length / 2)} />
+                                        <PageLayout photos={page.photos.slice(page.photos.length / 2)} />
+                                    </>
+                                )}
                             </div>
                         ) : (
                             <PageLayout photos={page.photos} />
@@ -94,7 +113,7 @@ export function AlbumPreview({ pages, config }: AlbumPreviewProps) {
                         </CardContent>
                     </Card>
               </AspectRatio>
-              <div className="text-center text-sm text-muted-foreground pt-2">Page {index + 1}</div>
+              <div className="text-center text-sm text-muted-foreground pt-2">Page {index === 0 ? 'Cover' : index}</div>
             </CarouselItem>
           ))}
         </CarouselContent>
