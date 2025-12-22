@@ -122,41 +122,40 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
   const albumPages = useMemo((): AlbumPage[] => {
     const pages: AlbumPage[] = [];
-     // Add cover page
-     pages.push({
+    pages.push({
       type: 'spread',
       photos: [],
       isCover: true,
     });
-
-
+  
     if (photos.length > 0) {
       const photosCopy = [...photos];
-       // First page (single)
-      const firstPagePhotoCount = config.photosPerSpread > 1 ? Math.ceil(config.photosPerSpread / 2) : 1;
       if (photosCopy.length > 0 && config.photosPerSpread > 1) {
+        const firstPagePhotoCount =
+          config.photosPerSpread > 1
+            ? Math.ceil(config.photosPerSpread / 2)
+            : 1;
         pages.push({
           type: 'single',
           photos: photosCopy.splice(0, firstPagePhotoCount),
         });
       }
-
-      // Middle pages (spreads)
+  
       while (photosCopy.length >= config.photosPerSpread) {
         pages.push({
           type: 'spread',
           photos: photosCopy.splice(0, config.photosPerSpread),
         });
       }
-
-      // Last page (single)
+  
       if (photosCopy.length > 0) {
         pages.push({ type: 'single', photos: photosCopy });
       }
     }
-    
+  
     return pages;
   }, [photos, config]);
+  
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
