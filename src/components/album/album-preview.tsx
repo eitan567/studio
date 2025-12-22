@@ -86,34 +86,38 @@ export function AlbumPreview({ pages, config }: AlbumPreviewProps) {
       >
         <CarouselContent className="-ml-2">
           {pages.map((page, index) => (
-            <CarouselItem key={index} className={cn("pl-8", page.type === 'spread' ? "md:basis-full" : "md:basis-1/2")}>
-                <AspectRatio ratio={page.type === 'spread' ? 2/1 : 1/1}>
-                    <Card className="h-full w-full shadow-lg">
-                        <CardContent className="flex h-full w-full items-center justify-center p-0">
-                        {page.type === 'spread' ? (
-                            <div className="grid grid-cols-2 h-full w-full relative">
-                                <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10"></div>
-                                <div className="absolute inset-y-0 left-1/2 w-4 -ml-2 bg-gradient-to-r from-transparent to-black/10 z-10"></div>
-                                 <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10"></div>
-                                 {page.isCover ? (
-                                    <>
-                                        <PageLayout photos={[]} isCover={true} side="back" />
-                                        <PageLayout photos={[]} isCover={true} side="front" />
-                                    </>
-                                ) : (
-                                    <>
-                                        <PageLayout photos={page.photos.slice(0, Math.ceil(page.photos.length / 2))} />
-                                        <PageLayout photos={page.photos.slice(Math.ceil(page.photos.length / 2))} />
-                                    </>
-                                )}
-                            </div>
-                        ) : (
-                            <PageLayout photos={page.photos} />
-                        )}
-                        </CardContent>
-                    </Card>
-              </AspectRatio>
-              <div className="text-center text-sm text-muted-foreground pt-2">Page {index === 0 ? 'Cover' : index}</div>
+            <CarouselItem key={index} className="pl-8 md:basis-full">
+              <div className={cn("flex", page.type === 'single' ? "justify-center" : "")}>
+                <div className={cn(page.type === 'spread' ? "w-full" : "w-1/2")}>
+                    <AspectRatio ratio={page.type === 'spread' ? 2/1 : 1/1}>
+                        <Card className="h-full w-full shadow-lg">
+                            <CardContent className="flex h-full w-full items-center justify-center p-0">
+                            {page.type === 'spread' ? (
+                                <div className="grid grid-cols-2 h-full w-full relative">
+                                    <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10"></div>
+                                    <div className="absolute inset-y-0 left-1/2 w-4 -ml-2 bg-gradient-to-r from-transparent to-black/10 z-10"></div>
+                                     <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10"></div>
+                                     {page.isCover ? (
+                                        <>
+                                            <PageLayout photos={[]} isCover={true} side="back" />
+                                            <PageLayout photos={[]} isCover={true} side="front" />
+                                        </>
+                                    ) : (
+                                        <>
+                                            <PageLayout photos={page.photos.slice(0, Math.ceil(page.photos.length / 2))} />
+                                            <PageLayout photos={page.photos.slice(Math.ceil(page.photos.length / 2))} />
+                                        </>
+                                    )}
+                                </div>
+                            ) : (
+                                <PageLayout photos={page.photos} />
+                            )}
+                            </CardContent>
+                        </Card>
+                  </AspectRatio>
+                  <div className="text-center text-sm text-muted-foreground pt-2">Page {index === 0 ? 'Cover' : index}</div>
+                </div>
+              </div>
             </CarouselItem>
           ))}
         </CarouselContent>
