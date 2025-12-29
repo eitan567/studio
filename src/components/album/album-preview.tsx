@@ -90,7 +90,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
         <ScrollArea className="h-[85vh] w-full pr-4">
             <div className="space-y-8">
                 {pages.map((page) => (
-                    <div key={page.id} className="pt-12">
+                    <div key={page.id} className="pt-12" onWheel={(e) => e.stopPropagation()}>
                     <div className="flex justify-center">
                         <div className={cn('w-full relative group/page', page.type === 'spread' ? 'md:w-full' : 'md:w-1/2')}>
                         {/* Page Toolbar */}
@@ -108,12 +108,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                                         <TooltipContent>Page Layout</TooltipContent>
                                         </Tooltip>
                                         <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 w-[400px]">
-                                        {LAYOUT_TEMPLATES.filter(template => {
-                                            if (page.type === 'single') {
-                                                return true; 
-                                            }
-                                            return true;
-                                        }).map(template => {
+                                        {LAYOUT_TEMPLATES.map(template => {
                                             return (
                                                 <DropdownMenuItem key={template.id} onSelect={() => onUpdateLayout(page.id, template.id)} className="p-0 focus:bg-accent/50 rounded-md cursor-pointer">
                                                 <div className="w-24 h-24 p-1 flex flex-col items-center">
@@ -228,3 +223,4 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
   );
 }
     
+
