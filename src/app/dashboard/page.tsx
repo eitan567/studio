@@ -35,7 +35,7 @@ const mockAlbums = [
 
 export default function DashboardPage() {
   return (
-    <div className="container py-10">
+    <div className="px-4 md:px-6 py-10">
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="font-headline text-3xl font-bold">Your Albums</h1>
