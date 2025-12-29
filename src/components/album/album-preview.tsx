@@ -209,7 +209,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                            <div className="w-full h-full flex justify-center">
                                 <div className="w-full h-full">
                                     <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} />
-                                d_h_2iv>
+                                </div>
                             </div>
                         )}
                       </CardContent>
