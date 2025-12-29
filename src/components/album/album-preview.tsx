@@ -31,9 +31,13 @@ interface PageLayoutProps {
 function PageLayout({ page, onUpdatePhotoPanAndZoom }: PageLayoutProps) {
     const { photos, layout } = page;
     const template = LAYOUT_TEMPLATES.find(t => t.id === layout) || LAYOUT_TEMPLATES[0];
+    const isSinglePage = page.type === 'single';
 
     return (
-        <div className={`grid grid-cols-12 grid-rows-12 gap-2 h-full w-full`}>
+        <div className={cn(
+            "grid grid-cols-12 grid-rows-12 gap-2 h-full w-full",
+            isSinglePage && "w-1/2 mx-auto" // For single pages, contain them to one half
+        )}>
             {photos.slice(0, template.photoCount).map((photo, index) => (
                 <div
                     key={photo.id}
@@ -195,11 +199,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                                     )}
                                 </div>
                                 ) : (
-                                <div className="w-full h-full flex justify-center">
-                                        <div className="w-full h-full max-w-[50%] mx-auto">
-                                            <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} />
-                                        </div>
-                                    </div>
+                                    <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} />
                                 )}
                             </CardContent>
                             </Card>
@@ -223,5 +223,6 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
   );
 }
     
+
 
 
