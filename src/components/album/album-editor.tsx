@@ -85,32 +85,29 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const generateInitialPages = (photos: Photo[]) => {
     let photosPool = [...photos];
     const newPages: AlbumPage[] = [];
+    const defaultPanAndZoom = { scale: 1, x: 50, y: 50 };
 
     // 1. Cover page
     newPages.push({ id: 'cover', type: 'spread', photos: [], layout: 'cover', isCover: true });
     
     // 2. First single page if there are photos
     if (photosPool.length > 0) {
-      newPages.push({ id: uuidv4(), type: 'single', photos: photosPool.splice(0, 1).map(p => ({...p, panAndZoom: { scale: 1, x: 50, y: 50 }})), layout: '1' });
+      newPages.push({ id: uuidv4(), type: 'single', photos: photosPool.splice(0, 1).map(p => ({...p, panAndZoom: defaultPanAndZoom})), layout: '1' });
     }
 
     // 3. Spread pages
     const photosPerSpread = 2; // Default to 2 for spreads
     while (photosPool.length >= photosPerSpread) {
-      newPages.push({ id: uuidv4(), type: 'spread', photos: photosPool.splice(0, photosPerSpread).map(p => ({...p, panAndZoom: { scale: 1, x: 50, y: 50 }})), layout: '2' });
+      newPages.push({ id: uuidv4(), type: 'spread', photos: photosPool.splice(0, photosPerSpread).map(p => ({...p, panAndZoom: defaultPanAndZoom})), layout: '2' });
     }
 
     // 4. Last single page if there are leftovers
     if (photosPool.length > 0) {
-        newPages.push({ id: uuidv4(), type: 'single', photos: photosPool.splice(0, 1).map(p => ({...p, panAndZoom: { scale: 1, x: 50, y: 50 }})), layout: '1' });
+        newPages.push({ id: uuidv4(), type: 'single', photos: photosPool.splice(0, 1).map(p => ({...p, panAndZoom: defaultPanAndZoom})), layout: '1' });
     }
     
     setAlbumPages(newPages);
   };
-
-  const getAvailablePhotos = (usedPhotoIds: Set<string>): Photo[] => {
-    return allPhotos.filter(p => !usedPhotoIds.has(p.id));
-  }
 
   const usedPhotoIds = useMemo(() => {
     return new Set(albumPages.flatMap(p => p.photos.map(photo => photo.id)));
@@ -118,29 +115,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
 
   const addPage = () => {
-    const availablePhotos = getAvailablePhotos(usedPhotoIds);
-    if (availablePhotos.length === 0) {
-      toast({
-        title: "No more photos",
-        description: "All available photos are already in the album.",
-        variant: "destructive",
-      });
-      return;
-    }
-    const photosForNewPage = availablePhotos.slice(0, 2);
-    
-    const newPage: AlbumPage = {
-      id: uuidv4(),
-      type: 'spread',
-      photos: photosForNewPage.map(p => ({...p, panAndZoom: { scale: 1, x: 50, y: 50 }})),
-      layout: '2'
-    };
-    
-    setAlbumPages(prev => [...prev, newPage]);
-    toast({
-      title: "Page Added",
-      description: `A new spread page with ${photosForNewPage.length} photos has been added.`,
-    })
+    // This function might need revision if we stick to auto-generating pages.
+    // For now, it's unused if generateInitialPages creates the whole album.
   };
 
   const deletePage = (pageId: string) => {
@@ -152,40 +128,64 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   }
 
   const updatePageLayout = (pageId: string, newLayout: string) => {
-    setAlbumPages(prev => prev.map(page => {
-      if (page.id !== pageId) return page;
+    setAlbumPages(prevPages => {
+      const pageIndex = prevPages.findIndex(p => p.id === pageId);
+      if (pageIndex === -1) return prevPages;
 
+      const pageToUpdate = prevPages[pageIndex];
       const newPhotoCount = parseInt(newLayout, 10);
+      const oldPhotoCount = pageToUpdate.photos.length;
+
+      // Collect all photos from the current page onwards
+      const subsequentPhotos = prevPages.slice(pageIndex).flatMap(p => p.photos);
+
+      if (newPhotoCount > subsequentPhotos.length) {
+        toast({
+          title: "Not Enough Photos",
+          description: `You don't have enough photos in the rest of the album to create a ${newPhotoCount}-photo layout.`,
+          variant: "destructive"
+        });
+        return prevPages;
+      }
       
-      // For cover page, don't change layout
-      if(page.isCover) return page;
-      if(page.type === 'single') return page; // For now, don't allow changing layout of single pages
+      const defaultPanAndZoom = { scale: 1, x: 50, y: 50 };
 
-      const currentPhotos = page.photos;
-      let newPhotos = [...currentPhotos];
+      // Create a mutable copy of the pages array
+      const newPages = [...prevPages];
 
-      if (newPhotoCount > currentPhotos.length) {
-        const currentlyUsedIds = new Set(prev.flatMap(p => p.photos.map(photo => photo.id)));
-        const availablePhotos = allPhotos.filter(p => !currentlyUsedIds.has(p.id));
+      // Update the current page
+      const updatedPagePhotos = subsequentPhotos.splice(0, newPhotoCount).map(p => ({
+        ...p,
+        panAndZoom: p.panAndZoom || defaultPanAndZoom
+      }));
+      newPages[pageIndex] = { ...pageToUpdate, photos: updatedPagePhotos, layout: newLayout };
+
+      // Remove all subsequent pages, we will rebuild them
+      const pagesBefore = newPages.slice(0, pageIndex + 1);
+      
+      // Rebuild subsequent pages with remaining photos
+      const rebuiltPages: AlbumPage[] = [];
+      let remainingPhotosPool = [...subsequentPhotos];
+
+      while (remainingPhotosPool.length > 0) {
+        const lastPage = rebuiltPages[rebuiltPages.length - 1] ?? pagesBefore[pagesBefore.length - 1];
         
-        const photosToAddCount = newPhotoCount - currentPhotos.length;
-        
-        if (photosToAddCount > availablePhotos.length) {
-            toast({
-                title: "Not enough photos",
-                description: `You need ${photosToAddCount} more photos to create a ${newPhotoCount}-photo layout. Upload more or reduce photo count on other pages.`,
-                variant: 'destructive'
-            });
-            return page; // Return original page if not enough photos
+        // If the last page was a single page, try to form a spread
+        if(lastPage.type === 'single' && remainingPhotosPool.length >= 2) {
+             rebuiltPages.push({ id: uuidv4(), type: 'spread', photos: remainingPhotosPool.splice(0, 2).map(p => ({...p, panAndZoom: defaultPanAndZoom})), layout: '2' });
+        } 
+        // If there is only one photo left, create a single page
+        else if (remainingPhotosPool.length === 1) {
+            rebuiltPages.push({ id: uuidv4(), type: 'single', photos: remainingPhotosPool.splice(0, 1).map(p => ({...p, panAndZoom: defaultPanAndZoom})), layout: '1' });
         }
-        const photosToAdd = availablePhotos.slice(0, photosToAddCount);
-        newPhotos.push(...photosToAdd.map(p => ({...p, panAndZoom: { scale: 1, x: 50, y: 50 }})));
-      } else if (newPhotoCount < currentPhotos.length) {
-        newPhotos = newPhotos.slice(0, newPhotoCount);
+        // Default to creating spreads
+        else {
+            rebuiltPages.push({ id: uuidv4(), type: 'spread', photos: remainingPhotosPool.splice(0, 2).map(p => ({...p, panAndZoom: defaultPanAndZoom})), layout: '2' });
+        }
       }
 
-      return { ...page, layout: newLayout, photos: newPhotos };
-    }));
+      return [...pagesBefore, ...rebuiltPages];
+    });
   };
   
   const updatePhotoPanAndZoom = (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => {

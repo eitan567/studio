@@ -125,14 +125,14 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
       >
         <CarouselContent className="-ml-2 md:-ml-8">
           {pages.map((page) => (
-            <CarouselItem key={page.id} className="pl-2 md:pl-8 md:basis-full pt-16">
+            <CarouselItem key={page.id} className="pl-2 md:pl-8 md:basis-full pt-14">
               <div className="flex justify-center">
                 <div className={cn('w-full relative group/page', page.type === 'spread' ? 'md:w-full' : 'md:w-1/2')}>
                    {/* Page Toolbar */}
                    {!page.isCover && (
-                     <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center">
+                     <div className="absolute -top-14 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center">
                       <TooltipProvider>
-                        <div className="flex items-center gap-1 rounded-lg border bg-background p-1.5 shadow-lg">
+                        <div className="flex items-center gap-1 rounded-lg border bg-background p-0.5 shadow-lg">
                             <DropdownMenu>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
