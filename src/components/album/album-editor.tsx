@@ -57,7 +57,9 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const [randomSuggestion, setRandomSuggestion] = useState('');
 
   useEffect(() => {
+    // Generate a random seed on component mount for dummy photos
     setRandomSeed(Math.random().toString(36).substring(7));
+    // Pre-set a random AI suggestion for demo purposes
     const suggestions = [
       "For a more dynamic feel, try a 6-photo spread for pages with action shots.",
       "The portrait on page 3 would 'pop' more with increased contrast.",
@@ -86,7 +88,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
     // 1. Cover page
     newPages.push({ id: 'cover', type: 'spread', photos: [], layout: 'cover', isCover: true });
-
+    
     // 2. First single page
     if (photosPool.length > 0) {
       newPages.push({ id: uuidv4(), type: 'single', photos: photosPool.splice(0, 1).map(p => ({...p, panAndZoom: { scale: 1, x: 50, y: 50 }})), layout: '1' });
@@ -153,16 +155,23 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       if (page.id !== pageId) return page;
 
       const newPhotoCount = parseInt(newLayout, 10);
+      
+      // For cover page, don't change layout
+      if(page.isCover) return page;
+
       const currentPhotos = page.photos;
       let newPhotos = [...currentPhotos];
 
       if (newPhotoCount > currentPhotos.length) {
-        const availablePhotos = getAvailablePhotos(usedPhotoIds);
+        const currentlyUsedIds = new Set(prev.flatMap(p => p.photos.map(photo => photo.id)));
+        const availablePhotos = allPhotos.filter(p => !currentlyUsedIds.has(p.id));
+        
         const photosToAddCount = newPhotoCount - currentPhotos.length;
+        
         if (photosToAddCount > availablePhotos.length) {
             toast({
                 title: "Not enough photos",
-                description: `You need ${photosToAddCount} more photos to create a ${newPhotoCount}-photo layout.`,
+                description: `You need ${photosToAddCount} more photos to create a ${newPhotoCount}-photo layout. Upload more or reduce photo count on other pages.`,
                 variant: 'destructive'
             });
             return page; // Return original page if not enough photos
@@ -226,6 +235,10 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const handleAiEnhance = async () => {
     setIsGenerating(true);
     setAiSuggestion(null);
+    toast({
+      title: 'AI Assistant',
+      description: 'Analyzing your album and generating suggestions...'
+    });
     await new Promise((res) => setTimeout(res, 2000));
     setAiSuggestion(randomSuggestion);
     setIsGenerating(false);
@@ -331,5 +344,3 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     </div>
   );
 }
-
-    
