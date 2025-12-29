@@ -92,7 +92,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                 {pages.map((page) => (
                     <div key={page.id} className="pt-12" onWheel={(e) => e.stopPropagation()}>
                     <div className="flex justify-center">
-                        <div className={cn('w-full relative group/page', page.type === 'spread' ? 'md:w-full' : 'md:w-1/2')}>
+                        <div className={cn('w-full relative group/page max-w-4xl mx-auto')}>
                         {/* Page Toolbar */}
                         {!page.isCover && (
                             <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center">
@@ -196,7 +196,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                                 </div>
                                 ) : (
                                 <div className="w-full h-full flex justify-center">
-                                        <div className="w-full h-full">
+                                        <div className="w-full h-full max-w-[50%] mx-auto">
                                             <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} />
                                         </div>
                                     </div>
@@ -223,4 +223,5 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
   );
 }
     
+
 
