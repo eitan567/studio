@@ -181,9 +181,9 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                             <CardContent className="flex h-full w-full items-center justify-center p-2">
                                 <div className="relative h-full w-full">
                                     {/* Spine simulation */}
-                                    {!page.isCover && <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10 pointer-events-none"></div>}
-                                    {!page.isCover && <div className="absolute inset-y-0 left-1/2 w-4 -ml-2 bg-gradient-to-r from-transparent to-black/10 z-10 pointer-events-none"></div>}
-                                    {!page.isCover && <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10 pointer-events-none"></div>}
+                                    {!page.isCover && page.type === 'spread' && <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10 pointer-events-none"></div>}
+                                    {!page.isCover && page.type === 'spread' && <div className="absolute inset-y-0 left-1/2 w-4 -ml-2 bg-gradient-to-r from-transparent to-black/10 z-10 pointer-events-none"></div>}
+                                    {!page.isCover && page.type === 'spread' && <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10 pointer-events-none"></div>}
 
                                     {page.isCover ? (
                                         <div className="grid grid-cols-2 h-full w-full">
@@ -206,7 +206,6 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                         </div>
                         </div>
                     </div>
-                    </div>
                 ))}
             </div>
       </ScrollArea>
@@ -220,6 +219,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
   );
 }
     
+
 
 
 
