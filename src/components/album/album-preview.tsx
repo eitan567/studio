@@ -120,9 +120,6 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                                 </Tooltip>
                                 <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 w-[400px]">
                                   {LAYOUT_TEMPLATES.map(template => {
-                                      const maxPhotosForType = page.type === 'single' ? 1 : Infinity;
-                                      if (template.photoCount > maxPhotosForType && page.type === 'single') return null;
-
                                       return (
                                         <DropdownMenuItem key={template.id} onSelect={() => onUpdateLayout(page.id, template.id)} className="p-0 focus:bg-accent/50 rounded-md cursor-pointer">
                                           <div className="w-24 h-24 p-1 flex flex-col items-center">
