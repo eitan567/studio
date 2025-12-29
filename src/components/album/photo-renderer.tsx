@@ -47,13 +47,17 @@ export function PhotoRenderer({ photo, onUpdate }: PhotoRendererProps) {
     e.preventDefault();
     isDragging.current = true;
     dragStart.current = { x: e.clientX, y: e.clientY };
-    imageContainerRef.current?.classList.add('cursor-grabbing');
+    if (imageContainerRef.current) {
+      imageContainerRef.current.style.cursor = 'grabbing';
+    }
   };
 
   const onMouseUp = () => {
     if (!isDragging.current) return;
     isDragging.current = false;
-    imageContainerRef.current?.classList.remove('cursor-grabbing');
+    if (imageContainerRef.current) {
+      imageContainerRef.current.style.cursor = 'grab';
+    }
     onUpdate(panAndZoom);
   };
 
@@ -78,9 +82,11 @@ export function PhotoRenderer({ photo, onUpdate }: PhotoRendererProps) {
 
     setPanAndZoom(prev => {
       // Calculate boundaries to prevent panning out of view
-      const overscan = 50 / prev.scale;
-      const xBounds = { min: 50 - overscan, max: 50 + overscan };
-      const yBounds = { min: 50 - overscan, max: 50 + overscan };
+      const overscanX = (panAndZoom.scale - 1) * 50 / panAndZoom.scale;
+      const overscanY = (panAndZoom.scale - 1) * 50 / panAndZoom.scale;
+      
+      const xBounds = { min: 50 - overscanX, max: 50 + overscanX };
+      const yBounds = { min: 50 - overscanY, max: 50 + overscanY };
       
       const newX = Math.max(xBounds.min, Math.min(xBounds.max, prev.x + dXPercent));
       const newY = Math.max(yBounds.min, Math.min(yBounds.max, prev.y + dYPercent));
