@@ -392,5 +392,3 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     </div>
   );
 }
-
-    
