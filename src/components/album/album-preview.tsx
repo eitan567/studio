@@ -128,38 +128,9 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
             <CarouselItem key={page.id} className="pl-2 md:pl-8 md:basis-full pt-16">
               <div className="flex justify-center">
                 <div className={cn('w-full relative group/page', page.type === 'spread' ? 'md:w-full' : 'md:w-1/2')}>
-                  <AspectRatio ratio={page.type === 'spread' ? 2 / 1 : 1 / 1}>
-                    <Card className="h-full w-full shadow-lg">
-                      <CardContent className="flex h-full w-full items-center justify-center p-2">
-                        {page.type === 'spread' ? (
-                          <div className="relative h-full w-full">
-                            {/* Spine simulation */}
-                            {!page.isCover && <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10 pointer-events-none"></div>}
-                            {!page.isCover && <div className="absolute inset-y-0 left-1/2 w-4 -ml-2 bg-gradient-to-r from-transparent to-black/10 z-10 pointer-events-none"></div>}
-                            {!page.isCover && <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10 pointer-events-none"></div>}
-
-                            {page.isCover ? (
-                                <div className="grid grid-cols-2 h-full w-full">
-                                    <CoverPageLayout side="back" />
-                                    <CoverPageLayout side="front" />
-                                </div>
-                            ) : (
-                                <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} />
-                            )}
-                          </div>
-                        ) : (
-                           <div className="w-full h-full flex justify-center">
-                                <div className="w-full h-full">
-                                    <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} />
-                                </div>
-                            </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </AspectRatio>
                    {/* Page Toolbar */}
                    {!page.isCover && (
-                     <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center opacity-0 group-hover/page:opacity-100 transition-opacity duration-300">
+                     <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center">
                       <TooltipProvider>
                         <div className="flex items-center gap-1 rounded-lg border bg-background p-1.5 shadow-lg">
                             <DropdownMenu>
@@ -230,6 +201,35 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                        </TooltipProvider>
                      </div>
                    )}
+                  <AspectRatio ratio={page.type === 'spread' ? 2 / 1 : 1 / 1}>
+                    <Card className="h-full w-full shadow-lg">
+                      <CardContent className="flex h-full w-full items-center justify-center p-2">
+                        {page.type === 'spread' ? (
+                          <div className="relative h-full w-full">
+                            {/* Spine simulation */}
+                            {!page.isCover && <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10 pointer-events-none"></div>}
+                            {!page.isCover && <div className="absolute inset-y-0 left-1/2 w-4 -ml-2 bg-gradient-to-r from-transparent to-black/10 z-10 pointer-events-none"></div>}
+                            {!page.isCover && <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10 pointer-events-none"></div>}
+
+                            {page.isCover ? (
+                                <div className="grid grid-cols-2 h-full w-full">
+                                    <CoverPageLayout side="back" />
+                                    <CoverPageLayout side="front" />
+                                </div>
+                            ) : (
+                                <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} />
+                            )}
+                          </div>
+                        ) : (
+                           <div className="w-full h-full flex justify-center">
+                                <div className="w-full h-full">
+                                    <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} />
+                                </div>
+                            </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </AspectRatio>
                   <div className="pt-2 text-center text-sm text-muted-foreground">
                     {page.isCover ? 'Cover' : `Page ${pages.findIndex(p => p.id === page.id)}`}
                   </div>
