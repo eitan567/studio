@@ -25,12 +25,12 @@ export function PhotoRenderer({ photo, onUpdate }: PhotoRendererProps) {
     setPanAndZoom(photo.panAndZoom || { scale: 1, x: 50, y: 50 });
   }, [photo.panAndZoom]);
   
-  const handleDebouncedUpdate = () => {
+  const handleDebouncedUpdate = (newState: PhotoPanAndZoom) => {
     if (animationFrameId.current) {
         cancelAnimationFrame(animationFrameId.current);
     }
     animationFrameId.current = requestAnimationFrame(() => {
-        onUpdate(panAndZoom);
+        onUpdate(newState);
     });
   }
 
@@ -51,6 +51,7 @@ export function PhotoRenderer({ photo, onUpdate }: PhotoRendererProps) {
   };
 
   const onMouseUp = () => {
+    if (!isDragging.current) return;
     isDragging.current = false;
     imageContainerRef.current?.classList.remove('cursor-grabbing');
     onUpdate(panAndZoom);
@@ -77,7 +78,7 @@ export function PhotoRenderer({ photo, onUpdate }: PhotoRendererProps) {
 
     setPanAndZoom(prev => {
       // Calculate boundaries to prevent panning out of view
-      const overscan = 50 / prev.scale; // 50% is center, so we can move 50% in each direction
+      const overscan = 50 / prev.scale;
       const xBounds = { min: 50 - overscan, max: 50 + overscan };
       const yBounds = { min: 50 - overscan, max: 50 + overscan };
       
