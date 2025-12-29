@@ -190,12 +190,8 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                                             <CoverPageLayout side="back" />
                                             <CoverPageLayout side="front" />
                                         </div>
-                                    ) : page.type === 'spread' ? (
-                                        <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} />
                                     ) : (
-                                      <div className="w-1/2 h-full ml-auto">
                                         <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} />
-                                      </div>
                                     )}
                                 </div>
                             </CardContent>
@@ -219,6 +215,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
   );
 }
     
+
 
 
 
