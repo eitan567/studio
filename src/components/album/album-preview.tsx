@@ -25,7 +25,7 @@ import {
 import type { PhotoPanAndZoom } from '@/lib/types';
 import { PhotoRenderer } from './photo-renderer';
 import { useToast } from '@/hooks/use-toast';
-import { Tooltip, TooltipContent, TooltipPortal, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { LAYOUT_TEMPLATES } from './layout-templates';
 
 
@@ -106,7 +106,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                 <div className={cn('w-full relative group/page', page.type === 'spread' ? 'md:w-full' : 'md:w-1/2')}>
                    {/* Page Toolbar */}
                    {!page.isCover && (
-                     <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center">
+                     <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center">
                       <TooltipProvider>
                         <div className="flex items-center gap-1 rounded-lg border bg-background p-0.5 shadow-lg">
                             <DropdownMenu>
@@ -116,9 +116,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                                         <Button variant="ghost" size="icon"><LayoutTemplate className="h-5 w-5" /></Button>
                                     </DropdownMenuTrigger>
                                   </TooltipTrigger>
-                                  <TooltipPortal>
-                                    <TooltipContent>Page Layout</TooltipContent>
-                                  </TooltipPortal>
+                                  <TooltipContent>Page Layout</TooltipContent>
                                 </Tooltip>
                                 <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 w-[400px]">
                                   {LAYOUT_TEMPLATES.map(template => {
@@ -144,9 +142,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                                   <Download className="h-5 w-5" />
                                 </Button>
                               </TooltipTrigger>
-                               <TooltipPortal>
                                 <TooltipContent>Download Page</TooltipContent>
-                               </TooltipPortal>
                             </Tooltip>
 
                              <Tooltip>
@@ -155,9 +151,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                                   <ImageIcon className="h-5 w-5" />
                                 </Button>
                               </TooltipTrigger>
-                               <TooltipPortal>
                                 <TooltipContent>Set Background</TooltipContent>
-                               </TooltipPortal>
                             </Tooltip>
 
                              <Tooltip>
@@ -166,9 +160,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                                   <Wand2 className="h-5 w-5" />
                                 </Button>
                               </TooltipTrigger>
-                               <TooltipPortal>
                                 <TooltipContent>Enhance with AI</TooltipContent>
-                               </TooltipPortal>
                             </Tooltip>
                             
                              <Tooltip>
@@ -177,9 +169,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                                   <Undo className="h-5 w-5" />
                                 </Button>
                               </TooltipTrigger>
-                               <TooltipPortal>
                                 <TooltipContent>Undo AI Changes</TooltipContent>
-                               </TooltipPortal>
                             </Tooltip>
                             
                             <div className="mx-1 h-6 w-px bg-border" />
@@ -190,9 +180,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                                 <Trash2 className="h-5 w-5" />
                               </Button>
                             </TooltipTrigger>
-                             <TooltipPortal>
                               <TooltipContent>Delete Page</TooltipContent>
-                             </TooltipPortal>
                            </Tooltip>
                          </div>
                        </TooltipProvider>
@@ -221,7 +209,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                            <div className="w-full h-full flex justify-center">
                                 <div className="w-full h-full">
                                     <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} />
-                                </div>
+                                d_h_2iv>
                             </div>
                         )}
                       </CardContent>
