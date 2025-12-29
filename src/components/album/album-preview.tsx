@@ -27,71 +27,68 @@ import type { PhotoPanAndZoom } from '@/lib/types';
 
 
 interface PageLayoutProps {
-  photos: Photo[];
-  layout: string;
+  page: AlbumPage;
 }
 
-function PageLayout({ photos, layout }: PageLayoutProps) {
-  const photoCount = parseInt(layout) || photos.length;
-  
-  const gridClasses: { [key: number]: string } = {
-    1: 'grid-cols-1 grid-rows-1',
-    2: 'grid-cols-2 grid-rows-1',
-    3: 'grid-cols-2 grid-rows-2',
-    4: 'grid-cols-2 grid-rows-2',
-    5: 'grid-cols-4 grid-rows-2',
-    6: 'grid-cols-4 grid-rows-2',
-  };
+function PageLayout({ page }: PageLayoutProps) {
+    const { photos, layout } = page;
+    const photoCount = parseInt(layout) || photos.length;
+    
+    // --- Grid Classes ---
+    const gridClasses: { [key: string]: string } = {
+        '1': 'grid-cols-1 grid-rows-1',
+        '2': 'grid-cols-2 grid-rows-1',
+        '3': 'grid-cols-2 grid-rows-2',
+        '4': 'grid-cols-2 grid-rows-2',
+        '6': 'grid-cols-3 grid-rows-2',
+    };
+    
+    // --- Photo Span Classes ---
+    const photoSpanClasses: { [key:string]: string[] } = {
+        '1': ['col-span-full row-span-full'],
+        '2': ['', ''],
+        '3': ['row-span-2', '', ''],
+        '4': ['', '', '', ''],
+        '6': ['', '', '', '', '', ''],
+    };
 
-  const photoSpanClasses: { [key: number]: string[] } = {
-    1: ['col-span-full row-span-full'],
-    2: ['', ''],
-    3: ['row-span-2 col-span-1', 'col-span-1', 'col-span-1'],
-    4: ['', '', '', ''],
-    5: ['col-span-2 row-span-2', '', '', '', ''],
-    6: ['col-span-2', 'col-span-2', 'col-span-2', 'col-span-2', 'col-span-2', 'col-span-2'],
-  };
+    const getGridClass = (index: number) => {
+        const layoutKey = photoCount.toString();
+        if (layoutKey in photoSpanClasses && photoSpanClasses[layoutKey][index]) {
+          return photoSpanClasses[layoutKey][index];
+        }
+        return '';
+    };
+    
+    const baseGrid = gridClasses[layout] || 'grid-cols-2 grid-rows-1';
 
-  const getGridClass = (index: number) => {
-    if (photoCount in photoSpanClasses) {
-      return photoSpanClasses[photoCount][index];
-    }
-    return '';
-  };
-  
-  const baseGrid = gridClasses[photoCount] || 'grid-cols-2 grid-rows-2';
-
-  return (
-    <div
-      className={`grid ${baseGrid} gap-2 h-full w-full p-4`}
-    >
-      {photos.map((photo, index) => (
-        <div
-          key={photo.id}
-          className={cn(
-            'relative rounded-md overflow-hidden bg-muted group/photo',
-            getGridClass(index)
-          )}
-        >
-          <Image
-            src={photo.src}
-            alt={photo.alt}
-            fill
-            className="object-cover"
-            style={{
-              transform: `scale(${photo.panAndZoom?.scale ?? 1}) translate(${
-                (photo.panAndZoom?.x ?? 50) - 50
-              }%, ${(photo.panAndZoom?.y ?? 50) - 50}%)`,
-            }}
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          />
-           <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center">
-                <PhotoEditorTrigger pageId={photo.id} photo={photo} />
-           </div>
+    return (
+        <div className={`grid ${baseGrid} gap-2 h-full w-full p-4`}>
+            {photos.map((photo, index) => (
+                <div
+                    key={photo.id}
+                    className={cn(
+                        'relative rounded-md overflow-hidden bg-muted group/photo',
+                        getGridClass(index)
+                    )}
+                >
+                    <Image
+                        src={photo.src}
+                        alt={photo.alt}
+                        fill
+                        className="object-cover"
+                        style={{
+                            transform: `scale(${photo.panAndZoom?.scale ?? 1}) translate(${(photo.panAndZoom?.x ?? 50) - 50}%, ${(photo.panAndZoom?.y ?? 50) - 50}%)`,
+                        }}
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    />
+                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center">
+                        <PhotoEditorTrigger pageId={page.id} photo={photo} />
+                    </div>
+                </div>
+            ))}
         </div>
-      ))}
-    </div>
-  );
+    );
 }
 
 function CoverPageLayout({ side }: { side: 'front' | 'back' }) {
@@ -112,9 +109,11 @@ interface AlbumPreviewProps {
   onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
 }
 
+// Global state to manage the dialog's content and visibility
 let photoToEdit: { pageId: string, photo: Photo } | null = null;
 let setDialogState: React.Dispatch<React.SetStateAction<boolean>> | null = null;
 
+// Trigger component that can be placed anywhere
 function PhotoEditorTrigger({ pageId, photo }: { pageId: string, photo: Photo }) {
     return (
         <Button
@@ -140,7 +139,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
         <div className="text-center text-muted-foreground">
           <BookOpenText className="mx-auto h-12 w-12" />
           <h3 className="mt-4 text-lg font-semibold">Your Album Preview</h3>
-          <p>Add photos and pages to begin creating your photobook.</p>
+          <p>Generate dummy photos to begin creating your photobook.</p>
         </div>
       </Card>
     );
@@ -154,9 +153,9 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
         }}
         className="w-full"
       >
-        <CarouselContent className="-ml-2">
+        <CarouselContent className="-ml-2 md:-ml-8">
           {pages.map((page, index) => (
-            <CarouselItem key={page.id} className="pl-8 md:basis-full">
+            <CarouselItem key={page.id} className="pl-2 md:pl-8 md:basis-full">
               <div className="flex justify-center">
                 <div
                   className={cn(
@@ -170,9 +169,9 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                         {page.type === 'spread' ? (
                           <div className="relative h-full w-full">
                              {/* Spine simulation */}
-                            <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10"></div>
-                            <div className="absolute inset-y-0 left-1/2 w-4 -ml-2 bg-gradient-to-r from-transparent to-black/10 z-10 pointer-events-none"></div>
-                            <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10 pointer-events-none"></div>
+                            {!page.isCover && <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10"></div>}
+                            {!page.isCover && <div className="absolute inset-y-0 left-1/2 w-4 -ml-2 bg-gradient-to-r from-transparent to-black/10 z-10 pointer-events-none"></div>}
+                            {!page.isCover && <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10 pointer-events-none"></div>}
 
                             {page.isCover ? (
                                 <div className="grid grid-cols-2 h-full w-full">
@@ -180,13 +179,13 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                                     <CoverPageLayout side="front" />
                                 </div>
                             ) : (
-                                <PageLayout photos={page.photos} layout={page.layout} />
+                                <PageLayout page={page} />
                             )}
                           </div>
                         ) : (
                            <div className="w-full h-full flex justify-center">
                                 <div className="w-full h-full">
-                                    <PageLayout photos={page.photos} layout={page.layout} />
+                                    <PageLayout page={page} />
                                 </div>
                             </div>
                         )}
@@ -213,7 +212,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                     </Card>
                   </AspectRatio>
                   <div className="pt-2 text-center text-sm text-muted-foreground">
-                    Page {index === 0 ? 'Cover' : index}
+                    {page.isCover ? 'Cover' : `Page ${pages.findIndex(p => p.id === page.id)}`}
                   </div>
                 </div>
               </div>
@@ -240,3 +239,4 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
     </div>
   );
 }
+    
