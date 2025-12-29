@@ -93,8 +93,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
             <div className="space-y-8">
                 {pages.map((page) => (
                     <div key={page.id} className="pt-12" onWheel={(e) => e.stopPropagation()}>
-                    <div className="flex justify-center">
-                        <div className={cn('w-full relative group/page max-w-4xl mx-auto')}>
+                    <div className={cn('w-full relative group/page max-w-4xl mx-auto')}>
                         {/* Page Toolbar */}
                         {!page.isCover && (
                             <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center">
@@ -180,7 +179,6 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                         <AspectRatio ratio={page.type === 'spread' ? 2 / 1 : 1 / 1}>
                             <Card className="h-full w-full shadow-lg">
                             <CardContent className="flex h-full w-full items-center justify-center p-2">
-                                {page.type === 'spread' ? (
                                 <div className="relative h-full w-full">
                                     {/* Spine simulation */}
                                     {!page.isCover && <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10 pointer-events-none"></div>}
@@ -192,15 +190,14 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                                             <CoverPageLayout side="back" />
                                             <CoverPageLayout side="front" />
                                         </div>
-                                    ) : (
+                                    ) : page.type === 'spread' ? (
                                         <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} />
+                                    ) : (
+                                      <div className="w-1/2 h-full ml-auto">
+                                        <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} />
+                                      </div>
                                     )}
                                 </div>
-                                ) : (
-                                  <div className="h-full w-full max-w-[50%] mx-auto">
-                                    <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} />
-                                  </div>
-                                )}
                             </CardContent>
                             </Card>
                         </AspectRatio>
@@ -223,6 +220,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
   );
 }
     
+
 
 
 
