@@ -55,8 +55,11 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const [randomSeed, setRandomSeed] = useState('');
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
   const [randomSuggestion, setRandomSuggestion] = useState('');
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    // This effect runs only on the client, after the component has mounted.
+    setIsClient(true);
     // Generate a random seed on component mount for dummy photos
     setRandomSeed(Math.random().toString(36).substring(7));
     // Pre-set a random AI suggestion for demo purposes
@@ -80,23 +83,21 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   };
   
   const generateInitialPages = (photos: Photo[]) => {
-    const defaultLayout = '2';
-    const photosPerSpread = parseInt(defaultLayout, 10);
-    
     let photosPool = [...photos];
     const newPages: AlbumPage[] = [];
 
     // 1. Cover page
     newPages.push({ id: 'cover', type: 'spread', photos: [], layout: 'cover', isCover: true });
     
-    // 2. First single page
+    // 2. First single page if there are photos
     if (photosPool.length > 0) {
       newPages.push({ id: uuidv4(), type: 'single', photos: photosPool.splice(0, 1).map(p => ({...p, panAndZoom: { scale: 1, x: 50, y: 50 }})), layout: '1' });
     }
 
     // 3. Spread pages
+    const photosPerSpread = 2; // Default to 2 for spreads
     while (photosPool.length >= photosPerSpread) {
-      newPages.push({ id: uuidv4(), type: 'spread', photos: photosPool.splice(0, photosPerSpread).map(p => ({...p, panAndZoom: { scale: 1, x: 50, y: 50 }})), layout: defaultLayout });
+      newPages.push({ id: uuidv4(), type: 'spread', photos: photosPool.splice(0, photosPerSpread).map(p => ({...p, panAndZoom: { scale: 1, x: 50, y: 50 }})), layout: '2' });
     }
 
     // 4. Last single page if there are leftovers
@@ -158,6 +159,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       
       // For cover page, don't change layout
       if(page.isCover) return page;
+      if(page.type === 'single') return page; // For now, don't allow changing layout of single pages
 
       const currentPhotos = page.photos;
       let newPhotos = [...currentPhotos];
@@ -281,56 +283,60 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           </CardContent>
         </Card>
         
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-headline flex items-center gap-2">
-              <UploadCloud className="h-6 w-6" /> Photo Management
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button className="w-full" onClick={() => { toast({title: 'Feature coming soon!'})}}>
-              <Cloud className="mr-2 h-4 w-4" /> Upload from Computer
-            </Button>
-            <Button
-              className="w-full"
-              variant="secondary"
-              onClick={generateDummyPhotos}
-              disabled={isLoading || !randomSeed}
-            >
-              {isLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Wand2 className="mr-2 h-4 w-4" />
-              )}
-              Generate 100 Dummy Photos
-            </Button>
-             <p className="text-sm text-muted-foreground text-center pt-2">
-                {allPhotos.length > 0 ? `${allPhotos.length - usedPhotoIds.size} photos available.` : 'Start by generating photos.'}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-            <CardHeader>
+        {isClient && (
+          <>
+            <Card>
+              <CardHeader>
                 <CardTitle className="font-headline flex items-center gap-2">
-                    <Sparkles className="h-6 w-6 text-accent" /> AI Album Assistant
+                  <UploadCloud className="h-6 w-6" /> Photo Management
                 </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                 <p className="text-sm text-muted-foreground">Let our AI analyze your album and provide suggestions for improvements and layouts.</p>
-                <Button variant="outline" className="w-full border-accent text-accent hover:bg-accent hover:text-accent-foreground" onClick={handleAiEnhance} disabled={isGenerating || allPhotos.length === 0}>
-                    {isGenerating ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing...</>) : (<>Enhance with AI</>)}
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button className="w-full" onClick={() => { toast({title: 'Feature coming soon!'})}}>
+                  <Cloud className="mr-2 h-4 w-4" /> Upload from Computer
                 </Button>
+                <Button
+                  className="w-full"
+                  variant="secondary"
+                  onClick={generateDummyPhotos}
+                  disabled={isLoading || !randomSeed}
+                >
+                  {isLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Wand2 className="mr-2 h-4 w-4" />
+                  )}
+                  Generate 100 Dummy Photos
+                </Button>
+                <p className="text-sm text-muted-foreground text-center pt-2">
+                    {allPhotos.length > 0 ? `${allPhotos.length - usedPhotoIds.size} photos available.` : 'Start by generating photos.'}
+                </p>
+              </CardContent>
+            </Card>
 
-                {aiSuggestion && (
-                    <Alert>
-                        <Sparkles className="h-4 w-4" />
-                        <AlertTitle>AI Suggestion</AlertTitle>
-                        <AlertDescription>{aiSuggestion}</AlertDescription>
-                    </Alert>
-                )}
-            </CardContent>
-        </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle className="font-headline flex items-center gap-2">
+                        <Sparkles className="h-6 w-6 text-accent" /> AI Album Assistant
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <p className="text-sm text-muted-foreground">Let our AI analyze your album and provide suggestions for improvements and layouts.</p>
+                    <Button variant="outline" className="w-full border-accent text-accent hover:bg-accent hover:text-accent-foreground" onClick={handleAiEnhance} disabled={isGenerating || allPhotos.length === 0}>
+                        {isGenerating ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing...</>) : (<>Enhance with AI</>)}
+                    </Button>
+
+                    {aiSuggestion && (
+                        <Alert>
+                            <Sparkles className="h-4 w-4" />
+                            <AlertTitle>AI Suggestion</AlertTitle>
+                            <AlertDescription>{aiSuggestion}</AlertDescription>
+                        </Alert>
+                    )}
+                </CardContent>
+            </Card>
+          </>
+        )}
       </div>
       <div className="lg:col-span-2">
         <AlbumPreview 
