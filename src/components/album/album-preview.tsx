@@ -125,7 +125,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
       >
         <CarouselContent className="-ml-2 md:-ml-8">
           {pages.map((page) => (
-            <CarouselItem key={page.id} className="pl-2 md:pl-8 md:basis-full">
+            <CarouselItem key={page.id} className="pl-2 md:pl-8 md:basis-full pt-16">
               <div className="flex justify-center">
                 <div className={cn('w-full relative group/page', page.type === 'spread' ? 'md:w-full' : 'md:w-1/2')}>
                   <AspectRatio ratio={page.type === 'spread' ? 2 / 1 : 1 / 1}>
@@ -159,7 +159,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                   </AspectRatio>
                    {/* Page Toolbar */}
                    {!page.isCover && (
-                     <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center opacity-0 group-hover/page:opacity-100 transition-opacity duration-300">
+                     <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center opacity-0 group-hover/page:opacity-100 transition-opacity duration-300">
                       <TooltipProvider>
                         <div className="flex items-center gap-1 rounded-lg border bg-background p-1.5 shadow-lg">
                             <DropdownMenu>
