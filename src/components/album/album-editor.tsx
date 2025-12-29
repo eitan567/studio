@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { LAYOUT_TEMPLATES } from './layout-templates';
 
 interface AlbumEditorProps {
   albumId: string;
@@ -92,18 +93,18 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     
     // 2. First single page if there are photos
     if (photosPool.length > 0) {
-      newPages.push({ id: uuidv4(), type: 'single', photos: photosPool.splice(0, 1).map(p => ({...p, panAndZoom: defaultPanAndZoom})), layout: '1' });
+      newPages.push({ id: uuidv4(), type: 'single', photos: photosPool.splice(0, 1).map(p => ({...p, panAndZoom: defaultPanAndZoom})), layout: '1-full' });
     }
 
     // 3. Spread pages
     const photosPerSpread = 2; // Default to 2 for spreads
     while (photosPool.length >= photosPerSpread) {
-      newPages.push({ id: uuidv4(), type: 'spread', photos: photosPool.splice(0, photosPerSpread).map(p => ({...p, panAndZoom: defaultPanAndZoom})), layout: '2' });
+      newPages.push({ id: uuidv4(), type: 'spread', photos: photosPool.splice(0, photosPerSpread).map(p => ({...p, panAndZoom: defaultPanAndZoom})), layout: '2-horiz' });
     }
 
     // 4. Last single page if there are leftovers
     if (photosPool.length > 0) {
-        newPages.push({ id: uuidv4(), type: 'single', photos: photosPool.splice(0, 1).map(p => ({...p, panAndZoom: defaultPanAndZoom})), layout: '1' });
+        newPages.push({ id: uuidv4(), type: 'single', photos: photosPool.splice(0, 1).map(p => ({...p, panAndZoom: defaultPanAndZoom})), layout: '1-full' });
     }
     
     setAlbumPages(newPages);
@@ -127,13 +128,16 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     })
   }
 
-  const updatePageLayout = (pageId: string, newLayout: string) => {
+  const updatePageLayout = (pageId: string, newLayoutId: string) => {
     setAlbumPages(prevPages => {
       const pageIndex = prevPages.findIndex(p => p.id === pageId);
       if (pageIndex === -1) return prevPages;
   
       const pageToUpdate = { ...prevPages[pageIndex] };
-      const newPhotoCount = parseInt(newLayout, 10);
+      const newTemplate = LAYOUT_TEMPLATES.find(t => t.id === newLayoutId);
+      if (!newTemplate) return prevPages;
+
+      const newPhotoCount = newTemplate.photoCount;
   
       // Collect all photos from the current page onwards, and the layouts of subsequent pages
       const subsequentPages = prevPages.slice(pageIndex);
@@ -146,7 +150,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       if (newPhotoCount > subsequentPhotos.length) {
         toast({
           title: 'Not Enough Photos',
-          description: `You don't have enough photos in the rest of the album to create a ${newLayout}-photo layout.`,
+          description: `You don't have enough photos in the rest of the album to create this layout.`,
           variant: 'destructive',
         });
         return prevPages;
@@ -163,7 +167,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         panAndZoom: p.panAndZoom || defaultPanAndZoom,
       }));
       
-      newPages.push({ ...pageToUpdate, photos: updatedPagePhotos, layout: newLayout });
+      newPages.push({ ...pageToUpdate, photos: updatedPagePhotos, layout: newLayoutId });
   
       // Rebuild subsequent pages with remaining photos, trying to respect original layouts
       let remainingPhotosPool = [...subsequentPhotos];
@@ -172,12 +176,13 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       while (remainingPhotosPool.length > 0) {
         let photosForNextPage: Photo[] = [];
         let nextPageType: 'single' | 'spread' = 'spread'; // Default
-        let nextPageLayout = '2'; // Default
+        let nextPageLayout = '2-horiz'; // Default
   
         if (layoutIndex < subsequentLayouts.length) {
             // Try to use the original layout
             const originalLayout = subsequentLayouts[layoutIndex];
-            const originalPhotoCount = parseInt(originalLayout.layout, 10) || 1;
+            const originalTemplate = LAYOUT_TEMPLATES.find(t => t.id === originalLayout.layout);
+            const originalPhotoCount = originalTemplate ? originalTemplate.photoCount : 1;
             
             if (remainingPhotosPool.length >= originalPhotoCount) {
                 photosForNextPage = remainingPhotosPool.splice(0, originalPhotoCount);
@@ -187,7 +192,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                 // Not enough photos for original layout, take all remaining
                 photosForNextPage = remainingPhotosPool.splice(0);
                 nextPageType = originalLayout.type; // Keep the type
-                nextPageLayout = photosForNextPage.length.toString();
+                const bestFitTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === photosForNextPage.length) || LAYOUT_TEMPLATES.find(t => t.photoCount === 1)!;
+                nextPageLayout = bestFitTemplate.id;
             }
             layoutIndex++;
         } else {
@@ -196,15 +202,17 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             if (lastPage.type === 'single' && remainingPhotosPool.length >= 2) {
                 photosForNextPage = remainingPhotosPool.splice(0, 2);
                 nextPageType = 'spread';
-                nextPageLayout = '2';
+                nextPageLayout = '2-horiz';
             } else if (remainingPhotosPool.length === 1) {
                 photosForNextPage = remainingPhotosPool.splice(0, 1);
                 nextPageType = 'single';
-                nextPageLayout = '1';
+                nextPageLayout = '1-full';
             } else {
-                photosForNextPage = remainingPhotosPool.splice(0, 2);
-                nextPageType = 'spread';
-                nextPageLayout = '2';
+                 const count = Math.min(remainingPhotosPool.length, 2);
+                photosForNextPage = remainingPhotosPool.splice(0, count);
+                const bestFitTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === count) || LAYOUT_TEMPLATES.find(t => t.photoCount === 1)!;
+                nextPageType = count > 1 ? 'spread' : 'single';
+                nextPageLayout = bestFitTemplate.id;
             }
         }
         

@@ -26,6 +26,7 @@ import type { PhotoPanAndZoom } from '@/lib/types';
 import { PhotoRenderer } from './photo-renderer';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { LAYOUT_TEMPLATES } from './layout-templates';
 
 
 interface PageLayoutProps {
@@ -35,41 +36,16 @@ interface PageLayoutProps {
 
 function PageLayout({ page, onUpdatePhotoPanAndZoom }: PageLayoutProps) {
     const { photos, layout } = page;
-    
-    const gridClasses: { [key: string]: string } = {
-        '1': 'grid-cols-1 grid-rows-1',
-        '2': 'grid-cols-2 grid-rows-1',
-        '3': 'grid-cols-2 grid-rows-2',
-        '4': 'grid-cols-2 grid-rows-2',
-        '6': 'grid-cols-3 grid-rows-2',
-    };
-    
-    const photoSpanClasses: { [key:string]: string[] } = {
-        '1': ['col-span-full row-span-full'],
-        '2': ['', ''],
-        '3': ['row-span-2', '', ''],
-        '4': ['', '', '', ''],
-        '6': ['', '', '', '', '', ''],
-    };
-
-    const getGridClass = (index: number) => {
-        const layoutKey = page.layout;
-        if (layoutKey in photoSpanClasses && photoSpanClasses[layoutKey][index]) {
-          return photoSpanClasses[layoutKey][index];
-        }
-        return '';
-    };
-    
-    const baseGrid = gridClasses[layout] || 'grid-cols-1 grid-rows-1';
+    const template = LAYOUT_TEMPLATES.find(t => t.id === layout) || LAYOUT_TEMPLATES[0];
 
     return (
-        <div className={`grid ${baseGrid} gap-2 h-full w-full`}>
-            {photos.map((photo, index) => (
+        <div className={`grid grid-cols-12 grid-rows-12 gap-2 h-full w-full`}>
+            {photos.slice(0, template.photoCount).map((photo, index) => (
                 <div
                     key={photo.id}
                     className={cn(
                         'relative rounded-md overflow-hidden bg-muted group/photo',
-                        getGridClass(index)
+                        template.grid[index]
                     )}
                 >
                     <PhotoRenderer 
@@ -125,12 +101,12 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
       >
         <CarouselContent className="-ml-2 md:-ml-8">
           {pages.map((page) => (
-            <CarouselItem key={page.id} className="pl-2 md:pl-8 md:basis-full pt-14">
+            <CarouselItem key={page.id} className="pl-2 md:pl-8 pt-16">
               <div className="flex justify-center">
                 <div className={cn('w-full relative group/page', page.type === 'spread' ? 'md:w-full' : 'md:w-1/2')}>
                    {/* Page Toolbar */}
                    {!page.isCover && (
-                     <div className="absolute -top-14 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center">
+                     <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center">
                       <TooltipProvider>
                         <div className="flex items-center gap-1 rounded-lg border bg-background p-0.5 shadow-lg">
                             <DropdownMenu>
@@ -142,12 +118,24 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                                   </TooltipTrigger>
                                   <TooltipContent>Page Layout</TooltipContent>
                                 </Tooltip>
-                                <DropdownMenuContent>
-                                  {[1, 2, 3, 4, 6].map(num => (
-                                      <DropdownMenuItem key={num} onSelect={() => onUpdateLayout(page.id, num.toString())}>
-                                      {num} Photo{num > 1 ? 's' : ''}
-                                      </DropdownMenuItem>
-                                  ))}
+                                <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 w-[400px]">
+                                  {LAYOUT_TEMPLATES.map(template => {
+                                      const maxPhotosForType = page.type === 'single' ? 1 : Infinity;
+                                      if (template.photoCount > maxPhotosForType && page.type === 'single') return null;
+
+                                      return (
+                                        <DropdownMenuItem key={template.id} onSelect={() => onUpdateLayout(page.id, template.id)} className="p-0 focus:bg-accent/50 rounded-md cursor-pointer">
+                                          <div className="w-24 h-24 p-1 flex flex-col items-center">
+                                            <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
+                                                {template.grid.map((gridClass, i) => (
+                                                    <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
+                                                ))}
+                                            </div>
+                                            <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
+                                          </div>
+                                        </DropdownMenuItem>
+                                      );
+                                  })}
                                 </DropdownMenuContent>
                             </DropdownMenu>
 
