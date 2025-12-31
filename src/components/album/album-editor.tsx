@@ -301,6 +301,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           id: `dummy-${seed}-${i}`,
           src: `https://picsum.photos/seed/${seed}/${dim.w}/${dim.h}`,
           alt: `Dummy photo ${i + 1}`,
+          width: dim.w,
+          height: dim.h,
         };
       });
       setAllPhotos(dummyPhotos);
@@ -446,7 +448,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
               </div>
             ) : (
               <ScrollArea className="h-full px-4 py-2">
-                <div className="grid grid-cols-2 gap-2 pb-4">
+                <div className="columns-2 gap-2 pb-4">
                   {allPhotos.map((photo) => (
                     <div 
                       key={photo.id}
@@ -454,17 +456,15 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                       onDragStart={(e) => {
                         e.dataTransfer.setData('photoId', photo.id);
                       }}
-                      className="relative aspect-square rounded-md overflow-hidden bg-muted cursor-grab active:cursor-grabbing border-2 border-transparent hover:border-primary transition-colors group"
+                      className="relative break-inside-avoid mb-2 rounded-md overflow-hidden bg-muted cursor-grab active:cursor-grabbing border-2 border-transparent hover:border-primary transition-all group"
                     >
-                      <Image 
+                      <img 
                         src={photo.src} 
                         alt={photo.alt} 
-                        fill 
-                        className="object-cover" 
-                        sizes="(max-width: 768px) 50vw, 20vw"
+                        className="w-full h-auto display-block"
                       />
                       {photoUsageCounts[photo.id] > 1 && (
-                        <div className="absolute top-1 right-1 bg-white/90 rounded-full p-0.5 shadow-sm text-orange-500">
+                        <div className="absolute top-1 right-1 bg-white/90 rounded-full p-0.5 shadow-sm text-orange-500 z-10">
                           <AlertTriangle className="h-4 w-4 fill-orange-500 text-white" />
                         </div>
                       )}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, memo } from 'react';
+import React, { useEffect, useRef, memo, useState } from 'react';
 import Image from 'next/image';
 import type { Photo, PhotoPanAndZoom } from '@/lib/types';
 
@@ -16,7 +16,8 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
   const imageRef = useRef<HTMLDivElement>(null);
   const isInteracting = useRef(false);
   const dragStart = useRef({ x: 0, y: 0 });
-  
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+
   // CRITICAL: Always create a LOCAL COPY of the panAndZoom state to avoid mutating props
   const currentValues = useRef<PhotoPanAndZoom>({
     scale: photo.panAndZoom?.scale ?? 1,
@@ -26,14 +27,66 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
 
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Calculate base scale to cover container while maintaining aspect ratio
+  const getBaseScale = () => {
+    if (!containerSize.width || !containerSize.height || !photo.width || !photo.height) {
+      return { x: 1, y: 1 };
+    }
+    
+    const containerAspect = containerSize.width / containerSize.height;
+    const photoAspect = photo.width / photo.height;
+    
+    // If photo is wider than container (landscape-ish relative to container)
+    if (photoAspect > containerAspect) {
+      return {
+        x: photoAspect / containerAspect,
+        y: 1
+      };
+    } 
+    // If photo is taller than container (portrait-ish relative to container)
+    else {
+      return {
+        x: 1,
+        y: containerAspect / photoAspect
+      };
+    }
+  };
+
   const applyTransform = () => {
     if (imageRef.current) {
       const { scale, x, y } = currentValues.current;
-      imageRef.current.style.transform = `scale(${scale}) translate3d(${x - 50}%, ${y - 50}%, 0)`;
+      const base = getBaseScale();
+      
+      // We apply the base scale from aspect ratio mismatch + the user's manual scale
+      const finalScaleX = base.x * scale;
+      const finalScaleY = base.y * scale;
+      
+      // translate3d uses percentages of the element's own size. 
+      // Since the element is 'fill' (100% of container), translate(x-50%) moves it relative to container.
+      imageRef.current.style.transform = `scale(${finalScaleX}, ${finalScaleY}) translate3d(${x - 50}%, ${y - 50}%, 0)`;
+
     }
   };
 
   // Sync with external changes (like AI enhancement or Undo)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerSize({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height
+        });
+      }
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    applyTransform();
+  }, [containerSize, photo.width, photo.height]);
+
   useEffect(() => {
     if (!isInteracting.current) {
         currentValues.current = {
@@ -52,8 +105,16 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
 
   const updatePanBoundaries = () => {
     const { scale, x, y } = currentValues.current;
-    const overscanX = (scale - 1) * 50 / scale;
-    const overscanY = (scale - 1) * 50 / scale;
+   const base = getBaseScale();
+    
+    // Total scale including aspect ratio correction
+    const totalScaleX = base.x * scale;
+    const totalScaleY = base.y * scale;
+    
+    // How much can we move? 
+    // If totalScale is 1.5, we can move 0.5/1.5 * 50% in each direction
+    const overscanX = totalScaleX > 1 ? (totalScaleX - 1) * 50 / totalScaleX : 0;
+    const overscanY = totalScaleY > 1 ? (totalScaleY - 1) * 50 / totalScaleY : 0;
     
     currentValues.current.x = Math.max(50 - overscanX, Math.min(50 + overscanX, x));
     currentValues.current.y = Math.max(50 - overscanY, Math.min(50 + overscanY, y));
@@ -80,8 +141,15 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
     dragStart.current = { x: e.clientX, y: e.clientY };
 
     const rect = containerRef.current.getBoundingClientRect();
-    const dXPercent = (dx / rect.width) * 100;
-    const dYPercent = (dy / rect.height) * 100;
+     
+    // We need to adjust sensitivity based on the ACTUAL visible scale
+    const base = getBaseScale();
+    const totalScaleX = base.x * currentValues.current.scale;
+    const totalScaleY = base.y * currentValues.current.scale;
+    // The movement needs to be relative to the scaled image size
+    const dXPercent = (dx / rect.width) * 100 / totalScaleX;
+    const dYPercent = (dy / rect.height) * 100 / totalScaleY;
+
 
     currentValues.current.x += dXPercent;
     currentValues.current.y += dYPercent;
@@ -131,7 +199,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
       window.removeEventListener('mouseup', handleGlobalMouseUp);
       if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     };
-  }, []); // Empty deps because we use refs for all values
+  }, [containerSize]); 
 
   return (
     <div
@@ -141,11 +209,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
     >
         <div
             ref={imageRef}
-            className="relative h-full w-full will-change-transform"
-            style={{
-                transform: `scale(${currentValues.current.scale}) translate3d(${currentValues.current.x - 50}%, ${currentValues.current.y - 50}%, 0)`,
-                transition: 'none'
-            }}
+            className="relative h-full w-full style={{ transition: 'none' }}"
         >
             <Image
                 src={photo.src}
