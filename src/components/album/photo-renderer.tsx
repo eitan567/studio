@@ -30,53 +30,36 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
   // Calculate base scale to cover container while maintaining aspect ratio
   const getBaseScale = () => {
     if (!containerSize.width || !containerSize.height || !photo.width || !photo.height) {
-      return 1;
+      return { scaleX: 1, scaleY: 1 };
     }
-    
+  
     const containerAspect = containerSize.width / containerSize.height;
     const photoAspect = photo.width / photo.height;
-    
+  
     if (photoAspect > containerAspect) {
-      // Photo is wider than container, so scale based on height
-      return containerAspect / photoAspect;
+      // Photo is wider than container, so fit to height and let width overflow
+      return {
+        scaleX: (containerSize.height * photoAspect) / containerSize.width,
+        scaleY: 1
+      };
     } else {
-      // Photo is taller than or same aspect as container, so scale based on width
-      return 1;
+      // Photo is taller than container, so fit to width and let height overflow
+      return {
+        scaleX: 1,
+        scaleY: containerSize.width / photoAspect / containerSize.height
+      };
     }
   };
 
   const applyTransform = () => {
     if (imageRef.current) {
-      const { scale, x, y } = currentValues.current;
-      const baseScale = getBaseScale();
-      
-      const photoAspect = (photo.width || 1) / (photo.height || 1);
-      const containerAspect = containerSize.width / containerSize.height;
+        const { scale, x, y } = currentValues.current;
+        const { scaleX: baseScaleX, scaleY: baseScaleY } = getBaseScale();
 
-      let finalScaleX, finalScaleY;
-      if (photoAspect > containerAspect) {
-          finalScaleX = scale;
-          finalScaleY = (containerAspect / photoAspect) * scale;
-      } else {
-          finalScaleX = (photoAspect / containerAspect) * scale;
-          finalScaleY = scale;
-      }
-      
-      // The logic has a flaw, let's fix it by scaling both axes uniformly.
-      const scaleNeededForWidth = containerSize.width / photo.width;
-      const scaleNeededForHeight = containerSize.height / photo.height;
-      const coverScale = Math.max(scaleNeededForWidth, scaleNeededForHeight) * (1 / (photo.width/containerSize.width));
+        const finalScaleX = baseScaleX * scale;
+        const finalScaleY = baseScaleY * scale;
 
-
-      const correctedBaseScale = Math.max(
-        containerSize.width / photo.width,
-        containerSize.height / photo.height
-      );
-
-      const finalScale = correctedBaseScale * scale;
-
-      imageRef.current.style.transform = `scale(${finalScale}) translate3d(${x - 50}%, ${y - 50}%, 0)`;
-
+        imageRef.current.style.transform = `scale(${finalScaleX}, ${finalScaleY}) translate3d(${x - 50}%, ${y - 50}%, 0)`;
     }
   };
 
@@ -118,24 +101,13 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
   const updatePanBoundaries = () => {
     const { scale, x, y } = currentValues.current;
     
-    const correctedBaseScale = Math.max(
-        containerSize.width / photo.width,
-        containerSize.height / photo.height
-    );
-    const totalScale = correctedBaseScale * scale;
-    
-    // The image's new dimensions after scaling
-    const imgVisibleWidth = photo.width * totalScale;
-    const imgVisibleHeight = photo.height * totalScale;
+    const { scaleX: baseScaleX, scaleY: baseScaleY } = getBaseScale();
+    const totalScaleX = baseScaleX * scale;
+    const totalScaleY = baseScaleY * scale;
 
-    // How much of the image is outside the container, in pixels
-    const overscanXPx = Math.max(0, imgVisibleWidth - containerSize.width);
-    const overscanYPx = Math.max(0, imgVisibleHeight - containerSize.height);
+    const overscanX = Math.max(0, (totalScaleX - 1) / (2 * totalScaleX)) * 100;
+    const overscanY = Math.max(0, (totalScaleY - 1) / (2 * totalScaleY)) * 100;
 
-    // Convert pixel overscan to a percentage value for the transform
-    const overscanX = (overscanXPx / 2 / imgVisibleWidth) * 100;
-    const overscanY = (overscanYPx / 2 / imgVisibleHeight) * 100;
-    
     currentValues.current.x = Math.max(50 - overscanX, Math.min(50 + overscanX, x));
     currentValues.current.y = Math.max(50 - overscanY, Math.min(50 + overscanY, y));
   };
@@ -160,16 +132,12 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
     const dy = e.clientY - dragStart.current.y;
     dragStart.current = { x: e.clientX, y: e.clientY };
    
-    const correctedBaseScale = Math.max(
-        containerSize.width / photo.width,
-        containerSize.height / photo.height
-    );
-    const totalScale = correctedBaseScale * currentValues.current.scale;
-    const imgVisibleWidth = photo.width * totalScale;
-    const imgVisibleHeight = photo.height * totalScale;
+    const { scaleX: baseScaleX, scaleY: baseScaleY } = getBaseScale();
+    const totalScaleX = baseScaleX * currentValues.current.scale;
+    const totalScaleY = baseScaleY * currentValues.current.scale;
 
-    const dXPercent = (dx / imgVisibleWidth) * 100;
-    const dYPercent = (dy / imgVisibleHeight) * 100;
+    const dXPercent = (dx / (containerSize.width * totalScaleX)) * 100;
+    const dYPercent = (dy / (containerSize.height * totalScaleY)) * 100;
 
     currentValues.current.x += dXPercent;
     currentValues.current.y += dYPercent;
