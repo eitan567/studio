@@ -26,9 +26,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 interface PageLayoutProps {
   page: AlbumPage;
   onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
+  onInteractionChange: (isInteracting: boolean) => void;
 }
 
-function PageLayout({ page, onUpdatePhotoPanAndZoom }: PageLayoutProps) {
+function PageLayout({ page, onUpdatePhotoPanAndZoom, onInteractionChange }: PageLayoutProps) {
     const { photos, layout } = page;
     const template = LAYOUT_TEMPLATES.find(t => t.id === layout) || LAYOUT_TEMPLATES[0];
 
@@ -47,6 +48,7 @@ function PageLayout({ page, onUpdatePhotoPanAndZoom }: PageLayoutProps) {
                     <PhotoRenderer 
                       photo={photo} 
                       onUpdate={(panAndZoom) => onUpdatePhotoPanAndZoom(page.id, photo.id, panAndZoom)}
+                      onInteractionChange={onInteractionChange}
                     />
                 </div>
             ))}
@@ -74,6 +76,7 @@ interface AlbumPreviewProps {
 
 export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUpdatePhotoPanAndZoom }: AlbumPreviewProps) {
   const { toast } = useToast();
+  const [isInteracting, setIsInteracting] = useState(false);
   
   if (pages.length <= 0) {
     return (
@@ -87,67 +90,72 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
     );
   }
 
-  const PageToolbar = ({ page }: { page: AlbumPage }) => (
-    <div className="mb-2 flex justify-center">
+  const PageToolbar = ({ page, pageNumber }: { page: AlbumPage; pageNumber: number }) => (
+    <div className="mb-2">
       <TooltipProvider>
-        <div className="flex items-center gap-1 rounded-lg border bg-background p-0.5 shadow-lg">
-          <DropdownMenu>
+        <div className="flex items-center justify-between gap-1 rounded-lg border bg-background p-0.5 shadow-lg px-2">
+          <span className="text-sm font-semibold text-muted-foreground">
+            {page.isCover ? 'Cover' : `Page ${pageNumber}`}
+          </span>
+          <div className="flex items-center gap-1">
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon"><LayoutTemplate className="h-5 w-5" /></Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>Page Layout</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
+                {LAYOUT_TEMPLATES.map(template => (
+                  <DropdownMenuItem key={template.id} onSelect={() => onUpdateLayout(page.id, template.id)} className="p-0 focus:bg-accent/50 rounded-md cursor-pointer">
+                    <div className="w-24 h-24 p-1 flex flex-col items-center">
+                      <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
+                        {template.grid.map((gridClass, i) => (
+                          <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
+                        ))}
+                      </div>
+                      <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon"><LayoutTemplate className="h-5 w-5" /></Button>
-                </DropdownMenuTrigger>
+                <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><Download className="h-5 w-5" /></Button>
               </TooltipTrigger>
-              <TooltipContent>Page Layout</TooltipContent>
+              <TooltipContent>Download Page</TooltipContent>
             </Tooltip>
-            <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 w-[400px]">
-              {LAYOUT_TEMPLATES.map(template => (
-                <DropdownMenuItem key={template.id} onSelect={() => onUpdateLayout(page.id, template.id)} className="p-0 focus:bg-accent/50 rounded-md cursor-pointer">
-                  <div className="w-24 h-24 p-1 flex flex-col items-center">
-                    <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
-                      {template.grid.map((gridClass, i) => (
-                        <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
-                      ))}
-                    </div>
-                    <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
-                  </div>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><Download className="h-5 w-5" /></Button>
-            </TooltipTrigger>
-            <TooltipContent>Download Page</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><ImageIcon className="h-5 w-5" /></Button>
-            </TooltipTrigger>
-            <TooltipContent>Set Background</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><Wand2 className="h-5 w-5" /></Button>
-            </TooltipTrigger>
-            <TooltipContent>Enhance with AI</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><Undo className="h-5 w-5" /></Button>
-            </TooltipTrigger>
-            <TooltipContent>Undo AI Changes</TooltipContent>
-          </Tooltip>
-          <div className="mx-1 h-6 w-px bg-border" />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => onDeletePage(page.id)}>
-                <Trash2 className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Delete Page</TooltipContent>
-          </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><ImageIcon className="h-5 w-5" /></Button>
+              </TooltipTrigger>
+              <TooltipContent>Set Background</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><Wand2 className="h-5 w-5" /></Button>
+              </TooltipTrigger>
+              <TooltipContent>Enhance with AI</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><Undo className="h-5 w-5" /></Button>
+              </TooltipTrigger>
+              <TooltipContent>Undo AI Changes</TooltipContent>
+            </Tooltip>
+            <div className="mx-1 h-6 w-px bg-border" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => onDeletePage(page.id)}>
+                  <Trash2 className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Delete Page</TooltipContent>
+            </Tooltip>
+          </div>
         </div>
       </TooltipProvider>
     </div>
@@ -155,19 +163,19 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
 
   return (
     <div className="w-full">
-        <ScrollArea className="h-[85vh] w-full pr-4">
+        <ScrollArea className="h-[85vh] w-full pr-4" style={{ overflowY: isInteracting ? 'hidden' : 'auto' }}>
             <div className="space-y-8">
                 {pages.map((page) => (
-                    <div key={page.id} className="w-full max-w-4xl mx-auto" onWheel={(e) => e.stopPropagation()}>
+                    <div key={page.id} className="w-full max-w-4xl mx-auto">
                         <div className="w-full relative group/page">
                             
                             {!page.isCover && (
-                              <div className={cn("h-14", page.type === 'single' ? 'w-1/2 ml-auto' : 'w-full')}>
-                                <PageToolbar page={page} />
+                              <div className={cn("h-14", page.type === 'single' ? 'w-1/2 mx-auto' : 'w-full')}>
+                                <PageToolbar page={page} pageNumber={pages.findIndex(p => p.id === page.id)} />
                               </div>
                             )}
 
-                            <AspectRatio ratio={page.isCover || page.type === 'spread' ? 2 / 1 : 1 / 1} className={cn(page.type === 'single' && 'w-1/2 ml-auto')}>
+                            <AspectRatio ratio={page.isCover || page.type === 'spread' ? 2 / 1 : 2} className={cn(page.type === 'single' && 'w-1/2 mx-auto')}>
                                 <Card className="h-full w-full shadow-lg">
                                 <CardContent className="flex h-full w-full items-center justify-center p-2">
                                     {page.isCover ? (
@@ -181,29 +189,19 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                                             <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10 pointer-events-none"></div>
                                             <div className="absolute inset-y-0 left-1/2 w-4 -ml-2 bg-gradient-to-r from-transparent to-black/10 z-10 pointer-events-none"></div>
                                             <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10 pointer-events-none"></div>
-                                            <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} />
+                                            <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} onInteractionChange={setIsInteracting} />
                                         </div>
                                     ) : (
-                                        <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} />
+                                        <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} onInteractionChange={setIsInteracting} />
                                     )}
                                 </CardContent>
                                 </Card>
                             </AspectRatio>
-                            <div className="pt-2 text-center text-sm text-muted-foreground">
-                                {page.isCover ? 'Cover' : `Page ${pages.findIndex(p => p.id === page.id)}`}
-                            </div>
                         </div>
                     </div>
                 ))}
             </div>
       </ScrollArea>
-
-      <div className="mt-4 flex items-center rounded-lg border bg-card p-4 text-sm text-muted-foreground">
-        <Info className="mr-3 h-5 w-5 shrink-0" />
-        This is a digital preview. Colors and cropping may vary slightly in the
-        final printed product. The book spine and page gutter are simulated.
-      </div>
     </div>
   );
 }
-    
