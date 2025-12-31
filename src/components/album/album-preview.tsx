@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { BookOpenText, Info, Trash2, LayoutTemplate, Download, Image as ImageIcon, Wand2, Undo, Crop } from 'lucide-react';
+import { BookOpenText, Info, Trash2, LayoutTemplate, Download, Image as ImageIcon, Wand2, Undo, Crop, AlertTriangle } from 'lucide-react';
 import React, { useState } from 'react';
 
 import type { AlbumPage, AlbumConfig, Photo } from '@/lib/types';
@@ -27,11 +27,14 @@ interface PageLayoutProps {
   page: AlbumPage;
   onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
   onInteractionChange: (isInteracting: boolean) => void;
+  onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
 }
 
-function PageLayout({ page, onUpdatePhotoPanAndZoom, onInteractionChange }: PageLayoutProps) {
+function PageLayout({ page, onUpdatePhotoPanAndZoom, onInteractionChange, onDropPhoto }: PageLayoutProps) {
     const { photos, layout } = page;
     const template = LAYOUT_TEMPLATES.find(t => t.id === layout) || LAYOUT_TEMPLATES[0];
+
+    const [dragOverPhotoId, setDragOverPhotoId] = useState<string | null>(null);
 
     return (
         <div className={cn(
@@ -41,9 +44,23 @@ function PageLayout({ page, onUpdatePhotoPanAndZoom, onInteractionChange }: Page
                 <div
                     key={photo.id}
                     className={cn(
-                        'relative rounded-md overflow-hidden bg-muted group/photo',
-                        template.grid[index]
+                        'relative rounded-md overflow-hidden bg-muted group/photo transition-all',
+                        template.grid[index],
+                        dragOverPhotoId === photo.id && 'ring-4 ring-primary ring-inset'
                     )}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDragOverPhotoId(photo.id);
+                    }}
+                    onDragLeave={() => setDragOverPhotoId(null)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDragOverPhotoId(null);
+                      const droppedPhotoId = e.dataTransfer.getData('photoId');
+                      if (droppedPhotoId) {
+                        onDropPhoto(page.id, photo.id, droppedPhotoId);
+                      }
+                    }}
                 >
                     <PhotoRenderer 
                       photo={photo} 
@@ -72,9 +89,10 @@ interface AlbumPreviewProps {
   onDeletePage: (pageId: string) => void;
   onUpdateLayout: (pageId: string, newLayout: string) => void;
   onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
+  onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
 }
 
-export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUpdatePhotoPanAndZoom }: AlbumPreviewProps) {
+export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUpdatePhotoPanAndZoom, onDropPhoto }: AlbumPreviewProps) {
   const { toast } = useToast();
   const [isInteracting, setIsInteracting] = useState(false);
   
@@ -189,10 +207,20 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                                             <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10 pointer-events-none"></div>
                                             <div className="absolute inset-y-0 left-1/2 w-4 -ml-2 bg-gradient-to-r from-transparent to-black/10 z-10 pointer-events-none"></div>
                                             <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10 pointer-events-none"></div>
-                                            <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} onInteractionChange={setIsInteracting} />
+                                            <PageLayout 
+                                              page={page} 
+                                              onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} 
+                                              onInteractionChange={setIsInteracting} 
+                                              onDropPhoto={onDropPhoto}
+                                            />
                                         </div>
                                     ) : (
-                                        <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} onInteractionChange={setIsInteracting} />
+                                        <PageLayout 
+                                          page={page} 
+                                          onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} 
+                                          onInteractionChange={setIsInteracting} 
+                                          onDropPhoto={onDropPhoto}
+                                        />
                                     )}
                                 </CardContent>
                                 </Card>

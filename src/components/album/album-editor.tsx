@@ -8,6 +8,8 @@ import {
   UploadCloud,
   Wand2,
   PlusSquare,
+  AlertTriangle,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -34,8 +36,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { LAYOUT_TEMPLATES } from './layout-templates';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import Image from 'next/image';
+
+// Fix for alert import
+import { Alert as AlertUI, AlertDescription as AlertDescriptionUI, AlertTitle as AlertTitleUI } from '@/components/ui/alert';
 
 interface AlbumEditorProps {
   albumId: string;
@@ -57,13 +64,11 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
   const [randomSuggestion, setRandomSuggestion] = useState('');
   const [isClient, setIsClient] = useState(false);
+  const [allowDuplicates, setAllowDuplicates] = useState(true);
 
   useEffect(() => {
-    // This effect runs only on the client, after the component has mounted.
     setIsClient(true);
-    // Generate a random seed on component mount for dummy photos
     setRandomSeed(Math.random().toString(36).substring(7));
-    // Pre-set a random AI suggestion for demo purposes
     const suggestions = [
       "For a more dynamic feel, try a 6-photo spread for pages with action shots.",
       "The portrait on page 3 would 'pop' more with increased contrast.",
@@ -88,21 +93,17 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     const newPages: AlbumPage[] = [];
     const defaultPanAndZoom = { scale: 1, x: 50, y: 50 };
 
-    // 1. Cover page
     newPages.push({ id: 'cover', type: 'spread', photos: [], layout: 'cover', isCover: true });
     
-    // 2. First single page if there are photos
     if (photosPool.length > 0) {
       newPages.push({ id: uuidv4(), type: 'single', photos: photosPool.splice(0, 1).map(p => ({...p, panAndZoom: defaultPanAndZoom})), layout: '1-full' });
     }
 
-    // 3. Spread pages
-    const photosPerSpread = 2; // Default to 2 for spreads
+    const photosPerSpread = 2;
     while (photosPool.length >= photosPerSpread) {
       newPages.push({ id: uuidv4(), type: 'spread', photos: photosPool.splice(0, photosPerSpread).map(p => ({...p, panAndZoom: defaultPanAndZoom})), layout: '2-horiz' });
     }
 
-    // 4. Last single page if there are leftovers
     if (photosPool.length > 0) {
         newPages.push({ id: uuidv4(), type: 'single', photos: photosPool.splice(0, 1).map(p => ({...p, panAndZoom: defaultPanAndZoom})), layout: '1-full' });
     }
@@ -110,15 +111,20 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     setAlbumPages(newPages);
   };
 
-  const usedPhotoIds = useMemo(() => {
-    return new Set(albumPages.flatMap(p => p.photos.map(photo => photo.id)));
+  const photoUsageCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    albumPages.forEach(page => {
+      page.photos.forEach(photo => {
+        counts[photo.id] = (counts[photo.id] || 0) + 1;
+      });
+    });
+    return counts;
   }, [albumPages]);
 
+  const usedPhotoIds = useMemo(() => {
+    return new Set(Object.keys(photoUsageCounts));
+  }, [photoUsageCounts]);
 
-  const addPage = () => {
-    // This function might need revision if we stick to auto-generating pages.
-    // For now, it's unused if generateInitialPages creates the whole album.
-  };
 
   const deletePage = (pageId: string) => {
     setAlbumPages(prev => prev.filter(p => p.id !== pageId));
@@ -139,7 +145,6 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
       const newPhotoCount = newTemplate.photoCount;
   
-      // Collect all photos from the current page onwards, and the layouts of subsequent pages
       const subsequentPages = prevPages.slice(pageIndex);
       const subsequentPhotos = subsequentPages.flatMap(p => p.photos);
       const subsequentLayouts = prevPages.slice(pageIndex + 1).map(p => ({
@@ -157,11 +162,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       }
   
       const defaultPanAndZoom = { scale: 1, x: 50, y: 50 };
-  
-      // Create a mutable copy of the pages array up to the point of change
       const newPages = [...prevPages.slice(0, pageIndex)];
   
-      // Update the current page with new layout and photos
       const updatedPagePhotos = subsequentPhotos.splice(0, newPhotoCount).map(p => ({
         ...p,
         panAndZoom: p.panAndZoom || defaultPanAndZoom,
@@ -169,17 +171,15 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       
       newPages.push({ ...pageToUpdate, photos: updatedPagePhotos, layout: newLayoutId });
   
-      // Rebuild subsequent pages with remaining photos, trying to respect original layouts
       let remainingPhotosPool = [...subsequentPhotos];
       let layoutIndex = 0;
   
       while (remainingPhotosPool.length > 0) {
         let photosForNextPage: Photo[] = [];
-        let nextPageType: 'single' | 'spread' = 'spread'; // Default
-        let nextPageLayout = '2-horiz'; // Default
+        let nextPageType: 'single' | 'spread' = 'spread';
+        let nextPageLayout = '2-horiz';
   
         if (layoutIndex < subsequentLayouts.length) {
-            // Try to use the original layout
             const originalLayout = subsequentLayouts[layoutIndex];
             const originalTemplate = LAYOUT_TEMPLATES.find(t => t.id === originalLayout.layout);
             const originalPhotoCount = originalTemplate ? originalTemplate.photoCount : 1;
@@ -189,15 +189,13 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                 nextPageType = originalLayout.type;
                 nextPageLayout = originalLayout.layout;
             } else {
-                // Not enough photos for original layout, take all remaining
                 photosForNextPage = remainingPhotosPool.splice(0);
-                nextPageType = originalLayout.type; // Keep the type
+                nextPageType = originalLayout.type;
                 const bestFitTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === photosForNextPage.length) || LAYOUT_TEMPLATES.find(t => t.photoCount === 1)!;
                 nextPageLayout = bestFitTemplate.id;
             }
             layoutIndex++;
         } else {
-            // No more original layouts, use default logic
             const lastPage = newPages[newPages.length - 1];
             if (lastPage.type === 'single' && remainingPhotosPool.length >= 2) {
                 photosForNextPage = remainingPhotosPool.splice(0, 2);
@@ -243,6 +241,36 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       }));
   };
 
+  const handleDropPhoto = (pageId: string, targetPhotoId: string, droppedPhotoId: string) => {
+    const droppedPhoto = allPhotos.find(p => p.id === droppedPhotoId);
+    if (!droppedPhoto) return;
+
+    if (!allowDuplicates && usedPhotoIds.has(droppedPhotoId)) {
+      toast({
+        title: "Photo already in album",
+        description: "Duplicate photos are not allowed with current settings.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setAlbumPages(prevPages => prevPages.map(page => {
+      if (page.id !== pageId) return page;
+      return {
+        ...page,
+        photos: page.photos.map(p => {
+          if (p.id === targetPhotoId) {
+            return {
+              ...droppedPhoto,
+              panAndZoom: { scale: 1, x: 50, y: 50 }
+            };
+          }
+          return p;
+        })
+      };
+    }));
+  };
+
   const generateDummyPhotos = () => {
     if (!randomSeed) {
       toast({
@@ -259,11 +287,11 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     });
     setTimeout(() => {
       const dimensions = [
-        { w: 1200, h: 800 },  // Landscape (3:2)
-        { w: 800, h: 1200 },  // Portrait (2:3)
-        { w: 1000, h: 1000 }, // Square (1:1)
-        { w: 1600, h: 900 },  // Cinematic (16:9)
-        { w: 900, h: 1600 }   // Story (9:16)
+        { w: 1200, h: 800 },
+        { w: 800, h: 1200 },
+        { w: 1000, h: 1000 },
+        { w: 1600, h: 900 },
+        { w: 900, h: 1600 }
       ];
 
       const dummyPhotos: Photo[] = Array.from({ length: 100 }, (_, i) => {
@@ -276,11 +304,11 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         };
       });
       setAllPhotos(dummyPhotos);
-      generateInitialPages(dummyPhotos);
+      generateInitialPages(dummyPhotos); // Use all photos
       setIsLoading(false);
       toast({
         title: 'Photos & Album Generated',
-        description: '100 dummy photos with different orientations and an initial album layout have been created.',
+        description: '100 dummy photos and a full album layout have been created.',
       });
     }, 1500);
   };
@@ -298,23 +326,24 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   };
   
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-      <div className="lg:col-span-1 space-y-6">
+    <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+      {/* Left Sidebar: Config & Tools */}
+      <div className="xl:col-span-2 space-y-6">
         {isClient && (
           <>
             <Card>
-              <CardHeader>
-                <CardTitle className="font-headline">Album Configuration</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="font-headline text-lg">Album Config</CardTitle>
               </CardHeader>
               <CardContent>
                 <Form {...form}>
-                  <form className="space-y-6">
+                  <form className="space-y-4">
                     <FormField
                       control={form.control}
                       name="size"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Album Size (cm)</FormLabel>
+                          <FormLabel>Size (cm)</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
                               <SelectTrigger>
@@ -327,7 +356,6 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                               <SelectItem value="30x30">30 x 30</SelectItem>
                             </SelectContent>
                           </Select>
-                          <FormMessage />
                         </FormItem>
                       )}
                     />
@@ -337,15 +365,12 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             </Card>
             
             <Card>
-              <CardHeader>
-                <CardTitle className="font-headline flex items-center gap-2">
-                  <UploadCloud className="h-6 w-6" /> Photo Management
+              <CardHeader className="pb-3">
+                <CardTitle className="font-headline text-lg flex items-center gap-2">
+                  <Wand2 className="h-5 w-5" /> Actions
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <Button className="w-full" onClick={() => { toast({title: 'Feature coming soon!'})}}>
-                  <Cloud className="mr-2 h-4 w-4" /> Upload from Computer
-                </Button>
+              <CardContent className="space-y-3">
                 <Button
                   className="w-full"
                   variant="secondary"
@@ -355,48 +380,109 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                   {isLoading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
-                    <Wand2 className="mr-2 h-4 w-4" />
+                    <PlusSquare className="mr-2 h-4 w-4" />
                   )}
-                  Generate 100 Dummy Photos
+                  Load Photos
                 </Button>
-                <p className="text-sm text-muted-foreground text-center pt-2">
-                    {allPhotos.length > 0 ? `${allPhotos.length - usedPhotoIds.size} photos available.` : 'Start by generating photos.'}
-                </p>
+                
+                <Button 
+                  variant="outline" 
+                  className="w-full border-accent text-accent hover:bg-accent hover:text-accent-foreground" 
+                  onClick={handleAiEnhance} 
+                  disabled={isGenerating || allPhotos.length === 0}
+                >
+                  {isGenerating ? (<Loader2 className="h-4 w-4 animate-spin" />) : (<Sparkles className="mr-2 h-4 w-4" />)}
+                  AI Suggest
+                </Button>
+
+                {aiSuggestion && (
+                  <AlertUI className="mt-2">
+                    <Sparkles className="h-4 w-4" />
+                    <AlertTitleUI className="text-xs">AI Suggestion</AlertTitleUI>
+                    <AlertDescriptionUI className="text-xs">{aiSuggestion}</AlertDescriptionUI>
+                  </AlertUI>
+                )}
               </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle className="font-headline flex items-center gap-2">
-                        <Sparkles className="h-6 w-6 text-accent" /> AI Album Assistant
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <p className="text-sm text-muted-foreground">Let our AI analyze your album and provide suggestions for improvements and layouts.</p>
-                    <Button variant="outline" className="w-full border-accent text-accent hover:bg-accent hover:text-accent-foreground" onClick={handleAiEnhance} disabled={isGenerating || allPhotos.length === 0}>
-                        {isGenerating ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing...</>) : (<>Enhance with AI</>)}
-                    </Button>
-
-                    {aiSuggestion && (
-                        <Alert>
-                            <Sparkles className="h-4 w-4" />
-                            <AlertTitle>AI Suggestion</AlertTitle>
-                            <AlertDescription>{aiSuggestion}</AlertDescription>
-                        </Alert>
-                    )}
-                </CardContent>
             </Card>
           </>
         )}
       </div>
-      <div className="lg:col-span-3">
+
+      {/* Main Content: Album Preview */}
+      <div className="xl:col-span-7">
         <AlbumPreview 
           pages={albumPages} 
           config={config} 
           onDeletePage={deletePage}
           onUpdateLayout={updatePageLayout}
           onUpdatePhotoPanAndZoom={updatePhotoPanAndZoom}
+          onDropPhoto={handleDropPhoto}
         />
+      </div>
+
+      {/* Right Sidebar: Photo Gallery */}
+      <div className="xl:col-span-3 space-y-4">
+        <Card className="h-[85vh] flex flex-col">
+          <CardHeader className="pb-3 border-bottom">
+            <div className="flex items-center justify-between">
+              <CardTitle className="font-headline text-lg">Photo Gallery</CardTitle>
+              <div className="flex items-center gap-2">
+                <label htmlFor="allow-duplicates" className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  Allow Multi
+                </label>
+                <Checkbox 
+                  id="allow-duplicates" 
+                  checked={allowDuplicates} 
+                  onCheckedChange={(checked) => setAllowDuplicates(!!checked)}
+                />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="flex-1 overflow-hidden p-0">
+            {allPhotos.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center">
+                <ImageIcon className="h-10 w-10 mb-2 opacity-20" />
+                <p className="text-sm">No photos loaded yet. Use "Load Photos" to start.</p>
+              </div>
+            ) : (
+              <ScrollArea className="h-full px-4 py-2">
+                <div className="grid grid-cols-2 gap-2 pb-4">
+                  {allPhotos.map((photo) => (
+                    <div 
+                      key={photo.id}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('photoId', photo.id);
+                      }}
+                      className="relative aspect-square rounded-md overflow-hidden bg-muted cursor-grab active:cursor-grabbing border-2 border-transparent hover:border-primary transition-colors group"
+                    >
+                      <Image 
+                        src={photo.src} 
+                        alt={photo.alt} 
+                        fill 
+                        className="object-cover" 
+                        sizes="(max-width: 768px) 50vw, 20vw"
+                      />
+                      {photoUsageCounts[photo.id] > 1 && (
+                        <div className="absolute top-1 right-1 bg-white/90 rounded-full p-0.5 shadow-sm text-orange-500">
+                          <AlertTriangle className="h-4 w-4 fill-orange-500 text-white" />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                        <span className="text-[10px] text-white font-bold bg-black/50 px-1.5 py-0.5 rounded">DRAG ME</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </CardContent>
+          <div className="p-3 border-t bg-muted/30 text-center">
+            <p className="text-xs text-muted-foreground">
+               {allPhotos.length} photos total • {usedPhotoIds.size} used
+            </p>
+          </div>
+        </Card>
       </div>
     </div>
   );
