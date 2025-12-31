@@ -255,14 +255,23 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     setIsLoading(true);
     toast({
       title: 'Generating Dummy Photos',
-      description: 'Please wait while we create 100 sample images.',
+      description: 'Please wait while we create 100 sample images with various aspect ratios.',
     });
     setTimeout(() => {
+      const dimensions = [
+        { w: 1200, h: 800 },  // Landscape (3:2)
+        { w: 800, h: 1200 },  // Portrait (2:3)
+        { w: 1000, h: 1000 }, // Square (1:1)
+        { w: 1600, h: 900 },  // Cinematic (16:9)
+        { w: 900, h: 1600 }   // Story (9:16)
+      ];
+
       const dummyPhotos: Photo[] = Array.from({ length: 100 }, (_, i) => {
         const seed = `${randomSeed}-${i}`;
+        const dim = dimensions[i % dimensions.length];
         return {
           id: `dummy-${seed}-${i}`,
-          src: `https://picsum.photos/seed/${seed}/800/800`,
+          src: `https://picsum.photos/seed/${seed}/${dim.w}/${dim.h}`,
           alt: `Dummy photo ${i + 1}`,
         };
       });
@@ -271,7 +280,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       setIsLoading(false);
       toast({
         title: 'Photos & Album Generated',
-        description: '100 dummy photos and an initial album layout have been created.',
+        description: '100 dummy photos with different orientations and an initial album layout have been created.',
       });
     }, 1500);
   };
