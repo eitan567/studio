@@ -87,99 +87,87 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
     );
   }
 
+  const PageToolbar = ({ page }: { page: AlbumPage }) => (
+    <div className="mb-2 flex justify-center">
+      <TooltipProvider>
+        <div className="flex items-center gap-1 rounded-lg border bg-background p-0.5 shadow-lg">
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon"><LayoutTemplate className="h-5 w-5" /></Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Page Layout</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 w-[400px]">
+              {LAYOUT_TEMPLATES.map(template => (
+                <DropdownMenuItem key={template.id} onSelect={() => onUpdateLayout(page.id, template.id)} className="p-0 focus:bg-accent/50 rounded-md cursor-pointer">
+                  <div className="w-24 h-24 p-1 flex flex-col items-center">
+                    <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
+                      {template.grid.map((gridClass, i) => (
+                        <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
+                      ))}
+                    </div>
+                    <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
+                  </div>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><Download className="h-5 w-5" /></Button>
+            </TooltipTrigger>
+            <TooltipContent>Download Page</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><ImageIcon className="h-5 w-5" /></Button>
+            </TooltipTrigger>
+            <TooltipContent>Set Background</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><Wand2 className="h-5 w-5" /></Button>
+            </TooltipTrigger>
+            <TooltipContent>Enhance with AI</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><Undo className="h-5 w-5" /></Button>
+            </TooltipTrigger>
+            <TooltipContent>Undo AI Changes</TooltipContent>
+          </Tooltip>
+          <div className="mx-1 h-6 w-px bg-border" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => onDeletePage(page.id)}>
+                <Trash2 className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Delete Page</TooltipContent>
+          </Tooltip>
+        </div>
+      </TooltipProvider>
+    </div>
+  );
+
   return (
     <div className="w-full">
         <ScrollArea className="h-[85vh] w-full pr-4">
             <div className="space-y-8">
                 {pages.map((page) => (
-                    <div key={page.id} className="pt-12" onWheel={(e) => e.stopPropagation()}>
-                        <div className={cn('w-full relative group/page max-w-4xl mx-auto')}>
-                            {/* Page Toolbar */}
+                    <div key={page.id} className="w-full max-w-4xl mx-auto" onWheel={(e) => e.stopPropagation()}>
+                        <div className="w-full relative group/page">
+                            
                             {!page.isCover && (
-                                <div className={cn(
-                                    "absolute -top-14 z-20 flex items-center justify-center",
-                                    page.type === 'spread' ? "left-1/2 -translate-x-1/2" : "right-[25%] -translate-x-1/2"
-                                )}>
-                                <TooltipProvider>
-                                    <div className="flex items-center gap-1 rounded-lg border bg-background p-0.5 shadow-lg">
-                                        <DropdownMenu>
-                                            <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon"><LayoutTemplate className="h-5 w-5" /></Button>
-                                                </DropdownMenuTrigger>
-                                            </TooltipTrigger>
-                                            <TooltipContent>Page Layout</TooltipContent>
-                                            </Tooltip>
-                                            <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 w-[400px]">
-                                            {LAYOUT_TEMPLATES.map(template => {
-                                                return (
-                                                    <DropdownMenuItem key={template.id} onSelect={() => onUpdateLayout(page.id, template.id)} className="p-0 focus:bg-accent/50 rounded-md cursor-pointer">
-                                                    <div className="w-24 h-24 p-1 flex flex-col items-center">
-                                                        <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
-                                                            {template.grid.map((gridClass, i) => (
-                                                                <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
-                                                            ))}
-                                                        </div>
-                                                        <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
-                                                    </div>
-                                                    </DropdownMenuItem>
-                                                );
-                                            })}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-
-                                        <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}>
-                                            <Download className="h-5 w-5" />
-                                            </Button>
-                                        </TooltipTrigger>
-                                            <TooltipContent>Download Page</TooltipContent>
-                                        </Tooltip>
-
-                                        <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}>
-                                            <ImageIcon className="h-5 w-5" />
-                                            </Button>
-                                        </TooltipTrigger>
-                                            <TooltipContent>Set Background</TooltipContent>
-                                        </Tooltip>
-
-                                        <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}>
-                                            <Wand2 className="h-5 w-5" />
-                                            </Button>
-                                        </TooltipTrigger>
-                                            <TooltipContent>Enhance with AI</TooltipContent>
-                                        </Tooltip>
-                                        
-                                        <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}>
-                                            <Undo className="h-5 w-5" />
-                                            </Button>
-                                        </TooltipTrigger>
-                                            <TooltipContent>Undo AI Changes</TooltipContent>
-                                        </Tooltip>
-                                        
-                                        <div className="mx-1 h-6 w-px bg-border" />
-
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => onDeletePage(page.id)}>
-                                            <Trash2 className="h-5 w-5" />
-                                        </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Delete Page</TooltipContent>
-                                    </Tooltip>
-                                    </div>
-                                </TooltipProvider>
-                                </div>
+                              <div className={cn("h-14", page.type === 'single' ? 'w-1/2 ml-auto' : 'w-full')}>
+                                <PageToolbar page={page} />
+                              </div>
                             )}
-                            <AspectRatio ratio={2/1}>
+
+                            <AspectRatio ratio={page.isCover || page.type === 'spread' ? 2 / 1 : 1 / 1} className={cn(page.type === 'single' && 'w-1/2 ml-auto')}>
                                 <Card className="h-full w-full shadow-lg">
                                 <CardContent className="flex h-full w-full items-center justify-center p-2">
                                     {page.isCover ? (
@@ -196,11 +184,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                                             <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} />
                                         </div>
                                     ) : (
-                                        <div className="h-full w-full flex justify-end items-center">
-                                            <div className="h-full w-[50%]">
-                                                <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} />
-                                            </div>
-                                        </div>
+                                        <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} />
                                     )}
                                 </CardContent>
                                 </Card>
