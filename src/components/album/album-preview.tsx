@@ -96,7 +96,10 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                         <div className={cn('w-full relative group/page max-w-4xl mx-auto')}>
                             {/* Page Toolbar */}
                             {!page.isCover && (
-                                <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center">
+                                <div className={cn(
+                                    "absolute -top-14 z-20 flex items-center justify-center",
+                                    page.type === 'spread' ? "left-1/2 -translate-x-1/2" : "right-[25%] -translate-x-1/2"
+                                )}>
                                 <TooltipProvider>
                                     <div className="flex items-center gap-1 rounded-lg border bg-background p-0.5 shadow-lg">
                                         <DropdownMenu>
@@ -176,24 +179,29 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                                 </TooltipProvider>
                                 </div>
                             )}
-                            <AspectRatio ratio={page.isCover ? 2 / 1 : (page.type === 'spread' ? 2 / 1 : 1 / 1)}>
+                            <AspectRatio ratio={2/1}>
                                 <Card className="h-full w-full shadow-lg">
                                 <CardContent className="flex h-full w-full items-center justify-center p-2">
-                                    <div className="relative h-full w-full">
-                                        {/* Spine simulation */}
-                                        {!page.isCover && page.type === 'spread' && <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10 pointer-events-none"></div>}
-                                        {!page.isCover && page.type === 'spread' && <div className="absolute inset-y-0 left-1/2 w-4 -ml-2 bg-gradient-to-r from-transparent to-black/10 z-10 pointer-events-none"></div>}
-                                        {!page.isCover && page.type === 'spread' && <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10 pointer-events-none"></div>}
-
-                                        {page.isCover ? (
-                                            <div className="grid grid-cols-2 h-full w-full">
-                                                <CoverPageLayout side="back" />
-                                                <CoverPageLayout side="front" />
-                                            </div>
-                                        ) : (
+                                    {page.isCover ? (
+                                        <div className="grid grid-cols-2 h-full w-full">
+                                            <CoverPageLayout side="back" />
+                                            <CoverPageLayout side="front" />
+                                        </div>
+                                    ) : page.type === 'spread' ? (
+                                        <div className="relative h-full w-full">
+                                            {/* Spine simulation */}
+                                            <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10 pointer-events-none"></div>
+                                            <div className="absolute inset-y-0 left-1/2 w-4 -ml-2 bg-gradient-to-r from-transparent to-black/10 z-10 pointer-events-none"></div>
+                                            <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10 pointer-events-none"></div>
                                             <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} />
-                                        )}
-                                    </div>
+                                        </div>
+                                    ) : (
+                                        <div className="h-full w-full flex justify-end items-center">
+                                            <div className="h-full w-[50%]">
+                                                <PageLayout page={page} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} />
+                                            </div>
+                                        </div>
+                                    )}
                                 </CardContent>
                                 </Card>
                             </AspectRatio>
