@@ -87,27 +87,27 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const config: AlbumConfig = {
     size: form.watch('size') as '20x20',
   };
-  
+
   const generateInitialPages = (photos: Photo[]) => {
     let photosPool = [...photos];
     const newPages: AlbumPage[] = [];
     const defaultPanAndZoom = { scale: 1, x: 50, y: 50 };
 
     newPages.push({ id: 'cover', type: 'spread', photos: [], layout: 'cover', isCover: true });
-    
+
     if (photosPool.length > 0) {
-      newPages.push({ id: uuidv4(), type: 'single', photos: photosPool.splice(0, 1).map(p => ({...p, panAndZoom: defaultPanAndZoom})), layout: '1-full' });
+      newPages.push({ id: uuidv4(), type: 'single', photos: photosPool.splice(0, 1).map(p => ({ ...p, panAndZoom: defaultPanAndZoom })), layout: '1-full' });
     }
 
     const photosPerSpread = 2;
     while (photosPool.length >= photosPerSpread) {
-      newPages.push({ id: uuidv4(), type: 'spread', photos: photosPool.splice(0, photosPerSpread).map(p => ({...p, panAndZoom: defaultPanAndZoom})), layout: '2-horiz' });
+      newPages.push({ id: uuidv4(), type: 'spread', photos: photosPool.splice(0, photosPerSpread).map(p => ({ ...p, panAndZoom: defaultPanAndZoom })), layout: '2-horiz' });
     }
 
     if (photosPool.length > 0) {
-        newPages.push({ id: uuidv4(), type: 'single', photos: photosPool.splice(0, 1).map(p => ({...p, panAndZoom: defaultPanAndZoom})), layout: '1-full' });
+      newPages.push({ id: uuidv4(), type: 'single', photos: photosPool.splice(0, 1).map(p => ({ ...p, panAndZoom: defaultPanAndZoom })), layout: '1-full' });
     }
-    
+
     setAlbumPages(newPages);
   };
 
@@ -138,20 +138,20 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     setAlbumPages(prevPages => {
       const pageIndex = prevPages.findIndex(p => p.id === pageId);
       if (pageIndex === -1) return prevPages;
-  
+
       const pageToUpdate = { ...prevPages[pageIndex] };
       const newTemplate = LAYOUT_TEMPLATES.find(t => t.id === newLayoutId);
       if (!newTemplate) return prevPages;
 
       const newPhotoCount = newTemplate.photoCount;
-  
+
       const subsequentPages = prevPages.slice(pageIndex);
       const subsequentPhotos = subsequentPages.flatMap(p => p.photos);
       const subsequentLayouts = prevPages.slice(pageIndex + 1).map(p => ({
         type: p.type,
         layout: p.layout
       }));
-  
+
       if (newPhotoCount > subsequentPhotos.length) {
         toast({
           title: 'Not Enough Photos',
@@ -160,85 +160,85 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         });
         return prevPages;
       }
-  
+
       const defaultPanAndZoom = { scale: 1, x: 50, y: 50 };
       const newPages = [...prevPages.slice(0, pageIndex)];
-  
+
       const updatedPagePhotos = subsequentPhotos.splice(0, newPhotoCount).map(p => ({
         ...p,
         panAndZoom: p.panAndZoom || defaultPanAndZoom,
       }));
-      
+
       newPages.push({ ...pageToUpdate, photos: updatedPagePhotos, layout: newLayoutId });
-  
+
       let remainingPhotosPool = [...subsequentPhotos];
       let layoutIndex = 0;
-  
+
       while (remainingPhotosPool.length > 0) {
         let photosForNextPage: Photo[] = [];
         let nextPageType: 'single' | 'spread' = 'spread';
         let nextPageLayout = '2-horiz';
-  
+
         if (layoutIndex < subsequentLayouts.length) {
-            const originalLayout = subsequentLayouts[layoutIndex];
-            const originalTemplate = LAYOUT_TEMPLATES.find(t => t.id === originalLayout.layout);
-            const originalPhotoCount = originalTemplate ? originalTemplate.photoCount : 1;
-            
-            if (remainingPhotosPool.length >= originalPhotoCount) {
-                photosForNextPage = remainingPhotosPool.splice(0, originalPhotoCount);
-                nextPageType = originalLayout.type;
-                nextPageLayout = originalLayout.layout;
-            } else {
-                photosForNextPage = remainingPhotosPool.splice(0);
-                nextPageType = originalLayout.type;
-                const bestFitTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === photosForNextPage.length) || LAYOUT_TEMPLATES.find(t => t.photoCount === 1)!;
-                nextPageLayout = bestFitTemplate.id;
-            }
-            layoutIndex++;
+          const originalLayout = subsequentLayouts[layoutIndex];
+          const originalTemplate = LAYOUT_TEMPLATES.find(t => t.id === originalLayout.layout);
+          const originalPhotoCount = originalTemplate ? originalTemplate.photoCount : 1;
+
+          if (remainingPhotosPool.length >= originalPhotoCount) {
+            photosForNextPage = remainingPhotosPool.splice(0, originalPhotoCount);
+            nextPageType = originalLayout.type;
+            nextPageLayout = originalLayout.layout;
+          } else {
+            photosForNextPage = remainingPhotosPool.splice(0);
+            nextPageType = originalLayout.type;
+            const bestFitTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === photosForNextPage.length) || LAYOUT_TEMPLATES.find(t => t.photoCount === 1)!;
+            nextPageLayout = bestFitTemplate.id;
+          }
+          layoutIndex++;
         } else {
-            const lastPage = newPages[newPages.length - 1];
-            if (lastPage.type === 'single' && remainingPhotosPool.length >= 2) {
-                photosForNextPage = remainingPhotosPool.splice(0, 2);
-                nextPageType = 'spread';
-                nextPageLayout = '2-horiz';
-            } else if (remainingPhotosPool.length === 1) {
-                photosForNextPage = remainingPhotosPool.splice(0, 1);
-                nextPageType = 'single';
-                nextPageLayout = '1-full';
-            } else {
-                 const count = Math.min(remainingPhotosPool.length, 2);
-                photosForNextPage = remainingPhotosPool.splice(0, count);
-                const bestFitTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === count) || LAYOUT_TEMPLATES.find(t => t.photoCount === 1)!;
-                nextPageType = count > 1 ? 'spread' : 'single';
-                nextPageLayout = bestFitTemplate.id;
-            }
+          const lastPage = newPages[newPages.length - 1];
+          if (lastPage.type === 'single' && remainingPhotosPool.length >= 2) {
+            photosForNextPage = remainingPhotosPool.splice(0, 2);
+            nextPageType = 'spread';
+            nextPageLayout = '2-horiz';
+          } else if (remainingPhotosPool.length === 1) {
+            photosForNextPage = remainingPhotosPool.splice(0, 1);
+            nextPageType = 'single';
+            nextPageLayout = '1-full';
+          } else {
+            const count = Math.min(remainingPhotosPool.length, 2);
+            photosForNextPage = remainingPhotosPool.splice(0, count);
+            const bestFitTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === count) || LAYOUT_TEMPLATES.find(t => t.photoCount === 1)!;
+            nextPageType = count > 1 ? 'spread' : 'single';
+            nextPageLayout = bestFitTemplate.id;
+          }
         }
-        
+
         if (photosForNextPage.length > 0) {
-            newPages.push({
-                id: uuidv4(),
-                type: nextPageType,
-                photos: photosForNextPage.map(p => ({ ...p, panAndZoom: defaultPanAndZoom })),
-                layout: nextPageLayout,
-            });
+          newPages.push({
+            id: uuidv4(),
+            type: nextPageType,
+            photos: photosForNextPage.map(p => ({ ...p, panAndZoom: defaultPanAndZoom })),
+            layout: nextPageLayout,
+          });
         }
       }
-  
+
       return newPages;
     });
   };
-  
+
   const updatePhotoPanAndZoom = (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => {
-      setAlbumPages(pages => pages.map(page => {
-          if (page.id !== pageId) return page;
-          return {
-              ...page,
-              photos: page.photos.map(photo => {
-                  if (photo.id !== photoId) return photo;
-                  return { ...photo, panAndZoom };
-              })
-          };
-      }));
+    setAlbumPages(pages => pages.map(page => {
+      if (page.id !== pageId) return page;
+      return {
+        ...page,
+        photos: page.photos.map(photo => {
+          if (photo.id !== photoId) return photo;
+          return { ...photo, panAndZoom };
+        })
+      };
+    }));
   };
 
   const handleDropPhoto = (pageId: string, targetPhotoId: string, droppedPhotoId: string) => {
@@ -326,7 +326,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     setAiSuggestion(randomSuggestion);
     setIsGenerating(false);
   };
-  
+
   return (
     <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
       {/* Left Sidebar: Config & Tools */}
@@ -365,7 +365,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                 </Form>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="font-headline text-lg flex items-center gap-2">
@@ -386,11 +386,11 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                   )}
                   Load Photos
                 </Button>
-                
-                <Button 
-                  variant="outline" 
-                  className="w-full border-accent text-accent hover:bg-accent hover:text-accent-foreground" 
-                  onClick={handleAiEnhance} 
+
+                <Button
+                  variant="outline"
+                  className="w-full border-accent text-accent hover:bg-accent hover:text-accent-foreground"
+                  onClick={handleAiEnhance}
                   disabled={isGenerating || allPhotos.length === 0}
                 >
                   {isGenerating ? (<Loader2 className="h-4 w-4 animate-spin" />) : (<Sparkles className="mr-2 h-4 w-4" />)}
@@ -412,9 +412,9 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
       {/* Main Content: Album Preview */}
       <div className="xl:col-span-7">
-        <AlbumPreview 
-          pages={albumPages} 
-          config={config} 
+        <AlbumPreview
+          pages={albumPages}
+          config={config}
           onDeletePage={deletePage}
           onUpdateLayout={updatePageLayout}
           onUpdatePhotoPanAndZoom={updatePhotoPanAndZoom}
@@ -432,9 +432,9 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                 <label htmlFor="allow-duplicates" className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                   Allow Multi
                 </label>
-                <Checkbox 
-                  id="allow-duplicates" 
-                  checked={allowDuplicates} 
+                <Checkbox
+                  id="allow-duplicates"
+                  checked={allowDuplicates}
                   onCheckedChange={(checked) => setAllowDuplicates(!!checked)}
                 />
               </div>
@@ -450,7 +450,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
               <ScrollArea className="h-full px-4 py-2">
                 <div className="columns-2 gap-2 pb-4">
                   {allPhotos.map((photo) => (
-                    <div 
+                    <div
                       key={photo.id}
                       draggable
                       onDragStart={(e) => {
@@ -458,13 +458,17 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                       }}
                       className="relative break-inside-avoid mb-2 rounded-md overflow-hidden bg-muted cursor-grab active:cursor-grabbing border-2 border-transparent hover:border-primary transition-all group"
                     >
-                      <img 
-                        src={photo.src} 
-                        alt={photo.alt} 
+                      <img
+                        src={photo.src}
+                        alt={photo.alt}
                         className="w-full h-auto display-block"
                       />
+                      {/* Resolution display - top right corner */}
+                      <div className="absolute top-1 right-1 bg-black/60 text-white text-[9px] font-medium px-1 py-0.5 rounded z-10">
+                        {photo.width}×{photo.height}
+                      </div>
                       {photoUsageCounts[photo.id] > 1 && (
-                        <div className="absolute top-1 right-1 bg-white/90 rounded-full p-0.5 shadow-sm text-orange-500 z-10">
+                        <div className="absolute top-1 left-1 bg-white/90 rounded-full p-0.5 shadow-sm text-orange-500 z-10">
                           <AlertTriangle className="h-4 w-4 fill-orange-500 text-white" />
                         </div>
                       )}
@@ -479,7 +483,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           </CardContent>
           <div className="p-3 border-t bg-muted/30 text-center">
             <p className="text-xs text-muted-foreground">
-               {allPhotos.length} photos total • {usedPhotoIds.size} used
+              {allPhotos.length} photos total • {usedPhotoIds.size} used
             </p>
           </div>
         </Card>
