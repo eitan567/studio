@@ -33,5 +33,9 @@ export type AlbumPage = {
     back: string;
   };
   spineText?: string;
+  spineWidth?: number;
+  spineColor?: string;
+  spineFontSize?: number;
+  spineFontFamily?: string;
   coverType?: 'split' | 'full'; // Defaults to 'split'
 };

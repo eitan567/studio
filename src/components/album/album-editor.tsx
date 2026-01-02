@@ -45,7 +45,7 @@ import Image from 'next/image';
 
 // Fix for alert import
 import { Alert as AlertUI, AlertDescription as AlertDescriptionUI, AlertTitle as AlertTitleUI } from '@/components/ui/alert';
-import { aiGenerateBackground } from '@/ai/ai-generate-background';
+import { AiBackgroundGenerator } from './ai-background-generator';
 
 interface AlbumEditorProps {
   albumId: string;
@@ -91,40 +91,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     }, 100);
   };
 
-  // AI Background Generation
-  const [aiBackgroundPrompt, setAiBackgroundPrompt] = useState('');
-  const [isGeneratingBackground, setIsGeneratingBackground] = useState(false);
 
-  const handleGenerateBackground = async () => {
-    if (!aiBackgroundPrompt.trim()) return;
-    setIsGeneratingBackground(true);
-    try {
-      const result = await aiGenerateBackground({ prompt: aiBackgroundPrompt });
-      if (result.success && result.imageUrl) {
-        setAvailableBackgrounds(prev => [...prev, result.imageUrl]);
-        setBackgroundImage(result.imageUrl);
-        setAiBackgroundPrompt('');
-        toast({
-          title: 'Background Generated!',
-          description: 'AI background has been added to your options.',
-        });
-      } else {
-        toast({
-          title: 'Generation Failed',
-          description: result.error || 'Could not generate background. Try a different prompt.',
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to generate background. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsGeneratingBackground(false);
-    }
-  };
 
   useEffect(() => {
     setIsClient(true);
@@ -402,6 +369,19 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     }));
   };
 
+  const handleUpdateSpineSettings = (pageId: string, settings: { width?: number; color?: string; fontSize?: number; fontFamily?: string }) => {
+    setAlbumPages(prevPages => prevPages.map(page => {
+      if (page.id !== pageId) return page;
+      return {
+        ...page,
+        spineWidth: settings.width ?? page.spineWidth,
+        spineColor: settings.color ?? page.spineColor,
+        spineFontSize: settings.fontSize ?? page.spineFontSize,
+        spineFontFamily: settings.fontFamily ?? page.spineFontFamily
+      };
+    }));
+  };
+
   const updatePhotoPanAndZoom = (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => {
     setAlbumPages(pages => pages.map(page => {
       if (page.id !== pageId) return page;
@@ -673,33 +653,12 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                         </div>
                       )}
                       {/* AI Background Generation */}
-                      <div className="space-y-2 pt-2 border-t">
-                        <label className="text-sm font-medium flex items-center gap-2">
-                          <Sparkles className="w-4 h-4" />
-                          Generate with AI
-                        </label>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            placeholder="Describe background..."
-                            value={aiBackgroundPrompt}
-                            onChange={(e) => setAiBackgroundPrompt(e.target.value)}
-                            className="flex-1 h-8 px-2 text-sm border rounded"
-                          />
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            disabled={isGeneratingBackground || !aiBackgroundPrompt.trim()}
-                            onClick={handleGenerateBackground}
-                          >
-                            {isGeneratingBackground ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Wand2 className="w-4 h-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
+                      <AiBackgroundGenerator
+                        onBackgroundGenerated={(imageUrl) => {
+                          setAvailableBackgrounds(prev => [...prev, imageUrl]);
+                          setBackgroundImage(imageUrl);
+                        }}
+                      />
                     </div>
                   </form>
                 </Form>
@@ -762,6 +721,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           onUpdateCoverLayout={handleUpdateCoverLayout}
           onUpdateCoverType={handleUpdateCoverType}
           onUpdateSpineText={handleUpdateSpineText}
+          onUpdateSpineSettings={handleUpdateSpineSettings}
         />
       </div>
 
