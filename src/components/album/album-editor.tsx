@@ -10,6 +10,7 @@ import {
   PlusSquare,
   AlertTriangle,
   Image as ImageIcon,
+  Trash2,
 } from 'lucide-react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -472,12 +473,24 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                           <div
                             key={index}
                             className={cn(
-                              "h-12 rounded border-2 cursor-pointer overflow-hidden",
+                              "h-12 rounded border-2 cursor-pointer overflow-hidden relative group",
                               backgroundImage === bg ? "border-primary ring-2 ring-primary/20" : "border-muted hover:border-primary/50"
                             )}
                             onClick={() => setBackgroundImage(bg)}
                           >
                             <img src={bg} alt={`Background ${index + 1}`} className="w-full h-full object-cover" />
+                            <button
+                              className="absolute top-0 right-0 w-5 h-5 bg-black/50 text-white text-xs rounded-bl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-black/70"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setAvailableBackgrounds(prev => prev.filter((_, i) => i !== index));
+                                if (backgroundImage === bg) {
+                                  setBackgroundImage(undefined);
+                                }
+                              }}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
                           </div>
                         ))}
                         {/* Upload button */}
