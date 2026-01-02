@@ -18,6 +18,7 @@ export type AlbumConfig = {
   photoGap: number; // Gap between photos in pixels
   pageMargin: number; // Margin from page edge in pixels
   backgroundColor: string; // Background color for pages
+  backgroundImage?: string; // Default background image URL for pages
 };
 
 export type AlbumPage = {
@@ -26,4 +27,5 @@ export type AlbumPage = {
   photos: Photo[];
   layout: string; // e.g., '1', '2', '4', '6'
   isCover?: boolean;
+  backgroundImage?: string; // Override background image for this specific page
 };

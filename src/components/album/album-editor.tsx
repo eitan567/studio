@@ -39,6 +39,7 @@ import {
 import { LAYOUT_TEMPLATES } from './layout-templates';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 import Image from 'next/image';
 
 // Fix for alert import
@@ -68,6 +69,13 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const [photoGap, setPhotoGap] = useState(0);
   const [pageMargin, setPageMargin] = useState(0);
   const [backgroundColor, setBackgroundColor] = useState('#ffffff');
+  const [backgroundImage, setBackgroundImage] = useState<string | undefined>(undefined);
+  const [availableBackgrounds, setAvailableBackgrounds] = useState<string[]>([
+    'https://picsum.photos/seed/bg1/800/600',
+    'https://picsum.photos/seed/bg2/800/600',
+    'https://picsum.photos/seed/bg3/800/600',
+  ]);
+  const backgroundUploadRef = useRef<HTMLInputElement>(null);
   const colorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleColorChange = (color: string) => {
@@ -104,6 +112,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     photoGap,
     pageMargin,
     backgroundColor,
+    backgroundImage,
   };
 
   const generateInitialPages = (photos: Photo[]) => {
@@ -444,6 +453,65 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                           placeholder="#ffffff"
                         />
                       </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Background Image</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {/* None option */}
+                        <div
+                          className={cn(
+                            "h-12 rounded border-2 cursor-pointer flex items-center justify-center bg-gray-100",
+                            !backgroundImage ? "border-primary ring-2 ring-primary/20" : "border-muted hover:border-primary/50"
+                          )}
+                          onClick={() => setBackgroundImage(undefined)}
+                        >
+                          <span className="text-xs text-muted-foreground">None</span>
+                        </div>
+                        {/* Available backgrounds */}
+                        {availableBackgrounds.map((bg, index) => (
+                          <div
+                            key={index}
+                            className={cn(
+                              "h-12 rounded border-2 cursor-pointer overflow-hidden",
+                              backgroundImage === bg ? "border-primary ring-2 ring-primary/20" : "border-muted hover:border-primary/50"
+                            )}
+                            onClick={() => setBackgroundImage(bg)}
+                          >
+                            <img src={bg} alt={`Background ${index + 1}`} className="w-full h-full object-cover" />
+                          </div>
+                        ))}
+                        {/* Upload button */}
+                        <div
+                          className="h-12 rounded border-2 border-dashed cursor-pointer flex items-center justify-center bg-gray-50 hover:bg-gray-100"
+                          onClick={() => backgroundUploadRef.current?.click()}
+                        >
+                          <span className="text-xl text-muted-foreground">+</span>
+                        </div>
+                      </div>
+                      <input
+                        ref={backgroundUploadRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              const dataUrl = event.target?.result as string;
+                              setAvailableBackgrounds(prev => [...prev, dataUrl]);
+                              setBackgroundImage(dataUrl);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                          e.target.value = '';
+                        }}
+                      />
+                      {backgroundImage && (
+                        <div className="relative w-full h-16 rounded overflow-hidden border">
+                          <img src={backgroundImage} alt="Background preview" className="w-full h-full object-cover" />
+                        </div>
+                      )}
                     </div>
                   </form>
                 </Form>

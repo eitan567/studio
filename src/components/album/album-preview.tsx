@@ -196,7 +196,15 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                 )}
 
                 <AspectRatio ratio={page.isCover || page.type === 'spread' ? 2 / 1 : 2} className={cn(page.type === 'single' && 'w-1/2 mx-auto')}>
-                  <Card className="h-full w-full shadow-lg" style={{ backgroundColor: config.backgroundColor }}>
+                  <Card
+                    className="h-full w-full shadow-lg"
+                    style={{
+                      backgroundColor: config.backgroundColor,
+                      backgroundImage: (page.backgroundImage || config.backgroundImage) ? `url(${page.backgroundImage || config.backgroundImage})` : undefined,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                    }}
+                  >
                     <CardContent
                       className="flex h-full w-full items-center justify-center p-0"
                       style={{ padding: `${config.pageMargin}px` }}
