@@ -295,21 +295,23 @@ const PageToolbar = ({
             <span className="text-sm font-semibold text-muted-foreground mr-2">Cover</span>
 
             {/* Spine Settings */}
-            <div className="flex items-center gap-2 border-r pr-2 mr-2">
+            {/* Spine Settings */}
+            <div className="flex items-center gap-3 border-r pr-3 mr-3 bg-muted/20 p-1 rounded-md">
               <input
                 type="text"
                 placeholder="Spine Text"
-                className="h-6 w-24 px-1 text-xs border rounded"
+                className="h-7 w-32 px-2 text-sm border rounded bg-background"
                 value={page.spineText || ''}
                 onChange={(e) => onUpdateSpineText?.(page.id, e.target.value)}
                 title="Spine Text"
               />
+
               {/* Spine Width */}
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] text-muted-foreground">W:</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Spine Width:</span>
                 <input
                   type="number"
-                  className="h-6 w-10 px-1 text-xs border rounded"
+                  className="h-7 w-12 px-1 text-sm border rounded bg-background text-center"
                   value={page.spineWidth || 40}
                   onChange={(e) => onUpdateSpineSettings?.(page.id, { width: parseInt(e.target.value) || 40 })}
                   step={5}
@@ -317,29 +319,32 @@ const PageToolbar = ({
                   title="Spine Width (px)"
                 />
               </div>
+
               {/* Spine Color */}
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] text-muted-foreground">C:</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Spine Color:</span>
                 <SpineColorPicker
                   value={page.spineColor}
                   onChange={(color) => onUpdateSpineSettings?.(page.id, { color })}
                 />
               </div>
+
               {/* Spine Text Color */}
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] text-muted-foreground">T:</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Text Color:</span>
                 <SpineColorPicker
                   value={page.spineTextColor}
                   onChange={(textColor) => onUpdateSpineSettings?.(page.id, { textColor })}
                   disableAlpha={true}
                 />
               </div>
+
               {/* Spine Font Size */}
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] text-muted-foreground">S:</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Font Size:</span>
                 <input
                   type="number"
-                  className="h-6 w-10 px-1 text-xs border rounded"
+                  className="h-7 w-12 px-1 text-sm border rounded bg-background text-center"
                   value={page.spineFontSize || 12}
                   onChange={(e) => onUpdateSpineSettings?.(page.id, { fontSize: parseInt(e.target.value) || 12 })}
                   min={8}
@@ -347,11 +352,12 @@ const PageToolbar = ({
                   title="Font Size"
                 />
               </div>
+
               {/* Spine Font Family */}
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] text-muted-foreground">F:</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Font Family:</span>
                 <select
-                  className="h-6 w-16 px-1 text-xs border rounded bg-transparent"
+                  className="h-7 w-20 px-1 text-sm border rounded bg-background"
                   value={page.spineFontFamily || 'Inter'}
                   onChange={(e) => onUpdateSpineSettings?.(page.id, { fontFamily: e.target.value })}
                   title="Font Family"
@@ -594,7 +600,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
             <div key={page.id} className="w-full max-w-4xl mx-auto">
               <div className="w-full relative group/page">
 
-                <div className={cn("h-14", page.type === 'single' ? 'w-1/2 mx-auto' : 'w-full')}>
+                <div className={cn("h-18", page.type === 'single' ? 'w-1/2 mx-auto' : 'w-full')}>
                   <PageToolbar
                     page={page}
                     pageNumber={pages.findIndex(p => p.id === page.id)}
