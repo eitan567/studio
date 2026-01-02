@@ -169,7 +169,9 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       photos: coverPlaceholders,
       layout: 'cover',
       isCover: true,
-      coverLayouts: { front: '1-full', back: '1-full' }
+      coverLayouts: { front: '1-full', back: '1-full' },
+      coverType: 'split',
+      spineText: ''
     });
 
     if (photosPool.length > 0) {
@@ -303,10 +305,37 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     });
   };
 
-  const handleUpdateCoverLayout = (pageId: string, side: 'front' | 'back', newLayout: string) => {
+  const handleUpdateCoverLayout = (pageId: string, side: 'front' | 'back' | 'full', newLayout: string) => {
     setAlbumPages(prevPages => {
       return prevPages.map(page => {
         if (page.id !== pageId || !page.isCover) return page;
+
+        if (side === 'full') {
+          const template = COVER_TEMPLATES.find(t => t.id === newLayout) || COVER_TEMPLATES[0];
+          const requiredPhotos = template.photoCount;
+          let currentPhotos = [...page.photos];
+
+          if (currentPhotos.length < requiredPhotos) {
+            const missingCount = requiredPhotos - currentPhotos.length;
+            for (let i = 0; i < missingCount; i++) {
+              currentPhotos.push({
+                id: uuidv4(),
+                src: 'https://placehold.co/600x400/e2e8f0/e2e8f0?text=+',
+                alt: 'Cover Placeholder',
+                width: 600,
+                height: 400
+              });
+            }
+          }
+
+          return {
+            ...page,
+            layout: newLayout,
+            // We don't change coverLayouts in full mode, or maybe we should?
+            // But we DO need to ensure photos are sufficient.
+            photos: currentPhotos
+          };
+        }
 
         const currentFrontLayout = page.coverLayouts?.front || '1-full';
         const currentBackLayout = page.coverLayouts?.back || '1-full';
@@ -336,10 +365,6 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             });
           }
         }
-        // If we have more photos than required, keep them (user might switch back). 
-        // Or slice them? Slicing is safer to avoid hidden photos.
-        // Let's slice any extra empty placeholders, but try to keep real user photos if possible?
-        // For simplicity, just ensure at least totalRequired. PageLayout logic slices what it needs.
 
         return {
           ...page,
@@ -351,6 +376,30 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         };
       });
     });
+  };
+
+  const handleUpdateCoverType = (pageId: string, newType: 'split' | 'full') => {
+    setAlbumPages(prevPages => prevPages.map(page => {
+      if (page.id !== pageId) return page;
+      // If switching to full, we might want to ensure a full spread layout is set?
+      // For now just toggle the type. AlbumPreview will handle rendering differences.
+      // Maybe we want to consolidate photos?
+      // If switching from split to full: we have Front + Back photos. We merge them?
+      // If switching from full to split: we split them?
+      // For simplicity, let's keep the photos list as is. The layout logic (split vs full) will decide how to use them.
+      // Wait, independent Front/Back layouts assume photos are partitioned?
+      // Actually PageLayout uses `photos.slice(...)`. 
+      // So if 'full' mode uses a "Spread Template", it will just use the first N photos.
+      // This is fine.
+      return { ...page, coverType: newType };
+    }));
+  };
+
+  const handleUpdateSpineText = (pageId: string, text: string) => {
+    setAlbumPages(prevPages => prevPages.map(page => {
+      if (page.id !== pageId) return page;
+      return { ...page, spineText: text };
+    }));
   };
 
   const updatePhotoPanAndZoom = (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => {
@@ -711,6 +760,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           onUpdatePhotoPanAndZoom={updatePhotoPanAndZoom}
           onDropPhoto={handleDropPhoto}
           onUpdateCoverLayout={handleUpdateCoverLayout}
+          onUpdateCoverType={handleUpdateCoverType}
+          onUpdateSpineText={handleUpdateSpineText}
         />
       </div>
 

@@ -95,12 +95,14 @@ interface AlbumPreviewProps {
   config: AlbumConfig;
   onDeletePage: (pageId: string) => void;
   onUpdateLayout: (pageId: string, newLayout: string) => void;
-  onUpdateCoverLayout?: (pageId: string, side: 'front' | 'back', newLayout: string) => void;
+  onUpdateCoverLayout?: (pageId: string, side: 'front' | 'back' | 'full', newLayout: string) => void;
+  onUpdateCoverType?: (pageId: string, newType: 'split' | 'full') => void;
+  onUpdateSpineText?: (pageId: string, text: string) => void;
   onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
   onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
 }
 
-export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUpdateCoverLayout, onUpdatePhotoPanAndZoom, onDropPhoto }: AlbumPreviewProps) {
+export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUpdateCoverLayout, onUpdateCoverType, onUpdateSpineText, onUpdatePhotoPanAndZoom, onDropPhoto }: AlbumPreviewProps) {
   const { toast } = useToast();
   const [isInteracting, setIsInteracting] = useState(false);
 
@@ -122,75 +124,144 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
         <div className="mb-2">
           <TooltipProvider>
             <div className="flex items-center justify-between gap-1 rounded-lg border bg-background p-0.5 shadow-lg px-2">
-              <span className="text-sm font-semibold text-muted-foreground mr-2">Cover Spread</span>
+              <span className="text-sm font-semibold text-muted-foreground mr-2">Cover</span>
+
+              {/* Spine Text Input */}
+              <div className="flex items-center gap-2 border-r pr-2 mr-2">
+                <input
+                  type="text"
+                  placeholder="Spine Text"
+                  className="h-6 w-32 px-1 text-xs border rounded"
+                  value={page.spineText || ''}
+                  onChange={(e) => onUpdateSpineText?.(page.id, e.target.value)}
+                />
+              </div>
+
+              {/* Cover Type Toggle */}
+              <div className="flex items-center gap-1 border-r pr-2 mr-2">
+                <Button
+                  variant={page.coverType === 'full' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => onUpdateCoverType?.(page.id, 'full')}
+                >
+                  Full
+                </Button>
+                <Button
+                  variant={page.coverType !== 'full' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => onUpdateCoverType?.(page.id, 'split')}
+                >
+                  Split
+                </Button>
+              </div>
+
               <div className="flex items-center gap-2">
-                {/* Back Cover Layout */}
-                <DropdownMenu>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="gap-1 px-2">
-                          <LayoutTemplate className="h-4 w-4" />
-                          <span className="text-xs">Back</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent>Back Cover Layout</TooltipContent>
-                  </Tooltip>
-                  <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
-                    {COVER_TEMPLATES.map(template => (
-                      <DropdownMenuItem
-                        key={template.id}
-                        onSelect={() => onUpdateCoverLayout?.(page.id, 'back', template.id)}
-                        className={cn("p-0 focus:bg-accent/50 rounded-md cursor-pointer", page.coverLayouts?.back === template.id && "ring-2 ring-primary")}
-                      >
-                        <div className="w-24 h-24 p-1 flex flex-col items-center">
-                          <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
-                            {template.grid.map((gridClass, i) => (
-                              <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
-                            ))}
-                          </div>
-                          <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
-                        </div>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {page.coverType !== 'full' ? (
+                  <>
+                    {/* Back Cover Layout */}
+                    <DropdownMenu>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="gap-1 px-2">
+                              <LayoutTemplate className="h-4 w-4" />
+                              <span className="text-xs">Back</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>Back Cover Layout</TooltipContent>
+                      </Tooltip>
+                      <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
+                        {COVER_TEMPLATES.map(template => (
+                          <DropdownMenuItem
+                            key={template.id}
+                            onSelect={() => onUpdateCoverLayout?.(page.id, 'back', template.id)}
+                            className={cn("p-0 focus:bg-accent/50 rounded-md cursor-pointer", page.coverLayouts?.back === template.id && "ring-2 ring-primary")}
+                          >
+                            <div className="w-24 h-24 p-1 flex flex-col items-center">
+                              <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
+                                {template.grid.map((gridClass, i) => (
+                                  <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
+                                ))}
+                              </div>
+                              <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
+                            </div>
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
 
-                <div className="h-4 w-px bg-border" />
+                    <div className="h-4 w-px bg-border" />
 
-                {/* Front Cover Layout */}
-                <DropdownMenu>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="gap-1 px-2">
-                          <LayoutTemplate className="h-4 w-4" />
-                          <span className="text-xs">Front</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent>Front Cover Layout</TooltipContent>
-                  </Tooltip>
-                  <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
-                    {COVER_TEMPLATES.map(template => (
-                      <DropdownMenuItem
-                        key={template.id}
-                        onSelect={() => onUpdateCoverLayout?.(page.id, 'front', template.id)}
-                        className={cn("p-0 focus:bg-accent/50 rounded-md cursor-pointer", page.coverLayouts?.front === template.id && "ring-2 ring-primary")}
-                      >
-                        <div className="w-24 h-24 p-1 flex flex-col items-center">
-                          <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
-                            {template.grid.map((gridClass, i) => (
-                              <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
-                            ))}
+                    {/* Front Cover Layout */}
+                    <DropdownMenu>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="gap-1 px-2">
+                              <LayoutTemplate className="h-4 w-4" />
+                              <span className="text-xs">Front</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>Front Cover Layout</TooltipContent>
+                      </Tooltip>
+                      <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
+                        {COVER_TEMPLATES.map(template => (
+                          <DropdownMenuItem
+                            key={template.id}
+                            onSelect={() => onUpdateCoverLayout?.(page.id, 'front', template.id)}
+                            className={cn("p-0 focus:bg-accent/50 rounded-md cursor-pointer", page.coverLayouts?.front === template.id && "ring-2 ring-primary")}
+                          >
+                            <div className="w-24 h-24 p-1 flex flex-col items-center">
+                              <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
+                                {template.grid.map((gridClass, i) => (
+                                  <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
+                                ))}
+                              </div>
+                              <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
+                            </div>
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </>
+                ) : (
+                  /* Full Spread Layout Selector - Reusing Layout Selector logic but applying to page.layout */
+                  <DropdownMenu>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="gap-1 px-2">
+                            <LayoutTemplate className="h-4 w-4" />
+                            <span className="text-xs">Layout</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>Spread Layout</TooltipContent>
+                    </Tooltip>
+                    <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
+                      {COVER_TEMPLATES.map(template => (
+                        <DropdownMenuItem
+                          key={template.id}
+                          onSelect={() => onUpdateCoverLayout?.(page.id, 'full', template.id)}
+                          className={cn("p-0 focus:bg-accent/50 rounded-md cursor-pointer", page.layout === template.id && "ring-2 ring-primary")}
+                        >
+                          <div className="w-24 h-24 p-1 flex flex-col items-center">
+                            <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
+                              {template.grid.map((gridClass, i) => (
+                                <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
+                              ))}
+                            </div>
+                            <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
                           </div>
-                          <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
-                        </div>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
             </div>
           </TooltipProvider>
@@ -198,6 +269,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
       );
     }
 
+    // ... Standard Page Toolbar continues below
     return (
       <div className="mb-2">
         <TooltipProvider>
@@ -270,6 +342,15 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
     );
   }; // Add closing brace for PageToolbar function
 
+  // Helper for rendering Spine
+  const Spine = ({ text }: { text?: string }) => (
+    <div className="relative h-full w-[40px] bg-muted/30 border-x border-dashed border-border/50 flex items-center justify-center overflow-hidden z-20">
+      <div className="whitespace-nowrap font-semibold text-muted-foreground/70 tracking-widest text-xs rotate-90 select-none">
+        {text || 'ALBUM SPINE'}
+      </div>
+    </div>
+  );
+
   return (
     <div className="w-full">
       <ScrollArea className="h-[85vh] w-full pr-4" style={{ overflowY: isInteracting ? 'hidden' : 'auto' }}>
@@ -297,6 +378,28 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                       style={{ padding: `${config.pageMargin}px` }}
                     >
                       {page.isCover ? (() => {
+                        // Full Spread Mode
+                        if (page.coverType === 'full') {
+                          return (
+                            <div className="relative h-full w-full">
+                              {/* Spine Overlay */}
+                              <div className="absolute inset-y-0 left-1/2 -ml-[20px] h-full z-30 pointer-events-none">
+                                <Spine text={page.spineText} />
+                              </div>
+
+                              <PageLayout
+                                page={page}
+                                photoGap={config.photoGap}
+                                onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
+                                onInteractionChange={setIsInteracting}
+                                onDropPhoto={onDropPhoto}
+                                templateSource={COVER_TEMPLATES} // Uses page.layout
+                              />
+                            </div>
+                          );
+                        }
+
+                        // Split Mode (Back | Spine | Front)
                         const backLayoutId = page.coverLayouts?.back || '1-full';
                         const frontLayoutId = page.coverLayouts?.front || '1-full';
                         const backTemplate = COVER_TEMPLATES.find(t => t.id === backLayoutId) || COVER_TEMPLATES[0];
@@ -306,14 +409,12 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                         const backPhotos = page.photos.slice(0, backTemplate.photoCount);
                         const frontPhotos = page.photos.slice(backTemplate.photoCount, backTemplate.photoCount + frontTemplate.photoCount);
 
-                        // Ensure we aren't using more photos than available for drag/drop logic?
-                        // The PageLayout handles slice(0, template.photoCount) so passing extra is fine, but for clarity:
-                        // Actually, PageLayout displays slice of passed photos.
-                        // We need to pass the correct subset so that index 0 in Front PageLayout corresponds to the correct photo.
-
+                        // Use grid with 3 columns: 1fr auto 1fr? Or fixed spine width?
+                        // Let's use flexbox or grid. 
+                        // Grid: [1fr_40px_1fr].
                         return (
-                          <div className="grid grid-cols-2 h-full w-full">
-                            <div className="relative h-full w-full border-r border-dashed border-border/50">
+                          <div className="grid h-full w-full" style={{ gridTemplateColumns: '1fr 40px 1fr' }}>
+                            <div className="relative h-full w-full border-r border-dashed border-border/50 overflow-hidden">
                               <span className="absolute top-2 left-2 z-20 text-[10px] font-bold text-muted-foreground bg-background/80 px-1.5 py-0.5 rounded pointer-events-none uppercase tracking-wider">Back Cover</span>
                               <PageLayout
                                 page={page}
@@ -326,7 +427,10 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                                 templateSource={COVER_TEMPLATES}
                               />
                             </div>
-                            <div className="relative h-full w-full">
+
+                            <Spine text={page.spineText} />
+
+                            <div className="relative h-full w-full border-l border-dashed border-border/50 overflow-hidden">
                               <span className="absolute top-2 left-2 z-20 text-[10px] font-bold text-muted-foreground bg-background/80 px-1.5 py-0.5 rounded pointer-events-none uppercase tracking-wider">Front Cover</span>
                               <PageLayout
                                 page={page}

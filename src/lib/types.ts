@@ -32,4 +32,6 @@ export type AlbumPage = {
     front: string;
     back: string;
   };
+  spineText?: string;
+  coverType?: 'split' | 'full'; // Defaults to 'split'
 };
