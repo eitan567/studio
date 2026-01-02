@@ -35,6 +35,7 @@ export type AlbumPage = {
   spineText?: string;
   spineWidth?: number;
   spineColor?: string;
+  spineTextColor?: string;
   spineFontSize?: number;
   spineFontFamily?: string;
   coverType?: 'split' | 'full'; // Defaults to 'split'

@@ -369,13 +369,14 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     }));
   };
 
-  const handleUpdateSpineSettings = (pageId: string, settings: { width?: number; color?: string; fontSize?: number; fontFamily?: string }) => {
+  const handleUpdateSpineSettings = (pageId: string, settings: { width?: number; color?: string; textColor?: string; fontSize?: number; fontFamily?: string }) => {
     setAlbumPages(prevPages => prevPages.map(page => {
       if (page.id !== pageId) return page;
       return {
         ...page,
         spineWidth: settings.width ?? page.spineWidth,
         spineColor: settings.color ?? page.spineColor,
+        spineTextColor: settings.textColor ?? page.spineTextColor,
         spineFontSize: settings.fontSize ?? page.spineFontSize,
         spineFontFamily: settings.fontFamily ?? page.spineFontFamily
       };

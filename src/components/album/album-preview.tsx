@@ -102,12 +102,12 @@ interface AlbumPreviewProps {
   onUpdateCoverType?: (pageId: string, newType: 'split' | 'full') => void;
 
   onUpdateSpineText?: (pageId: string, text: string) => void;
-  onUpdateSpineSettings?: (pageId: string, settings: { width?: number; color?: string; fontSize?: number; fontFamily?: string }) => void;
+  onUpdateSpineSettings?: (pageId: string, settings: { width?: number; color?: string; textColor?: string; fontSize?: number; fontFamily?: string }) => void;
   onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
   onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
 }
 
-const Spine = ({ text, width = 40, color, fontSize = 12, fontFamily }: { text?: string; width?: number; color?: string; fontSize?: number; fontFamily?: string }) => (
+const Spine = ({ text, width = 40, color, textColor, fontSize = 12, fontFamily }: { text?: string; width?: number; color?: string; textColor?: string; fontSize?: number; fontFamily?: string }) => (
   <div
     className="relative h-full bg-muted/30 border-x border-dashed border-border/50 flex items-center justify-center overflow-hidden z-20"
     style={{
@@ -120,6 +120,7 @@ const Spine = ({ text, width = 40, color, fontSize = 12, fontFamily }: { text?: 
       style={{
         fontSize: `${fontSize}px`,
         fontFamily: fontFamily,
+        color: textColor,
       }}
     >
       {text || 'ALBUM SPINE'}
@@ -130,24 +131,31 @@ const Spine = ({ text, width = 40, color, fontSize = 12, fontFamily }: { text?: 
 // Helper to manage color + opacity
 const SpineColorPicker = ({
   value,
-  onChange
+  onChange,
+  disableAlpha = false
 }: {
   value?: string;
   onChange: (color: string) => void;
+  disableAlpha?: boolean;
 }) => {
   // Parse initial values
   const [hex, setHex] = useState(() => {
     if (!value) return '#000000';
     if (value.startsWith('#')) return value;
     if (value.startsWith('rgba')) {
-      // Very basic extraction, assumes rgba(r, g, b, a)
-      // We won't perfectly reverse-engineer generic CSS colors but good enough for this UI
+      // Try to extract RGB to Hex if possible, otherwise default black
+      const parts = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      if (parts) {
+        const toHex = (n: number) => n.toString(16).padStart(2, '0');
+        return `#${toHex(parseInt(parts[1]))}${toHex(parseInt(parts[2]))}${toHex(parseInt(parts[3]))}`;
+      }
       return '#000000';
     }
     return value;
   });
 
   const [opacity, setOpacity] = useState(() => {
+    if (disableAlpha) return 1;
     if (!value) return 1;
     if (value.startsWith('rgba')) {
       const match = value.match(/rgba?\(.*,\s*([\d.]+)\)/);
@@ -156,22 +164,16 @@ const SpineColorPicker = ({
     return 1;
   });
 
-  // When value prop updates externally (rare while editing), sync local state if needed
-  // ... omitting specific sync logic for simplicity to avoid fighting the user's input loop
-  // ideally we would useEffect here but it can cause cursor jumps if not careful.
-  // We'll rely on the parent passing the updated value back in if we needed to display it elsewhere,
-  // but for the picker controls, we drive them.
-
   // Actually, to properly support re-opening the popover with correct state:
   React.useEffect(() => {
     if (!value) {
       setHex('#000000');
-      setOpacity(0); // If no color, maybe 0 opacity? Or 1? Let's say 0 means transparent/none
+      if (!disableAlpha) setOpacity(0);
       return;
     }
     if (value.startsWith('#')) {
       setHex(value);
-      setOpacity(1);
+      if (!disableAlpha) setOpacity(1);
     } else if (value.startsWith('rgba')) {
       // Parse rgba(r, g, b, a)
       const parts = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*([\d.]*)\)/);
@@ -182,24 +184,26 @@ const SpineColorPicker = ({
         const a = parts[4] ? parseFloat(parts[4]) : 1;
         // Convert rgb to hex
         const toHex = (n: number) => n.toString(16).padStart(2, '0');
-        setHex(`#${toHex(r)}${toHex(g)}${toHex(b)}`);
-        setOpacity(a);
+        setHex(`#${toHex(r)}$${toHex(g)}$${toHex(b)}`);
+        if (!disableAlpha) setOpacity(a);
       }
     }
-  }, [value]);
+  }, [value, disableAlpha]);
 
   const updateColor = (newHex: string, newOpacity: number) => {
     setHex(newHex);
     setOpacity(newOpacity);
 
-    // Construct RGBA
-    // Convert hex to rgb
-    const r = parseInt(newHex.slice(1, 3), 16);
-    const g = parseInt(newHex.slice(3, 5), 16);
-    const b = parseInt(newHex.slice(5, 7), 16);
-
-    const rgba = `rgba(${r}, ${g}, ${b}, ${newOpacity})`;
-    onChange(rgba);
+    if (disableAlpha) {
+      onChange(newHex);
+    } else {
+      // Construct RGBA
+      const r = parseInt(newHex.slice(1, 3), 16);
+      const g = parseInt(newHex.slice(3, 5), 16);
+      const b = parseInt(newHex.slice(5, 7), 16);
+      const rgba = `rgba(${r}, ${g}, ${b}, ${newOpacity})`;
+      onChange(rgba);
+    }
   };
 
   return (
@@ -209,14 +213,13 @@ const SpineColorPicker = ({
           variant="outline"
           className="h-6 w-14 px-1 gap-1 border-dashed"
           style={{
-            backgroundColor: value,
-            color: opacity > 0.5 ? (parseInt(hex.slice(1), 16) > 0xffffff / 2 ? 'black' : 'white') : 'inherit'
+            backgroundColor: (!disableAlpha && opacity === 0) ? 'transparent' : (disableAlpha ? hex : (value || (opacity === 0 ? 'transparent' : hex))),
+            // If background is dark, text white, else black. Simple heuristic.
+            color: (disableAlpha || opacity > 0.5) ? (parseInt(hex.slice(1), 16) > 0xffffff / 2 ? 'black' : 'white') : 'inherit'
           }}
         >
-          {/* Show a little swatch or just text? */}
-          {/* If transparent, maybe checkboard? */}
           <div className="w-full h-full flex items-center justify-center text-[10px]">
-            {opacity === 0 ? 'None' : ''}
+            {!disableAlpha && opacity === 0 ? 'None' : ''}
           </div>
         </Button>
       </PopoverTrigger>
@@ -243,19 +246,21 @@ const SpineColorPicker = ({
           </div>
         </div>
 
-        <div className="space-y-1">
-          <div className="flex justify-between">
-            <Label className="text-xs">Opacity</Label>
-            <span className="text-xs text-muted-foreground">{Math.round(opacity * 100)}%</span>
+        {!disableAlpha && (
+          <div className="space-y-1">
+            <div className="flex justify-between">
+              <Label className="text-xs">Opacity</Label>
+              <span className="text-xs text-muted-foreground">{Math.round(opacity * 100)}%</span>
+            </div>
+            <Slider
+              value={[opacity]}
+              min={0}
+              max={1}
+              step={0.01}
+              onValueChange={([val]) => updateColor(hex, val)}
+            />
           </div>
-          <Slider
-            value={[opacity]}
-            min={0}
-            max={1}
-            step={0.01}
-            onValueChange={([val]) => updateColor(hex, val)}
-          />
-        </div>
+        )}
       </PopoverContent>
     </Popover>
   );
@@ -279,7 +284,7 @@ const PageToolbar = ({
   onUpdateCoverLayout?: (id: string, side: 'front' | 'back' | 'full', layout: string) => void;
   onUpdateCoverType?: (id: string, type: 'split' | 'full') => void;
   onUpdateSpineText?: (id: string, text: string) => void;
-  onUpdateSpineSettings?: (id: string, settings: { width?: number; color?: string; fontSize?: number; fontFamily?: string }) => void;
+  onUpdateSpineSettings?: (id: string, settings: { width?: number; color?: string; textColor?: string; fontSize?: number; fontFamily?: string }) => void;
   toast: any;
 }) => {
   if (page.isCover) {
@@ -318,6 +323,15 @@ const PageToolbar = ({
                 <SpineColorPicker
                   value={page.spineColor}
                   onChange={(color) => onUpdateSpineSettings?.(page.id, { color })}
+                />
+              </div>
+              {/* Spine Text Color */}
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-muted-foreground">T:</span>
+                <SpineColorPicker
+                  value={page.spineTextColor}
+                  onChange={(textColor) => onUpdateSpineSettings?.(page.id, { textColor })}
+                  disableAlpha={true}
                 />
               </div>
               {/* Spine Font Size */}
@@ -625,6 +639,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                                   text={page.spineText}
                                   width={page.spineWidth}
                                   color={page.spineColor}
+                                  textColor={page.spineTextColor}
                                   fontSize={page.spineFontSize}
                                   fontFamily={page.spineFontFamily}
                                 />
@@ -680,6 +695,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                               text={page.spineText}
                               width={spineWidth}
                               color={page.spineColor}
+                              textColor={page.spineTextColor}
                               fontSize={page.spineFontSize}
                               fontFamily={page.spineFontFamily}
                             />
