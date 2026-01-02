@@ -16,6 +16,7 @@ export type Photo = {
 export type AlbumConfig = {
   size: '20x20' | '25x25' | '30x30';
   photoGap: number; // Gap between photos in pixels
+  pageMargin: number; // Margin from page edge in pixels
 };
 
 export type AlbumPage = {

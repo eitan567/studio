@@ -197,7 +197,10 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
 
                 <AspectRatio ratio={page.isCover || page.type === 'spread' ? 2 / 1 : 2} className={cn(page.type === 'single' && 'w-1/2 mx-auto')}>
                   <Card className="h-full w-full shadow-lg">
-                    <CardContent className="flex h-full w-full items-center justify-center p-0">
+                    <CardContent
+                      className="flex h-full w-full items-center justify-center p-0"
+                      style={{ padding: `${config.pageMargin}px` }}
+                    >
                       {page.isCover ? (
                         <div className="grid grid-cols-2 h-full w-full">
                           <CoverPageLayout side="back" />

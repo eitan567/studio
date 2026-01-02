@@ -66,6 +66,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const [isClient, setIsClient] = useState(false);
   const [allowDuplicates, setAllowDuplicates] = useState(true);
   const [photoGap, setPhotoGap] = useState(0);
+  const [pageMargin, setPageMargin] = useState(0);
 
   useEffect(() => {
     setIsClient(true);
@@ -88,6 +89,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const config: AlbumConfig = {
     size: form.watch('size') as '20x20',
     photoGap,
+    pageMargin,
   };
 
   const generateInitialPages = (photos: Photo[]) => {
@@ -384,6 +386,30 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                         max="50"
                         value={photoGap}
                         onChange={(e) => setPhotoGap(Number(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium">Page Margin</label>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            min="0"
+                            max="50"
+                            value={pageMargin}
+                            onChange={(e) => setPageMargin(Math.max(0, Math.min(50, Number(e.target.value) || 0)))}
+                            className="w-14 h-7 text-center text-sm border rounded"
+                          />
+                          <span className="text-sm text-muted-foreground">px</span>
+                        </div>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="50"
+                        value={pageMargin}
+                        onChange={(e) => setPageMargin(Number(e.target.value))}
                         className="w-full"
                       />
                     </div>
