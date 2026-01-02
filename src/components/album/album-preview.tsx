@@ -25,21 +25,23 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface PageLayoutProps {
   page: AlbumPage;
+  photoGap: number;
   onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
   onInteractionChange: (isInteracting: boolean) => void;
   onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
 }
 
-function PageLayout({ page, onUpdatePhotoPanAndZoom, onInteractionChange, onDropPhoto }: PageLayoutProps) {
+function PageLayout({ page, photoGap, onUpdatePhotoPanAndZoom, onInteractionChange, onDropPhoto }: PageLayoutProps) {
   const { photos, layout } = page;
   const template = LAYOUT_TEMPLATES.find(t => t.id === layout) || LAYOUT_TEMPLATES[0];
 
   const [dragOverPhotoId, setDragOverPhotoId] = useState<string | null>(null);
 
   return (
-    <div className={cn(
-      "grid grid-cols-12 grid-rows-12 h-full w-full"
-    )}>
+    <div
+      className={cn("grid grid-cols-12 grid-rows-12 h-full w-full")}
+      style={{ gap: `${photoGap}px` }}
+    >
       {photos.slice(0, template.photoCount).map((photo, index) => (
         <div
           key={photo.id}
@@ -209,6 +211,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                           <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10 pointer-events-none"></div>
                           <PageLayout
                             page={page}
+                            photoGap={config.photoGap}
                             onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
                             onInteractionChange={setIsInteracting}
                             onDropPhoto={onDropPhoto}
@@ -217,6 +220,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                       ) : (
                         <PageLayout
                           page={page}
+                          photoGap={config.photoGap}
                           onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
                           onInteractionChange={setIsInteracting}
                           onDropPhoto={onDropPhoto}
