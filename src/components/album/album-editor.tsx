@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Cloud,
   Loader2,
@@ -68,6 +68,18 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const [photoGap, setPhotoGap] = useState(0);
   const [pageMargin, setPageMargin] = useState(0);
   const [backgroundColor, setBackgroundColor] = useState('#ffffff');
+  const colorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleColorChange = (color: string) => {
+    // Clear previous timeout
+    if (colorDebounceRef.current) {
+      clearTimeout(colorDebounceRef.current);
+    }
+    // Debounce update by 100ms
+    colorDebounceRef.current = setTimeout(() => {
+      setBackgroundColor(color);
+    }, 100);
+  };
 
   useEffect(() => {
     setIsClient(true);
@@ -421,7 +433,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                         <input
                           type="color"
                           value={backgroundColor}
-                          onChange={(e) => setBackgroundColor(e.target.value)}
+                          onChange={(e) => handleColorChange(e.target.value)}
                           className="w-10 h-10 rounded border cursor-pointer"
                         />
                         <input
