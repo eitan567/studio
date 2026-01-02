@@ -31,46 +31,46 @@ interface PageLayoutProps {
 }
 
 function PageLayout({ page, onUpdatePhotoPanAndZoom, onInteractionChange, onDropPhoto }: PageLayoutProps) {
-    const { photos, layout } = page;
-    const template = LAYOUT_TEMPLATES.find(t => t.id === layout) || LAYOUT_TEMPLATES[0];
+  const { photos, layout } = page;
+  const template = LAYOUT_TEMPLATES.find(t => t.id === layout) || LAYOUT_TEMPLATES[0];
 
-    const [dragOverPhotoId, setDragOverPhotoId] = useState<string | null>(null);
+  const [dragOverPhotoId, setDragOverPhotoId] = useState<string | null>(null);
 
-    return (
-        <div className={cn(
-            "grid grid-cols-12 grid-rows-12 gap-2 h-full w-full"
-        )}>
-            {photos.slice(0, template.photoCount).map((photo, index) => (
-                <div
-                    key={photo.id}
-                    className={cn(
-                        'relative rounded-md overflow-hidden bg-muted group/photo transition-all',
-                        template.grid[index],
-                        dragOverPhotoId === photo.id && 'ring-4 ring-primary ring-inset'
-                    )}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setDragOverPhotoId(photo.id);
-                    }}
-                    onDragLeave={() => setDragOverPhotoId(null)}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      setDragOverPhotoId(null);
-                      const droppedPhotoId = e.dataTransfer.getData('photoId');
-                      if (droppedPhotoId) {
-                        onDropPhoto(page.id, photo.id, droppedPhotoId);
-                      }
-                    }}
-                >
-                    <PhotoRenderer 
-                      photo={photo} 
-                      onUpdate={(panAndZoom) => onUpdatePhotoPanAndZoom(page.id, photo.id, panAndZoom)}
-                      onInteractionChange={onInteractionChange}
-                    />
-                </div>
-            ))}
+  return (
+    <div className={cn(
+      "grid grid-cols-12 grid-rows-12 h-full w-full"
+    )}>
+      {photos.slice(0, template.photoCount).map((photo, index) => (
+        <div
+          key={photo.id}
+          className={cn(
+            'relative overflow-hidden bg-muted group/photo transition-all',
+            template.grid[index],
+            dragOverPhotoId === photo.id && 'ring-4 ring-primary ring-inset'
+          )}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOverPhotoId(photo.id);
+          }}
+          onDragLeave={() => setDragOverPhotoId(null)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOverPhotoId(null);
+            const droppedPhotoId = e.dataTransfer.getData('photoId');
+            if (droppedPhotoId) {
+              onDropPhoto(page.id, photo.id, droppedPhotoId);
+            }
+          }}
+        >
+          <PhotoRenderer
+            photo={photo}
+            onUpdate={(panAndZoom) => onUpdatePhotoPanAndZoom(page.id, photo.id, panAndZoom)}
+            onInteractionChange={onInteractionChange}
+          />
         </div>
-    );
+      ))}
+    </div>
+  );
 }
 
 function CoverPageLayout({ side }: { side: 'front' | 'back' }) {
@@ -95,7 +95,7 @@ interface AlbumPreviewProps {
 export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUpdatePhotoPanAndZoom, onDropPhoto }: AlbumPreviewProps) {
   const { toast } = useToast();
   const [isInteracting, setIsInteracting] = useState(false);
-  
+
   if (pages.length <= 0) {
     return (
       <Card className="flex h-[80vh] w-full items-center justify-center bg-muted/50 border-2 border-dashed">
@@ -181,54 +181,54 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
 
   return (
     <div className="w-full">
-        <ScrollArea className="h-[85vh] w-full pr-4" style={{ overflowY: isInteracting ? 'hidden' : 'auto' }}>
-            <div className="space-y-8">
-                {pages.map((page) => (
-                    <div key={page.id} className="w-full max-w-4xl mx-auto">
-                        <div className="w-full relative group/page">
-                            
-                            {!page.isCover && (
-                              <div className={cn("h-14", page.type === 'single' ? 'w-1/2 mx-auto' : 'w-full')}>
-                                <PageToolbar page={page} pageNumber={pages.findIndex(p => p.id === page.id)} />
-                              </div>
-                            )}
+      <ScrollArea className="h-[85vh] w-full pr-4" style={{ overflowY: isInteracting ? 'hidden' : 'auto' }}>
+        <div className="space-y-8">
+          {pages.map((page) => (
+            <div key={page.id} className="w-full max-w-4xl mx-auto">
+              <div className="w-full relative group/page">
 
-                            <AspectRatio ratio={page.isCover || page.type === 'spread' ? 2 / 1 : 2} className={cn(page.type === 'single' && 'w-1/2 mx-auto')}>
-                                <Card className="h-full w-full shadow-lg">
-                                <CardContent className="flex h-full w-full items-center justify-center p-2">
-                                    {page.isCover ? (
-                                        <div className="grid grid-cols-2 h-full w-full">
-                                            <CoverPageLayout side="back" />
-                                            <CoverPageLayout side="front" />
-                                        </div>
-                                    ) : page.type === 'spread' ? (
-                                        <div className="relative h-full w-full">
-                                            {/* Spine simulation */}
-                                            <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10 pointer-events-none"></div>
-                                            <div className="absolute inset-y-0 left-1/2 w-4 -ml-2 bg-gradient-to-r from-transparent to-black/10 z-10 pointer-events-none"></div>
-                                            <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10 pointer-events-none"></div>
-                                            <PageLayout 
-                                              page={page} 
-                                              onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} 
-                                              onInteractionChange={setIsInteracting} 
-                                              onDropPhoto={onDropPhoto}
-                                            />
-                                        </div>
-                                    ) : (
-                                        <PageLayout 
-                                          page={page} 
-                                          onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} 
-                                          onInteractionChange={setIsInteracting} 
-                                          onDropPhoto={onDropPhoto}
-                                        />
-                                    )}
-                                </CardContent>
-                                </Card>
-                            </AspectRatio>
+                {!page.isCover && (
+                  <div className={cn("h-14", page.type === 'single' ? 'w-1/2 mx-auto' : 'w-full')}>
+                    <PageToolbar page={page} pageNumber={pages.findIndex(p => p.id === page.id)} />
+                  </div>
+                )}
+
+                <AspectRatio ratio={page.isCover || page.type === 'spread' ? 2 / 1 : 2} className={cn(page.type === 'single' && 'w-1/2 mx-auto')}>
+                  <Card className="h-full w-full shadow-lg">
+                    <CardContent className="flex h-full w-full items-center justify-center p-0">
+                      {page.isCover ? (
+                        <div className="grid grid-cols-2 h-full w-full">
+                          <CoverPageLayout side="back" />
+                          <CoverPageLayout side="front" />
                         </div>
-                    </div>
-                ))}
+                      ) : page.type === 'spread' ? (
+                        <div className="relative h-full w-full">
+                          {/* Spine simulation */}
+                          <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10 pointer-events-none"></div>
+                          <div className="absolute inset-y-0 left-1/2 w-4 -ml-2 bg-gradient-to-r from-transparent to-black/10 z-10 pointer-events-none"></div>
+                          <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10 pointer-events-none"></div>
+                          <PageLayout
+                            page={page}
+                            onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
+                            onInteractionChange={setIsInteracting}
+                            onDropPhoto={onDropPhoto}
+                          />
+                        </div>
+                      ) : (
+                        <PageLayout
+                          page={page}
+                          onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
+                          onInteractionChange={setIsInteracting}
+                          onDropPhoto={onDropPhoto}
+                        />
+                      )}
+                    </CardContent>
+                  </Card>
+                </AspectRatio>
+              </div>
             </div>
+          ))}
+        </div>
       </ScrollArea>
     </div>
   );

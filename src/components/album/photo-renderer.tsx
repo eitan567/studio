@@ -27,39 +27,55 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
 
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Calculate base scale to cover container while maintaining aspect ratio
-  const getBaseScale = () => {
+  // Calculate wrapper dimensions that cover the container while maintaining photo aspect ratio
+  const getWrapperDimensions = (userScale: number = 1) => {
     if (!containerSize.width || !containerSize.height || !photo.width || !photo.height) {
-      return { scaleX: 1, scaleY: 1 };
-    }
-  
-    const containerAspect = containerSize.width / containerSize.height;
-    const photoAspect = photo.width / photo.height;
-  
-    if (photoAspect > containerAspect) {
-      // Photo is wider than container, so fit to height and let width overflow
       return {
-        scaleX: (containerSize.height * photoAspect) / containerSize.width,
-        scaleY: 1
-      };
-    } else {
-      // Photo is taller than container, so fit to width and let height overflow
-      return {
-        scaleX: 1,
-        scaleY: containerSize.width / photoAspect / containerSize.height
+        wrapperWidth: containerSize.width || 100,
+        wrapperHeight: containerSize.height || 100,
+        overflowX: 0,
+        overflowY: 0
       };
     }
+
+    // Calculate scale to cover the container (like object-cover)
+    const scaleX = containerSize.width / photo.width;
+    const scaleY = containerSize.height / photo.height;
+    const coverScale = Math.max(scaleX, scaleY);
+
+    // Apply user zoom
+    const totalScale = coverScale * userScale;
+
+    // Wrapper dimensions (the actual size the photo will be displayed at)
+    const wrapperWidth = photo.width * totalScale;
+    const wrapperHeight = photo.height * totalScale;
+
+    return {
+      wrapperWidth,
+      wrapperHeight,
+      overflowX: Math.max(0, wrapperWidth - containerSize.width),
+      overflowY: Math.max(0, wrapperHeight - containerSize.height)
+    };
   };
 
   const applyTransform = () => {
-    if (imageRef.current) {
-        const { scale, x, y } = currentValues.current;
-        const { scaleX: baseScaleX, scaleY: baseScaleY } = getBaseScale();
+    if (imageRef.current && containerSize.width && containerSize.height && photo.width && photo.height) {
+      const { scale, x, y } = currentValues.current;
+      const { wrapperWidth, wrapperHeight, overflowX, overflowY } = getWrapperDimensions(scale);
 
-        const finalScaleX = baseScaleX * scale;
-        const finalScaleY = baseScaleY * scale;
+      // Set wrapper size to the actual photo display size
+      imageRef.current.style.width = `${wrapperWidth}px`;
+      imageRef.current.style.height = `${wrapperHeight}px`;
 
-        imageRef.current.style.transform = `scale(${finalScaleX}, ${finalScaleY}) translate3d(${x - 50}%, ${y - 50}%, 0)`;
+      // Calculate position: x=50 means centered
+      // At x=0: show left edge, left=0
+      // At x=100: show right edge, left=-overflowX
+      // At x=50: centered, left=-overflowX/2
+      const left = -((x / 100) * overflowX);
+      const top = -((y / 100) * overflowY);
+
+      imageRef.current.style.left = `${left}px`;
+      imageRef.current.style.top = `${top}px`;
     }
   };
 
@@ -78,18 +94,19 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
     observer.observe(container);
     return () => observer.disconnect();
   }, []);
+
   useEffect(() => {
     applyTransform();
   }, [containerSize, photo.width, photo.height]);
 
   useEffect(() => {
     if (!isInteracting.current) {
-        currentValues.current = {
-            scale: photo.panAndZoom?.scale ?? 1,
-            x: photo.panAndZoom?.x ?? 50,
-            y: photo.panAndZoom?.y ?? 50
-        };
-        applyTransform();
+      currentValues.current = {
+        scale: photo.panAndZoom?.scale ?? 1,
+        x: photo.panAndZoom?.x ?? 50,
+        y: photo.panAndZoom?.y ?? 50
+      };
+      applyTransform();
     }
   }, [photo.panAndZoom]);
 
@@ -99,23 +116,16 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
   };
 
   const updatePanBoundaries = () => {
-    const { scale, x, y } = currentValues.current;
-    
-    const { scaleX: baseScaleX, scaleY: baseScaleY } = getBaseScale();
-    const totalScaleX = baseScaleX * scale;
-    const totalScaleY = baseScaleY * scale;
-
-    const overscanX = Math.max(0, (totalScaleX - 1) / (2 * totalScaleX)) * 100;
-    const overscanY = Math.max(0, (totalScaleY - 1) / (2 * totalScaleY)) * 100;
-
-    currentValues.current.x = Math.max(50 - overscanX, Math.min(50 + overscanX, x));
-    currentValues.current.y = Math.max(50 - overscanY, Math.min(50 + overscanY, y));
+    const { x, y } = currentValues.current;
+    // Simply clamp x and y to 0-100 range
+    currentValues.current.x = Math.max(0, Math.min(100, x));
+    currentValues.current.y = Math.max(0, Math.min(100, y));
   };
 
   const handleScaleChange = (deltaY: number) => {
     const scrollSensitivity = 0.0015;
     const newScale = Math.max(1, Math.min(5, currentValues.current.scale - deltaY * scrollSensitivity));
-    
+
     currentValues.current.scale = newScale;
     updatePanBoundaries();
     applyTransform();
@@ -131,17 +141,18 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
     const dx = e.clientX - dragStart.current.x;
     const dy = e.clientY - dragStart.current.y;
     dragStart.current = { x: e.clientX, y: e.clientY };
-   
-    const { scaleX: baseScaleX, scaleY: baseScaleY } = getBaseScale();
-    const totalScaleX = baseScaleX * currentValues.current.scale;
-    const totalScaleY = baseScaleY * currentValues.current.scale;
 
-    const dXPercent = (dx / (containerSize.width * totalScaleX)) * 100;
-    const dYPercent = (dy / (containerSize.height * totalScaleY)) * 100;
+    const { overflowX, overflowY } = getWrapperDimensions(currentValues.current.scale);
 
-    currentValues.current.x += dXPercent;
-    currentValues.current.y += dYPercent;
-    
+    // Convert pixel drag to percentage change
+    // Moving by overflowX pixels should change x by 100
+    const dXPercent = overflowX > 0 ? (dx / overflowX) * 100 : 0;
+    const dYPercent = overflowY > 0 ? (dy / overflowY) * 100 : 0;
+
+    // Subtract because dragging right (positive dx) should decrease x (show more of right side)
+    currentValues.current.x -= dXPercent;
+    currentValues.current.y -= dYPercent;
+
     updatePanBoundaries();
     requestAnimationFrame(applyTransform);
   };
@@ -187,29 +198,29 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
       window.removeEventListener('mouseup', handleGlobalMouseUp);
       if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     };
-  }, [containerSize, photo.width, photo.height]); 
+  }, [containerSize, photo.width, photo.height]);
 
   return (
     <div
-        ref={containerRef}
-        className="absolute inset-0 cursor-grab overflow-hidden touch-none"
-        onMouseDown={onMouseDown}
+      ref={containerRef}
+      className="absolute inset-0 cursor-grab overflow-hidden touch-none"
+      onMouseDown={onMouseDown}
     >
-        <div
-            ref={imageRef}
-            className="relative h-full w-full"
-            style={{ transition: 'none' }}
-        >
-            <Image
-                src={photo.src}
-                alt={photo.alt}
-                fill
-                className="object-cover pointer-events-none"
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                draggable={false}
-                priority
-            />
-        </div>
+      <div
+        ref={imageRef}
+        className="absolute"
+        style={{ transition: 'none' }}
+      >
+        <Image
+          src={photo.src}
+          alt={photo.alt}
+          fill
+          className="object-cover pointer-events-none"
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          draggable={false}
+          priority
+        />
+      </div>
     </div>
   );
 });
