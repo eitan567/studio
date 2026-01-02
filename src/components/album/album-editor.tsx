@@ -67,6 +67,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const [allowDuplicates, setAllowDuplicates] = useState(true);
   const [photoGap, setPhotoGap] = useState(0);
   const [pageMargin, setPageMargin] = useState(0);
+  const [backgroundColor, setBackgroundColor] = useState('#ffffff');
 
   useEffect(() => {
     setIsClient(true);
@@ -90,6 +91,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     size: form.watch('size') as '20x20',
     photoGap,
     pageMargin,
+    backgroundColor,
   };
 
   const generateInitialPages = (photos: Photo[]) => {
@@ -412,6 +414,24 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                         onChange={(e) => setPageMargin(Number(e.target.value))}
                         className="w-full"
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Background Color</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={backgroundColor}
+                          onChange={(e) => setBackgroundColor(e.target.value)}
+                          className="w-10 h-10 rounded border cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={backgroundColor}
+                          onChange={(e) => setBackgroundColor(e.target.value)}
+                          className="flex-1 h-8 px-2 text-sm border rounded"
+                          placeholder="#ffffff"
+                        />
+                      </div>
                     </div>
                   </form>
                 </Form>
