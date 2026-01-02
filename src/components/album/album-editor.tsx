@@ -45,6 +45,7 @@ import Image from 'next/image';
 
 // Fix for alert import
 import { Alert as AlertUI, AlertDescription as AlertDescriptionUI, AlertTitle as AlertTitleUI } from '@/components/ui/alert';
+import { aiGenerateBackground } from '@/ai/ai-generate-background';
 
 interface AlbumEditorProps {
   albumId: string;
@@ -88,6 +89,41 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     colorDebounceRef.current = setTimeout(() => {
       setBackgroundColor(color);
     }, 100);
+  };
+
+  // AI Background Generation
+  const [aiBackgroundPrompt, setAiBackgroundPrompt] = useState('');
+  const [isGeneratingBackground, setIsGeneratingBackground] = useState(false);
+
+  const handleGenerateBackground = async () => {
+    if (!aiBackgroundPrompt.trim()) return;
+    setIsGeneratingBackground(true);
+    try {
+      const result = await aiGenerateBackground({ prompt: aiBackgroundPrompt });
+      if (result.success && result.imageUrl) {
+        setAvailableBackgrounds(prev => [...prev, result.imageUrl]);
+        setBackgroundImage(result.imageUrl);
+        setAiBackgroundPrompt('');
+        toast({
+          title: 'Background Generated!',
+          description: 'AI background has been added to your options.',
+        });
+      } else {
+        toast({
+          title: 'Generation Failed',
+          description: result.error || 'Could not generate background. Try a different prompt.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to generate background. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGeneratingBackground(false);
+    }
   };
 
   useEffect(() => {
@@ -525,6 +561,34 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                           <img src={backgroundImage} alt="Background preview" className="w-full h-full object-cover" />
                         </div>
                       )}
+                      {/* AI Background Generation */}
+                      <div className="space-y-2 pt-2 border-t">
+                        <label className="text-sm font-medium flex items-center gap-2">
+                          <Sparkles className="w-4 h-4" />
+                          Generate with AI
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="Describe background..."
+                            value={aiBackgroundPrompt}
+                            onChange={(e) => setAiBackgroundPrompt(e.target.value)}
+                            className="flex-1 h-8 px-2 text-sm border rounded"
+                          />
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            disabled={isGeneratingBackground || !aiBackgroundPrompt.trim()}
+                            onClick={handleGenerateBackground}
+                          >
+                            {isGeneratingBackground ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Wand2 className="w-4 h-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </form>
                 </Form>
