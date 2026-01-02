@@ -21,6 +21,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { LAYOUT_TEMPLATES, COVER_TEMPLATES } from './layout-templates';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
 
 
 interface PageLayoutProps {
@@ -124,6 +127,140 @@ const Spine = ({ text, width = 40, color, fontSize = 12, fontFamily }: { text?: 
   </div>
 );
 
+// Helper to manage color + opacity
+const SpineColorPicker = ({
+  value,
+  onChange
+}: {
+  value?: string;
+  onChange: (color: string) => void;
+}) => {
+  // Parse initial values
+  const [hex, setHex] = useState(() => {
+    if (!value) return '#000000';
+    if (value.startsWith('#')) return value;
+    if (value.startsWith('rgba')) {
+      // Very basic extraction, assumes rgba(r, g, b, a)
+      // We won't perfectly reverse-engineer generic CSS colors but good enough for this UI
+      return '#000000';
+    }
+    return value;
+  });
+
+  const [opacity, setOpacity] = useState(() => {
+    if (!value) return 1;
+    if (value.startsWith('rgba')) {
+      const match = value.match(/rgba?\(.*,\s*([\d.]+)\)/);
+      return match ? parseFloat(match[1]) : 1;
+    }
+    return 1;
+  });
+
+  // When value prop updates externally (rare while editing), sync local state if needed
+  // ... omitting specific sync logic for simplicity to avoid fighting the user's input loop
+  // ideally we would useEffect here but it can cause cursor jumps if not careful.
+  // We'll rely on the parent passing the updated value back in if we needed to display it elsewhere,
+  // but for the picker controls, we drive them.
+
+  // Actually, to properly support re-opening the popover with correct state:
+  React.useEffect(() => {
+    if (!value) {
+      setHex('#000000');
+      setOpacity(0); // If no color, maybe 0 opacity? Or 1? Let's say 0 means transparent/none
+      return;
+    }
+    if (value.startsWith('#')) {
+      setHex(value);
+      setOpacity(1);
+    } else if (value.startsWith('rgba')) {
+      // Parse rgba(r, g, b, a)
+      const parts = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*([\d.]*)\)/);
+      if (parts) {
+        const r = parseInt(parts[1]);
+        const g = parseInt(parts[2]);
+        const b = parseInt(parts[3]);
+        const a = parts[4] ? parseFloat(parts[4]) : 1;
+        // Convert rgb to hex
+        const toHex = (n: number) => n.toString(16).padStart(2, '0');
+        setHex(`#${toHex(r)}${toHex(g)}${toHex(b)}`);
+        setOpacity(a);
+      }
+    }
+  }, [value]);
+
+  const updateColor = (newHex: string, newOpacity: number) => {
+    setHex(newHex);
+    setOpacity(newOpacity);
+
+    // Construct RGBA
+    // Convert hex to rgb
+    const r = parseInt(newHex.slice(1, 3), 16);
+    const g = parseInt(newHex.slice(3, 5), 16);
+    const b = parseInt(newHex.slice(5, 7), 16);
+
+    const rgba = `rgba(${r}, ${g}, ${b}, ${newOpacity})`;
+    onChange(rgba);
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className="h-6 w-14 px-1 gap-1 border-dashed"
+          style={{
+            backgroundColor: value,
+            color: opacity > 0.5 ? (parseInt(hex.slice(1), 16) > 0xffffff / 2 ? 'black' : 'white') : 'inherit'
+          }}
+        >
+          {/* Show a little swatch or just text? */}
+          {/* If transparent, maybe checkboard? */}
+          <div className="w-full h-full flex items-center justify-center text-[10px]">
+            {opacity === 0 ? 'None' : ''}
+          </div>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-3 space-y-3">
+        <div className="space-y-1">
+          <Label className="text-xs">Color</Label>
+          <div className="flex gap-2">
+            <input
+              type="color"
+              className="h-8 w-12 p-0 border-0"
+              value={hex}
+              onChange={(e) => updateColor(e.target.value, opacity)}
+            />
+            <input
+              type="text"
+              className="flex-1 h-8 text-xs border rounded px-2 font-mono"
+              value={hex}
+              onChange={(e) => {
+                if (/^#[0-9A-F]{6}$/i.test(e.target.value)) {
+                  updateColor(e.target.value, opacity);
+                }
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <div className="flex justify-between">
+            <Label className="text-xs">Opacity</Label>
+            <span className="text-xs text-muted-foreground">{Math.round(opacity * 100)}%</span>
+          </div>
+          <Slider
+            value={[opacity]}
+            min={0}
+            max={1}
+            step={0.01}
+            onValueChange={([val]) => updateColor(hex, val)}
+          />
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 const PageToolbar = ({
   page,
   pageNumber,
@@ -178,13 +315,9 @@ const PageToolbar = ({
               {/* Spine Color */}
               <div className="flex items-center gap-1">
                 <span className="text-[10px] text-muted-foreground">C:</span>
-                <input
-                  type="text"
-                  placeholder="#Hex"
-                  className="h-6 w-14 px-1 text-xs border rounded"
-                  value={page.spineColor || ''}
-                  onChange={(e) => onUpdateSpineSettings?.(page.id, { color: e.target.value })}
-                  title="Spine Color (Hex/RGBA)"
+                <SpineColorPicker
+                  value={page.spineColor}
+                  onChange={(color) => onUpdateSpineSettings?.(page.id, { color })}
                 />
               </div>
               {/* Spine Font Size */}
