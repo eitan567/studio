@@ -19,7 +19,7 @@ import type { PhotoPanAndZoom } from '@/lib/types';
 import { PhotoRenderer } from './photo-renderer';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { LAYOUT_TEMPLATES } from './layout-templates';
+import { LAYOUT_TEMPLATES, COVER_TEMPLATES } from './layout-templates';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 
@@ -29,11 +29,24 @@ interface PageLayoutProps {
   onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
   onInteractionChange: (isInteracting: boolean) => void;
   onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
+  overridePhotos?: Photo[];
+  overrideLayout?: string;
+  templateSource?: typeof LAYOUT_TEMPLATES;
 }
 
-function PageLayout({ page, photoGap, onUpdatePhotoPanAndZoom, onInteractionChange, onDropPhoto }: PageLayoutProps) {
-  const { photos, layout } = page;
-  const template = LAYOUT_TEMPLATES.find(t => t.id === layout) || LAYOUT_TEMPLATES[0];
+function PageLayout({
+  page,
+  photoGap,
+  onUpdatePhotoPanAndZoom,
+  onInteractionChange,
+  onDropPhoto,
+  overridePhotos,
+  overrideLayout,
+  templateSource = LAYOUT_TEMPLATES
+}: PageLayoutProps) {
+  const photos = overridePhotos || page.photos;
+  const layout = overrideLayout || page.layout;
+  const template = templateSource.find(t => t.id === layout) || templateSource[0];
 
   const [dragOverPhotoId, setDragOverPhotoId] = useState<string | null>(null);
 
@@ -75,26 +88,19 @@ function PageLayout({ page, photoGap, onUpdatePhotoPanAndZoom, onInteractionChan
   );
 }
 
-function CoverPageLayout({ side }: { side: 'front' | 'back' }) {
-  return (
-    <div className="relative h-full w-full bg-muted flex items-center justify-center">
-      <span className="text-6xl font-bold text-black/10 select-none uppercase">
-        {side}
-      </span>
-    </div>
-  );
-}
+
 
 interface AlbumPreviewProps {
   pages: AlbumPage[];
   config: AlbumConfig;
   onDeletePage: (pageId: string) => void;
   onUpdateLayout: (pageId: string, newLayout: string) => void;
+  onUpdateCoverLayout?: (pageId: string, side: 'front' | 'back', newLayout: string) => void;
   onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
   onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
 }
 
-export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUpdatePhotoPanAndZoom, onDropPhoto }: AlbumPreviewProps) {
+export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUpdateCoverLayout, onUpdatePhotoPanAndZoom, onDropPhoto }: AlbumPreviewProps) {
   const { toast } = useToast();
   const [isInteracting, setIsInteracting] = useState(false);
 
@@ -110,76 +116,159 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
     );
   }
 
-  const PageToolbar = ({ page, pageNumber }: { page: AlbumPage; pageNumber: number }) => (
-    <div className="mb-2">
-      <TooltipProvider>
-        <div className="flex items-center justify-between gap-1 rounded-lg border bg-background p-0.5 shadow-lg px-2">
-          <span className="text-sm font-semibold text-muted-foreground">
-            {page.isCover ? 'Cover' : `Page ${pageNumber}`}
-          </span>
-          <div className="flex items-center gap-1">
-            <DropdownMenu>
+  const PageToolbar = ({ page, pageNumber }: { page: AlbumPage; pageNumber: number }) => {
+    if (page.isCover) {
+      return (
+        <div className="mb-2">
+          <TooltipProvider>
+            <div className="flex items-center justify-between gap-1 rounded-lg border bg-background p-0.5 shadow-lg px-2">
+              <span className="text-sm font-semibold text-muted-foreground mr-2">Cover Spread</span>
+              <div className="flex items-center gap-2">
+                {/* Back Cover Layout */}
+                <DropdownMenu>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="gap-1 px-2">
+                          <LayoutTemplate className="h-4 w-4" />
+                          <span className="text-xs">Back</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>Back Cover Layout</TooltipContent>
+                  </Tooltip>
+                  <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
+                    {COVER_TEMPLATES.map(template => (
+                      <DropdownMenuItem
+                        key={template.id}
+                        onSelect={() => onUpdateCoverLayout?.(page.id, 'back', template.id)}
+                        className={cn("p-0 focus:bg-accent/50 rounded-md cursor-pointer", page.coverLayouts?.back === template.id && "ring-2 ring-primary")}
+                      >
+                        <div className="w-24 h-24 p-1 flex flex-col items-center">
+                          <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
+                            {template.grid.map((gridClass, i) => (
+                              <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
+                            ))}
+                          </div>
+                          <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <div className="h-4 w-px bg-border" />
+
+                {/* Front Cover Layout */}
+                <DropdownMenu>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="gap-1 px-2">
+                          <LayoutTemplate className="h-4 w-4" />
+                          <span className="text-xs">Front</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>Front Cover Layout</TooltipContent>
+                  </Tooltip>
+                  <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
+                    {COVER_TEMPLATES.map(template => (
+                      <DropdownMenuItem
+                        key={template.id}
+                        onSelect={() => onUpdateCoverLayout?.(page.id, 'front', template.id)}
+                        className={cn("p-0 focus:bg-accent/50 rounded-md cursor-pointer", page.coverLayouts?.front === template.id && "ring-2 ring-primary")}
+                      >
+                        <div className="w-24 h-24 p-1 flex flex-col items-center">
+                          <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
+                            {template.grid.map((gridClass, i) => (
+                              <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
+                            ))}
+                          </div>
+                          <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          </TooltipProvider>
+        </div>
+      );
+    }
+
+    return (
+      <div className="mb-2">
+        <TooltipProvider>
+          <div className="flex items-center justify-between gap-1 rounded-lg border bg-background p-0.5 shadow-lg px-2">
+            <span className="text-sm font-semibold text-muted-foreground">
+              {`Page ${pageNumber}`}
+            </span>
+            <div className="flex items-center gap-1">
+              <DropdownMenu>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon"><LayoutTemplate className="h-5 w-5" /></Button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>Page Layout</TooltipContent>
+                </Tooltip>
+                <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
+                  {LAYOUT_TEMPLATES.map(template => (
+                    <DropdownMenuItem key={template.id} onSelect={() => onUpdateLayout(page.id, template.id)} className="p-0 focus:bg-accent/50 rounded-md cursor-pointer">
+                      <div className="w-24 h-24 p-1 flex flex-col items-center">
+                        <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
+                          {template.grid.map((gridClass, i) => (
+                            <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
+                          ))}
+                        </div>
+                        <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon"><LayoutTemplate className="h-5 w-5" /></Button>
-                  </DropdownMenuTrigger>
+                  <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><Download className="h-5 w-5" /></Button>
                 </TooltipTrigger>
-                <TooltipContent>Page Layout</TooltipContent>
+                <TooltipContent>Download Page</TooltipContent>
               </Tooltip>
-              <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
-                {LAYOUT_TEMPLATES.map(template => (
-                  <DropdownMenuItem key={template.id} onSelect={() => onUpdateLayout(page.id, template.id)} className="p-0 focus:bg-accent/50 rounded-md cursor-pointer">
-                    <div className="w-24 h-24 p-1 flex flex-col items-center">
-                      <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
-                        {template.grid.map((gridClass, i) => (
-                          <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
-                        ))}
-                      </div>
-                      <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><Download className="h-5 w-5" /></Button>
-              </TooltipTrigger>
-              <TooltipContent>Download Page</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><ImageIcon className="h-5 w-5" /></Button>
-              </TooltipTrigger>
-              <TooltipContent>Set Background</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><Wand2 className="h-5 w-5" /></Button>
-              </TooltipTrigger>
-              <TooltipContent>Enhance with AI</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><Undo className="h-5 w-5" /></Button>
-              </TooltipTrigger>
-              <TooltipContent>Undo AI Changes</TooltipContent>
-            </Tooltip>
-            <div className="mx-1 h-6 w-px bg-border" />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => onDeletePage(page.id)}>
-                  <Trash2 className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Delete Page</TooltipContent>
-            </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><ImageIcon className="h-5 w-5" /></Button>
+                </TooltipTrigger>
+                <TooltipContent>Set Background</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><Wand2 className="h-5 w-5" /></Button>
+                </TooltipTrigger>
+                <TooltipContent>Enhance with AI</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><Undo className="h-5 w-5" /></Button>
+                </TooltipTrigger>
+                <TooltipContent>Undo AI Changes</TooltipContent>
+              </Tooltip>
+              <div className="mx-1 h-6 w-px bg-border" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => onDeletePage(page.id)}>
+                    <Trash2 className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Delete Page</TooltipContent>
+              </Tooltip>
+            </div>
           </div>
-        </div>
-      </TooltipProvider>
-    </div>
-  );
+        </TooltipProvider>
+      </div>
+    );
+  }; // Add closing brace for PageToolbar function
 
   return (
     <div className="w-full">
@@ -189,11 +278,9 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
             <div key={page.id} className="w-full max-w-4xl mx-auto">
               <div className="w-full relative group/page">
 
-                {!page.isCover && (
-                  <div className={cn("h-14", page.type === 'single' ? 'w-1/2 mx-auto' : 'w-full')}>
-                    <PageToolbar page={page} pageNumber={pages.findIndex(p => p.id === page.id)} />
-                  </div>
-                )}
+                <div className={cn("h-14", page.type === 'single' ? 'w-1/2 mx-auto' : 'w-full')}>
+                  <PageToolbar page={page} pageNumber={pages.findIndex(p => p.id === page.id)} />
+                </div>
 
                 <AspectRatio ratio={page.isCover || page.type === 'spread' ? 2 / 1 : 2} className={cn(page.type === 'single' && 'w-1/2 mx-auto')}>
                   <Card
@@ -209,12 +296,52 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                       className="flex h-full w-full items-center justify-center p-0"
                       style={{ padding: `${config.pageMargin}px` }}
                     >
-                      {page.isCover ? (
-                        <div className="grid grid-cols-2 h-full w-full">
-                          <CoverPageLayout side="back" />
-                          <CoverPageLayout side="front" />
-                        </div>
-                      ) : page.type === 'spread' ? (
+                      {page.isCover ? (() => {
+                        const backLayoutId = page.coverLayouts?.back || '1-full';
+                        const frontLayoutId = page.coverLayouts?.front || '1-full';
+                        const backTemplate = COVER_TEMPLATES.find(t => t.id === backLayoutId) || COVER_TEMPLATES[0];
+                        const frontTemplate = COVER_TEMPLATES.find(t => t.id === frontLayoutId) || COVER_TEMPLATES[0];
+
+                        // Split photos between back and front
+                        const backPhotos = page.photos.slice(0, backTemplate.photoCount);
+                        const frontPhotos = page.photos.slice(backTemplate.photoCount, backTemplate.photoCount + frontTemplate.photoCount);
+
+                        // Ensure we aren't using more photos than available for drag/drop logic?
+                        // The PageLayout handles slice(0, template.photoCount) so passing extra is fine, but for clarity:
+                        // Actually, PageLayout displays slice of passed photos.
+                        // We need to pass the correct subset so that index 0 in Front PageLayout corresponds to the correct photo.
+
+                        return (
+                          <div className="grid grid-cols-2 h-full w-full">
+                            <div className="relative h-full w-full border-r border-dashed border-border/50">
+                              <span className="absolute top-2 left-2 z-20 text-[10px] font-bold text-muted-foreground bg-background/80 px-1.5 py-0.5 rounded pointer-events-none uppercase tracking-wider">Back Cover</span>
+                              <PageLayout
+                                page={page}
+                                photoGap={config.photoGap}
+                                onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
+                                onInteractionChange={setIsInteracting}
+                                onDropPhoto={onDropPhoto}
+                                overrideLayout={backLayoutId}
+                                overridePhotos={backPhotos}
+                                templateSource={COVER_TEMPLATES}
+                              />
+                            </div>
+                            <div className="relative h-full w-full">
+                              <span className="absolute top-2 left-2 z-20 text-[10px] font-bold text-muted-foreground bg-background/80 px-1.5 py-0.5 rounded pointer-events-none uppercase tracking-wider">Front Cover</span>
+                              <PageLayout
+                                page={page}
+                                photoGap={config.photoGap}
+                                onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
+                                onInteractionChange={setIsInteracting}
+                                onDropPhoto={onDropPhoto}
+                                overrideLayout={frontLayoutId}
+                                overridePhotos={frontPhotos}
+                                templateSource={COVER_TEMPLATES}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })() : page.type === 'spread' ? (
                         <div className="relative h-full w-full">
                           {/* Spine simulation */}
                           <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10 pointer-events-none"></div>

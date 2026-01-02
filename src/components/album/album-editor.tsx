@@ -37,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { LAYOUT_TEMPLATES } from './layout-templates';
+import { LAYOUT_TEMPLATES, COVER_TEMPLATES } from './layout-templates';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -157,7 +157,20 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     const newPages: AlbumPage[] = [];
     const defaultPanAndZoom = { scale: 1, x: 50, y: 50 };
 
-    newPages.push({ id: 'cover', type: 'spread', photos: [], layout: 'cover', isCover: true });
+    // Create placeholder photos for cover (1 for front, 1 for back initially)
+    const coverPlaceholders: Photo[] = [
+      { id: uuidv4(), src: 'https://placehold.co/600x400/e2e8f0/e2e8f0?text=+', alt: 'Back Cover Placeholder', width: 600, height: 400 },
+      { id: uuidv4(), src: 'https://placehold.co/600x400/e2e8f0/e2e8f0?text=+', alt: 'Front Cover Placeholder', width: 600, height: 400 }
+    ];
+
+    newPages.push({
+      id: 'cover',
+      type: 'spread',
+      photos: coverPlaceholders,
+      layout: 'cover',
+      isCover: true,
+      coverLayouts: { front: '1-full', back: '1-full' }
+    });
 
     if (photosPool.length > 0) {
       newPages.push({ id: uuidv4(), type: 'single', photos: photosPool.splice(0, 1).map(p => ({ ...p, panAndZoom: defaultPanAndZoom })), layout: '1-full' });
@@ -277,18 +290,66 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             nextPageLayout = bestFitTemplate.id;
           }
         }
-
-        if (photosForNextPage.length > 0) {
-          newPages.push({
-            id: uuidv4(),
-            type: nextPageType,
-            photos: photosForNextPage.map(p => ({ ...p, panAndZoom: defaultPanAndZoom })),
-            layout: nextPageLayout,
-          });
-        }
+        newPages.push({
+          id: uuidv4(),
+          type: nextPageType,
+          photos: photosForNextPage.map(p => ({ ...p, panAndZoom: defaultPanAndZoom })),
+          layout: nextPageLayout,
+        });
       }
 
+
       return newPages;
+    });
+  };
+
+  const handleUpdateCoverLayout = (pageId: string, side: 'front' | 'back', newLayout: string) => {
+    setAlbumPages(prevPages => {
+      return prevPages.map(page => {
+        if (page.id !== pageId || !page.isCover) return page;
+
+        const currentFrontLayout = page.coverLayouts?.front || '1-full';
+        const currentBackLayout = page.coverLayouts?.back || '1-full';
+
+        const frontLayout = side === 'front' ? newLayout : currentFrontLayout;
+        const backLayout = side === 'back' ? newLayout : currentBackLayout;
+
+        const frontTemplate = COVER_TEMPLATES.find(t => t.id === frontLayout) || COVER_TEMPLATES[0];
+        const backTemplate = COVER_TEMPLATES.find(t => t.id === backLayout) || COVER_TEMPLATES[0];
+
+        const requiredBackPhotos = backTemplate.photoCount;
+        const requiredFrontPhotos = frontTemplate.photoCount;
+        const totalRequired = requiredBackPhotos + requiredFrontPhotos;
+
+        let currentPhotos = [...page.photos];
+
+        // If we have fewer photos than required, add placeholders
+        if (currentPhotos.length < totalRequired) {
+          const missingCount = totalRequired - currentPhotos.length;
+          for (let i = 0; i < missingCount; i++) {
+            currentPhotos.push({
+              id: uuidv4(),
+              src: 'https://placehold.co/600x400/e2e8f0/e2e8f0?text=+',
+              alt: 'Cover Placeholder',
+              width: 600,
+              height: 400
+            });
+          }
+        }
+        // If we have more photos than required, keep them (user might switch back). 
+        // Or slice them? Slicing is safer to avoid hidden photos.
+        // Let's slice any extra empty placeholders, but try to keep real user photos if possible?
+        // For simplicity, just ensure at least totalRequired. PageLayout logic slices what it needs.
+
+        return {
+          ...page,
+          photos: currentPhotos,
+          coverLayouts: {
+            front: frontLayout,
+            back: backLayout
+          }
+        };
+      });
     });
   };
 
@@ -326,6 +387,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           if (p.id === targetPhotoId) {
             return {
               ...droppedPhoto,
+              id: targetPhotoId, // Keep the existing unique ID of the slot!
               panAndZoom: { scale: 1, x: 50, y: 50 }
             };
           }
@@ -648,6 +710,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           onUpdateLayout={updatePageLayout}
           onUpdatePhotoPanAndZoom={updatePhotoPanAndZoom}
           onDropPhoto={handleDropPhoto}
+          onUpdateCoverLayout={handleUpdateCoverLayout}
         />
       </div>
 

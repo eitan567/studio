@@ -28,4 +28,8 @@ export type AlbumPage = {
   layout: string; // e.g., '1', '2', '4', '6'
   isCover?: boolean;
   backgroundImage?: string; // Override background image for this specific page
+  coverLayouts?: {
+    front: string;
+    back: string;
+  };
 };
