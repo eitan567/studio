@@ -116,6 +116,7 @@ const DraggableTitle = ({
   fontSize = 24,
   fontFamily,
   position = { x: 50, y: 50 },
+  containerId, // New prop
   onUpdatePosition
 }: {
   text: string;
@@ -123,6 +124,7 @@ const DraggableTitle = ({
   fontSize?: number;
   fontFamily?: string;
   position?: { x: number; y: number };
+  containerId: string;
   onUpdatePosition: (x: number, y: number) => void;
 }) => {
   const [isDragging, setIsDragging] = useState(false);
@@ -145,9 +147,7 @@ const DraggableTitle = ({
 
     const handleMouseMove = (e: MouseEvent) => {
       // Convert movement to percentage relative to parent container
-      // This requires a ref to the container, which we don't strictly have here easily without modifying parent.
-      // Alternatively, we can assume the parent is the nearest relative container.
-      const container = document.getElementById('front-cover-container');
+      const container = document.getElementById(containerId);
       if (!container) return;
 
       const rect = container.getBoundingClientRect();
@@ -267,7 +267,7 @@ const SpineColorPicker = ({
         const a = parts[4] ? parseFloat(parts[4]) : 1;
         // Convert rgb to hex
         const toHex = (n: number) => n.toString(16).padStart(2, '0');
-        setHex(`#${toHex(r)}$${toHex(g)}$${toHex(b)}`);
+        setHex(`#${toHex(r)}${toHex(g)}${toHex(b)}`);
         if (!disableAlpha) setOpacity(a);
       }
     }
@@ -380,15 +380,19 @@ const PageToolbar = ({
             <span className="text-sm font-semibold text-muted-foreground mr-2">Cover</span>
 
             {/* Spine Settings */}
+            {/* Spine Settings */}
             <div className="flex items-center gap-3 border-r pr-3 mr-3 bg-muted/20 p-1 rounded-md">
-              <input
-                type="text"
-                placeholder="Spine Text"
-                className="h-7 w-32 px-2 text-sm border rounded bg-background"
-                value={page.spineText || ''}
-                onChange={(e) => onUpdateSpineText?.(page.id, e.target.value)}
-                title="Spine Text"
-              />
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Spine Text:</span>
+                <input
+                  type="text"
+                  placeholder="Spine Text"
+                  className="h-7 w-32 px-2 text-sm border rounded bg-background"
+                  value={page.spineText || ''}
+                  onChange={(e) => onUpdateSpineText?.(page.id, e.target.value)}
+                  title="Spine Text"
+                />
+              </div>
 
               {/* Spine Width */}
               <div className="flex items-center gap-1.5">
@@ -771,6 +775,32 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                                 />
                               </div>
 
+                              {/* Front Cover Title Overlay */}
+                              {/* We position a container over the RIGHT half of the spread (Front Cover location) */}
+                              {/* Logic: Left = 50% + Spine/2. Width = 50% - Spine/2. */}
+                              {/* But simplified: just use 50% left and calc width. */}
+                              <div
+                                id={`front-cover-container-${page.id}`}
+                                className="absolute top-0 right-0 h-full z-40 pointer-events-none overflow-hidden"
+                                style={{
+                                  width: `calc(50% - ${(page.spineWidth || 40) / 2}px)`,
+                                }}
+                              >
+                                <div className="w-full h-full relative pointer-events-auto">
+                                  {page.titleText && (
+                                    <DraggableTitle
+                                      text={page.titleText}
+                                      color={page.titleColor}
+                                      fontSize={page.titleFontSize}
+                                      fontFamily={page.titleFontFamily}
+                                      position={page.titlePosition}
+                                      containerId={`front-cover-container-${page.id}`}
+                                      onUpdatePosition={(x, y) => onUpdateTitleSettings?.(page.id, { position: { x, y } })}
+                                    />
+                                  )}
+                                </div>
+                              </div>
+
                               <PageLayout
                                 page={page}
                                 photoGap={config.photoGap}
@@ -826,7 +856,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                               fontFamily={page.spineFontFamily}
                             />
 
-                            <div id="front-cover-container" className="relative h-full w-full border-l border-dashed border-border/50 overflow-hidden bg-muted/20">
+                            <div id={`front-cover-container-${page.id}`} className="relative h-full w-full border-l border-dashed border-border/50 overflow-hidden bg-muted/20">
                               {/* Draggable Title */}
                               {page.titleText && (
                                 <DraggableTitle
@@ -835,6 +865,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                                   fontSize={page.titleFontSize}
                                   fontFamily={page.titleFontFamily}
                                   position={page.titlePosition}
+                                  containerId={`front-cover-container-${page.id}`}
                                   onUpdatePosition={(x, y) => onUpdateTitleSettings?.(page.id, { position: { x, y } })}
                                 />
                               )}
