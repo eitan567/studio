@@ -21,6 +21,23 @@ export type AlbumConfig = {
   backgroundImage?: string; // Default background image URL for pages
 };
 
+// New Interface for Cover Text Objects
+export interface CoverText {
+  id: string;
+  text: string;
+  x: number; // percentage
+  y: number; // percentage
+  style: {
+    fontFamily: string;
+    fontSize: number;
+    color: string;
+    fontWeight?: string;
+    fontStyle?: string;
+    textShadow?: string;
+    textAlign?: 'left' | 'center' | 'right';
+  };
+}
+
 export type AlbumPage = {
   id: string; // Unique ID for each page
   type: 'single' | 'spread';
@@ -38,11 +55,20 @@ export type AlbumPage = {
   spineTextColor?: string;
   spineFontSize?: number;
   spineFontFamily?: string;
-  // Cover Title Props
+
+  // Granular Cover Settings
+  photoGap?: number;
+  pageMargin?: number;
+
+  // Cover Objects
+  coverTexts?: CoverText[];
+
+  // Legacy Cover Title Props (Keep for migration if needed, or deprecate)
   titleText?: string;
   titleColor?: string;
   titleFontSize?: number;
   titleFontFamily?: string;
   titlePosition?: { x: number; y: number }; // Percentage 0-100
+
   coverType?: 'split' | 'full'; // Defaults to 'split'
 };

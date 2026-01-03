@@ -397,6 +397,12 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     }));
   };
 
+  const handleUpdatePage = (updatedPage: AlbumPage) => {
+    setAlbumPages(prevPages => prevPages.map(page =>
+      page.id === updatedPage.id ? updatedPage : page
+    ));
+  };
+
   const updatePhotoPanAndZoom = (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => {
     setAlbumPages(pages => pages.map(page => {
       if (page.id !== pageId) return page;
@@ -738,6 +744,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           onUpdateSpineText={handleUpdateSpineText}
           onUpdateSpineSettings={handleUpdateSpineSettings}
           onUpdateTitleSettings={handleUpdateTitleSettings}
+          onUpdatePage={handleUpdatePage}
         />
       </div>
 

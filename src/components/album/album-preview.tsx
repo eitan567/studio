@@ -101,12 +101,15 @@ interface AlbumPreviewProps {
   onUpdateCoverLayout?: (pageId: string, side: 'front' | 'back' | 'full', newLayout: string) => void;
   onUpdateCoverType?: (pageId: string, newType: 'split' | 'full') => void;
 
+  onUpdatePage?: (page: AlbumPage) => void; // New generic update prop
   onUpdateSpineText?: (pageId: string, text: string) => void;
   onUpdateSpineSettings?: (pageId: string, settings: { width?: number; color?: string; textColor?: string; fontSize?: number; fontFamily?: string }) => void;
   onUpdateTitleSettings?: (pageId: string, settings: { text?: string; color?: string; fontSize?: number; fontFamily?: string; position?: { x: number; y: number } }) => void;
   onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
   onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
 }
+
+import { CoverEditorOverlay } from './cover-editor/cover-editor-overlay';
 
 const AVAILABLE_FONTS = ['Inter', 'Serif', 'Mono', 'Cursive', 'Arial', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Impact'];
 
@@ -128,18 +131,12 @@ const DraggableTitle = ({
   onUpdatePosition: (x: number, y: number) => void;
 }) => {
   const [isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return; // Only left click
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
-
-    // Calculate offset from the element's center/top-left to cursor
-    // But since we use percentage position, let's keep it simple.
-    // Ideally we want to prevent jumping.
-    // For this MVP, let's just enable dragging.
   };
 
   React.useEffect(() => {
@@ -167,7 +164,7 @@ const DraggableTitle = ({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, onUpdatePosition]);
+  }, [isDragging, onUpdatePosition, containerId]);
 
   return (
     <div
@@ -182,6 +179,8 @@ const DraggableTitle = ({
         fontSize: `${fontSize}px`,
         fontFamily: fontFamily,
         color: color,
+        // Ensure pointer events are captured for dragging
+        pointerEvents: 'auto'
       }}
       onMouseDown={handleMouseDown}
     >
@@ -190,12 +189,13 @@ const DraggableTitle = ({
   );
 };
 
-const Spine = ({ text, width = 40, color, textColor, fontSize = 12, fontFamily }: { text?: string; width?: number; color?: string; textColor?: string; fontSize?: number; fontFamily?: string }) => (
+const Spine = ({ text, width, color, textColor, fontSize = 12, fontFamily, styleOverride }: { text?: string; width?: number; color?: string; textColor?: string; fontSize?: number; fontFamily?: string; styleOverride?: React.CSSProperties }) => (
   <div
     className="relative h-full bg-muted/30 border-x border-dashed border-border/50 flex items-center justify-center overflow-hidden z-20"
     style={{
-      width: `${width}px`,
+      width: width ? `${width}px` : undefined, // Only enforce px width if provided
       backgroundColor: color,
+      ...styleOverride // Apply overrides
     }}
   >
     <div
@@ -359,6 +359,7 @@ const PageToolbar = ({
   onUpdateSpineText,
   onUpdateSpineSettings,
   onUpdateTitleSettings,
+  onOpenCoverEditor, // New prop
   toast
 }: {
   page: AlbumPage;
@@ -370,6 +371,7 @@ const PageToolbar = ({
   onUpdateSpineText?: (id: string, text: string) => void;
   onUpdateSpineSettings?: (id: string, settings: { width?: number; color?: string; textColor?: string; fontSize?: number; fontFamily?: string }) => void;
   onUpdateTitleSettings?: (id: string, settings: { text?: string; color?: string; fontSize?: number; fontFamily?: string; position?: { x: number; y: number } }) => void;
+  onOpenCoverEditor?: (pageId: string) => void;
   toast: any;
 }) => {
   if (page.isCover) {
@@ -379,140 +381,50 @@ const PageToolbar = ({
           <div className="flex items-center justify-between gap-1 rounded-lg border bg-background p-0.5 shadow-lg px-2 flex-wrap">
             <span className="text-sm font-semibold text-muted-foreground mr-2">Cover</span>
 
-            {/* Spine Settings */}
-            {/* Spine Settings */}
-            <div className="flex items-center gap-3 border-r pr-3 mr-3 bg-muted/20 p-1 rounded-md">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-muted-foreground whitespace-nowrap">Spine Text:</span>
-                <input
-                  type="text"
-                  placeholder="Spine Text"
-                  className="h-7 w-32 px-2 text-sm border rounded bg-background"
-                  value={page.spineText || ''}
-                  onChange={(e) => onUpdateSpineText?.(page.id, e.target.value)}
-                  title="Spine Text"
-                />
-              </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenCoverEditor?.(page.id)}
+              className="gap-2 bg-primary/10 hover:bg-primary/20 mr-auto"
+            >
+              <BookOpenText className="h-4 w-4" />
+              Edit Cover Design
+            </Button>
 
-              {/* Spine Width */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-muted-foreground whitespace-nowrap">Spine Width:</span>
-                <input
-                  type="number"
-                  className="h-7 w-12 px-1 text-sm border rounded bg-background text-center"
-                  value={page.spineWidth || 40}
-                  onChange={(e) => onUpdateSpineSettings?.(page.id, { width: parseInt(e.target.value) || 40 })}
-                  step={5}
-                  min={10}
-                  title="Spine Width (px)"
-                />
-              </div>
+            <div className="h-4 w-px bg-border mx-2" />
 
-              {/* Spine Color */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-muted-foreground whitespace-nowrap">Spine Color:</span>
-                <SpineColorPicker
-                  value={page.spineColor}
-                  onChange={(color) => onUpdateSpineSettings?.(page.id, { color })}
-                />
-              </div>
-
-              {/* Spine Text Color */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-muted-foreground whitespace-nowrap">Text Color:</span>
-                <SpineColorPicker
-                  value={page.spineTextColor}
-                  onChange={(textColor) => onUpdateSpineSettings?.(page.id, { textColor })}
-                  disableAlpha={true}
-                />
-              </div>
-
-              {/* Spine Font Size */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-muted-foreground whitespace-nowrap">Font Size:</span>
-                <input
-                  type="number"
-                  className="h-7 w-12 px-1 text-sm border rounded bg-background text-center"
-                  value={page.spineFontSize || 12}
-                  onChange={(e) => onUpdateSpineSettings?.(page.id, { fontSize: parseInt(e.target.value) || 12 })}
-                  min={8}
-                  max={72}
-                  title="Font Size"
-                />
-              </div>
-
-              {/* Spine Font Family */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-muted-foreground whitespace-nowrap">Font Family:</span>
-                <select
-                  className="h-7 w-20 px-1 text-sm border rounded bg-background"
-                  value={page.spineFontFamily || 'Inter'}
-                  onChange={(e) => onUpdateSpineSettings?.(page.id, { fontFamily: e.target.value })}
-                  title="Font Family"
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">Mode:</span>
+              <div className="flex bg-muted/50 p-0.5 rounded-md border">
+                <button
+                  onClick={() => onUpdateCoverType?.(page.id, 'full')}
+                  className={cn(
+                    "px-2 py-0.5 text-xs rounded-sm transition-all",
+                    page.coverType === 'full'
+                      ? "bg-background shadow-sm text-foreground font-medium"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
                 >
-                  {AVAILABLE_FONTS.map(font => (
-                    <option key={font} value={font}>{font}</option>
-                  ))}
-                </select>
+                  Full
+                </button>
+                <div className="w-px bg-border/50 my-0.5" />
+                <button
+                  onClick={() => onUpdateCoverType?.(page.id, 'split')}
+                  className={cn(
+                    "px-2 py-0.5 text-xs rounded-sm transition-all",
+                    page.coverType === 'split' || !page.coverType
+                      ? "bg-background shadow-sm text-foreground font-medium"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Split
+                </button>
               </div>
             </div>
 
-            {/* Album Title Settings */}
-            <div className="flex items-center gap-3 border-r pr-3 mr-3 bg-muted/20 p-1 rounded-md">
-              <span className="text-xs font-semibold text-muted-foreground">Title:</span>
-              <input
-                type="text"
-                placeholder="Album Title"
-                className="h-7 w-32 px-2 text-sm border rounded bg-background"
-                value={page.titleText || ''}
-                onChange={(e) => onUpdateTitleSettings?.(page.id, { text: e.target.value })}
-              />
-              {/* Title Color */}
-              <SpineColorPicker
-                value={page.titleColor}
-                onChange={(color) => onUpdateTitleSettings?.(page.id, { color })}
-                disableAlpha={true}
-              />
-              <input
-                type="number"
-                className="h-7 w-12 px-1 text-sm border rounded bg-background text-center"
-                value={page.titleFontSize || 24}
-                onChange={(e) => onUpdateTitleSettings?.(page.id, { fontSize: parseInt(e.target.value) || 24 })}
-                min={12}
-                max={120}
-                title="Font Size"
-              />
-              <select
-                className="h-7 w-20 px-1 text-sm border rounded bg-background"
-                value={page.titleFontFamily || 'Inter'}
-                onChange={(e) => onUpdateTitleSettings?.(page.id, { fontFamily: e.target.value })}
-              >
-                {AVAILABLE_FONTS.map(font => (
-                  <option key={font} value={font}>{font}</option>
-                ))}
-              </select>
-            </div>
+            <div className="h-4 w-px bg-border mx-2" />
 
-            {/* Cover Type Toggle */}
-            <div className="flex items-center gap-1 border-r pr-2 mr-2">
-              <Button
-                variant={page.coverType === 'full' ? 'secondary' : 'ghost'}
-                size="sm"
-                className="h-6 px-2 text-xs"
-                onClick={() => onUpdateCoverType?.(page.id, 'full')}
-              >
-                Full
-              </Button>
-              <Button
-                variant={page.coverType !== 'full' ? 'secondary' : 'ghost'}
-                size="sm"
-                className="h-6 px-2 text-xs"
-                onClick={() => onUpdateCoverType?.(page.id, 'split')}
-              >
-                Split
-              </Button>
-            </div>
-
+            {/* Layout Dropdowns (Simplified/Kept for Structure) */}
             <div className="flex items-center gap-2">
               {page.coverType !== 'full' ? (
                 <>
@@ -697,9 +609,32 @@ const PageToolbar = ({
   );
 };
 
-export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUpdateCoverLayout, onUpdateCoverType, onUpdateSpineText, onUpdateSpineSettings, onUpdateTitleSettings, onUpdatePhotoPanAndZoom, onDropPhoto }: AlbumPreviewProps) {
+export function AlbumPreview({
+  pages,
+  config,
+  onDeletePage,
+  onUpdateLayout,
+  onUpdateCoverLayout,
+  onUpdateCoverType,
+  onUpdatePage, // New prop
+  onUpdateSpineText,
+  onUpdateSpineSettings,
+  onUpdateTitleSettings,
+  onUpdatePhotoPanAndZoom,
+  onDropPhoto
+}: AlbumPreviewProps) {
   const { toast } = useToast();
   const [isInteracting, setIsInteracting] = useState(false);
+  const [activePageId, setActivePageId] = useState<string | null>(null);
+  const [isCoverEditorOpen, setIsCoverEditorOpen] = useState(false);
+
+  const handleOpenCoverEditor = (pageId: string) => {
+    setActivePageId(pageId);
+    setIsCoverEditorOpen(true);
+  };
+
+  const coverPage = pages.find(p => p.id === activePageId && p.isCover);
+
 
   if (pages.length <= 0) {
     return (
@@ -734,6 +669,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                     onUpdateSpineText={onUpdateSpineText}
                     onUpdateSpineSettings={onUpdateSpineSettings}
                     onUpdateTitleSettings={onUpdateTitleSettings}
+                    onOpenCoverEditor={handleOpenCoverEditor}
                     toast={toast}
                   />
                 </div>
@@ -753,8 +689,17 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                       style={{ padding: `${config.pageMargin}px` }}
                     >
                       {page.isCover ? (() => {
+                        console.log('[AlbumPreview] Rendering COVER page:', page.id, 'coverType:', page.coverType);
                         // Full Spread Mode
                         if (page.coverType === 'full') {
+                          // Calculate proportional values based on 1000px reference (Visual screen width)
+                          const pageMarginVal = page.pageMargin ?? config.pageMargin ?? 0;
+                          const photoGapVal = page.photoGap ?? config.photoGap ?? 5;
+                          console.log('[AlbumPreview Full] page.photoGap:', page.photoGap, 'photoGapVal:', photoGapVal);
+                          const pageMarginCqw = `${(pageMarginVal / 1000) * 100}%`;
+                          const photoGapCqw = `${(photoGapVal / 1000) * 100}%`;
+                          console.log('[AlbumPreview Full] photoGapCqw:', photoGapCqw);
+
                           return (
                             <div className="relative h-full w-full">
                               {/* Spine Overlay */}
@@ -775,40 +720,87 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                                 />
                               </div>
 
+
                               {/* Front Cover Title Overlay */}
-                              {/* We position a container over the RIGHT half of the spread (Front Cover location) */}
-                              {/* Logic: Left = 50% + Spine/2. Width = 50% - Spine/2. */}
-                              {/* But simplified: just use 50% left and calc width. */}
                               <div
-                                id={`front-cover-container-${page.id}`}
-                                className="absolute top-0 right-0 h-full z-40 pointer-events-none overflow-hidden"
+                                className="relative h-full w-full overflow-hidden"
                                 style={{
-                                  width: `calc(50% - ${(page.spineWidth || 40) / 2}px)`,
+                                  containerType: 'inline-size',
+                                  padding: pageMarginCqw
                                 }}
                               >
-                                <div className="w-full h-full relative pointer-events-auto">
-                                  {page.titleText && (
-                                    <DraggableTitle
-                                      text={page.titleText}
-                                      color={page.titleColor}
-                                      fontSize={page.titleFontSize}
-                                      fontFamily={page.titleFontFamily}
-                                      position={page.titlePosition}
-                                      containerId={`front-cover-container-${page.id}`}
-                                      onUpdatePosition={(x, y) => onUpdateTitleSettings?.(page.id, { position: { x, y } })}
-                                    />
-                                  )}
+                                {/* Draggable Title Overlay (if applies to full spread?) Usually title is mostly front. */}
+                                <div className="absolute inset-0 z-20 pointer-events-none">
+                                  <div className="pointer-events-auto h-full w-full relative">
+                                    {page.titleText && (
+                                      <DraggableTitle
+                                        text={page.titleText}
+                                        color={page.titleColor}
+                                        fontSize={page.titleFontSize}
+                                        fontFamily={page.titleFontFamily}
+                                        position={page.titlePosition}
+                                        containerId={`front-cover-container-${page.id}`}
+                                        onUpdatePosition={(x, y) => onUpdateTitleSettings?.(page.id, { position: { x, y } })}
+                                      />
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Spine Overlay */}
+                                <div
+                                  className="absolute inset-y-0 left-1/2 h-full z-30 pointer-events-none"
+                                  style={{
+                                    marginLeft: `-${(page.spineWidth || 40) / 2}px`,
+                                    width: `${page.spineWidth || 40}px`
+                                  }}
+                                >
+                                  <Spine
+                                    text={page.spineText}
+                                    width={page.spineWidth}
+                                    color={page.spineColor}
+                                    textColor={page.spineTextColor}
+                                    fontSize={page.spineFontSize}
+                                    fontFamily={page.spineFontFamily}
+                                  />
+                                </div>
+
+                                <PageLayout
+                                  page={page}
+                                  photoGap={photoGapCqw as any}
+                                  onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
+                                  onInteractionChange={setIsInteracting}
+                                  onDropPhoto={onDropPhoto}
+                                  templateSource={COVER_TEMPLATES} // Uses page.layout
+                                />
+
+                                {/* Render Text Objects Overlay */}
+                                <div
+                                  className="absolute inset-0 pointer-events-none overflow-hidden"
+                                  style={{ containerType: 'inline-size' }}
+                                >
+                                  {page.coverTexts?.map(textItem => (
+                                    <div
+                                      key={textItem.id}
+                                      className="absolute whitespace-nowrap"
+                                      style={{
+                                        left: `${textItem.x}%`,
+                                        top: `${textItem.y}%`,
+                                        transform: 'translate(-50%, -50%)',
+                                        fontFamily: textItem.style.fontFamily,
+                                        fontSize: `${(textItem.style.fontSize / 3200) * 100}cqw`,
+                                        color: textItem.style.color,
+                                        fontWeight: textItem.style.fontWeight === 'bold' ? 'bold' : 'normal',
+                                        fontStyle: textItem.style.fontStyle === 'italic' ? 'italic' : 'normal',
+                                        textAlign: textItem.style.textAlign || 'left',
+                                        textShadow: textItem.style.textShadow,
+                                      }}
+                                    >
+                                      {textItem.text}
+                                    </div>
+                                  ))
+                                  }
                                 </div>
                               </div>
-
-                              <PageLayout
-                                page={page}
-                                photoGap={config.photoGap}
-                                onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
-                                onInteractionChange={setIsInteracting}
-                                onDropPhoto={onDropPhoto}
-                                templateSource={COVER_TEMPLATES} // Uses page.layout
-                              />
                             </div>
                           );
                         }
@@ -824,20 +816,67 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                         const frontPhotos = page.photos.slice(backTemplate.photoCount, backTemplate.photoCount + frontTemplate.photoCount);
 
                         // Current spine width (default 40)
-                        const spineWidth = page.spineWidth || 40;
+                        const spineWidthPx = page.spineWidth || 40;
+                        // Convert to PROPORTIONAL width for preview using standard 3200px width
+                        // This prevents spine from being huge in small thumbnails
+                        const spineWidthCqw = `${(spineWidthPx / 3200) * 100}cqw`;
+
+                        // Calculate proportional values based on 1000px reference
+                        const pageMarginVal = page.pageMargin ?? config.pageMargin ?? 0;
+                        const photoGapVal = page.photoGap ?? config.photoGap ?? 5;
+                        console.log('[AlbumPreview Split] page.photoGap:', page.photoGap, 'config.photoGap:', config.photoGap, 'photoGapVal:', photoGapVal);
+                        const pageMarginCqw = `${(pageMarginVal / 1000) * 100}%`;
+                        const photoGapCqw = `${(photoGapVal / 1000) * 100}%`;
+                        console.log('[AlbumPreview Split] photoGapCqw:', photoGapCqw, 'pageMarginCqw:', pageMarginCqw);
 
                         return (
                           <div
                             className="grid h-full w-full"
                             style={{
-                              gridTemplateColumns: `1fr ${spineWidth}px 1fr`
+                              gridTemplateColumns: `1fr ${spineWidthCqw} 1fr`, // Use CQW here
+                              position: 'relative',
+                              containerType: 'inline-size' // Ensure CQW works without Tailwind plugin
                             }}
                           >
-                            <div className="relative h-full w-full border-r border-dashed border-border/50 overflow-hidden">
+                            {/* Text Objects Overlay (Absolute to spread container) */}
+                            <div className="absolute inset-0 z-30 pointer-events-none overflow-hidden">
+                              {page.coverTexts?.map(textItem => (
+                                <div
+                                  key={textItem.id}
+                                  className="absolute whitespace-nowrap"
+                                  style={{
+                                    left: `${textItem.x}%`,
+                                    top: `${textItem.y}%`,
+                                    transform: 'translate(-50%, -50%)',
+                                    fontFamily: textItem.style.fontFamily,
+                                    // Use cqw units relative to the @container
+                                    // Assuming "standard" editor width of 3200px for the spread
+                                    fontSize: `${(textItem.style.fontSize / 3200) * 100}cqw`,
+                                    color: textItem.style.color,
+                                    fontWeight: textItem.style.fontWeight === 'bold' ? 'bold' : 'normal',
+                                    fontStyle: textItem.style.fontStyle === 'italic' ? 'italic' : 'normal',
+                                    textAlign: textItem.style.textAlign || 'left',
+                                    textShadow: textItem.style.textShadow,
+                                  }}
+                                >
+                                  {textItem.text}
+                                  {/* Debug helper: {textItem.x.toFixed(1)}% */}
+                                </div>
+                              ))}
+                            </div>
+                            <div
+                              className="relative h-full w-full border-r border-dashed border-border/50 overflow-hidden"
+                              style={{
+                                padding: pageMarginCqw,
+                                containerType: 'inline-size' // Enable cqw for gap
+                              }}
+                            >
                               <span className="absolute top-2 left-2 z-20 text-[10px] font-bold text-muted-foreground bg-background/80 px-1.5 py-0.5 rounded pointer-events-none uppercase tracking-wider">Back Cover</span>
+                              {(console.log('[AlbumPreview Split] RENDERING PageLayout Back with photoGap:', photoGapCqw), null)}
                               <PageLayout
+                                key={`back-${Date.now()}`}
                                 page={page}
-                                photoGap={config.photoGap}
+                                photoGap={photoGapCqw}
                                 onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
                                 onInteractionChange={setIsInteracting}
                                 onDropPhoto={onDropPhoto}
@@ -849,14 +888,26 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
 
                             <Spine
                               text={page.spineText}
-                              width={spineWidth}
+                              width={undefined} // Let CSS grid handle width, or pass scaled px? Spine component might rely on width prop for internal logic (e.g. font rotation?) 
+                              // Actually Spine component takes width to set its own style.width.
+                              // If I pass number, it treats as px. 
+                              // If I rely on grid, I can set width="100%" inside the grid cell. 
+                              // Let's check Spine implementation.
                               color={page.spineColor}
                               textColor={page.spineTextColor}
                               fontSize={page.spineFontSize}
                               fontFamily={page.spineFontFamily}
+                              styleOverride={{ width: '100%' }} // Need to ensure it fills the grid cell
                             />
 
-                            <div id={`front-cover-container-${page.id}`} className="relative h-full w-full border-l border-dashed border-border/50 overflow-hidden bg-muted/20">
+                            <div
+                              id={`front-cover-container-${page.id}`}
+                              className="relative h-full w-full border-l border-dashed border-border/50 overflow-hidden bg-muted/20"
+                              style={{
+                                padding: pageMarginCqw,
+                                containerType: 'inline-size' // Enable cqw for gap
+                              }}
+                            >
                               {/* Draggable Title */}
                               {page.titleText && (
                                 <DraggableTitle
@@ -872,7 +923,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                               <span className="absolute top-2 left-2 z-20 text-[10px] font-bold text-muted-foreground bg-background/80 px-1.5 py-0.5 rounded pointer-events-none uppercase tracking-wider">Front Cover</span>
                               <PageLayout
                                 page={page}
-                                photoGap={config.photoGap}
+                                photoGap={photoGapCqw as any}
                                 onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
                                 onInteractionChange={setIsInteracting}
                                 onDropPhoto={onDropPhoto}
@@ -913,7 +964,17 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
             </div>
           ))}
         </div>
-      </ScrollArea >
-    </div >
+      </ScrollArea>
+
+      {isCoverEditorOpen && coverPage && (
+        <CoverEditorOverlay
+          page={coverPage}
+          onUpdatePage={(updatedPage) => {
+            onUpdatePage?.(updatedPage);
+          }}
+          onClose={() => setIsCoverEditorOpen(false)}
+        />
+      )}
+    </div>
   );
 }
