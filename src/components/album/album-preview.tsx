@@ -103,9 +103,92 @@ interface AlbumPreviewProps {
 
   onUpdateSpineText?: (pageId: string, text: string) => void;
   onUpdateSpineSettings?: (pageId: string, settings: { width?: number; color?: string; textColor?: string; fontSize?: number; fontFamily?: string }) => void;
+  onUpdateTitleSettings?: (pageId: string, settings: { text?: string; color?: string; fontSize?: number; fontFamily?: string; position?: { x: number; y: number } }) => void;
   onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
   onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
 }
+
+const AVAILABLE_FONTS = ['Inter', 'Serif', 'Mono', 'Cursive', 'Arial', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Impact'];
+
+const DraggableTitle = ({
+  text,
+  color,
+  fontSize = 24,
+  fontFamily,
+  position = { x: 50, y: 50 },
+  onUpdatePosition
+}: {
+  text: string;
+  color?: string;
+  fontSize?: number;
+  fontFamily?: string;
+  position?: { x: number; y: number };
+  onUpdatePosition: (x: number, y: number) => void;
+}) => {
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return; // Only left click
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+
+    // Calculate offset from the element's center/top-left to cursor
+    // But since we use percentage position, let's keep it simple.
+    // Ideally we want to prevent jumping.
+    // For this MVP, let's just enable dragging.
+  };
+
+  React.useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      // Convert movement to percentage relative to parent container
+      // This requires a ref to the container, which we don't strictly have here easily without modifying parent.
+      // Alternatively, we can assume the parent is the nearest relative container.
+      const container = document.getElementById('front-cover-container');
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+      onUpdatePosition(Math.max(0, Math.min(100, x)), Math.max(0, Math.min(100, y)));
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, onUpdatePosition]);
+
+  return (
+    <div
+      className={cn(
+        "absolute z-40 select-none cursor-move whitespace-nowrap",
+        isDragging && "opacity-80 ring-2 ring-primary ring-dashed rounded"
+      )}
+      style={{
+        left: `${position.x}%`,
+        top: `${position.y}%`,
+        transform: 'translate(-50%, -50%)',
+        fontSize: `${fontSize}px`,
+        fontFamily: fontFamily,
+        color: color,
+      }}
+      onMouseDown={handleMouseDown}
+    >
+      {text}
+    </div>
+  );
+};
 
 const Spine = ({ text, width = 40, color, textColor, fontSize = 12, fontFamily }: { text?: string; width?: number; color?: string; textColor?: string; fontSize?: number; fontFamily?: string }) => (
   <div
@@ -275,6 +358,7 @@ const PageToolbar = ({
   onUpdateCoverType,
   onUpdateSpineText,
   onUpdateSpineSettings,
+  onUpdateTitleSettings,
   toast
 }: {
   page: AlbumPage;
@@ -285,6 +369,7 @@ const PageToolbar = ({
   onUpdateCoverType?: (id: string, type: 'split' | 'full') => void;
   onUpdateSpineText?: (id: string, text: string) => void;
   onUpdateSpineSettings?: (id: string, settings: { width?: number; color?: string; textColor?: string; fontSize?: number; fontFamily?: string }) => void;
+  onUpdateTitleSettings?: (id: string, settings: { text?: string; color?: string; fontSize?: number; fontFamily?: string; position?: { x: number; y: number } }) => void;
   toast: any;
 }) => {
   if (page.isCover) {
@@ -294,7 +379,6 @@ const PageToolbar = ({
           <div className="flex items-center justify-between gap-1 rounded-lg border bg-background p-0.5 shadow-lg px-2 flex-wrap">
             <span className="text-sm font-semibold text-muted-foreground mr-2">Cover</span>
 
-            {/* Spine Settings */}
             {/* Spine Settings */}
             <div className="flex items-center gap-3 border-r pr-3 mr-3 bg-muted/20 p-1 rounded-md">
               <input
@@ -362,12 +446,47 @@ const PageToolbar = ({
                   onChange={(e) => onUpdateSpineSettings?.(page.id, { fontFamily: e.target.value })}
                   title="Font Family"
                 >
-                  <option value="Inter">Inter</option>
-                  <option value="Serif">Serif</option>
-                  <option value="Mono">Mono</option>
-                  <option value="Cursive">Cursive</option>
+                  {AVAILABLE_FONTS.map(font => (
+                    <option key={font} value={font}>{font}</option>
+                  ))}
                 </select>
               </div>
+            </div>
+
+            {/* Album Title Settings */}
+            <div className="flex items-center gap-3 border-r pr-3 mr-3 bg-muted/20 p-1 rounded-md">
+              <span className="text-xs font-semibold text-muted-foreground">Title:</span>
+              <input
+                type="text"
+                placeholder="Album Title"
+                className="h-7 w-32 px-2 text-sm border rounded bg-background"
+                value={page.titleText || ''}
+                onChange={(e) => onUpdateTitleSettings?.(page.id, { text: e.target.value })}
+              />
+              {/* Title Color */}
+              <SpineColorPicker
+                value={page.titleColor}
+                onChange={(color) => onUpdateTitleSettings?.(page.id, { color })}
+                disableAlpha={true}
+              />
+              <input
+                type="number"
+                className="h-7 w-12 px-1 text-sm border rounded bg-background text-center"
+                value={page.titleFontSize || 24}
+                onChange={(e) => onUpdateTitleSettings?.(page.id, { fontSize: parseInt(e.target.value) || 24 })}
+                min={12}
+                max={120}
+                title="Font Size"
+              />
+              <select
+                className="h-7 w-20 px-1 text-sm border rounded bg-background"
+                value={page.titleFontFamily || 'Inter'}
+                onChange={(e) => onUpdateTitleSettings?.(page.id, { fontFamily: e.target.value })}
+              >
+                {AVAILABLE_FONTS.map(font => (
+                  <option key={font} value={font}>{font}</option>
+                ))}
+              </select>
             </div>
 
             {/* Cover Type Toggle */}
@@ -574,7 +693,7 @@ const PageToolbar = ({
   );
 };
 
-export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUpdateCoverLayout, onUpdateCoverType, onUpdateSpineText, onUpdateSpineSettings, onUpdatePhotoPanAndZoom, onDropPhoto }: AlbumPreviewProps) {
+export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUpdateCoverLayout, onUpdateCoverType, onUpdateSpineText, onUpdateSpineSettings, onUpdateTitleSettings, onUpdatePhotoPanAndZoom, onDropPhoto }: AlbumPreviewProps) {
   const { toast } = useToast();
   const [isInteracting, setIsInteracting] = useState(false);
 
@@ -596,20 +715,21 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
     <div className="w-full">
       <ScrollArea className="h-[85vh] w-full pr-4" style={{ overflowY: isInteracting ? 'hidden' : 'auto' }}>
         <div className="space-y-8">
-          {pages.map((page) => (
+          {pages.map((page, index) => (
             <div key={page.id} className="w-full max-w-4xl mx-auto">
               <div className="w-full relative group/page">
 
                 <div className={cn("h-18", page.type === 'single' ? 'w-1/2 mx-auto' : 'w-full')}>
                   <PageToolbar
                     page={page}
-                    pageNumber={pages.findIndex(p => p.id === page.id)}
-                    onDeletePage={onDeletePage}
+                    pageNumber={index}
+                    onDeletePage={() => onDeletePage(page.id)}
                     onUpdateLayout={onUpdateLayout}
                     onUpdateCoverLayout={onUpdateCoverLayout}
                     onUpdateCoverType={onUpdateCoverType}
                     onUpdateSpineText={onUpdateSpineText}
                     onUpdateSpineSettings={onUpdateSpineSettings}
+                    onUpdateTitleSettings={onUpdateTitleSettings}
                     toast={toast}
                   />
                 </div>
@@ -706,7 +826,18 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
                               fontFamily={page.spineFontFamily}
                             />
 
-                            <div className="relative h-full w-full border-l border-dashed border-border/50 overflow-hidden">
+                            <div id="front-cover-container" className="relative h-full w-full border-l border-dashed border-border/50 overflow-hidden bg-muted/20">
+                              {/* Draggable Title */}
+                              {page.titleText && (
+                                <DraggableTitle
+                                  text={page.titleText}
+                                  color={page.titleColor}
+                                  fontSize={page.titleFontSize}
+                                  fontFamily={page.titleFontFamily}
+                                  position={page.titlePosition}
+                                  onUpdatePosition={(x, y) => onUpdateTitleSettings?.(page.id, { position: { x, y } })}
+                                />
+                              )}
                               <span className="absolute top-2 left-2 z-20 text-[10px] font-bold text-muted-foreground bg-background/80 px-1.5 py-0.5 rounded pointer-events-none uppercase tracking-wider">Front Cover</span>
                               <PageLayout
                                 page={page}
@@ -751,7 +882,7 @@ export function AlbumPreview({ pages, config, onDeletePage, onUpdateLayout, onUp
             </div>
           ))}
         </div>
-      </ScrollArea>
-    </div>
+      </ScrollArea >
+    </div >
   );
 }

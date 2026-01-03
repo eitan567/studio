@@ -38,5 +38,11 @@ export type AlbumPage = {
   spineTextColor?: string;
   spineFontSize?: number;
   spineFontFamily?: string;
+  // Cover Title Props
+  titleText?: string;
+  titleColor?: string;
+  titleFontSize?: number;
+  titleFontFamily?: string;
+  titlePosition?: { x: number; y: number }; // Percentage 0-100
   coverType?: 'split' | 'full'; // Defaults to 'split'
 };

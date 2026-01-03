@@ -383,6 +383,20 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     }));
   };
 
+  const handleUpdateTitleSettings = (pageId: string, settings: { text?: string; color?: string; fontSize?: number; fontFamily?: string; position?: { x: number; y: number } }) => {
+    setAlbumPages(prevPages => prevPages.map(page => {
+      if (page.id !== pageId) return page;
+      return {
+        ...page,
+        titleText: settings.text !== undefined ? settings.text : page.titleText,
+        titleColor: settings.color ?? page.titleColor,
+        titleFontSize: settings.fontSize ?? page.titleFontSize,
+        titleFontFamily: settings.fontFamily ?? page.titleFontFamily,
+        titlePosition: settings.position ?? page.titlePosition
+      };
+    }));
+  };
+
   const updatePhotoPanAndZoom = (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => {
     setAlbumPages(pages => pages.map(page => {
       if (page.id !== pageId) return page;
@@ -723,6 +737,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           onUpdateCoverType={handleUpdateCoverType}
           onUpdateSpineText={handleUpdateSpineText}
           onUpdateSpineSettings={handleUpdateSpineSettings}
+          onUpdateTitleSettings={handleUpdateTitleSettings}
         />
       </div>
 
