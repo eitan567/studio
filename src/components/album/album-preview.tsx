@@ -868,22 +868,32 @@ export function AlbumPreview({
                               className="relative h-full w-full border-r border-dashed border-border/50 overflow-hidden"
                               style={{
                                 padding: pageMarginCqw,
-                                containerType: 'inline-size' // Enable cqw for gap
+                                containerType: 'inline-size'
                               }}
                             >
                               <span className="absolute top-2 left-2 z-20 text-[10px] font-bold text-muted-foreground bg-background/80 px-1.5 py-0.5 rounded pointer-events-none uppercase tracking-wider">Back Cover</span>
-                              {(console.log('[AlbumPreview Split] RENDERING PageLayout Back with photoGap:', photoGapCqw), null)}
-                              <PageLayout
-                                key={`back-${Date.now()}`}
-                                page={page}
-                                photoGap={photoGapCqw}
-                                onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
-                                onInteractionChange={setIsInteracting}
-                                onDropPhoto={onDropPhoto}
-                                overrideLayout={backLayoutId}
-                                overridePhotos={backPhotos}
-                                templateSource={COVER_TEMPLATES}
-                              />
+                              <div
+                                className="grid grid-cols-12 grid-rows-12 h-full w-full"
+                                style={{ gap: photoGapCqw }}
+                              >
+                                {(() => {
+                                  const photos = backPhotos;
+                                  const template = COVER_TEMPLATES.find(t => t.id === backLayoutId) || COVER_TEMPLATES[0];
+                                  return template.grid.map((gridClass, index) => {
+                                    const photo = photos[index];
+                                    if (!photo) return <div key={index} className={cn("bg-muted rounded-sm", gridClass)} />;
+                                    return (
+                                      <div key={photo.id} className={cn("relative overflow-hidden rounded-sm", gridClass)}>
+                                        <PhotoRenderer
+                                          photo={photo}
+                                          onUpdate={(panAndZoom) => onUpdatePhotoPanAndZoom(page.id, photo.id, panAndZoom)}
+                                          onInteractionChange={setIsInteracting}
+                                        />
+                                      </div>
+                                    );
+                                  });
+                                })()}
+                              </div>
                             </div>
 
                             <Spine
@@ -905,7 +915,7 @@ export function AlbumPreview({
                               className="relative h-full w-full border-l border-dashed border-border/50 overflow-hidden bg-muted/20"
                               style={{
                                 padding: pageMarginCqw,
-                                containerType: 'inline-size' // Enable cqw for gap
+                                containerType: 'inline-size'
                               }}
                             >
                               {/* Draggable Title */}
@@ -921,16 +931,28 @@ export function AlbumPreview({
                                 />
                               )}
                               <span className="absolute top-2 left-2 z-20 text-[10px] font-bold text-muted-foreground bg-background/80 px-1.5 py-0.5 rounded pointer-events-none uppercase tracking-wider">Front Cover</span>
-                              <PageLayout
-                                page={page}
-                                photoGap={photoGapCqw as any}
-                                onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
-                                onInteractionChange={setIsInteracting}
-                                onDropPhoto={onDropPhoto}
-                                overrideLayout={frontLayoutId}
-                                overridePhotos={frontPhotos}
-                                templateSource={COVER_TEMPLATES}
-                              />
+                              <div
+                                className="grid grid-cols-12 grid-rows-12 h-full w-full"
+                                style={{ gap: photoGapCqw }}
+                              >
+                                {(() => {
+                                  const photos = frontPhotos;
+                                  const template = COVER_TEMPLATES.find(t => t.id === frontLayoutId) || COVER_TEMPLATES[0];
+                                  return template.grid.map((gridClass, index) => {
+                                    const photo = photos[index];
+                                    if (!photo) return <div key={index} className={cn("bg-muted rounded-sm", gridClass)} />;
+                                    return (
+                                      <div key={photo.id} className={cn("relative overflow-hidden rounded-sm", gridClass)}>
+                                        <PhotoRenderer
+                                          photo={photo}
+                                          onUpdate={(panAndZoom) => onUpdatePhotoPanAndZoom(page.id, photo.id, panAndZoom)}
+                                          onInteractionChange={setIsInteracting}
+                                        />
+                                      </div>
+                                    );
+                                  });
+                                })()}
+                              </div>
                             </div>
                           </div>
                         );
