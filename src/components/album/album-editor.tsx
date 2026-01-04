@@ -745,6 +745,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           onUpdateSpineSettings={handleUpdateSpineSettings}
           onUpdateTitleSettings={handleUpdateTitleSettings}
           onUpdatePage={handleUpdatePage}
+          allPhotos={allPhotos}
         />
       </div>
 

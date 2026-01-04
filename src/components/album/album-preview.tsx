@@ -107,6 +107,7 @@ interface AlbumPreviewProps {
   onUpdateTitleSettings?: (pageId: string, settings: { text?: string; color?: string; fontSize?: number; fontFamily?: string; position?: { x: number; y: number } }) => void;
   onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
   onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
+  allPhotos?: Photo[];
 }
 
 import { CoverEditorOverlay } from './cover-editor/cover-editor-overlay';
@@ -621,12 +622,14 @@ export function AlbumPreview({
   onUpdateSpineSettings,
   onUpdateTitleSettings,
   onUpdatePhotoPanAndZoom,
-  onDropPhoto
+  onDropPhoto,
+  allPhotos
 }: AlbumPreviewProps) {
   const { toast } = useToast();
   const [isInteracting, setIsInteracting] = useState(false);
   const [activePageId, setActivePageId] = useState<string | null>(null);
   const [isCoverEditorOpen, setIsCoverEditorOpen] = useState(false);
+  const [dragOverPhotoId, setDragOverPhotoId] = useState<string | null>(null);
 
   const handleOpenCoverEditor = (pageId: string) => {
     setActivePageId(pageId);
@@ -883,7 +886,27 @@ export function AlbumPreview({
                                     const photo = photos[index];
                                     if (!photo) return <div key={index} className={cn("bg-muted rounded-sm", gridClass)} />;
                                     return (
-                                      <div key={photo.id} className={cn("relative overflow-hidden rounded-sm", gridClass)}>
+                                      <div
+                                        key={photo.id}
+                                        className={cn(
+                                          "relative overflow-hidden rounded-sm transition-all duration-200 group ring-2 ring-transparent hover:ring-primary/20",
+                                          gridClass,
+                                          dragOverPhotoId === photo.id && "ring-primary ring-offset-2"
+                                        )}
+                                        onDragOver={(e) => {
+                                          e.preventDefault();
+                                          setDragOverPhotoId(photo.id);
+                                        }}
+                                        onDragLeave={() => setDragOverPhotoId(null)}
+                                        onDrop={(e) => {
+                                          e.preventDefault();
+                                          setDragOverPhotoId(null);
+                                          const droppedPhotoId = e.dataTransfer.getData('photoId');
+                                          if (droppedPhotoId) {
+                                            onDropPhoto(page.id, photo.id, droppedPhotoId);
+                                          }
+                                        }}
+                                      >
                                         <PhotoRenderer
                                           photo={photo}
                                           onUpdate={(panAndZoom) => onUpdatePhotoPanAndZoom(page.id, photo.id, panAndZoom)}
@@ -942,7 +965,27 @@ export function AlbumPreview({
                                     const photo = photos[index];
                                     if (!photo) return <div key={index} className={cn("bg-muted rounded-sm", gridClass)} />;
                                     return (
-                                      <div key={photo.id} className={cn("relative overflow-hidden rounded-sm", gridClass)}>
+                                      <div
+                                        key={photo.id}
+                                        className={cn(
+                                          "relative overflow-hidden rounded-sm transition-all duration-200 group ring-2 ring-transparent hover:ring-primary/20",
+                                          gridClass,
+                                          dragOverPhotoId === photo.id && "ring-primary ring-offset-2"
+                                        )}
+                                        onDragOver={(e) => {
+                                          e.preventDefault();
+                                          setDragOverPhotoId(photo.id);
+                                        }}
+                                        onDragLeave={() => setDragOverPhotoId(null)}
+                                        onDrop={(e) => {
+                                          e.preventDefault();
+                                          setDragOverPhotoId(null);
+                                          const droppedPhotoId = e.dataTransfer.getData('photoId');
+                                          if (droppedPhotoId) {
+                                            onDropPhoto(page.id, photo.id, droppedPhotoId);
+                                          }
+                                        }}
+                                      >
                                         <PhotoRenderer
                                           photo={photo}
                                           onUpdate={(panAndZoom) => onUpdatePhotoPanAndZoom(page.id, photo.id, panAndZoom)}
@@ -991,6 +1034,7 @@ export function AlbumPreview({
       {isCoverEditorOpen && coverPage && (
         <CoverEditorOverlay
           page={coverPage}
+          allPhotos={allPhotos}
           onUpdatePage={(updatedPage) => {
             onUpdatePage?.(updatedPage);
           }}

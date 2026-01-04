@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlbumPage, CoverText } from '@/lib/types';
+import { AlbumPage, CoverText, Photo } from '@/lib/types';
 import { SidebarLeft } from './sidebar-left';
 import { SidebarRight } from './sidebar-right';
 import { CoverCanvas } from './cover-canvas';
@@ -10,9 +10,10 @@ interface CoverEditorOverlayProps {
     page: AlbumPage;
     onUpdatePage: (page: AlbumPage) => void;
     onClose: () => void;
+    allPhotos?: Photo[];
 }
 
-export const CoverEditorOverlay = ({ page, onUpdatePage, onClose }: CoverEditorOverlayProps) => {
+export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: CoverEditorOverlayProps) => {
     // 1. Local State for Transactional Editing
     const [localPage, setLocalPage] = useState<AlbumPage>(page);
     const [activeView, setActiveView] = useState<'front' | 'back' | 'full'>('full');
@@ -50,6 +51,27 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose }: CoverEditorO
         setActiveTextId(newText.id);
     };
 
+    const handleDropPhoto = (pageId: string, targetPhotoId: string, droppedPhotoId: string) => {
+        if (!allPhotos) return;
+        const droppedPhoto = allPhotos.find(p => p.id === droppedPhotoId);
+        if (!droppedPhoto) return;
+
+        // Transactional update on localPage
+        setLocalPage(prevPage => {
+            const newPhotos = prevPage.photos.map(p => {
+                if (p.id === targetPhotoId) {
+                    return {
+                        ...droppedPhoto,
+                        id: targetPhotoId, // Keep slot ID
+                        panAndZoom: { scale: 1, x: 50, y: 50 } // Reset pan/zoom
+                    };
+                }
+                return p;
+            });
+            return { ...prevPage, photos: newPhotos };
+        });
+    };
+
     return (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex">
             {/* Overlay Close Button (Acts as Cancel) */}
@@ -74,6 +96,7 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose }: CoverEditorO
                     activeTextId={activeTextId}
                     onSelectText={setActiveTextId}
                     onUpdatePage={setLocalPage}
+                    onDropPhoto={handleDropPhoto}
                 />
             </main>
 

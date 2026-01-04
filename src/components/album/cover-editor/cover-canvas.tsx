@@ -10,6 +10,7 @@ interface CoverCanvasProps {
     activeTextId: string | null;
     onSelectText: (id: string | null) => void;
     onUpdatePage: (page: AlbumPage) => void;
+    onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
     config?: AlbumConfig;
 }
 
@@ -93,7 +94,7 @@ const DraggableCoverText = ({
 };
 
 
-export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUpdatePage, config }: CoverCanvasProps) => {
+export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUpdatePage, onDropPhoto, config }: CoverCanvasProps) => {
     const containerRef = useRef<HTMLDivElement>(null);
 
     const handleCanvasClick = () => {
@@ -167,7 +168,7 @@ export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUp
                             templateSource={COVER_TEMPLATES}
                             onUpdatePhotoPanAndZoom={() => { }} // Read only in editor for now? Or implement props
                             onInteractionChange={() => { }}
-                            onDropPhoto={() => { }}
+                            onDropPhoto={onDropPhoto}
                         />
                     </div>
                 </div>
@@ -222,7 +223,7 @@ export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUp
                             templateSource={COVER_TEMPLATES}
                             onUpdatePhotoPanAndZoom={() => { }}
                             onInteractionChange={() => { }}
-                            onDropPhoto={() => { }}
+                            onDropPhoto={onDropPhoto}
                         />
                     </div>
                 </div>
