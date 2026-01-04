@@ -700,7 +700,7 @@ export function AlbumPreview({
                           const photoGapVal = page.photoGap ?? config.photoGap ?? 5;
                           console.log('[AlbumPreview Full] page.photoGap:', page.photoGap, 'photoGapVal:', photoGapVal);
                           const pageMarginCqw = `${(pageMarginVal / 1000) * 100}%`;
-                          const photoGapCqw = `${(photoGapVal / 1000) * 100}%`;
+                          const photoGapCqw = `${(photoGapVal / 1000) * 100}cqw`;
                           console.log('[AlbumPreview Full] photoGapCqw:', photoGapCqw);
 
                           return (
@@ -767,14 +767,48 @@ export function AlbumPreview({
                                   />
                                 </div>
 
-                                <PageLayout
-                                  page={page}
-                                  photoGap={photoGapCqw as any}
-                                  onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
-                                  onInteractionChange={setIsInteracting}
-                                  onDropPhoto={onDropPhoto}
-                                  templateSource={COVER_TEMPLATES} // Uses page.layout
-                                />
+                                <div
+                                  className="grid grid-cols-12 grid-rows-12 h-full w-full"
+                                  style={{ gap: photoGapCqw }}
+                                >
+                                  {(() => {
+                                    const photos = page.photos;
+                                    const template = COVER_TEMPLATES.find(t => t.id === page.layout) || COVER_TEMPLATES[0];
+                                    return template.grid.map((gridClass, index) => {
+                                      const photo = photos[index];
+                                      if (!photo) return <div key={index} className={cn("bg-muted rounded-sm", gridClass)} />;
+                                      return (
+                                        <div
+                                          key={photo.id}
+                                          className={cn(
+                                            "relative overflow-hidden rounded-sm transition-all duration-200 group ring-2 ring-transparent hover:ring-primary/20",
+                                            gridClass,
+                                            dragOverPhotoId === photo.id && "ring-primary ring-offset-2"
+                                          )}
+                                          onDragOver={(e) => {
+                                            e.preventDefault();
+                                            setDragOverPhotoId(photo.id);
+                                          }}
+                                          onDragLeave={() => setDragOverPhotoId(null)}
+                                          onDrop={(e) => {
+                                            e.preventDefault();
+                                            setDragOverPhotoId(null);
+                                            const droppedPhotoId = e.dataTransfer.getData('photoId');
+                                            if (droppedPhotoId) {
+                                              onDropPhoto(page.id, photo.id, droppedPhotoId);
+                                            }
+                                          }}
+                                        >
+                                          <PhotoRenderer
+                                            photo={photo}
+                                            onUpdate={(panAndZoom) => onUpdatePhotoPanAndZoom(page.id, photo.id, panAndZoom)}
+                                            onInteractionChange={setIsInteracting}
+                                          />
+                                        </div>
+                                      );
+                                    });
+                                  })()}
+                                </div>
 
                                 {/* Render Text Objects Overlay */}
                                 <div
