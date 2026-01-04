@@ -144,89 +144,136 @@ export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUp
                     containerType: 'inline-size' // Ensure CQW works without Tailwind plugin
                 }}
             >
-                {/* Back Cover Area */}
-                <div
-                    className={cn(
-                        "relative h-full bg-white transition-all overflow-hidden",
-                        isFull ? "flex-1" : isBack ? "w-full" : "hidden"
-                    )}
-                    style={{
-                        backgroundColor: page.backgroundImage ? 'transparent' : '#fff', // if bg image exists
-                        backgroundImage: page.backgroundImage ? `url(${page.backgroundImage})` : undefined,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        // Padding?
-                        padding: `${page.pageMargin ?? 0}px`
-                    }}
-                >
-                    <div className="h-full w-full">
-                        <PageLayout
-                            page={page}
-                            photoGap={page.photoGap ?? config?.photoGap ?? 0}
-                            overridePhotos={backPhotos}
-                            overrideLayout={backLayoutId}
-                            templateSource={COVER_TEMPLATES}
-                            onUpdatePhotoPanAndZoom={() => { }} // Read only in editor for now? Or implement props
-                            onInteractionChange={() => { }}
-                            onDropPhoto={onDropPhoto}
-                        />
-                    </div>
-                </div>
-
-                {/* Spine Area */}
-                <div
-                    className={cn(
-                        "relative h-full flex items-center justify-center bg-muted/30 z-10 shrink-0",
-                        isFull
-                            ? "flex"
-                            : "hidden"
-                    )}
-                    style={{
-                        backgroundColor: page.spineColor,
-                        width: `${page.spineWidth || 40}px`,
-                    }}
-                >
-                    {/* Spine Text */}
-                    <span
-                        className="whitespace-nowrap font-semibold tracking-widest rotate-90 select-none"
+                {/* Content Area - Conditional on Cover Type */}
+                {page.coverType === 'full' ? (
+                    /* FULL COVER MODE */
+                    <div
+                        className={cn(
+                            "relative h-full w-full bg-white transition-all overflow-hidden flex",
+                            // If zooming to front/back in full mode, we might need translation/scaling logic. 
+                            // For now, let's keep it simple: Full mode usually implies viewing the full spread.
+                            // But if activeView is forcing front/back, we can try to crop.
+                            // Currently, standard behavior for full spread pages is just showing the whole thing.
+                        )}
                         style={{
-                            color: page.spineTextColor,
-                            fontSize: `${page.spineFontSize || 12}px`,
-                            fontFamily: page.spineFontFamily
+                            backgroundColor: page.backgroundImage ? 'transparent' : '#fff',
+                            backgroundImage: page.backgroundImage ? `url(${page.backgroundImage})` : undefined,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            padding: `${page.pageMargin ?? 0}px`
                         }}
                     >
-                        {page.spineText || 'SPINE'}
-                    </span>
-                </div>
-
-                {/* Front Cover Area */}
-                <div
-                    className={cn(
-                        "relative h-full bg-white transition-all overflow-hidden",
-                        isFull ? "flex-1" : isFront ? "w-full" : "hidden"
-                    )}
-                    style={{
-                        backgroundColor: page.backgroundImage ? 'transparent' : '#fff',
-                        backgroundImage: page.backgroundImage ? `url(${page.backgroundImage})` : undefined,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        padding: `${page.pageMargin ?? 0}px`
-                    }}
-                >
-                    <div className="h-full w-full">
-                        <PageLayout
-                            page={page}
-                            // ensure photoGap also falls back correctly if not already handled
-                            photoGap={page.photoGap ?? config?.photoGap ?? 0}
-                            overridePhotos={frontPhotos}
-                            overrideLayout={frontLayoutId}
-                            templateSource={COVER_TEMPLATES}
-                            onUpdatePhotoPanAndZoom={() => { }}
-                            onInteractionChange={() => { }}
-                            onDropPhoto={onDropPhoto}
+                        {/* Spine Overlay for Full Mode (Visual Guide) */}
+                        <div
+                            className="absolute top-0 bottom-0 left-1/2 z-10 pointer-events-none border-l border-dashed border-black/20"
+                            style={{
+                                marginLeft: `-${(page.spineWidth || 40) / 2}px`,
+                                width: `${page.spineWidth || 40}px`,
+                                backgroundColor: page.spineColor ? `${page.spineColor}80` : 'transparent' // Semi-transparent spine visualization
+                            }}
                         />
+
+                        <div className="h-full w-full relative z-0">
+                            <PageLayout
+                                page={page}
+                                photoGap={page.photoGap ?? config?.photoGap ?? 0}
+                                overridePhotos={page.photos} // Use ALL photos for full spread
+                                overrideLayout={page.layout || COVER_TEMPLATES[0].id} // Use spread layout
+                                templateSource={COVER_TEMPLATES}
+                                onUpdatePhotoPanAndZoom={() => { }}
+                                onInteractionChange={() => { }}
+                                onDropPhoto={onDropPhoto}
+                            />
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    /* SPLIT COVER MODE (Original Logic) */
+                    <>
+                        {/* Back Cover Area */}
+                        <div
+                            className={cn(
+                                "relative h-full bg-white transition-all overflow-hidden",
+                                isFull ? "flex-1" : isBack ? "w-full" : "hidden"
+                            )}
+                            style={{
+                                backgroundColor: page.backgroundImage ? 'transparent' : '#fff', // if bg image exists
+                                backgroundImage: page.backgroundImage ? `url(${page.backgroundImage})` : undefined,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center',
+                                // Padding?
+                                padding: `${page.pageMargin ?? 0}px`
+                            }}
+                        >
+                            <div className="h-full w-full">
+                                <PageLayout
+                                    page={page}
+                                    photoGap={page.photoGap ?? config?.photoGap ?? 0}
+                                    overridePhotos={backPhotos}
+                                    overrideLayout={backLayoutId}
+                                    templateSource={COVER_TEMPLATES}
+                                    onUpdatePhotoPanAndZoom={() => { }} // Read only in editor for now? Or implement props
+                                    onInteractionChange={() => { }}
+                                    onDropPhoto={onDropPhoto}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Spine Area */}
+                        <div
+                            className={cn(
+                                "relative h-full flex items-center justify-center bg-muted/30 z-10 shrink-0",
+                                isFull
+                                    ? "flex"
+                                    : "hidden"
+                            )}
+                            style={{
+                                backgroundColor: page.spineColor,
+                                width: `${page.spineWidth || 40}px`,
+                            }}
+                        >
+                            {/* Spine Text */}
+                            <span
+                                className="whitespace-nowrap font-semibold tracking-widest rotate-90 select-none"
+                                style={{
+                                    color: page.spineTextColor,
+                                    fontSize: `${page.spineFontSize || 12}px`,
+                                    fontFamily: page.spineFontFamily
+                                }}
+                            >
+                                {page.spineText || 'SPINE'}
+                            </span>
+                        </div>
+
+                        {/* Front Cover Area */}
+                        <div
+                            className={cn(
+                                "relative h-full bg-white transition-all overflow-hidden",
+                                isFull ? "flex-1" : isFront ? "w-full" : "hidden"
+                            )}
+                            style={{
+                                backgroundColor: page.backgroundImage ? 'transparent' : '#fff',
+                                backgroundImage: page.backgroundImage ? `url(${page.backgroundImage})` : undefined,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center',
+                                padding: `${page.pageMargin ?? 0}px`
+                            }}
+                        >
+                            <div className="h-full w-full">
+                                <PageLayout
+                                    page={page}
+                                    // ensure photoGap also falls back correctly if not already handled
+                                    photoGap={page.photoGap ?? config?.photoGap ?? 0}
+                                    overridePhotos={frontPhotos}
+                                    overrideLayout={frontLayoutId}
+                                    templateSource={COVER_TEMPLATES}
+                                    onUpdatePhotoPanAndZoom={() => { }}
+                                    onInteractionChange={() => { }}
+                                    onDropPhoto={onDropPhoto}
+                                />
+                            </div>
+                        </div>
+                    </>
+                )}
 
                 {/* Render Text Objects - OVERLAY on top of everything */}
                 {page.coverTexts?.map(textItem => {
@@ -280,7 +327,7 @@ export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUp
 
                                 handleUpdateTextPosition(textItem.id, globalX, globalY);
                             }}
-                            containerRef={containerRef}
+                            containerRef={containerRef as React.RefObject<HTMLDivElement>}
                             fontSizeOverride={fontSizeCss}
                         />
                     );
