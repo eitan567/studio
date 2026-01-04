@@ -689,14 +689,14 @@ export function AlbumPreview({
                   >
                     <CardContent
                       className="flex h-full w-full items-center justify-center p-0"
-                      style={{ padding: `${config.pageMargin}px` }}
+                      style={{ padding: page.isCover ? 0 : `${config.pageMargin}px` }}
                     >
                       {page.isCover ? (() => {
                         console.log('[AlbumPreview] Rendering COVER page:', page.id, 'coverType:', page.coverType);
                         // Full Spread Mode
                         if (page.coverType === 'full') {
                           // Calculate proportional values based on 1000px reference (Visual screen width)
-                          const pageMarginVal = page.pageMargin ?? config.pageMargin ?? 0;
+                          const pageMarginVal = page.pageMargin ?? 0;
                           const photoGapVal = page.photoGap ?? config.photoGap ?? 5;
                           console.log('[AlbumPreview Full] page.photoGap:', page.photoGap, 'photoGapVal:', photoGapVal);
                           const pageMarginCqw = `${(pageMarginVal / 1000) * 100}%`;
@@ -825,7 +825,7 @@ export function AlbumPreview({
                         const spineWidthCqw = `${(spineWidthPx / 3200) * 100}cqw`;
 
                         // Calculate proportional values based on 1000px reference
-                        const pageMarginVal = page.pageMargin ?? config.pageMargin ?? 0;
+                        const pageMarginVal = page.pageMargin ?? 0;
                         const photoGapVal = page.photoGap ?? config.photoGap ?? 5;
                         console.log('[AlbumPreview Split] page.photoGap:', page.photoGap, 'config.photoGap:', config.photoGap, 'photoGapVal:', photoGapVal);
                         const pageMarginCqw = `${(pageMarginVal / 1000) * 100}%`;

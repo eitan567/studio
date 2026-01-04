@@ -156,7 +156,7 @@ export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUp
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
                         // Padding?
-                        padding: `${page.pageMargin ?? config?.pageMargin ?? 0}px`
+                        padding: `${page.pageMargin ?? 0}px`
                     }}
                 >
                     <div className="h-full w-full">
@@ -210,7 +210,7 @@ export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUp
                         backgroundImage: page.backgroundImage ? `url(${page.backgroundImage})` : undefined,
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
-                        padding: `${page.pageMargin ?? config?.pageMargin ?? 0}px`
+                        padding: `${page.pageMargin ?? 0}px`
                     }}
                 >
                     <div className="h-full w-full">
