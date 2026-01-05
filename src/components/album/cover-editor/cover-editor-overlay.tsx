@@ -6,14 +6,21 @@ import { CoverCanvas } from './cover-canvas';
 import { Button } from '@/components/ui/button';
 import {
     X,
-    AlignLeft,
-    AlignCenter,
-    AlignRight,
     AlignStartVertical,
     AlignVerticalJustifyCenter,
     AlignEndVertical,
-    Columns,
-    Rows
+    AlignHorizontalJustifyStart,
+    AlignHorizontalJustifyCenter,
+    AlignHorizontalJustifyEnd,
+    AlignHorizontalDistributeCenter,
+    AlignVerticalDistributeCenter,
+    AlignStartHorizontal,
+    AlignEndHorizontal,
+    AlignHorizontalJustifyCenterIcon,
+    AlignCenter,
+    AlignCenterIcon,
+    AlignCenterHorizontal,
+    AlignCenterVertical
 } from 'lucide-react';
 
 interface CoverEditorOverlayProps {
@@ -229,37 +236,39 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
                             {activeTextIds.length > 0 ? `${activeTextIds.length} items selected` : 'Select multiple items to align'}
                         </div>
 
-                        {/* Alignment Tools */}
+                        {/* Alignment Tools (Horizontal Actions) - Using Vertical Icons per user request */}
                         <div className="flex items-center gap-1 border-r pr-4 mr-0">
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('left')} disabled={activeTextIds.length < 2} title="Align Left">
-                                <AlignLeft className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('center')} disabled={activeTextIds.length < 2} title="Align Center">
-                                <AlignCenter className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('right')} disabled={activeTextIds.length < 2} title="Align Right">
-                                <AlignRight className="h-4 w-4" />
-                            </Button>
-                        </div>
-
-                        <div className="flex items-center gap-1 border-r pr-4 mr-0">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('top')} disabled={activeTextIds.length < 2} title="Align Top">
                                 <AlignStartVertical className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('middle')} disabled={activeTextIds.length < 2} title="Align Middle">
-                                <AlignVerticalJustifyCenter className="h-4 w-4" />
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('center')} disabled={activeTextIds.length < 2} title="Align Center">
+                                <AlignCenterVertical className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('bottom')} disabled={activeTextIds.length < 2} title="Align Bottom">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('right')} disabled={activeTextIds.length < 2} title="Align Right">
                                 <AlignEndVertical className="h-4 w-4" />
                             </Button>
                         </div>
 
+                        {/* Alignment Tools (Vertical Actions) - Using Horizontal Icons per user request */}
+                        <div className="flex items-center gap-1 border-r pr-4 mr-0">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('top')} disabled={activeTextIds.length < 2} title="Align Top">
+                                <AlignStartHorizontal className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('middle')} disabled={activeTextIds.length < 2} title="Align Middle">
+                                <AlignCenterHorizontal className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('bottom')} disabled={activeTextIds.length < 2} title="Align Bottom">
+                                <AlignEndHorizontal className="h-4 w-4" />
+                            </Button>
+                        </div>
+
+                        {/* Distribute Tools */}
                         <div className="flex items-center gap-1">
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDistribute('horizontal')} disabled={activeTextIds.length < 3} title="Distribute Horizontally">
-                                <Columns className="h-4 w-4" />
+                                <AlignHorizontalDistributeCenter className="h-4 w-4" />
                             </Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDistribute('vertical')} disabled={activeTextIds.length < 3} title="Distribute Vertically">
-                                <Rows className="h-4 w-4" />
+                                <AlignVerticalDistributeCenter className="h-4 w-4" />
                             </Button>
                         </div>
                     </div>
