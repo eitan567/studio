@@ -709,20 +709,6 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
               </CardHeader>
               <CardContent className="space-y-3">
                 <Button
-                  className="w-full"
-                  variant="secondary"
-                  onClick={generateDummyPhotos}
-                  disabled={isLoading || !randomSeed}
-                >
-                  {isLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <PlusSquare className="mr-2 h-4 w-4" />
-                  )}
-                  Load Photos
-                </Button>
-
-                <Button
                   variant="outline"
                   className="w-full border-accent text-accent hover:bg-accent hover:text-accent-foreground"
                   onClick={handleAiEnhance}
@@ -823,13 +809,26 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
               </ScrollArea>
             )}
           </CardContent>
-          <div className="p-3 border-t bg-muted/30 text-center">
-            <p className="text-xs text-muted-foreground">
+          <div className="p-3 border-t bg-muted/30 flex flex-col gap-2">
+            <Button
+              className="w-full"
+              variant="secondary"
+              onClick={generateDummyPhotos}
+              disabled={isLoading || !randomSeed}
+            >
+              {isLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <PlusSquare className="mr-2 h-4 w-4" />
+              )}
+              Load Photos
+            </Button>
+            <p className="text-xs text-muted-foreground text-center">
               {allPhotos.length} photos total • {usedPhotoIds.size} used
             </p>
           </div>
         </Card>
       </div>
-    </div>
+    </div >
   );
 }
