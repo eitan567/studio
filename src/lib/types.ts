@@ -24,6 +24,7 @@ export type AlbumConfig = {
 // New Interface for Cover Text Objects
 export interface CoverText {
   id: string;
+  groupId?: string;
   text: string;
   x: number; // percentage
   y: number; // percentage

@@ -13,8 +13,8 @@ export interface AlbumCoverProps {
     activeView?: 'front' | 'back' | 'full';
 
     // Interaction Handlers (Optional - mainly for Editor)
-    activeTextId?: string | null;
-    onSelectText?: (id: string | null) => void;
+    activeTextIds?: string[];
+    onSelectText?: (id: string | string[] | null, isMulti?: boolean) => void;
     onUpdatePage?: (page: AlbumPage) => void;
     onDropPhoto?: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
     onUpdatePhotoPanAndZoom?: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
@@ -207,7 +207,7 @@ export const AlbumCover = ({
     config,
     mode = 'preview',
     activeView = 'full',
-    activeTextId,
+    activeTextIds = [],
     onSelectText,
     onUpdatePage,
     onDropPhoto,
@@ -217,15 +217,48 @@ export const AlbumCover = ({
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Canvas click handler (for deselecting)
-    const handleCanvasClick = () => {
+    const handleCanvasClick = (e: React.MouseEvent) => {
         if (mode === 'editor' && onSelectText) {
+            // If we clicked on a text, stop propagation would have prevented this.
+            // So this is a click on empty space.
             onSelectText(null);
         }
     };
 
-    const handleUpdateTextPosition = (id: string, x: number, y: number) => {
+    const handleUpdateTextPosition = (triggerId: string, newX: number, newY: number) => {
         if (!page.coverTexts || !onUpdatePage) return;
-        const newTexts = page.coverTexts.map(t => t.id === id ? { ...t, x, y } : t);
+
+        // 1. Calculate Delta based on the Trigger Object
+        const triggerText = page.coverTexts.find(t => t.id === triggerId);
+        if (!triggerText) return;
+
+        const dx = newX - triggerText.x;
+        const dy = newY - triggerText.y;
+
+        // 2. Identify all items to move
+        // Move all Active items.
+        // If triggerId is NOT in active set (rare edge case), move just it? 
+        // Logic: The dragged item should be moved. And if it's part of selection, all selection moves.
+        const idsToMove = new Set<string>();
+
+        if (activeTextIds.includes(triggerId)) {
+            activeTextIds.forEach(id => idsToMove.add(id));
+        } else {
+            idsToMove.add(triggerId);
+        }
+
+        // 3. Apply Delta
+        const newTexts = page.coverTexts.map(t => {
+            if (idsToMove.has(t.id)) {
+                return {
+                    ...t,
+                    x: t.x + dx,
+                    y: t.y + dy
+                };
+            }
+            return t;
+        });
+
         onUpdatePage({ ...page, coverTexts: newTexts });
     };
 
@@ -419,14 +452,24 @@ export const AlbumCover = ({
             const referenceWidth = isFull ? 3200 : 1600;
             const fontSizeCss = `${(textItem.style.fontSize / referenceWidth) * 100}cqw`;
 
+            const isSelected = activeTextIds.includes(textItem.id);
 
             if (mode === 'editor' && onSelectText) {
                 return (
                     <DraggableCoverText
                         key={textItem.id}
                         item={{ ...textItem, x: localX, y: localY }}
-                        isSelected={activeTextId === textItem.id}
-                        onSelect={() => onSelectText(textItem.id)}
+                        isSelected={isSelected}
+                        onSelect={(e) => {
+                            // Group Selection Logic
+                            let targets = [textItem.id];
+                            if (textItem.groupId) {
+                                const groupIds = page.coverTexts?.filter(t => t.groupId === textItem.groupId).map(t => t.id) || [];
+                                if (groupIds.length > 0) targets = groupIds;
+                            }
+
+                            onSelectText(targets, e.ctrlKey || e.metaKey);
+                        }}
                         onUpdatePosition={(x, y) => {
                             // Transform back to Global
                             let globalX = x;

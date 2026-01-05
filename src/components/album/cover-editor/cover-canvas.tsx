@@ -8,15 +8,15 @@ import { AlbumCover } from '../album-cover';
 interface CoverCanvasProps {
     page: AlbumPage;
     activeView: 'front' | 'back' | 'full';
-    activeTextId: string | null;
-    onSelectText: (id: string | null) => void;
+    activeTextIds: string[];
+    onSelectText: (id: string | string[] | null, isMulti?: boolean) => void;
     onUpdatePage: (page: AlbumPage) => void;
     onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
     onUpdatePhotoPanAndZoom?: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
     config?: AlbumConfig;
 }
 
-export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUpdatePage, onDropPhoto, onUpdatePhotoPanAndZoom, config }: CoverCanvasProps) => {
+export const CoverCanvas = ({ page, activeView, activeTextIds, onSelectText, onUpdatePage, onDropPhoto, onUpdatePhotoPanAndZoom, config }: CoverCanvasProps) => {
     const wrapperRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
 
@@ -107,7 +107,7 @@ export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUp
                     config={config}
                     mode="editor"
                     activeView={activeView}
-                    activeTextId={activeTextId}
+                    activeTextIds={activeTextIds}
                     onSelectText={onSelectText}
                     onUpdatePage={onUpdatePage}
                     onDropPhoto={onDropPhoto}

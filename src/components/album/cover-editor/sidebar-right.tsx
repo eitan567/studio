@@ -29,22 +29,22 @@ const AVAILABLE_FONTS = ['Inter', 'Serif', 'Mono', 'Cursive', 'Arial', 'Times Ne
 
 interface SidebarRightProps {
     page: AlbumPage;
-    activeTextId: string | null;
+    activeTextIds: string[];
     onUpdatePage: (page: AlbumPage) => void;
 }
 
-export const SidebarRight = ({ page, activeTextId, onUpdatePage }: SidebarRightProps) => {
+export const SidebarRight = ({ page, activeTextIds, onUpdatePage }: SidebarRightProps) => {
 
-    // Find active text object
-    const activeText = activeTextId
-        ? page.coverTexts?.find(t => t.id === activeTextId)
-        : null;
+    // Find active text objects
+    const activeTexts = page.coverTexts?.filter(t => activeTextIds.includes(t.id)) || [];
+    // Primary text for displaying values (use the last selected)
+    const activeText = activeTexts.length > 0 ? activeTexts[activeTexts.length - 1] : null;
 
     const handleUpdateText = (updates: Partial<CoverText> | Partial<CoverText['style']>) => {
-        if (!activeTextId || !page.coverTexts) return;
+        if (activeTexts.length === 0 || !page.coverTexts) return;
 
         const newTexts = page.coverTexts.map(t => {
-            if (t.id !== activeTextId) return t;
+            if (!activeTextIds.includes(t.id)) return t;
             const isStyleUpdate = !('text' in updates);
             if (isStyleUpdate) {
                 return { ...t, style: { ...t.style, ...updates } };
@@ -56,14 +56,44 @@ export const SidebarRight = ({ page, activeTextId, onUpdatePage }: SidebarRightP
     };
 
     const handleDeleteText = () => {
-        if (!activeTextId || !page.coverTexts) return;
-        const newTexts = page.coverTexts.filter(t => t.id !== activeTextId);
+        if (activeTexts.length === 0 || !page.coverTexts) return;
+        const newTexts = page.coverTexts.filter(t => !activeTextIds.includes(t.id));
+        onUpdatePage({ ...page, coverTexts: newTexts });
+    };
+
+    const handleGroupTexts = () => {
+        if (activeTexts.length === 0 || !page.coverTexts) return;
+        const newGroupId = crypto.randomUUID();
+        const newTexts = page.coverTexts.map(t => {
+            if (activeTextIds.includes(t.id)) {
+                return { ...t, groupId: newGroupId };
+            }
+            return t;
+        });
+        onUpdatePage({ ...page, coverTexts: newTexts });
+    };
+
+    const handleUngroupTexts = () => {
+        if (activeTexts.length === 0 || !page.coverTexts) return;
+        const newTexts = page.coverTexts.map(t => {
+            if (activeTextIds.includes(t.id)) {
+                const { groupId, ...rest } = t;
+                // Removing groupId
+                return { ...rest, groupId: undefined };
+            }
+            return t;
+        });
         onUpdatePage({ ...page, coverTexts: newTexts });
     };
 
     const handleUpdatePageProp = (updates: Partial<AlbumPage>) => {
         onUpdatePage({ ...page, ...updates });
     };
+
+    // Check grouping state
+    const isMultiple = activeTexts.length > 1;
+    // Check if any selected item is part of a group
+    const isLinked = activeTexts.some(t => !!t.groupId);
 
     return (
         <div className="w-80 h-full bg-card border-l flex flex-col shadow-xl z-50">
@@ -77,23 +107,43 @@ export const SidebarRight = ({ page, activeTextId, onUpdatePage }: SidebarRightP
                 <div className="p-4 space-y-8">
 
                     {/* Text Properties Section */}
-                    <div className={cn("space-y-4 transition-all duration-300", !activeText && "opacity-50 grayscale")}>
+                    <div className={cn("space-y-4 transition-all duration-300", activeTexts.length === 0 && "opacity-50 grayscale")}>
                         <div className="flex items-center justify-between">
                             <Label className="flex items-center gap-2 text-primary font-semibold">
                                 <Type className="w-4 h-4" /> Text Properties
                             </Label>
-                            {!activeText && <span className="text-[10px] text-muted-foreground italic">No selection</span>}
+                            {activeTexts.length === 0 && <span className="text-[10px] text-muted-foreground italic">No selection</span>}
+                            {activeTexts.length > 1 && <span className="text-[10px] text-primary italic">{activeTexts.length} items</span>}
                         </div>
 
-                        <div className="space-y-4 pointer-events-none" style={{ pointerEvents: activeText ? 'auto' : 'none' }}>
+                        <div className="space-y-4 pointer-events-none" style={{ pointerEvents: activeTexts.length > 0 ? 'auto' : 'none' }}>
+                            {/* Grouping Actions */}
+                            <div className="flex gap-2">
+                                {(isMultiple || isLinked) && (
+                                    <>
+                                        {isMultiple && (
+                                            <Button variant="outline" size="sm" className="flex-1 text-xs h-7" onClick={handleGroupTexts}>
+                                                Link
+                                            </Button>
+                                        )}
+                                        {isLinked && (
+                                            <Button variant="outline" size="sm" className="flex-1 text-xs h-7" onClick={handleUngroupTexts}>
+                                                Unlink
+                                            </Button>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+
                             {/* Content */}
                             <div className="space-y-2">
                                 <Label className="text-xs text-muted-foreground">Content</Label>
                                 <Input
-                                    value={activeText?.text || ''}
+                                    value={activeTexts.length === 1 ? activeText?.text || '' : 'Multiple Selected'}
+                                    disabled={activeTexts.length !== 1}
                                     onChange={(e) => handleUpdateText({ text: e.target.value })}
                                     className="font-medium"
-                                    placeholder={!activeText ? "Select text to edit" : ""}
+                                    placeholder={activeTexts.length === 0 ? "Select text to edit" : "Multiple"}
                                 />
                             </div>
 

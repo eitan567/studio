@@ -17,7 +17,7 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
     // 1. Local State for Transactional Editing
     const [localPage, setLocalPage] = useState<AlbumPage>(page);
     const [activeView, setActiveView] = useState<'front' | 'back' | 'full'>('full');
-    const [activeTextId, setActiveTextId] = useState<string | null>(null);
+    const [activeTextIds, setActiveTextIds] = useState<string[]>([]);
 
     // 2. Handle Save
     const handleSave = () => {
@@ -36,19 +36,63 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
     };
 
     const handleAddText = () => {
+        const existingTexts = localPage.coverTexts || [];
+
+        // 1. Calculate Next Number "New Text X"
+        const regex = /^New Text (\d+)$/;
+        let maxNum = 0;
+        existingTexts.forEach(t => {
+            const match = t.text.match(regex);
+            if (match) {
+                const num = parseInt(match[1]);
+                if (!isNaN(num) && num > maxNum) maxNum = num;
+            }
+        });
+        const nextNum = maxNum + 1;
+        const newTextStr = `New Text ${nextNum}`;
+
+        // 2. Calculate Offset Position
+        // Find the last created/selected text to offset from, or default center
+        // Default center: x: 50, y: 50
+        let newX = 50;
+        let newY = 50;
+
+        // If there are existing texts, try to offset from the last one to avoid perfect overlap
+        if (existingTexts.length > 0) {
+            const lastText = existingTexts[existingTexts.length - 1];
+            newX = lastText.x + 2; // +2% offset
+            newY = lastText.y + 2; // +2% offset
+
+            // Boundary checks to keep it somewhat reasonably on screen (optional but good)
+            if (newX > 90) newX = 10;
+            if (newY > 90) newY = 10;
+        }
+
+        // 3. Inherit Style from active text or last text
+        let initialStyle = {
+            fontFamily: 'Inter',
+            fontSize: 24,
+            color: '#000000',
+        };
+
+        const activeId = activeTextIds.length > 0 ? activeTextIds[activeTextIds.length - 1] : null;
+        const referenceText = activeId
+            ? existingTexts.find(t => t.id === activeId)
+            : existingTexts.length > 0 ? existingTexts[existingTexts.length - 1] : null;
+
+        if (referenceText) {
+            initialStyle = { ...referenceText.style };
+        }
+
         const newText: CoverText = {
             id: crypto.randomUUID(),
-            text: 'New Text',
-            x: 50,
-            y: 50,
-            style: {
-                fontFamily: 'Inter',
-                fontSize: 24,
-                color: '#000000',
-            },
+            text: newTextStr,
+            x: newX,
+            y: newY,
+            style: initialStyle,
         };
-        updateTexts([...(localPage.coverTexts || []), newText]);
-        setActiveTextId(newText.id);
+        updateTexts([...existingTexts, newText]);
+        setActiveTextIds([newText.id]);
     };
 
     const handleDropPhoto = (pageId: string, targetPhotoId: string, droppedPhotoId: string) => {
@@ -102,8 +146,40 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
                 <CoverCanvas
                     page={localPage}
                     activeView={activeView}
-                    activeTextId={activeTextId}
-                    onSelectText={setActiveTextId}
+                    activeTextIds={activeTextIds}
+                    onSelectText={(target, isMulti) => {
+                        const targets = Array.isArray(target) ? target : (target ? [target] : []);
+
+                        if (targets.length === 0) {
+                            if (!isMulti) setActiveTextIds([]);
+                            return;
+                        }
+
+                        if (isMulti) {
+                            setActiveTextIds(prev => {
+                                const next = [...prev];
+                                targets.forEach(t => {
+                                    if (next.includes(t)) {
+                                        // Toggle off if already selected? 
+                                        // Standard behavior for Ctrl+Click on unselected is Add. On selected is Remove.
+                                        // But if we selecting a GROUP, we probably want to add the whole group.
+                                        // Let's assume if any in target is not selected, we add all. If all selected, we remove all?
+                                        // Simplify: Just toggle individually for now, or add if not present.
+                                        // Let's implement simple "Toggle" for single click, and "Union" for group click?
+                                        // User said: "choose multiple ... with CTRL".
+                                        const idx = next.indexOf(t);
+                                        if (idx > -1) next.splice(idx, 1);
+                                        else next.push(t);
+                                    } else {
+                                        next.push(t);
+                                    }
+                                });
+                                return next;
+                            });
+                        } else {
+                            setActiveTextIds(targets);
+                        }
+                    }}
                     onUpdatePage={setLocalPage}
                     onDropPhoto={handleDropPhoto}
                     onUpdatePhotoPanAndZoom={handleUpdatePhotoPanAndZoom}
@@ -112,7 +188,7 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
 
             <SidebarRight
                 page={localPage}
-                activeTextId={activeTextId}
+                activeTextIds={activeTextIds}
                 onUpdatePage={setLocalPage}
             />
         </div>
