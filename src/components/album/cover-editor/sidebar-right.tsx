@@ -275,11 +275,14 @@ export const SidebarRight = ({ page, activeTextId, onUpdatePage }: SidebarRightP
 
                                     {/* Width */}
                                     <div className="space-y-1">
-                                        <Label className="text-[10px] text-muted-foreground">Spine Width (px)</Label>
-                                        <Input
-                                            type="number" className="h-8 bg-background"
-                                            value={page.spineWidth || 40}
-                                            onChange={(e) => handleUpdatePageProp({ spineWidth: Number(e.target.value) })}
+                                        <div className="flex justify-between">
+                                            <Label className="text-[10px] text-muted-foreground mb-1">Spine Width (px)</Label>
+                                            <span className="text-[10px] text-muted-foreground">{page.spineWidth ?? 40}px</span>
+                                        </div>
+                                        <Slider
+                                            value={[page.spineWidth ?? 40]}
+                                            min={0} max={100} step={1}
+                                            onValueChange={(val) => handleUpdatePageProp({ spineWidth: val[0] })}
                                         />
                                     </div>
 
@@ -357,7 +360,7 @@ export const SidebarRight = ({ page, activeTextId, onUpdatePage }: SidebarRightP
                                     <div className="space-y-3">
                                         <div className="space-y-1">
                                             <div className="flex justify-between">
-                                                <Label className="text-[10px]">Photo Gap</Label>
+                                                <Label className="text-[10px] mb-1">Photo Gap</Label>
                                                 <span className="text-[10px] text-muted-foreground">{page.photoGap ?? 5}px</span>
                                             </div>
                                             <Slider
@@ -369,7 +372,7 @@ export const SidebarRight = ({ page, activeTextId, onUpdatePage }: SidebarRightP
 
                                         <div className="space-y-1">
                                             <div className="flex justify-between">
-                                                <Label className="text-[10px]">Page Margin</Label>
+                                                <Label className="text-[10px] mb-1">Page Margin</Label>
                                                 <span className="text-[10px] text-muted-foreground">{page.pageMargin ?? 0}px</span>
                                             </div>
                                             <Slider

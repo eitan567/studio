@@ -165,10 +165,13 @@ export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUp
                     >
                         {/* Spine Overlay for Full Mode (Visual Guide) */}
                         <div
-                            className="absolute top-0 bottom-0 left-1/2 z-10 pointer-events-none border-l border-dashed border-black/20 flex flex-col items-center overflow-hidden"
+                            className={cn(
+                                "absolute top-0 bottom-0 left-1/2 z-10 pointer-events-none border-dashed border-black/20 flex flex-col items-center overflow-hidden",
+                                (page.spineWidth ?? 40) > 0 ? "border-l" : "border-none"
+                            )}
                             style={{
-                                marginLeft: `-${(page.spineWidth || 40) / 2}px`,
-                                width: `${page.spineWidth || 40}px`,
+                                marginLeft: `-${(page.spineWidth ?? 40) / 2}px`,
+                                width: `${page.spineWidth ?? 40}px`,
                                 backgroundColor: page.spineColor || 'transparent', // Use actual color (allow alpha)
                                 padding: page.spineTextAlign === 'left' || page.spineTextAlign === 'right' ? '10px 0' : '0',
                                 justifyContent: page.spineTextAlign === 'left' ? 'flex-start' : page.spineTextAlign === 'right' ? 'flex-end' : 'center'
@@ -240,7 +243,7 @@ export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUp
                         {/* Spine Area */}
                         <div
                             className={cn(
-                                "relative h-full flex flex-col items-center bg-muted/30 z-10 shrink-0",
+                                "relative h-full flex flex-col items-center z-10 shrink-0",
                                 isFull ? "flex" : "hidden",
                                 page.spineTextAlign === 'left' ? 'justify-start' :
                                     page.spineTextAlign === 'right' ? 'justify-end' :
@@ -248,7 +251,7 @@ export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUp
                             )}
                             style={{
                                 backgroundColor: page.spineColor,
-                                width: `${page.spineWidth || 40}px`,
+                                width: `${page.spineWidth ?? 40}px`,
                                 padding: page.spineTextAlign === 'left' || page.spineTextAlign === 'right' ? '10px 0' : '0'
                             }}
                         >

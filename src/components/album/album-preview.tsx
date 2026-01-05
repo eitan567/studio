@@ -208,7 +208,7 @@ const Spine = ({ text, width, color, textColor, fontSize = 12, fontFamily, fontW
 
   return (
     <div
-      className={`relative h-full border-x border-dashed border-border/50 flex flex-col items-center overflow-hidden z-20 ${getContainerAlignment()}`}
+      className={`relative h-full ${(!width && width !== 0) || width > 0 ? 'border-x border-dashed border-border/50' : 'border-none'} flex flex-col items-center overflow-hidden z-20 ${getContainerAlignment()}`}
       style={{
         width: width ? `${width}px` : undefined,
         backgroundColor: color,
@@ -729,10 +729,13 @@ export function AlbumPreview({
                             <div className="relative h-full w-full">
                               {/* Spine Overlay */}
                               <div
-                                className="absolute inset-y-0 left-1/2 h-full z-30 pointer-events-none"
+                                className={cn(
+                                  "absolute inset-y-0 left-1/2 h-full z-30 pointer-events-none",
+                                  (page.spineWidth ?? 40) > 0 ? "" : "hidden"
+                                )}
                                 style={{
-                                  marginLeft: `-${(page.spineWidth || 40) / 2}px`,
-                                  width: `${page.spineWidth || 40}px`
+                                  marginLeft: `-${(page.spineWidth ?? 40) / 2}px`,
+                                  width: `${page.spineWidth ?? 40}px`
                                 }}
                               >
                                 <Spine
@@ -775,10 +778,13 @@ export function AlbumPreview({
 
                                 {/* Spine Overlay */}
                                 <div
-                                  className="absolute inset-y-0 left-1/2 h-full z-30 pointer-events-none"
+                                  className={cn(
+                                    "absolute inset-y-0 left-1/2 h-full z-30 pointer-events-none",
+                                    (page.spineWidth ?? 40) > 0 ? "" : "hidden"
+                                  )}
                                   style={{
-                                    marginLeft: `-${(page.spineWidth || 40) / 2}px`,
-                                    width: `${page.spineWidth || 40}px`
+                                    marginLeft: `-${(page.spineWidth ?? 40) / 2}px`,
+                                    width: `${page.spineWidth ?? 40}px`
                                   }}
                                 >
                                   <Spine
@@ -881,7 +887,7 @@ export function AlbumPreview({
                         const frontPhotos = page.photos.slice(backTemplate.photoCount, backTemplate.photoCount + frontTemplate.photoCount);
 
                         // Current spine width (default 40)
-                        const spineWidthPx = page.spineWidth || 40;
+                        const spineWidthPx = page.spineWidth ?? 40;
                         // Use exact pixel value for spine width to match FULL mode
                         const spineWidthStyle = `${spineWidthPx}px`;
 
