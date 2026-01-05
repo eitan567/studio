@@ -36,8 +36,8 @@ const PageLayoutComponent = ({
     // const sourceId = `${page.id}-${layout}`;
     // console.log('[PageLayout]', sourceId, 'photoGap:', photoGap, 'type:', typeof photoGap);
     const gapValue = typeof photoGap === 'string'
-        ? (photoGap === '0%' ? '2%' : photoGap) // Minimum 2% gap for visibility
-        : `${Math.max(photoGap ?? 0, 5)}px`; // Minimum 5px gap
+        ? photoGap
+        : `${photoGap ?? 0}px`;
     // console.log('[PageLayout]', sourceId, 'gapValue:', gapValue);
 
     return (

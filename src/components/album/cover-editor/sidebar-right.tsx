@@ -404,35 +404,7 @@ export const SidebarRight = ({ page, activeTextIds, onUpdatePage }: SidebarRight
                                     </div>
                                 </div>
 
-                                {/* Dimensions / Spacing */}
-                                <div className="space-y-3 p-3 bg-muted/20 rounded-lg border">
-                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Spacing</Label>
-                                    <div className="space-y-3">
-                                        <div className="space-y-1">
-                                            <div className="flex justify-between">
-                                                <Label className="text-[10px] mb-1">Photo Gap</Label>
-                                                <span className="text-[10px] text-muted-foreground">{page.photoGap ?? 5}px</span>
-                                            </div>
-                                            <Slider
-                                                value={[page.photoGap ?? 5]}
-                                                min={0} max={20} step={1}
-                                                onValueChange={(val) => handleUpdatePageProp({ photoGap: val[0] })}
-                                            />
-                                        </div>
 
-                                        <div className="space-y-1">
-                                            <div className="flex justify-between">
-                                                <Label className="text-[10px] mb-1">Page Margin</Label>
-                                                <span className="text-[10px] text-muted-foreground">{page.pageMargin ?? 0}px</span>
-                                            </div>
-                                            <Slider
-                                                value={[page.pageMargin ?? 0]}
-                                                min={0} max={50} step={1}
-                                                onValueChange={(val) => handleUpdatePageProp({ pageMargin: val[0] })}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
                             </TabsContent>
                         </Tabs>
                     </div>
