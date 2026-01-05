@@ -107,7 +107,7 @@ export const SidebarRight = ({ page, activeTextIds, onUpdatePage }: SidebarRight
                 <div className="p-4 space-y-8">
 
                     {/* Text Properties Section */}
-                    <div className={cn("space-y-4 transition-all duration-300", activeTexts.length === 0 && "opacity-50 grayscale")}>
+                    <div className={cn("space-y-2 transition-all duration-300", activeTexts.length === 0 && "opacity-50 grayscale")}>
                         <div className="flex items-center justify-between">
                             <Label className="flex items-center gap-2 text-primary font-semibold">
                                 <Type className="w-4 h-4" /> Text Properties
@@ -116,7 +116,7 @@ export const SidebarRight = ({ page, activeTextIds, onUpdatePage }: SidebarRight
                             {activeTexts.length > 1 && <span className="text-[10px] text-primary italic">{activeTexts.length} items</span>}
                         </div>
 
-                        <div className="space-y-4 pointer-events-none" style={{ pointerEvents: activeTexts.length > 0 ? 'auto' : 'none' }}>
+                        <div className="space-y-2 pointer-events-none" style={{ pointerEvents: activeTexts.length > 0 ? 'auto' : 'none' }}>
                             {/* Grouping Actions */}
                             <div className="flex gap-2">
                                 {(isMultiple || isLinked) && (
@@ -240,7 +240,7 @@ export const SidebarRight = ({ page, activeTextIds, onUpdatePage }: SidebarRight
                     <Separator />
 
                     {/* Global Cover Settings */}
-                    <div className="space-y-4">
+                    <div className="space-y-2">
                         <Label className="flex items-center gap-2 text-primary font-semibold">
                             <Layout className="w-4 h-4" /> Global Settings
                         </Label>
@@ -251,7 +251,7 @@ export const SidebarRight = ({ page, activeTextIds, onUpdatePage }: SidebarRight
                                 <TabsTrigger value="structure" className="text-xs">Layout & Spine</TabsTrigger>
                             </TabsList>
 
-                            <TabsContent value="style" className="space-y-4 pt-4">
+                            <TabsContent value="style" className="space-y-2 pt-4">
                                 {/* Background Section */}
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center">
