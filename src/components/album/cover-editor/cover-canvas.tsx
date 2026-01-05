@@ -191,7 +191,7 @@ export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUp
                                     fontStyle: page.spineFontStyle === 'italic' ? 'italic' : 'normal'
                                 }}
                             >
-                                {page.spineText || 'SPINE'}
+                                {page.spineText || ((page.spineWidth ?? 40) === 0 ? '' : 'SPINE')}
                             </span>
                         </div>
 
@@ -269,7 +269,7 @@ export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUp
                                     fontStyle: page.spineFontStyle === 'italic' ? 'italic' : 'normal'
                                 }}
                             >
-                                {page.spineText || 'SPINE'}
+                                {page.spineText || ((page.spineWidth ?? 40) === 0 ? '' : 'SPINE')}
                             </span>
                         </div>
 

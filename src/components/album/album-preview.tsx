@@ -229,7 +229,7 @@ const Spine = ({ text, width, color, textColor, fontSize = 12, fontFamily, fontW
           fontStyle: fontStyle === 'italic' ? 'italic' : 'normal'
         }}
       >
-        {text || 'SPINE'}
+        {text || (width === 0 ? '' : 'SPINE')}
       </div>
     </div>
   );
