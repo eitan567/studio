@@ -221,7 +221,6 @@ const Spine = ({ text, width, color, textColor, fontSize = 12, fontFamily, fontW
         style={{
           writingMode: 'vertical-rl',
           textOrientation: 'mixed',
-          transform: 'rotate(180deg)',
           fontSize: `${fontSize}px`,
           fontFamily: fontFamily || 'Tahoma',
           color: textColor,

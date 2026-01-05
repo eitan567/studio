@@ -239,7 +239,6 @@ export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUp
                                 style={{
                                     writingMode: 'vertical-rl',
                                     textOrientation: 'mixed',
-                                    transform: 'rotate(180deg)',
                                     color: page.spineTextColor,
                                     fontSize: `${page.spineFontSize || 12}px`,
                                     fontFamily: page.spineFontFamily || 'Tahoma',
@@ -341,6 +340,6 @@ export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUp
                 })}
 
             </div>
-        </div>
+        </div >
     );
 };
