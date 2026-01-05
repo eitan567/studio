@@ -246,9 +246,19 @@ export const SidebarRight = ({ page, activeTextIds, onUpdatePage }: SidebarRight
                         </Label>
 
                         <Tabs defaultValue="style">
-                            <TabsList className="w-full grid grid-cols-2 h-8">
-                                <TabsTrigger value="style" className="text-xs">Background</TabsTrigger>
-                                <TabsTrigger value="structure" className="text-xs">Layout & Spine</TabsTrigger>
+                            <TabsList className="w-full flex items-center border-b p-0 h-9 bg-transparent rounded-none">
+                                <TabsTrigger
+                                    value="style"
+                                    className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-2 py-2 text-xs text-muted-foreground data-[state=active]:text-foreground"
+                                >
+                                    Background
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="structure"
+                                    className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-2 py-2 text-xs text-muted-foreground data-[state=active]:text-foreground"
+                                >
+                                    Layout & Spine
+                                </TabsTrigger>
                             </TabsList>
 
                             <TabsContent value="style" className="space-y-2 pt-4">
