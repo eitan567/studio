@@ -758,21 +758,19 @@ export function AlbumPreview({
                                   padding: pageMarginPx
                                 }}
                               >
-                                {/* Draggable Title Overlay (if applies to full spread?) Usually title is mostly front. */}
+                                {/* Draggable Title Overlay */}
                                 <div className="absolute inset-0 z-20 pointer-events-none">
-                                  <div className="pointer-events-auto h-full w-full relative">
-                                    {page.titleText && (
-                                      <DraggableTitle
-                                        text={page.titleText}
-                                        color={page.titleColor}
-                                        fontSize={page.titleFontSize}
-                                        fontFamily={page.titleFontFamily}
-                                        position={page.titlePosition}
-                                        containerId={`front-cover-container-${page.id}`}
-                                        onUpdatePosition={(x, y) => onUpdateTitleSettings?.(page.id, { position: { x, y } })}
-                                      />
-                                    )}
-                                  </div>
+                                  {page.titleText && (
+                                    <DraggableTitle
+                                      text={page.titleText}
+                                      color={page.titleColor}
+                                      fontSize={page.titleFontSize}
+                                      fontFamily={page.titleFontFamily}
+                                      position={page.titlePosition}
+                                      containerId={`front-cover-container-${page.id}`}
+                                      onUpdatePosition={(x, y) => onUpdateTitleSettings?.(page.id, { position: { x, y } })}
+                                    />
+                                  )}
                                 </div>
 
                                 {/* Spine Overlay */}
@@ -884,9 +882,8 @@ export function AlbumPreview({
 
                         // Current spine width (default 40)
                         const spineWidthPx = page.spineWidth || 40;
-                        // Convert to PROPORTIONAL width for preview using standard 3200px width
-                        // This prevents spine from being huge in small thumbnails
-                        const spineWidthCqw = `${(spineWidthPx / 3200) * 100}cqw`;
+                        // Use exact pixel value for spine width to match FULL mode
+                        const spineWidthStyle = `${spineWidthPx}px`;
 
                         // Calculate proportional values based on 1000px reference
                         const pageMarginVal = page.pageMargin ?? 0;
@@ -901,7 +898,7 @@ export function AlbumPreview({
                           <div
                             className="grid h-full w-full"
                             style={{
-                              gridTemplateColumns: `1fr ${spineWidthCqw} 1fr`, // Use CQW here
+                              gridTemplateColumns: `1fr ${spineWidthStyle} 1fr`,
                               position: 'relative',
                               containerType: 'inline-size' // Ensure CQW works without Tailwind plugin
                             }}
