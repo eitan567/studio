@@ -190,7 +190,7 @@ const DraggableTitle = ({
   );
 };
 
-const Spine = ({ text, width, color, textColor, fontSize = 12, fontFamily, fontWeight, fontStyle, textAlign = 'center', styleOverride }: { text?: string; width?: number; color?: string; textColor?: string; fontSize?: number; fontFamily?: string; fontWeight?: string; fontStyle?: string; textAlign?: 'left' | 'center' | 'right'; styleOverride?: React.CSSProperties }) => {
+const Spine = ({ text, width, color, textColor, fontSize = 12, fontFamily, fontWeight, fontStyle, textAlign = 'center', rotated = false, styleOverride }: { text?: string; width?: number; color?: string; textColor?: string; fontSize?: number; fontFamily?: string; fontWeight?: string; fontStyle?: string; textAlign?: 'left' | 'center' | 'right'; rotated?: boolean; styleOverride?: React.CSSProperties }) => {
   // Using writing-mode for vertical text allows normal flexbox alignment to work
   // 'left' -> align to top of spine (with 10px padding)
   // 'right' -> align to bottom of spine (with 10px padding)
@@ -221,6 +221,7 @@ const Spine = ({ text, width, color, textColor, fontSize = 12, fontFamily, fontW
         style={{
           writingMode: 'vertical-rl',
           textOrientation: 'mixed',
+          transform: rotated ? 'rotate(180deg)' : 'none',
           fontSize: `${fontSize}px`,
           fontFamily: fontFamily || 'Tahoma',
           color: textColor,
@@ -745,6 +746,7 @@ export function AlbumPreview({
                                   fontWeight={page.spineFontWeight}
                                   fontStyle={page.spineFontStyle}
                                   textAlign={page.spineTextAlign}
+                                  rotated={page.spineTextRotated}
                                 />
                               </div>
 
@@ -792,6 +794,7 @@ export function AlbumPreview({
                                     fontWeight={page.spineFontWeight}
                                     fontStyle={page.spineFontStyle}
                                     textAlign={page.spineTextAlign}
+                                    rotated={page.spineTextRotated}
                                   />
                                 </div>
 
@@ -995,6 +998,7 @@ export function AlbumPreview({
                               fontWeight={page.spineFontWeight}
                               fontStyle={page.spineFontStyle}
                               textAlign={page.spineTextAlign}
+                              rotated={page.spineTextRotated}
                               styleOverride={{ width: '100%' }} // Need to ensure it fills the grid cell
                             />
 

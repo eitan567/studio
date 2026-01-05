@@ -13,6 +13,7 @@ import {
     AlignLeft,
     AlignCenter,
     AlignRight,
+    RotateCw,
     Trash2,
     Type,
     Layout,
@@ -334,6 +335,15 @@ export const SidebarRight = ({ page, activeTextId, onUpdatePage }: SidebarRightP
                                                         onClick={() => handleUpdatePageProp({ spineTextAlign: 'right' })}
                                                     >
                                                         <AlignRight className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                    <div className="w-px bg-border mx-0.5" />
+                                                    <Button
+                                                        variant={page.spineTextRotated ? 'secondary' : 'ghost'}
+                                                        size="icon" className="h-7 w-7"
+                                                        onClick={() => handleUpdatePageProp({ spineTextRotated: !page.spineTextRotated })}
+                                                        title="Flip text direction"
+                                                    >
+                                                        <RotateCw className="h-3.5 w-3.5" />
                                                     </Button>
                                                 </div>
                                             </div>
