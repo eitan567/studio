@@ -68,8 +68,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const [randomSuggestion, setRandomSuggestion] = useState('');
   const [isClient, setIsClient] = useState(false);
   const [allowDuplicates, setAllowDuplicates] = useState(true);
-  const [photoGap, setPhotoGap] = useState(0);
-  const [pageMargin, setPageMargin] = useState(0);
+  const [photoGap, setPhotoGap] = useState(10);
+  const [pageMargin, setPageMargin] = useState(10);
   const [backgroundColor, setBackgroundColor] = useState('#ffffff');
   const [backgroundImage, setBackgroundImage] = useState<string | undefined>(undefined);
   const [availableBackgrounds, setAvailableBackgrounds] = useState<string[]>([
@@ -124,21 +124,32 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     const newPages: AlbumPage[] = [];
     const defaultPanAndZoom = { scale: 1, x: 50, y: 50 };
 
-    // Create placeholder photos for cover (1 for front, 1 for back initially)
-    const coverPlaceholders: Photo[] = [
-      { id: uuidv4(), src: 'https://placehold.co/600x400/e2e8f0/e2e8f0?text=+', alt: 'Back Cover Placeholder', width: 600, height: 400 },
-      { id: uuidv4(), src: 'https://placehold.co/600x400/e2e8f0/e2e8f0?text=+', alt: 'Front Cover Placeholder', width: 600, height: 400 }
-    ];
+    // Create cover photos using random images from loaded photos (4 for back + 4 for front = 8 total)
+    const coverPhotos: Photo[] = [];
+    for (let i = 0; i < 8; i++) {
+      const randomIndex = Math.floor(Math.random() * photos.length);
+      const randomPhoto = photos[randomIndex];
+      coverPhotos.push({
+        id: uuidv4(),
+        src: randomPhoto.src,
+        alt: randomPhoto.alt,
+        width: randomPhoto.width,
+        height: randomPhoto.height,
+        panAndZoom: defaultPanAndZoom
+      });
+    }
 
     newPages.push({
       id: 'cover',
       type: 'spread',
-      photos: coverPlaceholders,
+      photos: coverPhotos,
       layout: 'cover',
       isCover: true,
-      coverLayouts: { front: '1-full', back: '1-full' },
+      coverLayouts: { front: '4-mosaic-1', back: '4-mosaic-1' },
       coverType: 'split',
-      spineText: ''
+      spineText: '',
+      photoGap: 20,
+      pageMargin: 20
     });
 
     if (photosPool.length > 0) {
