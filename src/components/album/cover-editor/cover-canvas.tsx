@@ -165,13 +165,32 @@ export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUp
                     >
                         {/* Spine Overlay for Full Mode (Visual Guide) */}
                         <div
-                            className="absolute top-0 bottom-0 left-1/2 z-10 pointer-events-none border-l border-dashed border-black/20"
+                            className="absolute top-0 bottom-0 left-1/2 z-10 pointer-events-none border-l border-dashed border-black/20 flex flex-col items-center overflow-hidden"
                             style={{
                                 marginLeft: `-${(page.spineWidth || 40) / 2}px`,
                                 width: `${page.spineWidth || 40}px`,
-                                backgroundColor: page.spineColor ? `${page.spineColor}80` : 'transparent' // Semi-transparent spine visualization
+                                backgroundColor: page.spineColor ? `${page.spineColor}80` : 'transparent', // Semi-transparent spine visualization
+                                padding: page.spineTextAlign === 'left' || page.spineTextAlign === 'right' ? '10px 0' : '0',
+                                justifyContent: page.spineTextAlign === 'left' ? 'flex-start' : page.spineTextAlign === 'right' ? 'flex-end' : 'center'
                             }}
-                        />
+                        >
+                            {/* Spine Text */}
+                            <span
+                                className="whitespace-nowrap tracking-widest select-none"
+                                style={{
+                                    writingMode: 'vertical-rl',
+                                    textOrientation: 'mixed',
+                                    transform: page.spineTextRotated ? 'rotate(180deg)' : 'none',
+                                    color: page.spineTextColor,
+                                    fontSize: `${page.spineFontSize || 12}px`,
+                                    fontFamily: page.spineFontFamily || 'Tahoma',
+                                    fontWeight: page.spineFontWeight === 'bold' ? 'bold' : 'normal',
+                                    fontStyle: page.spineFontStyle === 'italic' ? 'italic' : 'normal'
+                                }}
+                            >
+                                {page.spineText || 'SPINE'}
+                            </span>
+                        </div>
 
                         <div className="h-full w-full relative z-0">
                             <PageLayout
