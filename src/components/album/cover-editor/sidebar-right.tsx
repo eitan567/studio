@@ -250,17 +250,20 @@ export const SidebarRight = ({ page, activeTextId, onUpdatePage }: SidebarRightP
                                         />
                                     </div>
 
+                                    {/* Typography Grid: Font + Size */}
                                     <div className="grid grid-cols-2 gap-2">
                                         <div className="space-y-1">
-                                            <Label className="text-[10px] text-muted-foreground">Width</Label>
-                                            <Input
-                                                type="number" className="h-8 bg-background"
-                                                value={page.spineWidth || 40}
-                                                onChange={(e) => handleUpdatePageProp({ spineWidth: Number(e.target.value) })}
-                                            />
+                                            <Label className="text-[10px] text-muted-foreground">Font</Label>
+                                            <select
+                                                className="w-full h-8 px-2 text-sm border rounded bg-background"
+                                                value={page.spineFontFamily || 'Tahoma'}
+                                                onChange={(e) => handleUpdatePageProp({ spineFontFamily: e.target.value })}
+                                            >
+                                                {AVAILABLE_FONTS.map(f => <option key={f} value={f}>{f}</option>)}
+                                            </select>
                                         </div>
                                         <div className="space-y-1">
-                                            <Label className="text-[10px] text-muted-foreground">Font</Label>
+                                            <Label className="text-[10px] text-muted-foreground">Size (px)</Label>
                                             <Input
                                                 type="number" className="h-8 bg-background"
                                                 value={page.spineFontSize || 12}
@@ -269,15 +272,71 @@ export const SidebarRight = ({ page, activeTextId, onUpdatePage }: SidebarRightP
                                         </div>
                                     </div>
 
-                                    <div className="flex justify-between items-center bg-background p-1.5 rounded border">
-                                        <Label className="text-[10px] text-muted-foreground">Text Color</Label>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-mono text-muted-foreground">{page.spineTextColor}</span>
-                                            <SpineColorPicker
-                                                value={page.spineTextColor}
-                                                onChange={(c) => handleUpdatePageProp({ spineTextColor: c })}
-                                                disableAlpha
-                                            />
+                                    {/* Width */}
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] text-muted-foreground">Spine Width (px)</Label>
+                                        <Input
+                                            type="number" className="h-8 bg-background"
+                                            value={page.spineWidth || 40}
+                                            onChange={(e) => handleUpdatePageProp({ spineWidth: Number(e.target.value) })}
+                                        />
+                                    </div>
+
+                                    {/* Color & Styles */}
+                                    <div className="flex gap-2">
+                                        <div className="space-y-1 flex-1">
+                                            <Label className="text-[10px] text-muted-foreground">Color</Label>
+                                            <div className="flex items-center gap-2">
+                                                <SpineColorPicker
+                                                    value={page.spineTextColor}
+                                                    onChange={(c) => handleUpdatePageProp({ spineTextColor: c })}
+                                                    disableAlpha
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1 flex-[2]">
+                                            <Label className="text-[10px] text-muted-foreground invisible">Style</Label>
+                                            <div className="flex items-center justify-between bg-muted/30 p-1 rounded-md border">
+                                                <div className="flex gap-0.5 border-r pr-1">
+                                                    <Button
+                                                        variant={page.spineFontWeight === 'bold' ? 'secondary' : 'ghost'}
+                                                        size="icon" className="h-7 w-7"
+                                                        onClick={() => handleUpdatePageProp({ spineFontWeight: page.spineFontWeight === 'bold' ? 'normal' : 'bold' })}
+                                                    >
+                                                        <Bold className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                    <Button
+                                                        variant={page.spineFontStyle === 'italic' ? 'secondary' : 'ghost'}
+                                                        size="icon" className="h-7 w-7"
+                                                        onClick={() => handleUpdatePageProp({ spineFontStyle: page.spineFontStyle === 'italic' ? 'normal' : 'italic' })}
+                                                    >
+                                                        <Italic className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                </div>
+                                                <div className="flex gap-0.5 pl-1">
+                                                    <Button
+                                                        variant={page.spineTextAlign === 'left' ? 'secondary' : 'ghost'}
+                                                        size="icon" className="h-7 w-7"
+                                                        onClick={() => handleUpdatePageProp({ spineTextAlign: 'left' })}
+                                                    >
+                                                        <AlignLeft className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                    <Button
+                                                        variant={page.spineTextAlign === 'center' || !page.spineTextAlign ? 'secondary' : 'ghost'}
+                                                        size="icon" className="h-7 w-7"
+                                                        onClick={() => handleUpdatePageProp({ spineTextAlign: 'center' })}
+                                                    >
+                                                        <AlignCenter className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                    <Button
+                                                        variant={page.spineTextAlign === 'right' ? 'secondary' : 'ghost'}
+                                                        size="icon" className="h-7 w-7"
+                                                        onClick={() => handleUpdatePageProp({ spineTextAlign: 'right' })}
+                                                    >
+                                                        <AlignRight className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

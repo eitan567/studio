@@ -221,23 +221,30 @@ export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUp
                         {/* Spine Area */}
                         <div
                             className={cn(
-                                "relative h-full flex items-center justify-center bg-muted/30 z-10 shrink-0",
-                                isFull
-                                    ? "flex"
-                                    : "hidden"
+                                "relative h-full flex flex-col items-center bg-muted/30 z-10 shrink-0",
+                                isFull ? "flex" : "hidden",
+                                page.spineTextAlign === 'left' ? 'justify-start' :
+                                    page.spineTextAlign === 'right' ? 'justify-end' :
+                                        'justify-center'
                             )}
                             style={{
                                 backgroundColor: page.spineColor,
                                 width: `${page.spineWidth || 40}px`,
+                                padding: page.spineTextAlign === 'left' || page.spineTextAlign === 'right' ? '10px 0' : '0'
                             }}
                         >
                             {/* Spine Text */}
                             <span
-                                className="whitespace-nowrap font-semibold tracking-widest rotate-90 select-none"
+                                className="whitespace-nowrap tracking-widest select-none"
                                 style={{
+                                    writingMode: 'vertical-rl',
+                                    textOrientation: 'mixed',
+                                    transform: 'rotate(180deg)',
                                     color: page.spineTextColor,
                                     fontSize: `${page.spineFontSize || 12}px`,
-                                    fontFamily: page.spineFontFamily
+                                    fontFamily: page.spineFontFamily || 'Tahoma',
+                                    fontWeight: page.spineFontWeight === 'bold' ? 'bold' : 'normal',
+                                    fontStyle: page.spineFontStyle === 'italic' ? 'italic' : 'normal'
                                 }}
                             >
                                 {page.spineText || 'SPINE'}

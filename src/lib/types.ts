@@ -55,6 +55,9 @@ export type AlbumPage = {
   spineTextColor?: string;
   spineFontSize?: number;
   spineFontFamily?: string;
+  spineFontWeight?: string;
+  spineFontStyle?: string;
+  spineTextAlign?: 'left' | 'center' | 'right';
 
   // Granular Cover Settings
   photoGap?: number;

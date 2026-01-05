@@ -190,27 +190,50 @@ const DraggableTitle = ({
   );
 };
 
-const Spine = ({ text, width, color, textColor, fontSize = 12, fontFamily, styleOverride }: { text?: string; width?: number; color?: string; textColor?: string; fontSize?: number; fontFamily?: string; styleOverride?: React.CSSProperties }) => (
-  <div
-    className="relative h-full bg-muted/30 border-x border-dashed border-border/50 flex items-center justify-center overflow-hidden z-20"
-    style={{
-      width: width ? `${width}px` : undefined, // Only enforce px width if provided
-      backgroundColor: color,
-      ...styleOverride // Apply overrides
-    }}
-  >
+const Spine = ({ text, width, color, textColor, fontSize = 12, fontFamily, fontWeight, fontStyle, textAlign = 'center', styleOverride }: { text?: string; width?: number; color?: string; textColor?: string; fontSize?: number; fontFamily?: string; fontWeight?: string; fontStyle?: string; textAlign?: 'left' | 'center' | 'right'; styleOverride?: React.CSSProperties }) => {
+  // Using writing-mode for vertical text allows normal flexbox alignment to work
+  // 'left' -> align to top of spine (with 10px padding)
+  // 'right' -> align to bottom of spine (with 10px padding)
+  // 'center' -> center (default)
+  const getContainerAlignment = (): string => {
+    switch (textAlign) {
+      case 'left':
+        return 'justify-start';
+      case 'right':
+        return 'justify-end';
+      default:
+        return 'justify-center';
+    }
+  };
+
+  return (
     <div
-      className="whitespace-nowrap font-semibold text-muted-foreground/70 tracking-widest rotate-90 select-none"
+      className={`relative h-full bg-muted/30 border-x border-dashed border-border/50 flex flex-col items-center overflow-hidden z-20 ${getContainerAlignment()}`}
       style={{
-        fontSize: `${fontSize}px`,
-        fontFamily: fontFamily,
-        color: textColor,
+        width: width ? `${width}px` : undefined,
+        backgroundColor: color,
+        padding: textAlign === 'left' || textAlign === 'right' ? '10px 0' : '0',
+        ...styleOverride
       }}
     >
-      {text || 'ALBUM SPINE'}
+      <div
+        className="whitespace-nowrap text-muted-foreground/70 tracking-widest select-none"
+        style={{
+          writingMode: 'vertical-rl',
+          textOrientation: 'mixed',
+          transform: 'rotate(180deg)',
+          fontSize: `${fontSize}px`,
+          fontFamily: fontFamily || 'Tahoma',
+          color: textColor,
+          fontWeight: fontWeight === 'bold' ? 'bold' : 'normal',
+          fontStyle: fontStyle === 'italic' ? 'italic' : 'normal'
+        }}
+      >
+        {text || 'ALBUM SPINE'}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // Helper to manage color + opacity
 const SpineColorPicker = ({
@@ -720,6 +743,9 @@ export function AlbumPreview({
                                   textColor={page.spineTextColor}
                                   fontSize={page.spineFontSize}
                                   fontFamily={page.spineFontFamily}
+                                  fontWeight={page.spineFontWeight}
+                                  fontStyle={page.spineFontStyle}
+                                  textAlign={page.spineTextAlign}
                                 />
                               </div>
 
@@ -764,6 +790,9 @@ export function AlbumPreview({
                                     textColor={page.spineTextColor}
                                     fontSize={page.spineFontSize}
                                     fontFamily={page.spineFontFamily}
+                                    fontWeight={page.spineFontWeight}
+                                    fontStyle={page.spineFontStyle}
+                                    textAlign={page.spineTextAlign}
                                   />
                                 </div>
 
@@ -964,6 +993,9 @@ export function AlbumPreview({
                               textColor={page.spineTextColor}
                               fontSize={page.spineFontSize}
                               fontFamily={page.spineFontFamily}
+                              fontWeight={page.spineFontWeight}
+                              fontStyle={page.spineFontStyle}
+                              textAlign={page.spineTextAlign}
                               styleOverride={{ width: '100%' }} // Need to ensure it fills the grid cell
                             />
 
