@@ -15,7 +15,7 @@ export interface PageLayoutProps {
     templateSource?: typeof LAYOUT_TEMPLATES;
 }
 
-export function PageLayout({
+const PageLayoutComponent = ({
     page,
     photoGap,
     onUpdatePhotoPanAndZoom,
@@ -24,7 +24,7 @@ export function PageLayout({
     overridePhotos,
     overrideLayout,
     templateSource = LAYOUT_TEMPLATES
-}: PageLayoutProps) {
+}: PageLayoutProps) => {
     const photos = overridePhotos || page.photos;
     const layout = overrideLayout || page.layout;
     const template = templateSource.find(t => t.id === layout) || templateSource[0];
@@ -33,12 +33,12 @@ export function PageLayout({
 
     // Ensure gap is formatted correctly (handle string vs number)
     // DEBUG: Log the photoGap value with source identifier
-    const sourceId = `${page.id}-${layout}`;
-    console.log('[PageLayout]', sourceId, 'photoGap:', photoGap, 'type:', typeof photoGap);
+    // const sourceId = `${page.id}-${layout}`;
+    // console.log('[PageLayout]', sourceId, 'photoGap:', photoGap, 'type:', typeof photoGap);
     const gapValue = typeof photoGap === 'string'
         ? (photoGap === '0%' ? '2%' : photoGap) // Minimum 2% gap for visibility
         : `${Math.max(photoGap ?? 0, 5)}px`; // Minimum 5px gap
-    console.log('[PageLayout]', sourceId, 'gapValue:', gapValue);
+    // console.log('[PageLayout]', sourceId, 'gapValue:', gapValue);
 
     return (
         <div
@@ -81,5 +81,35 @@ export function PageLayout({
             })}
         </div>
     );
-}
+};
+
+export const PageLayout = React.memo(PageLayoutComponent, (prev, next) => {
+    // Custom Equality Check
+    // We ignore 'page.coverTexts' changes by comparing strict fields that affect layout
+
+    // Simple props check
+    if (prev.photoGap !== next.photoGap) return false;
+    if (prev.overrideLayout !== next.overrideLayout) return false;
+    if (prev.page.layout !== next.page.layout) return false;
+    if (prev.page.id !== next.page.id) return false;
+
+    // Photos check (length and IDs equal?)
+    const prevPhotos = prev.overridePhotos || prev.page.photos;
+    const nextPhotos = next.overridePhotos || next.page.photos;
+
+    if (prevPhotos.length !== nextPhotos.length) return false;
+
+    // Provide a reasonable shallow check for photos (ID and panZoom)
+    // Deep check might be expensive, but better than re-render.
+    // JSON stringify is a quick hack for deep objects, usually fast enough for small arrays.
+    // Or just check IDs and PanZoom
+    for (let i = 0; i < prevPhotos.length; i++) {
+        if (prevPhotos[i].id !== nextPhotos[i].id) return false;
+        if (prevPhotos[i].panAndZoom !== nextPhotos[i].panAndZoom) return false;
+        // Also check src if replaced?
+        if (prevPhotos[i].src !== nextPhotos[i].src) return false;
+    }
+
+    return true;
+});
 

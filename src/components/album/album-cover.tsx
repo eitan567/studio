@@ -98,6 +98,7 @@ const DraggableCoverText = ({
     isSelected,
     onSelect,
     onUpdatePosition,
+    onDragEnd,
     containerRef,
     fontSizeOverride
 }: {
@@ -105,15 +106,23 @@ const DraggableCoverText = ({
     isSelected: boolean;
     onSelect: (e: React.MouseEvent) => void;
     onUpdatePosition: (x: number, y: number) => void;
+    onDragEnd?: () => void;
     containerRef: React.RefObject<HTMLDivElement | null>;
     fontSizeOverride?: string;
 }) => {
     const [isDragging, setIsDragging] = useState(false);
     const hasMovedRef = useRef(false);
+    const dragOffsetRef = useRef({ x: 0, y: 0 }); // To keep mouse relative position if needed (currently centering)
+    const containerRectRef = useRef<DOMRect | null>(null);
 
     const handleMouseDown = (e: React.MouseEvent) => {
         if (e.button !== 0) return;
         e.stopPropagation();
+
+        // Cache container rect to avoid layout thrashing during drag
+        if (containerRef.current) {
+            containerRectRef.current = containerRef.current.getBoundingClientRect();
+        }
 
         // If not selected, or if modifier key is pressed, handle selection immediately
         // (Standard behavior: dragging an unselected item selects it first)
@@ -138,9 +147,9 @@ const DraggableCoverText = ({
         if (!isDragging) return;
 
         const handleMouseMove = (e: MouseEvent) => {
-            if (!containerRef.current) return;
+            if (!containerRectRef.current) return;
             hasMovedRef.current = true; // Mark as moved
-            const rect = containerRef.current.getBoundingClientRect();
+            const rect = containerRectRef.current;
             // Calculate percentage position
             let x = ((e.clientX - rect.left) / rect.width) * 100;
             let y = ((e.clientY - rect.top) / rect.height) * 100;
@@ -148,7 +157,11 @@ const DraggableCoverText = ({
         };
 
         const handleMouseUp = () => {
+            if (isDragging && onDragEnd && hasMovedRef.current) {
+                onDragEnd();
+            }
             setIsDragging(false);
+            containerRectRef.current = null; // Clear cache
         };
 
         window.addEventListener('mousemove', handleMouseMove);
@@ -157,12 +170,12 @@ const DraggableCoverText = ({
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [isDragging, onUpdatePosition, containerRef]);
+    }, [isDragging, onUpdatePosition, onDragEnd]);
 
     return (
         <div
             className={cn(
-                "absolute cursor-move select-none whitespace-nowrap p-1 border-2 transition-all",
+                "absolute cursor-move select-none whitespace-nowrap p-1 border-2",
                 isSelected ? "border-primary border-dashed bg-primary/5 z-50" : "border-transparent hover:border-primary/20 z-40"
             )}
             style={{
@@ -233,6 +246,8 @@ export const AlbumCover = ({
     // onUpdateTitleSettings
 }: AlbumCoverProps) => {
     const containerRef = useRef<HTMLDivElement>(null);
+    // Optimization: Local state for drag positions to avoid global re-renders
+    const [dragPositions, setDragPositions] = useState<Record<string, { x: number, y: number }>>({});
 
     // Canvas click handler (for deselecting)
     const handleCanvasClick = (e: React.MouseEvent) => {
@@ -244,40 +259,62 @@ export const AlbumCover = ({
     };
 
     const handleUpdateTextPosition = (triggerId: string, newX: number, newY: number) => {
-        if (!page.coverTexts || !onUpdatePage) return;
+        // Here we update LOCAL state instead of calling onUpdatePage
+        if (!page.coverTexts) return;
 
         // 1. Calculate Delta based on the Trigger Object
+        // Important: Use the latest visual position from dragPositions if available, OR the original page position.
+        // Wait, 'newX/newY' is the absolute position from the mouse event.
+        // We need to compare it to the 'original' or 'last known' position to find delta.
+        // Actually, we must compare against the STARTER position or current.
+        // But 'page.coverTexts' is NOT updating during drag now. So we can compare against page.cover.
+
         const triggerText = page.coverTexts.find(t => t.id === triggerId);
         if (!triggerText) return;
+
+        // Note: newX is where the mouse IS.
+        // If we are dragging a GROUP, we need to move others by the same DELTA.
+        // Delta = newX - triggerText.x
 
         const dx = newX - triggerText.x;
         const dy = newY - triggerText.y;
 
-        // 2. Identify all items to move
-        // Move all Active items.
-        // If triggerId is NOT in active set (rare edge case), move just it? 
-        // Logic: The dragged item should be moved. And if it's part of selection, all selection moves.
         const idsToMove = new Set<string>();
-
         if (activeTextIds.includes(triggerId)) {
             activeTextIds.forEach(id => idsToMove.add(id));
         } else {
             idsToMove.add(triggerId);
         }
 
-        // 3. Apply Delta
-        const newTexts = page.coverTexts.map(t => {
+        const newPositions: Record<string, { x: number, y: number }> = {};
+
+        page.coverTexts.forEach(t => {
             if (idsToMove.has(t.id)) {
-                return {
-                    ...t,
+                newPositions[t.id] = {
                     x: t.x + dx,
                     y: t.y + dy
                 };
+            }
+        });
+
+        setDragPositions(newPositions);
+    };
+
+    const handleDragEnd = () => {
+        if (!onUpdatePage || !page.coverTexts) return;
+
+        // Commit changes to actual page state
+        if (Object.keys(dragPositions).length === 0) return;
+
+        const newTexts = page.coverTexts.map(t => {
+            if (dragPositions[t.id]) {
+                return { ...t, ...dragPositions[t.id] };
             }
             return t;
         });
 
         onUpdatePage({ ...page, coverTexts: newTexts });
+        setDragPositions({});
     };
 
     // View State
@@ -450,17 +487,21 @@ export const AlbumCover = ({
         if (!page.coverTexts) return null;
 
         return page.coverTexts.map(textItem => {
+            // Apply Drag Override if exists
+            const currentX = dragPositions[textItem.id]?.x ?? textItem.x;
+            const currentY = dragPositions[textItem.id]?.y ?? textItem.y;
+
             // Coordinate Transformation logic
-            let localX = textItem.x;
-            let localY = textItem.y;
+            let localX = currentX;
+            let localY = currentY;
             let isVisible = true;
 
             if (isFront) { // Viewing only Front
-                localX = (textItem.x - 50) * 2;
-                if (textItem.x < 50) isVisible = false;
+                localX = (currentX - 50) * 2;
+                if (currentX < 50) isVisible = false;
             } else if (isBack) { // Viewing only Back
-                localX = textItem.x * 2;
-                if (textItem.x > 50) isVisible = false;
+                localX = currentX * 2;
+                if (currentX > 50) isVisible = false;
             }
 
             if (!isVisible) return null;
@@ -497,6 +538,7 @@ export const AlbumCover = ({
 
                             handleUpdateTextPosition(textItem.id, globalX, globalY);
                         }}
+                        onDragEnd={handleDragEnd}
                         containerRef={containerRef}
                         fontSizeOverride={fontSizeCss}
                     />
