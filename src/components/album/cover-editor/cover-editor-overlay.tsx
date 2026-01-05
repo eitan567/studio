@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import {
     X,
+    Check,
     AlignStartVertical,
     AlignVerticalJustifyCenter,
     AlignEndVertical,
@@ -352,6 +353,28 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
                             onDropPhoto={handleDropPhoto}
                             onUpdatePhotoPanAndZoom={handleUpdatePhotoPanAndZoom}
                         />
+                    </div>
+                    {/* Bottom Toolbar */}
+                    <div className="h-14 border-t bg-background flex items-center justify-between px-4 z-10 shrink-0">
+                        <div className="text-xs text-muted-foreground">
+                            {/* Optional status or info */}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                onClick={handleCancel}
+                                className="gap-2"
+                            >
+                                <X className="h-4 w-4" /> Cancel
+                            </Button>
+                            <Button
+                                variant="default"
+                                onClick={handleSave}
+                                className="bg-green-600 hover:bg-green-700 text-white gap-2"
+                            >
+                                <Check className="h-4 w-4" /> Save Changes
+                            </Button>
+                        </div>
                     </div>
                 </div>
 
