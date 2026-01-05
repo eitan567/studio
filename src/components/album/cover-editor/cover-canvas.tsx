@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { AlbumPage, CoverText, AlbumConfig } from '@/lib/types';
+import { AlbumPage, CoverText, AlbumConfig, PhotoPanAndZoom } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { PageLayout } from '../page-layout';
 import { COVER_TEMPLATES } from '../layout-templates';
@@ -12,10 +12,11 @@ interface CoverCanvasProps {
     onSelectText: (id: string | null) => void;
     onUpdatePage: (page: AlbumPage) => void;
     onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
+    onUpdatePhotoPanAndZoom?: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
     config?: AlbumConfig;
 }
 
-export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUpdatePage, onDropPhoto, config }: CoverCanvasProps) => {
+export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUpdatePage, onDropPhoto, onUpdatePhotoPanAndZoom, config }: CoverCanvasProps) => {
     const wrapperRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
 
@@ -110,6 +111,7 @@ export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUp
                     onSelectText={onSelectText}
                     onUpdatePage={onUpdatePage}
                     onDropPhoto={onDropPhoto}
+                    onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
                 />
             </div>
         </div>

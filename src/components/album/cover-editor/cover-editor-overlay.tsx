@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlbumPage, CoverText, Photo } from '@/lib/types';
+import { AlbumPage, CoverText, Photo, PhotoPanAndZoom } from '@/lib/types';
 import { SidebarLeft } from './sidebar-left';
 import { SidebarRight } from './sidebar-right';
 import { CoverCanvas } from './cover-canvas';
@@ -72,6 +72,15 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
         });
     };
 
+    const handleUpdatePhotoPanAndZoom = (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => {
+        setLocalPage(prevPage => ({
+            ...prevPage,
+            photos: prevPage.photos.map(p =>
+                p.id === photoId ? { ...p, panAndZoom } : p
+            )
+        }));
+    };
+
     return (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex">
             {/* Overlay Close Button (Acts as Cancel) */}
@@ -97,6 +106,7 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
                     onSelectText={setActiveTextId}
                     onUpdatePage={setLocalPage}
                     onDropPhoto={handleDropPhoto}
+                    onUpdatePhotoPanAndZoom={handleUpdatePhotoPanAndZoom}
                 />
             </main>
 
