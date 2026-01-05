@@ -148,6 +148,9 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       coverLayouts: { front: '4-mosaic-1', back: '4-mosaic-1' },
       coverType: 'split',
       spineText: '',
+      spineWidth: 30,
+      spineColor: '#ffffff',
+      spineFontFamily: 'Tahoma',
       photoGap: 20,
       pageMargin: 20
     });
