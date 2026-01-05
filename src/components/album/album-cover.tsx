@@ -1,0 +1,470 @@
+import React, { useRef, useState, useEffect } from 'react';
+import { AlbumPage, CoverText, AlbumConfig, Photo } from '@/lib/types';
+import { cn } from '@/lib/utils';
+import { PageLayout } from './page-layout';
+import { COVER_TEMPLATES } from './layout-templates';
+
+// --- Types ---
+
+export interface AlbumCoverProps {
+    page: AlbumPage;
+    config?: AlbumConfig;
+    mode?: 'preview' | 'editor';
+    activeView?: 'front' | 'back' | 'full';
+
+    // Interaction Handlers (Optional - mainly for Editor)
+    activeTextId?: string | null;
+    onSelectText?: (id: string | null) => void;
+    onUpdatePage?: (page: AlbumPage) => void;
+    onDropPhoto?: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
+
+    // For Preview-specific legacy support or extra overlays
+    onUpdateTitleSettings?: (pageId: string, settings: any) => void;
+}
+
+// --- Internal Helper Components ---
+
+export const Spine = ({
+    text,
+    width,
+    color,
+    textColor,
+    fontSize = 12,
+    fontFamily,
+    fontWeight,
+    fontStyle,
+    textAlign = 'center',
+    rotated = false,
+    styleOverride
+}: {
+    text?: string;
+    width?: number;
+    color?: string;
+    textColor?: string;
+    fontSize?: number;
+    fontFamily?: string;
+    fontWeight?: string;
+    fontStyle?: string;
+    textAlign?: 'left' | 'center' | 'right';
+    rotated?: boolean;
+    styleOverride?: React.CSSProperties
+}) => {
+    // Alignment logic
+    const getContainerAlignment = (): string => {
+        switch (textAlign) {
+            case 'left': return 'justify-start';
+            case 'right': return 'justify-end';
+            default: return 'justify-center';
+        }
+    };
+
+    return (
+        <div
+            className={cn(
+                "relative h-full flex flex-col items-center overflow-hidden z-20",
+                getContainerAlignment(),
+                (!width && width !== 0) || width > 0 ? "border-x border-dashed border-border/50" : "border-none"
+            )}
+            style={{
+                width: width ? `${width}px` : undefined,
+                backgroundColor: color,
+                padding: textAlign === 'left' || textAlign === 'right' ? '10px 0' : '0',
+                ...styleOverride
+            }}
+        >
+            <span
+                className="whitespace-nowrap text-muted-foreground/70 tracking-widest select-none"
+                style={{
+                    writingMode: 'vertical-rl',
+                    textOrientation: 'mixed',
+                    transform: rotated ? 'rotate(180deg)' : 'none',
+                    fontSize: `${fontSize}px`,
+                    fontFamily: fontFamily || 'Tahoma',
+                    color: textColor,
+                    fontWeight: fontWeight === 'bold' ? 'bold' : 'normal',
+                    fontStyle: fontStyle === 'italic' ? 'italic' : 'normal'
+                }}
+            >
+                {text || (width === 0 ? '' : 'SPINE')}
+            </span>
+        </div>
+    );
+};
+
+// Draggable Text for Editor
+const DraggableCoverText = ({
+    item,
+    isSelected,
+    onSelect,
+    onUpdatePosition,
+    containerRef,
+    fontSizeOverride
+}: {
+    item: CoverText;
+    isSelected: boolean;
+    onSelect: (e: React.MouseEvent) => void;
+    onUpdatePosition: (x: number, y: number) => void;
+    containerRef: React.RefObject<HTMLDivElement | null>;
+    fontSizeOverride?: string;
+}) => {
+    const [isDragging, setIsDragging] = useState(false);
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+        if (e.button !== 0) return;
+        e.stopPropagation();
+        onSelect(e);
+        setIsDragging(true);
+    };
+
+    useEffect(() => {
+        if (!isDragging) return;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!containerRef.current) return;
+            const rect = containerRef.current.getBoundingClientRect();
+            // Calculate percentage position
+            let x = ((e.clientX - rect.left) / rect.width) * 100;
+            let y = ((e.clientY - rect.top) / rect.height) * 100;
+            onUpdatePosition(x, y);
+        };
+
+        const handleMouseUp = () => {
+            setIsDragging(false);
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isDragging, onUpdatePosition, containerRef]);
+
+    return (
+        <div
+            className={cn(
+                "absolute cursor-move select-none whitespace-nowrap p-1 border-2 transition-all",
+                isSelected ? "border-primary border-dashed bg-primary/5 z-50" : "border-transparent hover:border-primary/20 z-40"
+            )}
+            style={{
+                left: `${item.x}%`,
+                top: `${item.y}%`,
+                transform: 'translate(-50%, -50%)',
+                fontFamily: item.style.fontFamily,
+                fontSize: fontSizeOverride || `${item.style.fontSize}px`,
+                color: item.style.color,
+                fontWeight: item.style.fontWeight === 'bold' ? 'bold' : 'normal',
+                fontStyle: item.style.fontStyle === 'italic' ? 'italic' : 'normal',
+                textAlign: item.style.textAlign || 'left',
+                textShadow: item.style.textShadow,
+                pointerEvents: 'auto'
+            }}
+            onMouseDown={handleMouseDown}
+            onClick={(e) => e.stopPropagation()}
+        >
+            {item.text}
+        </div>
+    );
+};
+
+// Static Text for Preview
+const StaticCoverText = ({
+    item,
+    fontSizeOverride
+}: {
+    item: CoverText;
+    fontSizeOverride?: string;
+}) => {
+    return (
+        <div
+            className="absolute select-none whitespace-nowrap p-1 border-2 border-transparent"
+            style={{
+                left: `${item.x}%`,
+                top: `${item.y}%`,
+                transform: 'translate(-50%, -50%)',
+                fontFamily: item.style.fontFamily,
+                fontSize: fontSizeOverride || `${item.style.fontSize}px`,
+                color: item.style.color,
+                fontWeight: item.style.fontWeight === 'bold' ? 'bold' : 'normal',
+                fontStyle: item.style.fontStyle === 'italic' ? 'italic' : 'normal',
+                textAlign: item.style.textAlign || 'left',
+                textShadow: item.style.textShadow,
+                pointerEvents: 'none', // Static text shouldn't block clicks
+                zIndex: 40
+            }}
+        >
+            {item.text}
+        </div>
+    );
+};
+
+
+// --- Main Component ---
+
+export const AlbumCover = ({
+    page,
+    config,
+    mode = 'preview',
+    activeView = 'full',
+    activeTextId,
+    onSelectText,
+    onUpdatePage,
+    onDropPhoto,
+    // onUpdateTitleSettings
+}: AlbumCoverProps) => {
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    // Canvas click handler (for deselecting)
+    const handleCanvasClick = () => {
+        if (mode === 'editor' && onSelectText) {
+            onSelectText(null);
+        }
+    };
+
+    const handleUpdateTextPosition = (id: string, x: number, y: number) => {
+        if (!page.coverTexts || !onUpdatePage) return;
+        const newTexts = page.coverTexts.map(t => t.id === id ? { ...t, x, y } : t);
+        onUpdatePage({ ...page, coverTexts: newTexts });
+    };
+
+    // View State
+    const isFull = activeView === 'full';
+    const isFront = activeView === 'front';
+    const isBack = activeView === 'back';
+    const isFullSpread = page.coverType === 'full';
+
+    // Layout Data
+    const backLayoutId = page.coverLayouts?.back || COVER_TEMPLATES[0].id;
+    const frontLayoutId = page.coverLayouts?.front || COVER_TEMPLATES[0].id;
+    const backTemplate = COVER_TEMPLATES.find(t => t.id === backLayoutId) || COVER_TEMPLATES[0];
+    const backPhotoCount = backTemplate.grid.length;
+
+    // Photos
+    const backPhotos = page.photos.slice(0, backPhotoCount);
+    const frontPhotos = page.photos.slice(backPhotoCount);
+
+    // Derived Styles
+    const pageMargin = page.pageMargin ?? 0;
+    // Assuming config.photoGap is number. If string, parse it.
+    const photoGap = page.photoGap ?? config?.photoGap ?? 0;
+    const spineWidth = page.spineWidth ?? 40;
+
+    // --- Render Content Helper ---
+    const renderContent = () => (
+        <>
+            {isFullSpread ? (
+                /* FULL COVER MODE (Spread) */
+                <div
+                    className="relative h-full w-full bg-white transition-all overflow-hidden flex"
+                    style={{
+                        backgroundColor: page.backgroundImage ? 'transparent' : '#fff',
+                        backgroundImage: page.backgroundImage ? `url(${page.backgroundImage})` : undefined,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        padding: `${pageMargin}px`
+                    }}
+                >
+                    {/* Spine Visual Guide (Overlay) */}
+                    <div
+                        className={cn(
+                            "absolute top-0 bottom-0 left-1/2 z-10 pointer-events-none flex flex-col items-center overflow-hidden",
+                            spineWidth > 0 ? "" : "hidden"
+                        )}
+                        style={{
+                            marginLeft: `-${spineWidth / 2}px`,
+                            width: `${spineWidth}px`,
+                        }}
+                    >
+                        <Spine
+                            text={page.spineText}
+                            width={spineWidth}
+                            color={page.spineColor}
+                            textColor={page.spineTextColor}
+                            fontSize={page.spineFontSize}
+                            fontFamily={page.spineFontFamily}
+                            fontWeight={page.spineFontWeight}
+                            fontStyle={page.spineFontStyle}
+                            textAlign={page.spineTextAlign}
+                            rotated={page.spineTextRotated}
+                            styleOverride={{ height: '100%', width: '100%', border: 'none' }}
+                        />
+                    </div>
+
+                    {/* Spread Content */}
+                    <div className="h-full w-full relative z-0">
+                        <PageLayout
+                            page={page}
+                            photoGap={photoGap}
+                            overridePhotos={page.photos}
+                            overrideLayout={page.layout || COVER_TEMPLATES[0].id}
+                            templateSource={COVER_TEMPLATES}
+                            onUpdatePhotoPanAndZoom={() => { }}
+                            onInteractionChange={() => { }}
+                            onDropPhoto={onDropPhoto || (() => { })}
+                        />
+                    </div>
+                </div>
+            ) : (
+                /* SPLIT COVER MODE */
+                <div className="relative w-full h-full flex">
+                    {/* Back Cover */}
+                    <div
+                        className={cn(
+                            "relative h-full bg-white transition-all overflow-hidden",
+                            isFull ? "flex-1" : isBack ? "w-full" : "hidden"
+                        )}
+                        style={{
+                            backgroundColor: page.backgroundImage ? 'transparent' : '#fff',
+                            backgroundImage: page.backgroundImage ? `url(${page.backgroundImage})` : undefined,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            padding: `${pageMargin}px`
+                        }}
+                    >
+                        <div className="h-full w-full">
+                            <PageLayout
+                                page={page}
+                                photoGap={photoGap}
+                                overridePhotos={backPhotos}
+                                overrideLayout={backLayoutId}
+                                templateSource={COVER_TEMPLATES}
+                                onUpdatePhotoPanAndZoom={() => { }}
+                                onInteractionChange={() => { }}
+                                onDropPhoto={onDropPhoto || (() => { })}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Spine */}
+                    <div
+                        className={cn(
+                            "relative h-full flex z-10 shrink-0",
+                            isFull ? "flex" : "hidden"
+                        )}
+                        style={{ width: `${spineWidth}px` }}
+                    >
+                        <Spine
+                            text={page.spineText}
+                            width={spineWidth}
+                            color={page.spineColor}
+                            textColor={page.spineTextColor}
+                            fontSize={page.spineFontSize}
+                            fontFamily={page.spineFontFamily}
+                            fontWeight={page.spineFontWeight}
+                            fontStyle={page.spineFontStyle}
+                            textAlign={page.spineTextAlign}
+                            rotated={page.spineTextRotated}
+                            styleOverride={{ width: '100%' }}
+                        />
+                    </div>
+
+                    {/* Front Cover */}
+                    <div
+                        className={cn(
+                            "relative h-full bg-white transition-all overflow-hidden",
+                            isFull ? "flex-1" : isFront ? "w-full" : "hidden"
+                        )}
+                        style={{
+                            backgroundColor: page.backgroundImage ? 'transparent' : '#fff',
+                            backgroundImage: page.backgroundImage ? `url(${page.backgroundImage})` : undefined,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            padding: `${pageMargin}px`
+                        }}
+                    >
+                        <div className="h-full w-full">
+                            <PageLayout
+                                page={page}
+                                photoGap={photoGap}
+                                overridePhotos={frontPhotos}
+                                overrideLayout={frontLayoutId}
+                                templateSource={COVER_TEMPLATES}
+                                onUpdatePhotoPanAndZoom={() => { }}
+                                onInteractionChange={() => { }}
+                                onDropPhoto={onDropPhoto || (() => { })}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Text Overlay */}
+            {renderTextOverlay()}
+        </>
+    );
+
+    // 1. Text Overlay Renderer
+    const renderTextOverlay = () => {
+        if (!page.coverTexts) return null;
+
+        return page.coverTexts.map(textItem => {
+            // Coordinate Transformation logic
+            let localX = textItem.x;
+            let localY = textItem.y;
+            let isVisible = true;
+
+            if (isFront) { // Viewing only Front
+                localX = (textItem.x - 50) * 2;
+                if (textItem.x < 50) isVisible = false;
+            } else if (isBack) { // Viewing only Back
+                localX = textItem.x * 2;
+                if (textItem.x > 50) isVisible = false;
+            }
+
+            if (!isVisible) return null;
+
+            // Font Scaling (Responsive cqw)
+            // 'cqw' requires the container to have 'container-type: inline-size'.
+            const referenceWidth = isFull ? 3200 : 1600;
+            const fontSizeCss = `${(textItem.style.fontSize / referenceWidth) * 100}cqw`;
+
+
+            if (mode === 'editor' && onSelectText) {
+                return (
+                    <DraggableCoverText
+                        key={textItem.id}
+                        item={{ ...textItem, x: localX, y: localY }}
+                        isSelected={activeTextId === textItem.id}
+                        onSelect={() => onSelectText(textItem.id)}
+                        onUpdatePosition={(x, y) => {
+                            // Transform back to Global
+                            let globalX = x;
+                            let globalY = y;
+                            if (isFront) globalX = 50 + (x / 2);
+                            else if (isBack) globalX = x / 2;
+
+                            handleUpdateTextPosition(textItem.id, globalX, globalY);
+                        }}
+                        containerRef={containerRef}
+                        fontSizeOverride={fontSizeCss}
+                    />
+                );
+            } else {
+                return (
+                    <StaticCoverText
+                        key={textItem.id}
+                        item={{ ...textItem, x: localX, y: localY }}
+                        fontSizeOverride={fontSizeCss}
+                    />
+                );
+            }
+        });
+    };
+
+    return (
+        <div
+            className="w-full h-full flex items-center justify-center overflow-hidden bg-transparent"
+            onClick={handleCanvasClick}
+        >
+            <div
+                ref={containerRef}
+                className="w-full h-full relative overflow-hidden transition-all ease-in-out duration-300"
+                style={{
+                    backgroundColor: '#eee',
+                    containerType: 'inline-size'
+                }}
+            >
+                {renderContent()}
+            </div>
+        </div>
+    );
+};

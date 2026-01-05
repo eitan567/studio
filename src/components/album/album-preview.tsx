@@ -111,6 +111,7 @@ interface AlbumPreviewProps {
 }
 
 import { CoverEditorOverlay } from './cover-editor/cover-editor-overlay';
+import { AlbumCover } from './album-cover';
 
 const AVAILABLE_FONTS = ['Inter', 'Serif', 'Mono', 'Cursive', 'Arial', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Impact'];
 
@@ -190,50 +191,6 @@ const DraggableTitle = ({
   );
 };
 
-const Spine = ({ text, width, color, textColor, fontSize = 12, fontFamily, fontWeight, fontStyle, textAlign = 'center', rotated = false, styleOverride }: { text?: string; width?: number; color?: string; textColor?: string; fontSize?: number; fontFamily?: string; fontWeight?: string; fontStyle?: string; textAlign?: 'left' | 'center' | 'right'; rotated?: boolean; styleOverride?: React.CSSProperties }) => {
-  // Using writing-mode for vertical text allows normal flexbox alignment to work
-  // 'left' -> align to top of spine (with 10px padding)
-  // 'right' -> align to bottom of spine (with 10px padding)
-  // 'center' -> center (default)
-  const getContainerAlignment = (): string => {
-    switch (textAlign) {
-      case 'left':
-        return 'justify-start';
-      case 'right':
-        return 'justify-end';
-      default:
-        return 'justify-center';
-    }
-  };
-
-  return (
-    <div
-      className={`relative h-full ${(!width && width !== 0) || width > 0 ? 'border-x border-dashed border-border/50' : 'border-none'} flex flex-col items-center overflow-hidden z-20 ${getContainerAlignment()}`}
-      style={{
-        width: width ? `${width}px` : undefined,
-        backgroundColor: color,
-        padding: textAlign === 'left' || textAlign === 'right' ? '10px 0' : '0',
-        ...styleOverride
-      }}
-    >
-      <div
-        className="whitespace-nowrap text-muted-foreground/70 tracking-widest select-none"
-        style={{
-          writingMode: 'vertical-rl',
-          textOrientation: 'mixed',
-          transform: rotated ? 'rotate(180deg)' : 'none',
-          fontSize: `${fontSize}px`,
-          fontFamily: fontFamily || 'Tahoma',
-          color: textColor,
-          fontWeight: fontWeight === 'bold' ? 'bold' : 'normal',
-          fontStyle: fontStyle === 'italic' ? 'italic' : 'normal'
-        }}
-      >
-        {text || (width === 0 ? '' : 'SPINE')}
-      </div>
-    </div>
-  );
-};
 
 // Helper to manage color + opacity
 const SpineColorPicker = ({
@@ -714,364 +671,30 @@ export function AlbumPreview({
                       className="flex h-full w-full items-center justify-center p-0"
                       style={{ padding: page.isCover ? 0 : `${config.pageMargin}px` }}
                     >
-                      {page.isCover ? (() => {
-                        console.log('[AlbumPreview] Rendering COVER page:', page.id, 'coverType:', page.coverType);
-                        // Full Spread Mode
-                        if (page.coverType === 'full') {
-                          // Use px values directly - no conversion needed
-                          const pageMarginVal = page.pageMargin ?? 0;
-                          const photoGapVal = page.photoGap ?? config.photoGap ?? 5;
-                          const pageMarginPx = `${pageMarginVal}px`;
-                          const photoGapPx = `${photoGapVal}px`;
-                          console.log('[AlbumPreview Full] photoGapPx:', photoGapPx);
-
-                          return (
-                            <div className="relative h-full w-full">
-                              {/* Spine Overlay */}
-                              <div
-                                className={cn(
-                                  "absolute inset-y-0 left-1/2 h-full z-30 pointer-events-none",
-                                  (page.spineWidth ?? 40) > 0 ? "" : "hidden"
-                                )}
-                                style={{
-                                  marginLeft: `-${(page.spineWidth ?? 40) / 2}px`,
-                                  width: `${page.spineWidth ?? 40}px`
-                                }}
-                              >
-                                <Spine
-                                  text={page.spineText}
-                                  width={page.spineWidth}
-                                  color={page.spineColor}
-                                  textColor={page.spineTextColor}
-                                  fontSize={page.spineFontSize}
-                                  fontFamily={page.spineFontFamily}
-                                  fontWeight={page.spineFontWeight}
-                                  fontStyle={page.spineFontStyle}
-                                  textAlign={page.spineTextAlign}
-                                  rotated={page.spineTextRotated}
-                                />
-                              </div>
-
-
-                              {/* Front Cover Title Overlay */}
-                              <div
-                                className="relative h-full w-full overflow-hidden"
-                                style={{
-                                  containerType: 'inline-size',
-                                  padding: pageMarginPx
-                                }}
-                              >
-                                {/* Draggable Title Overlay */}
-                                <div className="absolute inset-0 z-20 pointer-events-none">
-                                  {page.titleText && (
-                                    <DraggableTitle
-                                      text={page.titleText}
-                                      color={page.titleColor}
-                                      fontSize={page.titleFontSize}
-                                      fontFamily={page.titleFontFamily}
-                                      position={page.titlePosition}
-                                      containerId={`front-cover-container-${page.id}`}
-                                      onUpdatePosition={(x, y) => onUpdateTitleSettings?.(page.id, { position: { x, y } })}
-                                    />
-                                  )}
-                                </div>
-
-                                {/* Spine Overlay */}
-                                <div
-                                  className={cn(
-                                    "absolute inset-y-0 left-1/2 h-full z-30 pointer-events-none",
-                                    (page.spineWidth ?? 40) > 0 ? "" : "hidden"
-                                  )}
-                                  style={{
-                                    marginLeft: `-${(page.spineWidth ?? 40) / 2}px`,
-                                    width: `${page.spineWidth ?? 40}px`
-                                  }}
-                                >
-                                  <Spine
-                                    text={page.spineText}
-                                    width={page.spineWidth}
-                                    color={page.spineColor}
-                                    textColor={page.spineTextColor}
-                                    fontSize={page.spineFontSize}
-                                    fontFamily={page.spineFontFamily}
-                                    fontWeight={page.spineFontWeight}
-                                    fontStyle={page.spineFontStyle}
-                                    textAlign={page.spineTextAlign}
-                                    rotated={page.spineTextRotated}
-                                  />
-                                </div>
-
-                                <div
-                                  className="grid grid-cols-12 grid-rows-12 h-full w-full"
-                                  style={{ gap: photoGapPx }}
-                                >
-                                  {(() => {
-                                    const photos = page.photos;
-                                    const template = COVER_TEMPLATES.find(t => t.id === page.layout) || COVER_TEMPLATES[0];
-                                    return template.grid.map((gridClass, index) => {
-                                      const photo = photos[index];
-                                      if (!photo) return <div key={index} className={cn("bg-muted rounded-sm", gridClass)} />;
-                                      return (
-                                        <div
-                                          key={photo.id}
-                                          className={cn(
-                                            "relative overflow-hidden rounded-sm transition-all duration-200 group ring-2 ring-transparent hover:ring-primary/20",
-                                            gridClass,
-                                            dragOverPhotoId === photo.id && "ring-primary ring-offset-2"
-                                          )}
-                                          onDragOver={(e) => {
-                                            e.preventDefault();
-                                            setDragOverPhotoId(photo.id);
-                                          }}
-                                          onDragLeave={() => setDragOverPhotoId(null)}
-                                          onDrop={(e) => {
-                                            e.preventDefault();
-                                            setDragOverPhotoId(null);
-                                            const droppedPhotoId = e.dataTransfer.getData('photoId');
-                                            if (droppedPhotoId) {
-                                              onDropPhoto(page.id, photo.id, droppedPhotoId);
-                                            }
-                                          }}
-                                        >
-                                          <PhotoRenderer
-                                            photo={photo}
-                                            onUpdate={(panAndZoom) => onUpdatePhotoPanAndZoom(page.id, photo.id, panAndZoom)}
-                                            onInteractionChange={setIsInteracting}
-                                          />
-                                        </div>
-                                      );
-                                    });
-                                  })()}
-                                </div>
-
-                                {/* Render Text Objects Overlay */}
-                                <div
-                                  className="absolute inset-0 pointer-events-none overflow-hidden"
-                                  style={{ containerType: 'inline-size' }}
-                                >
-                                  {page.coverTexts?.map(textItem => (
-                                    <div
-                                      key={textItem.id}
-                                      className="absolute whitespace-nowrap"
-                                      style={{
-                                        left: `${textItem.x}%`,
-                                        top: `${textItem.y}%`,
-                                        transform: 'translate(-50%, -50%)',
-                                        fontFamily: textItem.style.fontFamily,
-                                        fontSize: `${(textItem.style.fontSize / 3200) * 100}cqw`,
-                                        color: textItem.style.color,
-                                        fontWeight: textItem.style.fontWeight === 'bold' ? 'bold' : 'normal',
-                                        fontStyle: textItem.style.fontStyle === 'italic' ? 'italic' : 'normal',
-                                        textAlign: textItem.style.textAlign || 'left',
-                                        textShadow: textItem.style.textShadow,
-                                      }}
-                                    >
-                                      {textItem.text}
-                                    </div>
-                                  ))
-                                  }
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        }
-
-                        // Split Mode (Back | Spine | Front)
-                        const backLayoutId = page.coverLayouts?.back || '1-full';
-                        const frontLayoutId = page.coverLayouts?.front || '1-full';
-                        const backTemplate = COVER_TEMPLATES.find(t => t.id === backLayoutId) || COVER_TEMPLATES[0];
-                        const frontTemplate = COVER_TEMPLATES.find(t => t.id === frontLayoutId) || COVER_TEMPLATES[0];
-
-                        // Split photos between back and front
-                        const backPhotos = page.photos.slice(0, backTemplate.photoCount);
-                        const frontPhotos = page.photos.slice(backTemplate.photoCount, backTemplate.photoCount + frontTemplate.photoCount);
-
-                        // Current spine width (default 40)
-                        const spineWidthPx = page.spineWidth ?? 40;
-                        // Use exact pixel value for spine width to match FULL mode
-                        const spineWidthStyle = `${spineWidthPx}px`;
-
-                        // Calculate proportional values based on 1000px reference
-                        const pageMarginVal = page.pageMargin ?? 0;
-                        const photoGapVal = page.photoGap ?? config.photoGap ?? 5;
-                        console.log('[AlbumPreview Split] page.photoGap:', page.photoGap, 'config.photoGap:', config.photoGap, 'photoGapVal:', photoGapVal);
-                        // Use px values directly - no conversion needed
-                        const pageMarginPx = `${pageMarginVal}px`;
-                        const photoGapPx = `${photoGapVal}px`;
-                        console.log('[AlbumPreview Split] photoGapPx:', photoGapPx, 'pageMarginPx:', pageMarginPx);
-
-                        return (
-                          <div
-                            className="grid h-full w-full"
-                            style={{
-                              gridTemplateColumns: `1fr ${spineWidthStyle} 1fr`,
-                              position: 'relative',
-                              containerType: 'inline-size' // Ensure CQW works without Tailwind plugin
-                            }}
-                          >
-                            {/* Text Objects Overlay (Absolute to spread container) */}
-                            <div className="absolute inset-0 z-30 pointer-events-none overflow-hidden">
-                              {page.coverTexts?.map(textItem => (
-                                <div
-                                  key={textItem.id}
-                                  className="absolute whitespace-nowrap"
-                                  style={{
-                                    left: `${textItem.x}%`,
-                                    top: `${textItem.y}%`,
-                                    transform: 'translate(-50%, -50%)',
-                                    fontFamily: textItem.style.fontFamily,
-                                    // Use cqw units relative to the @container
-                                    // Assuming "standard" editor width of 3200px for the spread
-                                    fontSize: `${(textItem.style.fontSize / 3200) * 100}cqw`,
-                                    color: textItem.style.color,
-                                    fontWeight: textItem.style.fontWeight === 'bold' ? 'bold' : 'normal',
-                                    fontStyle: textItem.style.fontStyle === 'italic' ? 'italic' : 'normal',
-                                    textAlign: textItem.style.textAlign || 'left',
-                                    textShadow: textItem.style.textShadow,
-                                  }}
-                                >
-                                  {textItem.text}
-                                  {/* Debug helper: {textItem.x.toFixed(1)}% */}
-                                </div>
-                              ))}
-                            </div>
-                            <div
-                              className="relative h-full w-full border-r border-dashed border-border/50 overflow-hidden"
-                              style={{
-                                padding: pageMarginPx,
-                                containerType: 'inline-size'
-                              }}
-                            >
-                              <span className="absolute top-2 left-2 z-20 text-[10px] font-bold text-muted-foreground bg-background/80 px-1.5 py-0.5 rounded pointer-events-none uppercase tracking-wider">Back Cover</span>
-                              <div
-                                className="grid grid-cols-12 grid-rows-12 h-full w-full"
-                                style={{ gap: photoGapPx }}
-                              >
-                                {(() => {
-                                  const photos = backPhotos;
-                                  const template = COVER_TEMPLATES.find(t => t.id === backLayoutId) || COVER_TEMPLATES[0];
-                                  return template.grid.map((gridClass, index) => {
-                                    const photo = photos[index];
-                                    if (!photo) return <div key={index} className={cn("bg-muted rounded-sm", gridClass)} />;
-                                    return (
-                                      <div
-                                        key={photo.id}
-                                        className={cn(
-                                          "relative overflow-hidden rounded-sm transition-all duration-200 group ring-2 ring-transparent hover:ring-primary/20",
-                                          gridClass,
-                                          dragOverPhotoId === photo.id && "ring-primary ring-offset-2"
-                                        )}
-                                        onDragOver={(e) => {
-                                          e.preventDefault();
-                                          setDragOverPhotoId(photo.id);
-                                        }}
-                                        onDragLeave={() => setDragOverPhotoId(null)}
-                                        onDrop={(e) => {
-                                          e.preventDefault();
-                                          setDragOverPhotoId(null);
-                                          const droppedPhotoId = e.dataTransfer.getData('photoId');
-                                          if (droppedPhotoId) {
-                                            onDropPhoto(page.id, photo.id, droppedPhotoId);
-                                          }
-                                        }}
-                                      >
-                                        <PhotoRenderer
-                                          photo={photo}
-                                          onUpdate={(panAndZoom) => onUpdatePhotoPanAndZoom(page.id, photo.id, panAndZoom)}
-                                          onInteractionChange={setIsInteracting}
-                                        />
-                                      </div>
-                                    );
-                                  });
-                                })()}
-                              </div>
-                            </div>
-
-                            <Spine
-                              text={page.spineText}
-                              width={undefined} // Let CSS grid handle width, or pass scaled px? Spine component might rely on width prop for internal logic (e.g. font rotation?) 
-                              // Actually Spine component takes width to set its own style.width.
-                              // If I pass number, it treats as px. 
-                              // If I rely on grid, I can set width="100%" inside the grid cell. 
-                              // Let's check Spine implementation.
-                              color={page.spineColor}
-                              textColor={page.spineTextColor}
-                              fontSize={page.spineFontSize}
-                              fontFamily={page.spineFontFamily}
-                              fontWeight={page.spineFontWeight}
-                              fontStyle={page.spineFontStyle}
-                              textAlign={page.spineTextAlign}
-                              rotated={page.spineTextRotated}
-                              styleOverride={{ width: '100%' }} // Need to ensure it fills the grid cell
-                            />
-
-                            <div
-                              id={`front-cover-container-${page.id}`}
-                              className="relative h-full w-full border-l border-dashed border-border/50 overflow-hidden bg-muted/20"
-                              style={{
-                                padding: pageMarginPx,
-                                containerType: 'inline-size'
-                              }}
-                            >
-                              {/* Draggable Title */}
-                              {page.titleText && (
-                                <DraggableTitle
-                                  text={page.titleText}
-                                  color={page.titleColor}
-                                  fontSize={page.titleFontSize}
-                                  fontFamily={page.titleFontFamily}
-                                  position={page.titlePosition}
-                                  containerId={`front-cover-container-${page.id}`}
-                                  onUpdatePosition={(x, y) => onUpdateTitleSettings?.(page.id, { position: { x, y } })}
-                                />
-                              )}
-                              <span className="absolute top-2 left-2 z-20 text-[10px] font-bold text-muted-foreground bg-background/80 px-1.5 py-0.5 rounded pointer-events-none uppercase tracking-wider">Front Cover</span>
-                              <div
-                                className="grid grid-cols-12 grid-rows-12 h-full w-full"
-                                style={{ gap: photoGapPx }}
-                              >
-                                {(() => {
-                                  const photos = frontPhotos;
-                                  const template = COVER_TEMPLATES.find(t => t.id === frontLayoutId) || COVER_TEMPLATES[0];
-                                  return template.grid.map((gridClass, index) => {
-                                    const photo = photos[index];
-                                    if (!photo) return <div key={index} className={cn("bg-muted rounded-sm", gridClass)} />;
-                                    return (
-                                      <div
-                                        key={photo.id}
-                                        className={cn(
-                                          "relative overflow-hidden rounded-sm transition-all duration-200 group ring-2 ring-transparent hover:ring-primary/20",
-                                          gridClass,
-                                          dragOverPhotoId === photo.id && "ring-primary ring-offset-2"
-                                        )}
-                                        onDragOver={(e) => {
-                                          e.preventDefault();
-                                          setDragOverPhotoId(photo.id);
-                                        }}
-                                        onDragLeave={() => setDragOverPhotoId(null)}
-                                        onDrop={(e) => {
-                                          e.preventDefault();
-                                          setDragOverPhotoId(null);
-                                          const droppedPhotoId = e.dataTransfer.getData('photoId');
-                                          if (droppedPhotoId) {
-                                            onDropPhoto(page.id, photo.id, droppedPhotoId);
-                                          }
-                                        }}
-                                      >
-                                        <PhotoRenderer
-                                          photo={photo}
-                                          onUpdate={(panAndZoom) => onUpdatePhotoPanAndZoom(page.id, photo.id, panAndZoom)}
-                                          onInteractionChange={setIsInteracting}
-                                        />
-                                      </div>
-                                    );
-                                  });
-                                })()}
-                              </div>
-                            </div>
+                      {page.isCover ? (
+                        <div className="relative h-full w-full">
+                          <AlbumCover
+                            page={page}
+                            config={config}
+                            mode="preview"
+                            activeView="full"
+                            onUpdateTitleSettings={onUpdateTitleSettings}
+                          />
+                          <div className="absolute inset-0 z-20 pointer-events-none">
+                            {page.titleText && (
+                              <DraggableTitle
+                                text={page.titleText}
+                                color={page.titleColor}
+                                fontSize={page.titleFontSize}
+                                fontFamily={page.titleFontFamily}
+                                position={page.titlePosition}
+                                containerId={`front-cover-container-${page.id}`}
+                                onUpdatePosition={(x, y) => onUpdateTitleSettings?.(page.id, { position: { x, y } })}
+                              />
+                            )}
                           </div>
-                        );
-                      })() : page.type === 'spread' ? (
+                        </div>
+                      ) : page.type === 'spread' ? (
                         <div className="relative h-full w-full">
                           {/* Spine simulation */}
                           <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10 pointer-events-none"></div>
@@ -1094,14 +717,16 @@ export function AlbumPreview({
                           onDropPhoto={onDropPhoto}
                         />
                       )}
+
                     </CardContent>
                   </Card>
                 </AspectRatio>
               </div>
             </div>
-          ))}
-        </div>
-      </ScrollArea>
+          ))
+          }
+        </div >
+      </ScrollArea >
 
       {isCoverEditorOpen && coverPage && (
         <CoverEditorOverlay
@@ -1113,6 +738,6 @@ export function AlbumPreview({
           onClose={() => setIsCoverEditorOpen(false)}
         />
       )}
-    </div>
+    </div >
   );
 }
