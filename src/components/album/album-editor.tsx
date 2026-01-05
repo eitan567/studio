@@ -641,7 +641,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                             )}
                             onClick={() => setBackgroundImage(bg)}
                           >
-                            <img src={bg} alt={`Background ${index + 1}`} className="w-full h-full object-cover" />
+                            <img src={bg} alt={`Background ${index + 1}`} className="w-full h-full" />
                             <button
                               className="absolute top-0 right-0 w-5 h-5 bg-black/50 text-white text-xs rounded-bl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-black/70"
                               onClick={(e) => {
@@ -685,7 +685,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                       />
                       {backgroundImage && (
                         <div className="relative w-full h-16 rounded overflow-hidden border">
-                          <img src={backgroundImage} alt="Background preview" className="w-full h-full object-cover" />
+                          <img src={backgroundImage} alt="Background preview" className="w-full h-full" />
                         </div>
                       )}
                       {/* AI Background Generation */}

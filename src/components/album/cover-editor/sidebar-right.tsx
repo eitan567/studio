@@ -273,7 +273,7 @@ export const SidebarRight = ({ page, activeTextIds, onUpdatePage }: SidebarRight
 
                                     {page.backgroundImage && (
                                         <div className="mt-2 relative group w-full aspect-video rounded-md overflow-hidden border">
-                                            <img src={page.backgroundImage} alt="Bg" className="w-full h-full object-cover" />
+                                            <img src={page.backgroundImage} alt="Bg" className="w-full h-full" />
                                             <Button
                                                 variant="destructive"
                                                 size="icon"
