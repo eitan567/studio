@@ -208,7 +208,7 @@ const Spine = ({ text, width, color, textColor, fontSize = 12, fontFamily, fontW
 
   return (
     <div
-      className={`relative h-full bg-muted/30 border-x border-dashed border-border/50 flex flex-col items-center overflow-hidden z-20 ${getContainerAlignment()}`}
+      className={`relative h-full border-x border-dashed border-border/50 flex flex-col items-center overflow-hidden z-20 ${getContainerAlignment()}`}
       style={{
         width: width ? `${width}px` : undefined,
         backgroundColor: color,

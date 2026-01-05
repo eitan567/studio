@@ -140,7 +140,7 @@ export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUp
                     isFull ? "aspect-[2/1] w-[90%] max-h-[90%]" : "aspect-square h-[90%]"
                 )}
                 style={{
-                    backgroundColor: page.spineColor || '#eee', // Base Spine/Page color
+                    // backgroundColor: page.spineColor || '#eee', // Base Spine/Page color
                     containerType: 'inline-size' // Ensure CQW works without Tailwind plugin
                 }}
             >
