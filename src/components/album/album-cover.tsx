@@ -109,12 +109,29 @@ const DraggableCoverText = ({
     fontSizeOverride?: string;
 }) => {
     const [isDragging, setIsDragging] = useState(false);
+    const hasMovedRef = useRef(false);
 
     const handleMouseDown = (e: React.MouseEvent) => {
         if (e.button !== 0) return;
         e.stopPropagation();
-        onSelect(e);
+
+        // If not selected, or if modifier key is pressed, handle selection immediately
+        // (Standard behavior: dragging an unselected item selects it first)
+        if (!isSelected || e.ctrlKey || e.metaKey) {
+            onSelect(e);
+        }
+
+        hasMovedRef.current = false;
         setIsDragging(true);
+    };
+
+    const handleClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        // If we clicked an already selected item without moving, and no modifier was used,
+        // this is the time to Deselect Others (reduce selection to just this one).
+        if (isSelected && !hasMovedRef.current && !e.ctrlKey && !e.metaKey) {
+            onSelect(e);
+        }
     };
 
     useEffect(() => {
@@ -122,6 +139,7 @@ const DraggableCoverText = ({
 
         const handleMouseMove = (e: MouseEvent) => {
             if (!containerRef.current) return;
+            hasMovedRef.current = true; // Mark as moved
             const rect = containerRef.current.getBoundingClientRect();
             // Calculate percentage position
             let x = ((e.clientX - rect.left) / rect.width) * 100;
@@ -161,7 +179,7 @@ const DraggableCoverText = ({
                 pointerEvents: 'auto'
             }}
             onMouseDown={handleMouseDown}
-            onClick={(e) => e.stopPropagation()}
+            onClick={handleClick}
         >
             {item.text}
         </div>
