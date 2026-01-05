@@ -679,6 +679,8 @@ export function AlbumPreview({
                             mode="preview"
                             activeView="full"
                             onUpdateTitleSettings={onUpdateTitleSettings}
+                            onDropPhoto={onDropPhoto}
+                            onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
                           />
                           <div className="absolute inset-0 z-20 pointer-events-none">
                             {page.titleText && (

@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { AlbumPage, CoverText, AlbumConfig, Photo } from '@/lib/types';
+import { AlbumPage, CoverText, AlbumConfig, Photo, PhotoPanAndZoom } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { PageLayout } from './page-layout';
 import { COVER_TEMPLATES } from './layout-templates';
@@ -17,6 +17,7 @@ export interface AlbumCoverProps {
     onSelectText?: (id: string | null) => void;
     onUpdatePage?: (page: AlbumPage) => void;
     onDropPhoto?: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
+    onUpdatePhotoPanAndZoom?: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
 
     // For Preview-specific legacy support or extra overlays
     onUpdateTitleSettings?: (pageId: string, settings: any) => void;
@@ -210,6 +211,7 @@ export const AlbumCover = ({
     onSelectText,
     onUpdatePage,
     onDropPhoto,
+    onUpdatePhotoPanAndZoom,
     // onUpdateTitleSettings
 }: AlbumCoverProps) => {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -298,7 +300,7 @@ export const AlbumCover = ({
                             overridePhotos={page.photos}
                             overrideLayout={page.layout || COVER_TEMPLATES[0].id}
                             templateSource={COVER_TEMPLATES}
-                            onUpdatePhotoPanAndZoom={() => { }}
+                            onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
                             onInteractionChange={() => { }}
                             onDropPhoto={onDropPhoto || (() => { })}
                         />
@@ -328,7 +330,7 @@ export const AlbumCover = ({
                                 overridePhotos={backPhotos}
                                 overrideLayout={backLayoutId}
                                 templateSource={COVER_TEMPLATES}
-                                onUpdatePhotoPanAndZoom={() => { }}
+                                onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
                                 onInteractionChange={() => { }}
                                 onDropPhoto={onDropPhoto || (() => { })}
                             />
@@ -379,7 +381,7 @@ export const AlbumCover = ({
                                 overridePhotos={frontPhotos}
                                 overrideLayout={frontLayoutId}
                                 templateSource={COVER_TEMPLATES}
-                                onUpdatePhotoPanAndZoom={() => { }}
+                                onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
                                 onInteractionChange={() => { }}
                                 onDropPhoto={onDropPhoto || (() => { })}
                             />
