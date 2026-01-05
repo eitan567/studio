@@ -97,7 +97,7 @@ export const SidebarRight = ({ page, activeTextIds, onUpdatePage }: SidebarRight
 
     return (
         <div className="w-80 h-full bg-card border-l flex flex-col shadow-xl z-50">
-            <div className="p-4 border-b">
+            <div className="p-4 border-b h-14">
                 <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                     <Settings2 className="w-4 h-4" /> Editor Properties
                 </h2>

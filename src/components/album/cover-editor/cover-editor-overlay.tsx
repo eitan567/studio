@@ -4,7 +4,17 @@ import { SidebarLeft } from './sidebar-left';
 import { SidebarRight } from './sidebar-right';
 import { CoverCanvas } from './cover-canvas';
 import { Button } from '@/components/ui/button';
-import { X } from 'lucide-react';
+import {
+    X,
+    AlignLeft,
+    AlignCenter,
+    AlignRight,
+    AlignStartVertical,
+    AlignVerticalJustifyCenter,
+    AlignEndVertical,
+    Columns,
+    Rows
+} from 'lucide-react';
 
 interface CoverEditorOverlayProps {
     page: AlbumPage;
@@ -116,6 +126,8 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
         });
     };
 
+
+
     const handleUpdatePhotoPanAndZoom = (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => {
         setLocalPage(prevPage => ({
             ...prevPage,
@@ -125,72 +137,178 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
         }));
     };
 
+    // --- Alignment Logic ---
+    const handleAlign = (type: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => {
+        if (activeTextIds.length < 2) return;
+
+        // Get active text objects
+        const selectedTexts = localPage.coverTexts?.filter(t => activeTextIds.includes(t.id)) || [];
+        if (selectedTexts.length < 2) return;
+
+        let newTexts = [...(localPage.coverTexts || [])];
+
+        if (type === 'left') {
+            const minX = Math.min(...selectedTexts.map(t => t.x));
+            newTexts = newTexts.map(t => activeTextIds.includes(t.id) ? { ...t, x: minX } : t);
+        } else if (type === 'center') {
+            const avgX = selectedTexts.reduce((sum, t) => sum + t.x, 0) / selectedTexts.length;
+            newTexts = newTexts.map(t => activeTextIds.includes(t.id) ? { ...t, x: avgX } : t);
+        } else if (type === 'right') {
+            const maxX = Math.max(...selectedTexts.map(t => t.x));
+            newTexts = newTexts.map(t => activeTextIds.includes(t.id) ? { ...t, x: maxX } : t);
+        } else if (type === 'top') {
+            const minY = Math.min(...selectedTexts.map(t => t.y));
+            newTexts = newTexts.map(t => activeTextIds.includes(t.id) ? { ...t, y: minY } : t);
+        } else if (type === 'middle') {
+            const avgY = selectedTexts.reduce((sum, t) => sum + t.y, 0) / selectedTexts.length;
+            newTexts = newTexts.map(t => activeTextIds.includes(t.id) ? { ...t, y: avgY } : t);
+        } else if (type === 'bottom') {
+            const maxY = Math.max(...selectedTexts.map(t => t.y));
+            newTexts = newTexts.map(t => activeTextIds.includes(t.id) ? { ...t, y: maxY } : t);
+        }
+
+        setLocalPage({ ...localPage, coverTexts: newTexts });
+    };
+
+    const handleDistribute = (type: 'horizontal' | 'vertical') => {
+        if (activeTextIds.length < 3) return; // Need 3 to distribute meaningfully usually
+
+        const selectedTexts = localPage.coverTexts?.filter(t => activeTextIds.includes(t.id)) || [];
+        if (selectedTexts.length < 3) return;
+
+        let newTexts = [...(localPage.coverTexts || [])];
+
+        if (type === 'horizontal') {
+            // Sort by X
+            const sorted = [...selectedTexts].sort((a, b) => a.x - b.x);
+            const minX = sorted[0].x;
+            const maxX = sorted[sorted.length - 1].x;
+            const totalSpan = maxX - minX;
+            const step = totalSpan / (sorted.length - 1);
+
+            sorted.forEach((item, index) => {
+                const newX = minX + (step * index);
+                newTexts = newTexts.map(t => t.id === item.id ? { ...t, x: newX } : t);
+            });
+        } else if (type === 'vertical') {
+            // Sort by Y
+            const sorted = [...selectedTexts].sort((a, b) => a.y - b.y);
+            const minY = sorted[0].y;
+            const maxY = sorted[sorted.length - 1].y;
+            const totalSpan = maxY - minY;
+            const step = totalSpan / (sorted.length - 1);
+
+            sorted.forEach((item, index) => {
+                const newY = minY + (step * index);
+                newTexts = newTexts.map(t => t.id === item.id ? { ...t, y: newY } : t);
+            });
+        }
+
+        setLocalPage({ ...localPage, coverTexts: newTexts });
+    };
+
     return (
-        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex">
-            {/* Overlay Close Button (Acts as Cancel) */}
-            <div className="absolute top-4 right-4 z-50">
-                <Button variant="ghost" size="icon" onClick={handleCancel}>
-                    <X className="h-6 w-6" />
-                </Button>
-            </div>
-
-            <SidebarLeft
-                onAddText={handleAddText}
-                activeView={activeView}
-                onViewChange={setActiveView}
-                onSave={handleSave}
-                onCancel={handleCancel}
-            />
-
-            <main className="flex-1 overflow-hidden relative flex items-center justify-center p-8">
-                <CoverCanvas
-                    page={localPage}
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-8">
+            <div className="w-full h-full max-w-[1800px] bg-background border shadow-2xl rounded-xl flex overflow-hidden">
+                {/* 1. Left Sidebar */}
+                <SidebarLeft
+                    onSave={handleSave}
+                    onCancel={handleCancel}
+                    onAddText={handleAddText}
                     activeView={activeView}
-                    activeTextIds={activeTextIds}
-                    onSelectText={(target, isMulti) => {
-                        const targets = Array.isArray(target) ? target : (target ? [target] : []);
-
-                        if (targets.length === 0) {
-                            if (!isMulti) setActiveTextIds([]);
-                            return;
-                        }
-
-                        if (isMulti) {
-                            setActiveTextIds(prev => {
-                                const next = [...prev];
-                                targets.forEach(t => {
-                                    if (next.includes(t)) {
-                                        // Toggle off if already selected? 
-                                        // Standard behavior for Ctrl+Click on unselected is Add. On selected is Remove.
-                                        // But if we selecting a GROUP, we probably want to add the whole group.
-                                        // Let's assume if any in target is not selected, we add all. If all selected, we remove all?
-                                        // Simplify: Just toggle individually for now, or add if not present.
-                                        // Let's implement simple "Toggle" for single click, and "Union" for group click?
-                                        // User said: "choose multiple ... with CTRL".
-                                        const idx = next.indexOf(t);
-                                        if (idx > -1) next.splice(idx, 1);
-                                        else next.push(t);
-                                    } else {
-                                        next.push(t);
-                                    }
-                                });
-                                return next;
-                            });
-                        } else {
-                            setActiveTextIds(targets);
-                        }
-                    }}
-                    onUpdatePage={setLocalPage}
-                    onDropPhoto={handleDropPhoto}
-                    onUpdatePhotoPanAndZoom={handleUpdatePhotoPanAndZoom}
+                    onViewChange={setActiveView}
                 />
-            </main>
 
-            <SidebarRight
-                page={localPage}
-                activeTextIds={activeTextIds}
-                onUpdatePage={setLocalPage}
-            />
+                {/* 2. Main Content Area (Canvas) */}
+                <div className="flex flex-col flex-1 relative bg-muted/10 h-full">
+
+                    {/* Toolbar */}
+                    <div className="h-14 border-b bg-background flex items-center justify-end px-4 gap-4 shadow-sm z-10">
+                        {/* Selection Info */}
+                        <div className="text-xs text-muted-foreground mr-auto font-medium">
+                            {activeTextIds.length > 0 ? `${activeTextIds.length} items selected` : 'Select multiple items to align'}
+                        </div>
+
+                        {/* Alignment Tools */}
+                        <div className="flex items-center gap-1 border-r pr-4 mr-0">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('left')} disabled={activeTextIds.length < 2} title="Align Left">
+                                <AlignLeft className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('center')} disabled={activeTextIds.length < 2} title="Align Center">
+                                <AlignCenter className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('right')} disabled={activeTextIds.length < 2} title="Align Right">
+                                <AlignRight className="h-4 w-4" />
+                            </Button>
+                        </div>
+
+                        <div className="flex items-center gap-1 border-r pr-4 mr-0">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('top')} disabled={activeTextIds.length < 2} title="Align Top">
+                                <AlignStartVertical className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('middle')} disabled={activeTextIds.length < 2} title="Align Middle">
+                                <AlignVerticalJustifyCenter className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('bottom')} disabled={activeTextIds.length < 2} title="Align Bottom">
+                                <AlignEndVertical className="h-4 w-4" />
+                            </Button>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDistribute('horizontal')} disabled={activeTextIds.length < 3} title="Distribute Horizontally">
+                                <Columns className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDistribute('vertical')} disabled={activeTextIds.length < 3} title="Distribute Vertically">
+                                <Rows className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 relative overflow-hidden">
+                        <CoverCanvas
+                            page={localPage}
+                            activeView={activeView}
+                            activeTextIds={activeTextIds}
+                            onSelectText={(target, isMulti) => {
+                                const targets = Array.isArray(target) ? target : (target ? [target] : []);
+
+                                if (targets.length === 0) {
+                                    if (!isMulti) setActiveTextIds([]);
+                                    return;
+                                }
+
+                                if (isMulti) {
+                                    setActiveTextIds(prev => {
+                                        const next = [...prev];
+                                        targets.forEach(t => {
+                                            if (next.includes(t)) {
+                                                const idx = next.indexOf(t);
+                                                if (idx > -1) next.splice(idx, 1);
+                                                else next.push(t);
+                                            } else {
+                                                next.push(t);
+                                            }
+                                        });
+                                        return next;
+                                    });
+                                } else {
+                                    setActiveTextIds(targets);
+                                }
+                            }}
+                            onUpdatePage={setLocalPage}
+                            onDropPhoto={handleDropPhoto}
+                            onUpdatePhotoPanAndZoom={handleUpdatePhotoPanAndZoom}
+                        />
+                    </div>
+                </div>
+
+                {/* 3. Right Sidebar (Properties) */}
+                <SidebarRight
+                    page={localPage}
+                    activeTextIds={activeTextIds}
+                    onUpdatePage={setLocalPage}
+                />
+            </div>
         </div>
     );
 };
