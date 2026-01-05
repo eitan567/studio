@@ -169,7 +169,7 @@ export const CoverCanvas = ({ page, activeView, activeTextId, onSelectText, onUp
                             style={{
                                 marginLeft: `-${(page.spineWidth || 40) / 2}px`,
                                 width: `${page.spineWidth || 40}px`,
-                                backgroundColor: page.spineColor ? `${page.spineColor}80` : 'transparent', // Semi-transparent spine visualization
+                                backgroundColor: page.spineColor || 'transparent', // Use actual color (allow alpha)
                                 padding: page.spineTextAlign === 'left' || page.spineTextAlign === 'right' ? '10px 0' : '0',
                                 justifyContent: page.spineTextAlign === 'left' ? 'flex-start' : page.spineTextAlign === 'right' ? 'flex-end' : 'center'
                             }}

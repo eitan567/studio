@@ -27,7 +27,14 @@ export function SpineColorPicker({ value = '#ffffff', onChange, disableAlpha = f
     };
 
     const handleColorInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const newColor = e.target.value;
+        let newColor = e.target.value;
+
+        // Preserve alpha if it exists in current internalColor and we're not disabling alpha
+        if (!disableAlpha && internalColor.length === 9) {
+            const currentAlpha = internalColor.substring(7);
+            newColor = `${newColor}${currentAlpha}`;
+        }
+
         setInternalColor(newColor);
         onChange(newColor);
     };
@@ -69,7 +76,47 @@ export function SpineColorPicker({ value = '#ffffff', onChange, disableAlpha = f
                                 maxLength={disableAlpha ? 7 : 9}
                             />
                         </div>
-                        {/* Opacity Slider could go here if we want to get fancy with 8-digit hex */}
+                        {!disableAlpha && (
+                            <div className="flex flex-col gap-2">
+                                <Label>Opacity</Label>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="100"
+                                        value={(() => {
+                                            // Extract alpha from hex (last 2 chars if length is 9, default 100)
+                                            if (internalColor.length === 9) {
+                                                return Math.round((parseInt(internalColor.substring(7), 16) / 255) * 100);
+                                            }
+                                            return 100;
+                                        })()}
+                                        onChange={(e) => {
+                                            const opacity = Number(e.target.value);
+                                            const alphaVal = Math.round((opacity / 100) * 255);
+                                            const alphaHex = alphaVal.toString(16).padStart(2, '0');
+
+                                            // Base color (first 7 chars)
+                                            let base = internalColor.length >= 7 ? internalColor.substring(0, 7) : internalColor;
+                                            if (base.length < 7) base = base.padEnd(7, '0'); // Safety fallback
+
+                                            const newColor = `${base}${alphaHex}`;
+                                            setInternalColor(newColor);
+                                            onChange(newColor);
+                                        }}
+                                        className="w-full"
+                                    />
+                                    <span className="text-xs w-8 text-right">
+                                        {(() => {
+                                            if (internalColor.length === 9) {
+                                                return Math.round((parseInt(internalColor.substring(7), 16) / 255) * 100);
+                                            }
+                                            return 100;
+                                        })()}%
+                                    </span>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </PopoverContent>
