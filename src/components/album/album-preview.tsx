@@ -229,7 +229,7 @@ const Spine = ({ text, width, color, textColor, fontSize = 12, fontFamily, fontW
           fontStyle: fontStyle === 'italic' ? 'italic' : 'normal'
         }}
       >
-        {text || 'ALBUM SPINE'}
+        {text || 'SPINE'}
       </div>
     </div>
   );
@@ -718,13 +718,12 @@ export function AlbumPreview({
                         console.log('[AlbumPreview] Rendering COVER page:', page.id, 'coverType:', page.coverType);
                         // Full Spread Mode
                         if (page.coverType === 'full') {
-                          // Calculate proportional values based on 1000px reference (Visual screen width)
+                          // Use px values directly - no conversion needed
                           const pageMarginVal = page.pageMargin ?? 0;
                           const photoGapVal = page.photoGap ?? config.photoGap ?? 5;
-                          console.log('[AlbumPreview Full] page.photoGap:', page.photoGap, 'photoGapVal:', photoGapVal);
-                          const pageMarginCqw = `${(pageMarginVal / 1000) * 100}%`;
-                          const photoGapCqw = `${(photoGapVal / 1000) * 100}cqw`;
-                          console.log('[AlbumPreview Full] photoGapCqw:', photoGapCqw);
+                          const pageMarginPx = `${pageMarginVal}px`;
+                          const photoGapPx = `${photoGapVal}px`;
+                          console.log('[AlbumPreview Full] photoGapPx:', photoGapPx);
 
                           return (
                             <div className="relative h-full w-full">
@@ -756,7 +755,7 @@ export function AlbumPreview({
                                 className="relative h-full w-full overflow-hidden"
                                 style={{
                                   containerType: 'inline-size',
-                                  padding: pageMarginCqw
+                                  padding: pageMarginPx
                                 }}
                               >
                                 {/* Draggable Title Overlay (if applies to full spread?) Usually title is mostly front. */}
@@ -800,7 +799,7 @@ export function AlbumPreview({
 
                                 <div
                                   className="grid grid-cols-12 grid-rows-12 h-full w-full"
-                                  style={{ gap: photoGapCqw }}
+                                  style={{ gap: photoGapPx }}
                                 >
                                   {(() => {
                                     const photos = page.photos;
@@ -893,9 +892,10 @@ export function AlbumPreview({
                         const pageMarginVal = page.pageMargin ?? 0;
                         const photoGapVal = page.photoGap ?? config.photoGap ?? 5;
                         console.log('[AlbumPreview Split] page.photoGap:', page.photoGap, 'config.photoGap:', config.photoGap, 'photoGapVal:', photoGapVal);
-                        const pageMarginCqw = `${(pageMarginVal / 1000) * 100}%`;
-                        const photoGapCqw = `${(photoGapVal / 1000) * 100}%`;
-                        console.log('[AlbumPreview Split] photoGapCqw:', photoGapCqw, 'pageMarginCqw:', pageMarginCqw);
+                        // Use px values directly - no conversion needed
+                        const pageMarginPx = `${pageMarginVal}px`;
+                        const photoGapPx = `${photoGapVal}px`;
+                        console.log('[AlbumPreview Split] photoGapPx:', photoGapPx, 'pageMarginPx:', pageMarginPx);
 
                         return (
                           <div
@@ -935,14 +935,14 @@ export function AlbumPreview({
                             <div
                               className="relative h-full w-full border-r border-dashed border-border/50 overflow-hidden"
                               style={{
-                                padding: pageMarginCqw,
+                                padding: pageMarginPx,
                                 containerType: 'inline-size'
                               }}
                             >
                               <span className="absolute top-2 left-2 z-20 text-[10px] font-bold text-muted-foreground bg-background/80 px-1.5 py-0.5 rounded pointer-events-none uppercase tracking-wider">Back Cover</span>
                               <div
                                 className="grid grid-cols-12 grid-rows-12 h-full w-full"
-                                style={{ gap: photoGapCqw }}
+                                style={{ gap: photoGapPx }}
                               >
                                 {(() => {
                                   const photos = backPhotos;
@@ -1006,7 +1006,7 @@ export function AlbumPreview({
                               id={`front-cover-container-${page.id}`}
                               className="relative h-full w-full border-l border-dashed border-border/50 overflow-hidden bg-muted/20"
                               style={{
-                                padding: pageMarginCqw,
+                                padding: pageMarginPx,
                                 containerType: 'inline-size'
                               }}
                             >
@@ -1025,7 +1025,7 @@ export function AlbumPreview({
                               <span className="absolute top-2 left-2 z-20 text-[10px] font-bold text-muted-foreground bg-background/80 px-1.5 py-0.5 rounded pointer-events-none uppercase tracking-wider">Front Cover</span>
                               <div
                                 className="grid grid-cols-12 grid-rows-12 h-full w-full"
-                                style={{ gap: photoGapCqw }}
+                                style={{ gap: photoGapPx }}
                               >
                                 {(() => {
                                   const photos = frontPhotos;

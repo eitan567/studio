@@ -148,11 +148,11 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       coverLayouts: { front: '4-mosaic-1', back: '4-mosaic-1' },
       coverType: 'split',
       spineText: '',
-      spineWidth: 30,
+      spineWidth: 20,
       spineColor: '#ffffff',
       spineFontFamily: 'Tahoma',
-      photoGap: 20,
-      pageMargin: 20
+      photoGap: 10,
+      pageMargin: 10
     });
 
     if (photosPool.length > 0) {
