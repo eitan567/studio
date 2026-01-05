@@ -150,6 +150,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       spineText: '',
       spineWidth: 20,
       spineColor: '#ffffff',
+      spineTextColor: '#000000',
       spineFontFamily: 'Tahoma',
       photoGap: 10,
       pageMargin: 10
