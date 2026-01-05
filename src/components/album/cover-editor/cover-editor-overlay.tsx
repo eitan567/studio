@@ -4,6 +4,8 @@ import { SidebarLeft } from './sidebar-left';
 import { SidebarRight } from './sidebar-right';
 import { CoverCanvas } from './cover-canvas';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Slider } from '@/components/ui/slider';
 import {
     X,
     AlignStartVertical,
@@ -234,6 +236,48 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
                         {/* Selection Info */}
                         <div className="text-xs text-muted-foreground mr-auto font-medium">
                             {activeTextIds.length > 0 ? `${activeTextIds.length} items selected` : 'Select multiple items to align'}
+                        </div>
+
+                        {/* Spacing Tools */}
+                        <div className="flex items-center gap-4 border-r pr-4 mr-0">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-medium text-muted-foreground w-6">Gap</span>
+                                <Slider
+                                    className="w-20"
+                                    min={0}
+                                    max={50}
+                                    step={1}
+                                    value={[localPage.photoGap ?? 0]}
+                                    onValueChange={(vals) => setLocalPage({ ...localPage, photoGap: vals[0] })}
+                                />
+                                <Input
+                                    type="number"
+                                    className="w-12 h-7 text-xs px-1 text-center"
+                                    min={0}
+                                    max={50}
+                                    value={localPage.photoGap ?? 0}
+                                    onChange={(e) => setLocalPage({ ...localPage, photoGap: Math.max(0, Number(e.target.value)) })}
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-medium text-muted-foreground w-10">Margin</span>
+                                <Slider
+                                    className="w-20"
+                                    min={0}
+                                    max={50}
+                                    step={1}
+                                    value={[localPage.pageMargin ?? 0]}
+                                    onValueChange={(vals) => setLocalPage({ ...localPage, pageMargin: vals[0] })}
+                                />
+                                <Input
+                                    type="number"
+                                    className="w-12 h-7 text-xs px-1 text-center"
+                                    min={0}
+                                    max={50}
+                                    value={localPage.pageMargin ?? 0}
+                                    onChange={(e) => setLocalPage({ ...localPage, pageMargin: Math.max(0, Number(e.target.value)) })}
+                                />
+                            </div>
                         </div>
 
                         {/* Alignment Tools (Horizontal Actions) - Using Vertical Icons per user request */}
