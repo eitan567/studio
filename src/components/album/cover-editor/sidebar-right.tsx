@@ -1,6 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { AlbumPage, CoverText } from '@/lib/types';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { AlbumPage } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
@@ -17,10 +16,8 @@ import {
     Trash2,
     Type,
     Layout,
-    Palette,
     Settings2,
-    PlusSquare,
-    Image as ImageIcon
+    PlusSquare
 } from 'lucide-react';
 import { SpineColorPicker } from '../spine-color-picker';
 import { AiBackgroundGenerator } from '../ai-background-generator';
@@ -31,16 +28,10 @@ const AVAILABLE_FONTS = ['Inter', 'Serif', 'Mono', 'Cursive', 'Arial', 'Times Ne
 
 interface SidebarRightProps {
     page: AlbumPage;
-    activeTextIds: string[];
     onUpdatePage: (page: AlbumPage) => void;
 }
 
-export const SidebarRight = ({ page, activeTextIds, onUpdatePage }: SidebarRightProps) => {
-
-    // Find active text objects
-    const activeTexts = page.coverTexts?.filter(t => activeTextIds.includes(t.id)) || [];
-    // Primary text for displaying values (use the last selected)
-    const activeText = activeTexts.length > 0 ? activeTexts[activeTexts.length - 1] : null;
+export const SidebarRight = ({ page, onUpdatePage }: SidebarRightProps) => {
 
     const [availableBackgrounds, setAvailableBackgrounds] = useState<string[]>([
         'https://picsum.photos/seed/bg1/800/600',
@@ -49,217 +40,22 @@ export const SidebarRight = ({ page, activeTextIds, onUpdatePage }: SidebarRight
     ]);
     const backgroundUploadRef = useRef<HTMLInputElement>(null);
 
-    const handleUpdateText = (updates: Partial<CoverText> | Partial<CoverText['style']>) => {
-        if (activeTexts.length === 0 || !page.coverTexts) return;
-
-        const newTexts = page.coverTexts.map(t => {
-            if (!activeTextIds.includes(t.id)) return t;
-            const isStyleUpdate = !('text' in updates);
-            if (isStyleUpdate) {
-                return { ...t, style: { ...t.style, ...updates } };
-            }
-            return { ...t, ...(updates as Partial<CoverText>) };
-        });
-
-        onUpdatePage({ ...page, coverTexts: newTexts });
-    };
-
-    const handleDeleteText = () => {
-        if (activeTexts.length === 0 || !page.coverTexts) return;
-        const newTexts = page.coverTexts.filter(t => !activeTextIds.includes(t.id));
-        onUpdatePage({ ...page, coverTexts: newTexts });
-    };
-
-    const handleGroupTexts = () => {
-        if (activeTexts.length === 0 || !page.coverTexts) return;
-        const newGroupId = crypto.randomUUID();
-        const newTexts = page.coverTexts.map(t => {
-            if (activeTextIds.includes(t.id)) {
-                return { ...t, groupId: newGroupId };
-            }
-            return t;
-        });
-        onUpdatePage({ ...page, coverTexts: newTexts });
-    };
-
-    const handleUngroupTexts = () => {
-        if (activeTexts.length === 0 || !page.coverTexts) return;
-        const newTexts = page.coverTexts.map(t => {
-            if (activeTextIds.includes(t.id)) {
-                const { groupId, ...rest } = t;
-                // Removing groupId
-                return { ...rest, groupId: undefined };
-            }
-            return t;
-        });
-        onUpdatePage({ ...page, coverTexts: newTexts });
-    };
-
     const handleUpdatePageProp = (updates: Partial<AlbumPage>) => {
         onUpdatePage({ ...page, ...updates });
     };
-
-    // Check grouping state
-    const isMultiple = activeTexts.length > 1;
-    // Check if any selected item is part of a group
-    const isLinked = activeTexts.some(t => !!t.groupId);
 
     return (
         <div className="w-80 h-full bg-card border-l flex flex-col shadow-xl z-50">
             <div className="p-4 border-b h-14">
                 <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                    <Settings2 className="w-4 h-4" /> Editor Properties
+                    <Settings2 className="w-4 h-4" /> Global Settings
                 </h2>
             </div>
 
             <div className="flex-1 overflow-y-auto flex flex-col gap-0 pb-8 min-h-0">
-
-                {/* TEXT PROPERTIES SECTION (Only if selection exists) */}
-                <div className={cn(
-                    "flex-shrink-0 transition-all duration-300 overflow-hidden border-b",
-                    activeTexts.length === 0 ? "h-0 opacity-0 border-none" : "opacity-100"
-                )}>
-                    <div className="p-4 space-y-4 bg-accent/5">
-                        {/* Selection Header & Actions */}
-                        <div className="flex items-center justify-between">
-                            <Label className="flex items-center gap-2 text-primary font-semibold">
-                                <Type className="w-4 h-4" /> Selected Text
-                            </Label>
-                            <div className="flex items-center gap-2">
-                                {(isMultiple || isLinked) && (
-                                    <div className="flex items-center bg-background border rounded-md h-7 shadow-sm">
-                                        {isMultiple && (
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none" onClick={handleGroupTexts} title="Link Selected">
-                                                <Settings2 className="w-3.5 h-3.5" />
-                                            </Button>
-                                        )}
-                                        {isLinked && (
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none text-destructive hover:text-destructive" onClick={handleUngroupTexts} title="Unlink">
-                                                <Trash2 className="w-3.5 h-3.5 rotate-45" /> {/* Using Trash rotated as 'break' icon substitute */}
-                                            </Button>
-                                        )}
-                                    </div>
-                                )}
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7 text-destructive hover:bg-destructive/10"
-                                    onClick={handleDeleteText}
-                                    title="Delete Selection"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </Button>
-                            </div>
-                        </div>
-
-                        {/* Main Content Input */}
-                        <div className="space-y-1.5">
-                            <Label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Content</Label>
-                            <Input
-                                value={activeTexts.length === 1 ? activeText?.text || '' : 'Multiple Selected'}
-                                disabled={activeTexts.length !== 1}
-                                onChange={(e) => handleUpdateText({ text: e.target.value })}
-                                className="font-medium bg-background shadow-sm"
-                                placeholder={activeTexts.length === 0 ? "Select text to edit" : "Multiple"}
-                            />
-                        </div>
-
-                        <Separator className="bg-border/50" />
-
-                        {/* Typography Grid */}
-                        <div className="grid grid-cols-3 gap-3">
-                            <div className="col-span-2 space-y-1.5">
-                                <Label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Typeface</Label>
-                                <select
-                                    className="w-full h-9 px-2 text-sm border rounded-md bg-background shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                                    value={activeText?.style.fontFamily || 'Inter'}
-                                    onChange={(e) => handleUpdateText({ fontFamily: e.target.value })}
-                                >
-                                    {AVAILABLE_FONTS.map(f => <option key={f} value={f}>{f}</option>)}
-                                </select>
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Size</Label>
-                                <div className="relative">
-                                    <Input
-                                        type="number"
-                                        value={activeText?.style.fontSize || 24}
-                                        onChange={(e) => handleUpdateText({ fontSize: Number(e.target.value) })}
-                                        className="h-9 pr-6 bg-background shadow-sm"
-                                    />
-                                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">px</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Style Row */}
-                        <div className="space-y-1.5">
-                            <Label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Appearance</Label>
-                            <div className="flex items-center gap-3">
-                                <div className="flex-shrink-0">
-                                    <SpineColorPicker
-                                        value={activeText?.style.color || '#000000'}
-                                        onChange={(c) => handleUpdateText({ color: c })}
-                                        disableAlpha
-                                    />
-                                </div>
-
-                                <Separator orientation="vertical" className="h-8" />
-
-                                <div className="flex-1 flex items-center justify-between gap-1 bg-background border rounded-md p-1 shadow-sm">
-                                    <div className="flex gap-0.5">
-                                        <Button
-                                            variant={activeText?.style.fontWeight === 'bold' ? 'secondary' : 'ghost'}
-                                            size="icon" className="h-7 w-7"
-                                            onClick={() => handleUpdateText({ fontWeight: activeText?.style.fontWeight === 'bold' ? 'normal' : 'bold' })}
-                                        >
-                                            <Bold className="h-3.5 w-3.5" />
-                                        </Button>
-                                        <Button
-                                            variant={activeText?.style.fontStyle === 'italic' ? 'secondary' : 'ghost'}
-                                            size="icon" className="h-7 w-7"
-                                            onClick={() => handleUpdateText({ fontStyle: activeText?.style.fontStyle === 'italic' ? 'normal' : 'italic' })}
-                                        >
-                                            <Italic className="h-3.5 w-3.5" />
-                                        </Button>
-                                    </div>
-                                    <div className="w-px h-4 bg-border" />
-                                    <div className="flex gap-0.5">
-                                        <Button
-                                            variant={activeText?.style.textAlign === 'left' ? 'secondary' : 'ghost'}
-                                            size="icon" className="h-7 w-7"
-                                            onClick={() => handleUpdateText({ textAlign: 'left' })}
-                                        >
-                                            <AlignLeft className="h-3.5 w-3.5" />
-                                        </Button>
-                                        <Button
-                                            variant={activeText?.style.textAlign === 'center' || !activeText?.style.textAlign ? 'secondary' : 'ghost'}
-                                            size="icon" className="h-7 w-7"
-                                            onClick={() => handleUpdateText({ textAlign: 'center' })}
-                                        >
-                                            <AlignCenter className="h-3.5 w-3.5" />
-                                        </Button>
-                                        <Button
-                                            variant={activeText?.style.textAlign === 'right' ? 'secondary' : 'ghost'}
-                                            size="icon" className="h-7 w-7"
-                                            onClick={() => handleUpdateText({ textAlign: 'right' })}
-                                        >
-                                            <AlignRight className="h-3.5 w-3.5" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 {/* GLOBAL SETTINGS SECTION */}
-                {/* Header only visible if no text selected to avoid clutter, OR always visible but collapsed? keeping always visible tabs for access */}
                 <div className="flex-1">
                     <Tabs defaultValue="style" className="w-full">
-                        <div className="px-4 py-3 bg-muted/20 border-b flex items-center justify-between">
-                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Global Settings</span>
-                        </div>
                         <TabsList className="w-full justify-start rounded-none border-b bg-transparent h-10 p-0">
                             <TabsTrigger
                                 value="style"

@@ -9,6 +9,7 @@ import { Slider } from '@/components/ui/slider';
 import {
     X,
     Check,
+    Type,
     AlignStartVertical,
     AlignVerticalJustifyCenter,
     AlignEndVertical,
@@ -224,100 +225,143 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
                 <SidebarLeft
                     onSave={handleSave}
                     onCancel={handleCancel}
-                    onAddText={handleAddText}
-                    activeView={activeView}
-                    onViewChange={setActiveView}
+                    page={localPage}
+                    activeTextIds={activeTextIds}
+                    onUpdatePage={setLocalPage}
                 />
 
                 {/* 2. Main Content Area (Canvas) */}
                 <div className="flex flex-col flex-1 relative bg-muted/10 h-full">
 
                     {/* Toolbar */}
-                    <div className="h-14 border-b bg-background flex items-center justify-end px-4 gap-4 shadow-sm z-10">
-                        {/* Selection Info */}
-                        <div className="text-xs text-muted-foreground mr-auto font-medium">
-                            {activeTextIds.length > 0 ? `${activeTextIds.length} items selected` : 'Select multiple items to align'}
-                        </div>
+                    <div className="h-14 border-b bg-background flex items-center justify-between px-4 gap-4 shadow-sm z-10">
 
-                        {/* Spacing Tools */}
-                        <div className="flex items-center gap-4 border-r pr-4 mr-0">
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs font-medium text-muted-foreground w-6">Gap</span>
-                                <Slider
-                                    className="w-20"
-                                    min={0}
-                                    max={50}
-                                    step={1}
-                                    value={[localPage.photoGap ?? 0]}
-                                    onValueChange={(vals) => setLocalPage({ ...localPage, photoGap: vals[0] })}
-                                />
-                                <Input
-                                    type="number"
-                                    className="w-12 h-7 text-xs px-1 text-center"
-                                    min={0}
-                                    max={50}
-                                    value={localPage.photoGap ?? 0}
-                                    onChange={(e) => setLocalPage({ ...localPage, photoGap: Math.max(0, Number(e.target.value)) })}
-                                />
+                        {/* Left Side: View Controls & Add Text */}
+                        <div className="flex items-center gap-2 mr-auto">
+                            <Button variant="outline" size="sm" className="gap-2 h-8" onClick={handleAddText}>
+                                <Type className="h-4 w-4" /> Add Text
+                            </Button>
+
+                            <div className="w-px h-6 bg-border mx-2" />
+
+                            <div className="flex items-center bg-muted/20 rounded-lg p-0.5 border">
+                                <Button
+                                    variant={activeView === 'full' ? 'secondary' : 'ghost'}
+                                    size="sm"
+                                    className="h-7 text-xs px-3"
+                                    onClick={() => setActiveView('full')}
+                                >
+                                    Full
+                                </Button>
+                                <Button
+                                    variant={activeView === 'front' ? 'secondary' : 'ghost'}
+                                    size="sm"
+                                    className="h-7 text-xs px-3"
+                                    onClick={() => setActiveView('front')}
+                                >
+                                    Front
+                                </Button>
+                                <Button
+                                    variant={activeView === 'back' ? 'secondary' : 'ghost'}
+                                    size="sm"
+                                    className="h-7 text-xs px-3"
+                                    onClick={() => setActiveView('back')}
+                                >
+                                    Back
+                                </Button>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs font-medium text-muted-foreground w-10">Margin</span>
-                                <Slider
-                                    className="w-20"
-                                    min={0}
-                                    max={50}
-                                    step={1}
-                                    value={[localPage.pageMargin ?? 0]}
-                                    onValueChange={(vals) => setLocalPage({ ...localPage, pageMargin: vals[0] })}
-                                />
-                                <Input
-                                    type="number"
-                                    className="w-12 h-7 text-xs px-1 text-center"
-                                    min={0}
-                                    max={50}
-                                    value={localPage.pageMargin ?? 0}
-                                    onChange={(e) => setLocalPage({ ...localPage, pageMargin: Math.max(0, Number(e.target.value)) })}
-                                />
+
+                            {/* Selection Info (Integrated) */}
+                            <div className="text-xs text-muted-foreground font-medium border-l pl-4 ml-2">
+                                {activeTextIds.length > 0 ? `${activeTextIds.length} items selected` : ''}
                             </div>
                         </div>
 
-                        {/* Alignment Tools (Horizontal Actions) - Using Vertical Icons per user request */}
-                        <div className="flex items-center gap-1 border-r pr-4 mr-0">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('left')} disabled={activeTextIds.length < 2} title="Align Left">
-                                <AlignStartVertical className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('center')} disabled={activeTextIds.length < 2} title="Align Center">
-                                <AlignCenterVertical className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('right')} disabled={activeTextIds.length < 2} title="Align Right">
-                                <AlignEndVertical className="h-4 w-4" />
-                            </Button>
-                        </div>
 
-                        {/* Alignment Tools (Vertical Actions) - Using Horizontal Icons per user request */}
-                        <div className="flex items-center gap-1 border-r pr-4 mr-0">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('top')} disabled={activeTextIds.length < 2} title="Align Top">
-                                <AlignStartHorizontal className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('middle')} disabled={activeTextIds.length < 2} title="Align Middle">
-                                <AlignCenterHorizontal className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('bottom')} disabled={activeTextIds.length < 2} title="Align Bottom">
-                                <AlignEndHorizontal className="h-4 w-4" />
-                            </Button>
-                        </div>
+                        {/* Right Side: Spacing & Alignment */}
+                        <div className="flex items-center gap-4">
 
-                        {/* Distribute Tools */}
-                        <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDistribute('horizontal')} disabled={activeTextIds.length < 3} title="Distribute Horizontally">
-                                <AlignHorizontalDistributeCenter className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDistribute('vertical')} disabled={activeTextIds.length < 3} title="Distribute Vertically">
-                                <AlignVerticalDistributeCenter className="h-4 w-4" />
-                            </Button>
+                            {/* Spacing Tools */}
+                            <div className="flex items-center gap-4 border-r pr-4 mr-0">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-medium text-muted-foreground w-6">Gap</span>
+                                    <Slider
+                                        className="w-20"
+                                        min={0}
+                                        max={50}
+                                        step={1}
+                                        value={[localPage.photoGap ?? 0]}
+                                        onValueChange={(vals) => setLocalPage({ ...localPage, photoGap: vals[0] })}
+                                    />
+                                    <Input
+                                        type="number"
+                                        className="w-12 h-7 text-xs px-1 text-center"
+                                        min={0}
+                                        max={50}
+                                        value={localPage.photoGap ?? 0}
+                                        onChange={(e) => setLocalPage({ ...localPage, photoGap: Math.max(0, Number(e.target.value)) })}
+                                    />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-medium text-muted-foreground w-10">Margin</span>
+                                    <Slider
+                                        className="w-20"
+                                        min={0}
+                                        max={50}
+                                        step={1}
+                                        value={[localPage.pageMargin ?? 0]}
+                                        onValueChange={(vals) => setLocalPage({ ...localPage, pageMargin: vals[0] })}
+                                    />
+                                    <Input
+                                        type="number"
+                                        className="w-12 h-7 text-xs px-1 text-center"
+                                        min={0}
+                                        max={50}
+                                        value={localPage.pageMargin ?? 0}
+                                        onChange={(e) => setLocalPage({ ...localPage, pageMargin: Math.max(0, Number(e.target.value)) })}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Alignment Tools (Horizontal Actions) - Using Vertical Icons per user request */}
+                            <div className="flex items-center gap-1 border-r pr-4 mr-0">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('left')} disabled={activeTextIds.length < 2} title="Align Left">
+                                    <AlignStartVertical className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('center')} disabled={activeTextIds.length < 2} title="Align Center">
+                                    <AlignCenterVertical className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('right')} disabled={activeTextIds.length < 2} title="Align Right">
+                                    <AlignEndVertical className="h-4 w-4" />
+                                </Button>
+                            </div>
+
+                            {/* Alignment Tools (Vertical Actions) - Using Horizontal Icons per user request */}
+                            <div className="flex items-center gap-1 border-r pr-4 mr-0">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('top')} disabled={activeTextIds.length < 2} title="Align Top">
+                                    <AlignStartHorizontal className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('middle')} disabled={activeTextIds.length < 2} title="Align Middle">
+                                    <AlignCenterHorizontal className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('bottom')} disabled={activeTextIds.length < 2} title="Align Bottom">
+                                    <AlignEndHorizontal className="h-4 w-4" />
+                                </Button>
+                            </div>
+
+                            {/* Distribute Tools */}
+                            <div className="flex items-center gap-1">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDistribute('horizontal')} disabled={activeTextIds.length < 3} title="Distribute Horizontally">
+                                    <AlignHorizontalDistributeCenter className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDistribute('vertical')} disabled={activeTextIds.length < 3} title="Distribute Vertically">
+                                    <AlignVerticalDistributeCenter className="h-4 w-4" />
+                                </Button>
+                            </div>
                         </div>
                     </div>
 
+                    {/* Canvas */}
                     <div className="flex-1 relative overflow-hidden">
                         <CoverCanvas
                             page={localPage}
@@ -354,6 +398,7 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
                             onUpdatePhotoPanAndZoom={handleUpdatePhotoPanAndZoom}
                         />
                     </div>
+
                     {/* Bottom Toolbar */}
                     <div className="h-14 border-t bg-background flex items-center justify-between px-4 z-10 shrink-0">
                         <div className="text-xs text-muted-foreground">
@@ -381,7 +426,6 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
                 {/* 3. Right Sidebar (Properties) */}
                 <SidebarRight
                     page={localPage}
-                    activeTextIds={activeTextIds}
                     onUpdatePage={setLocalPage}
                 />
             </div>
