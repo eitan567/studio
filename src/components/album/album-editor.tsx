@@ -578,6 +578,47 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
     setAlbumPages(prevPages => prevPages.map(page => {
       if (page.id !== pageId) return page;
+
+      // Handle Insertion into Empty Slot
+      if (targetPhotoId.startsWith('__INSERT_AT__')) {
+        const index = parseInt(targetPhotoId.replace('__INSERT_AT__', ''), 10);
+        if (isNaN(index)) return page;
+
+        const newPhotos = [...page.photos];
+        const newPhotoObj = {
+          ...droppedPhoto,
+          id: uuidv4(), // Generate a new ID for this specific usage instance
+          panAndZoom: { scale: 1, x: 50, y: 50 },
+          width: droppedPhoto.width || 800,
+          height: droppedPhoto.height || 600
+        };
+
+        // If index is outside bounds, fill with placeholders?
+        // Or strictly set. Array in JS will handle sparse but it's better to be safe.
+        // If we are at index 2 but length is 0 (unlikely for Front cover, should have filled with Back cover photos?)
+        // Actually, if we are in Split mode, 'frontPhotos' rendering assumes 'backPhotos' exist.
+        // If they don't, we should fill them.
+
+        // Ensure array is filled up to index
+        while (newPhotos.length < index) {
+          newPhotos.push({
+            id: uuidv4(),
+            src: 'https://placehold.co/600x400/e2e8f0/e2e8f0?text=+',
+            alt: 'Placeholder',
+            width: 600,
+            height: 400
+          });
+        }
+
+        newPhotos[index] = newPhotoObj;
+
+        return {
+          ...page,
+          photos: newPhotos
+        };
+      }
+
+      // Existing Replacement Logic
       return {
         ...page,
         photos: page.photos.map(p => {

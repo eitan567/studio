@@ -14,6 +14,7 @@ export interface PageLayoutProps {
     overrideLayout?: string;
     templateSource?: typeof LAYOUT_TEMPLATES;
     useSimpleImage?: boolean;
+    photoIndexOffset?: number;
 }
 
 const PageLayoutComponent = ({
@@ -25,7 +26,8 @@ const PageLayoutComponent = ({
     overridePhotos,
     overrideLayout,
     templateSource = LAYOUT_TEMPLATES,
-    useSimpleImage
+    useSimpleImage,
+    photoIndexOffset = 0
 }: PageLayoutProps) => {
     const photos = overridePhotos || page.photos;
     const layout = overrideLayout || page.layout;
@@ -49,7 +51,36 @@ const PageLayoutComponent = ({
         >
             {template.grid.map((gridClass, index) => {
                 const photo = photos[index];
-                if (!photo) return <div key={index} className={cn("bg-muted rounded-sm", gridClass)} />;
+                const actualIndex = index + photoIndexOffset;
+                const emptySlotId = `__empty_${actualIndex}`;
+
+                /* Allow dropping on empty slots too */
+                if (!photo) {
+                    return (
+                        <div
+                            key={index}
+                            className={cn(
+                                "bg-muted rounded-sm transition-all duration-200",
+                                gridClass,
+                                dragOverPhotoId === emptySlotId && "ring-2 ring-primary ring-offset-2 bg-primary/10"
+                            )}
+                            onDragOver={(e) => {
+                                e.preventDefault();
+                                setDragOverPhotoId(emptySlotId);
+                            }}
+                            onDragLeave={() => setDragOverPhotoId(null)}
+                            onDrop={(e) => {
+                                e.preventDefault();
+                                setDragOverPhotoId(null);
+                                const droppedPhotoId = e.dataTransfer.getData('photoId');
+                                if (droppedPhotoId) {
+                                    // Use special ID format to indicate insertion at index
+                                    onDropPhoto(page.id, `__INSERT_AT__${actualIndex}`, droppedPhotoId);
+                                }
+                            }}
+                        />
+                    );
+                }
 
                 return (
                     <div

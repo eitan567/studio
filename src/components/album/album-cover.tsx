@@ -394,6 +394,7 @@ export const AlbumCover = ({
                             onInteractionChange={() => { }}
                             onDropPhoto={onDropPhoto || (() => { })}
                             useSimpleImage={useSimpleImage}
+                            photoIndexOffset={0}
                         />
                     </div>
                 </div>
@@ -425,6 +426,7 @@ export const AlbumCover = ({
                                 onInteractionChange={() => { }}
                                 onDropPhoto={onDropPhoto || (() => { })}
                                 useSimpleImage={useSimpleImage}
+                                photoIndexOffset={0}
                             />
                         </div>
                     </div>
@@ -477,6 +479,7 @@ export const AlbumCover = ({
                                 onInteractionChange={() => { }}
                                 onDropPhoto={onDropPhoto || (() => { })}
                                 useSimpleImage={useSimpleImage}
+                                photoIndexOffset={backPhotoCount}
                             />
                         </div>
                     </div>
