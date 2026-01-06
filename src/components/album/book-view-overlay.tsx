@@ -16,6 +16,7 @@ interface Spread {
     left: AlbumPage | null;
     right: AlbumPage | null;
     isCover?: boolean;
+    isBackCover?: boolean;
 }
 
 // Helper to render a single page face (read-only)
@@ -82,11 +83,11 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
             i += 2;
         }
 
-        // 3. Back Cover logic implicitly handled if it was in innerPages flow?
-        // In reference, Back Cover was explicit.
-        // Here we treat all non-front-cover pages as inner flow.
-        // If the last page happens to be a Back Cover type, it will fall into a slot.
-        // If we want STRICT pairing (Cover -> [L,R] -> Back), we adhere to this flow.
+        // 3. Back Cover
+        // Explicitly add a spread for the back cover (appearing on the Left)
+        if (frontCover) {
+            newSpreads.push({ left: frontCover, right: null, isBackCover: true });
+        }
 
         return newSpreads;
     }, [pages]);
@@ -108,7 +109,7 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
         const handleKeyDown = (e: KeyboardEvent) => {
             // Prevent default scrolling only if we are consuming the event
             if (e.key === 'ArrowRight') {
-                // e.preventDefault(); 
+                // e.preventDefault();
                 goToNext();
             }
             if (e.key === 'ArrowLeft') {
@@ -119,7 +120,7 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [currentSpreadIndex, spreads.length]);
+    }, [currentSpreadIndex, spreads.length, onClose]);
 
     if (spreads.length === 0) return null;
 
@@ -192,7 +193,16 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
                                 <div className="absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-black/20 to-transparent z-20 pointer-events-none mix-blend-multiply" />
 
                                 {/* Render Content */}
-                                <ReadOnlyPage page={currentSpread.left} config={config} />
+                                {currentSpread.isBackCover ? (
+                                    <AlbumCover
+                                        page={currentSpread.left}
+                                        config={config}
+                                        mode="preview"
+                                        activeView="back"
+                                    />
+                                ) : (
+                                    <ReadOnlyPage page={currentSpread.left} config={config} />
+                                )}
                             </div>
                         )}
                     </div>
@@ -245,7 +255,8 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
 
             {/* Footer Info */}
             <div className="absolute bottom-4 text-white/40 text-xs tracking-widest uppercase pointer-events-none">
-                {currentSpread.isCover ? 'Front Cover' : 'Open Album'}
+                {currentSpread.isCover ? 'Front Cover' :
+                    currentSpread.isBackCover ? 'Back Cover' : 'Open Album'}
             </div>
         </div>
     );
