@@ -112,417 +112,449 @@ export const SidebarRight = ({ page, activeTextIds, onUpdatePage }: SidebarRight
                 </h2>
             </div>
 
-            <ScrollArea className="flex-1">
-                <div className="p-4 space-y-8">
+            <div className="flex-1 overflow-y-auto flex flex-col gap-0 pb-8 min-h-0">
 
-                    {/* Text Properties Section */}
-                    <div className={cn("space-y-2 transition-all duration-300", activeTexts.length === 0 && "opacity-50 grayscale")}>
+                {/* TEXT PROPERTIES SECTION (Only if selection exists) */}
+                <div className={cn(
+                    "flex-shrink-0 transition-all duration-300 overflow-hidden border-b",
+                    activeTexts.length === 0 ? "h-0 opacity-0 border-none" : "opacity-100"
+                )}>
+                    <div className="p-4 space-y-4 bg-accent/5">
+                        {/* Selection Header & Actions */}
                         <div className="flex items-center justify-between">
                             <Label className="flex items-center gap-2 text-primary font-semibold">
-                                <Type className="w-4 h-4" /> Text Properties
+                                <Type className="w-4 h-4" /> Selected Text
                             </Label>
-                            {activeTexts.length === 0 && <span className="text-[10px] text-muted-foreground italic">No selection</span>}
-                            {activeTexts.length > 1 && <span className="text-[10px] text-primary italic">{activeTexts.length} items</span>}
-                        </div>
-
-                        <div className="space-y-2 pointer-events-none" style={{ pointerEvents: activeTexts.length > 0 ? 'auto' : 'none' }}>
-                            {/* Grouping Actions */}
-                            <div className="flex gap-2">
+                            <div className="flex items-center gap-2">
                                 {(isMultiple || isLinked) && (
-                                    <>
+                                    <div className="flex items-center bg-background border rounded-md h-7 shadow-sm">
                                         {isMultiple && (
-                                            <Button variant="outline" size="sm" className="flex-1 text-xs h-7" onClick={handleGroupTexts}>
-                                                Link
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none" onClick={handleGroupTexts} title="Link Selected">
+                                                <Settings2 className="w-3.5 h-3.5" />
                                             </Button>
                                         )}
                                         {isLinked && (
-                                            <Button variant="outline" size="sm" className="flex-1 text-xs h-7" onClick={handleUngroupTexts}>
-                                                Unlink
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none text-destructive hover:text-destructive" onClick={handleUngroupTexts} title="Unlink">
+                                                <Trash2 className="w-3.5 h-3.5 rotate-45" /> {/* Using Trash rotated as 'break' icon substitute */}
                                             </Button>
                                         )}
-                                    </>
+                                    </div>
                                 )}
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                                    onClick={handleDeleteText}
+                                    title="Delete Selection"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </Button>
                             </div>
+                        </div>
 
-                            {/* Content */}
-                            <div className="space-y-2">
-                                <Label className="text-xs text-muted-foreground">Content</Label>
-                                <Input
-                                    value={activeTexts.length === 1 ? activeText?.text || '' : 'Multiple Selected'}
-                                    disabled={activeTexts.length !== 1}
-                                    onChange={(e) => handleUpdateText({ text: e.target.value })}
-                                    className="font-medium"
-                                    placeholder={activeTexts.length === 0 ? "Select text to edit" : "Multiple"}
-                                />
+                        {/* Main Content Input */}
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Content</Label>
+                            <Input
+                                value={activeTexts.length === 1 ? activeText?.text || '' : 'Multiple Selected'}
+                                disabled={activeTexts.length !== 1}
+                                onChange={(e) => handleUpdateText({ text: e.target.value })}
+                                className="font-medium bg-background shadow-sm"
+                                placeholder={activeTexts.length === 0 ? "Select text to edit" : "Multiple"}
+                            />
+                        </div>
+
+                        <Separator className="bg-border/50" />
+
+                        {/* Typography Grid */}
+                        <div className="grid grid-cols-3 gap-3">
+                            <div className="col-span-2 space-y-1.5">
+                                <Label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Typeface</Label>
+                                <select
+                                    className="w-full h-9 px-2 text-sm border rounded-md bg-background shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                                    value={activeText?.style.fontFamily || 'Inter'}
+                                    onChange={(e) => handleUpdateText({ fontFamily: e.target.value })}
+                                >
+                                    {AVAILABLE_FONTS.map(f => <option key={f} value={f}>{f}</option>)}
+                                </select>
                             </div>
-
-                            {/* Typography */}
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="space-y-1">
-                                    <Label className="text-xs text-muted-foreground">Font</Label>
-                                    <select
-                                        className="w-full h-9 px-2 text-sm border rounded bg-background"
-                                        value={activeText?.style.fontFamily || 'Inter'}
-                                        onChange={(e) => handleUpdateText({ fontFamily: e.target.value })}
-                                    >
-                                        {AVAILABLE_FONTS.map(f => <option key={f} value={f}>{f}</option>)}
-                                    </select>
-                                </div>
-                                <div className="space-y-1">
-                                    <Label className="text-xs text-muted-foreground">Size (px)</Label>
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Size</Label>
+                                <div className="relative">
                                     <Input
                                         type="number"
                                         value={activeText?.style.fontSize || 24}
                                         onChange={(e) => handleUpdateText({ fontSize: Number(e.target.value) })}
+                                        className="h-9 pr-6 bg-background shadow-sm"
+                                    />
+                                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">px</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Style Row */}
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Appearance</Label>
+                            <div className="flex items-center gap-3">
+                                <div className="flex-shrink-0">
+                                    <SpineColorPicker
+                                        value={activeText?.style.color || '#000000'}
+                                        onChange={(c) => handleUpdateText({ color: c })}
+                                        disableAlpha
+                                    />
+                                </div>
+
+                                <Separator orientation="vertical" className="h-8" />
+
+                                <div className="flex-1 flex items-center justify-between gap-1 bg-background border rounded-md p-1 shadow-sm">
+                                    <div className="flex gap-0.5">
+                                        <Button
+                                            variant={activeText?.style.fontWeight === 'bold' ? 'secondary' : 'ghost'}
+                                            size="icon" className="h-7 w-7"
+                                            onClick={() => handleUpdateText({ fontWeight: activeText?.style.fontWeight === 'bold' ? 'normal' : 'bold' })}
+                                        >
+                                            <Bold className="h-3.5 w-3.5" />
+                                        </Button>
+                                        <Button
+                                            variant={activeText?.style.fontStyle === 'italic' ? 'secondary' : 'ghost'}
+                                            size="icon" className="h-7 w-7"
+                                            onClick={() => handleUpdateText({ fontStyle: activeText?.style.fontStyle === 'italic' ? 'normal' : 'italic' })}
+                                        >
+                                            <Italic className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </div>
+                                    <div className="w-px h-4 bg-border" />
+                                    <div className="flex gap-0.5">
+                                        <Button
+                                            variant={activeText?.style.textAlign === 'left' ? 'secondary' : 'ghost'}
+                                            size="icon" className="h-7 w-7"
+                                            onClick={() => handleUpdateText({ textAlign: 'left' })}
+                                        >
+                                            <AlignLeft className="h-3.5 w-3.5" />
+                                        </Button>
+                                        <Button
+                                            variant={activeText?.style.textAlign === 'center' || !activeText?.style.textAlign ? 'secondary' : 'ghost'}
+                                            size="icon" className="h-7 w-7"
+                                            onClick={() => handleUpdateText({ textAlign: 'center' })}
+                                        >
+                                            <AlignCenter className="h-3.5 w-3.5" />
+                                        </Button>
+                                        <Button
+                                            variant={activeText?.style.textAlign === 'right' ? 'secondary' : 'ghost'}
+                                            size="icon" className="h-7 w-7"
+                                            onClick={() => handleUpdateText({ textAlign: 'right' })}
+                                        >
+                                            <AlignRight className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* GLOBAL SETTINGS SECTION */}
+                {/* Header only visible if no text selected to avoid clutter, OR always visible but collapsed? keeping always visible tabs for access */}
+                <div className="flex-1">
+                    <Tabs defaultValue="style" className="w-full">
+                        <div className="px-4 py-3 bg-muted/20 border-b flex items-center justify-between">
+                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Global Settings</span>
+                        </div>
+                        <TabsList className="w-full justify-start rounded-none border-b bg-transparent h-10 p-0">
+                            <TabsTrigger
+                                value="style"
+                                className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary px-4 py-2 text-xs font-medium"
+                            >
+                                Background
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="structure"
+                                className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary px-4 py-2 text-xs font-medium"
+                            >
+                                Layout & Spine
+                            </TabsTrigger>
+                        </TabsList>
+
+                        {/* BACKGROUND TAB */}
+                        <TabsContent value="style" className="p-4 space-y-6">
+                            {/* Color Config */}
+                            <div className="space-y-3">
+                                <Label className="text-xs font-semibold text-foreground">Background Color</Label>
+                                <div className="flex items-center gap-2">
+                                    <div className="relative group cursor-pointer">
+                                        <div
+                                            className="w-10 h-10 rounded-md border shadow-sm"
+                                            style={{ backgroundColor: page.backgroundColor || '#ffffff' }}
+                                        />
+                                        <input
+                                            type="color"
+                                            value={page.backgroundColor || '#ffffff'}
+                                            onChange={(e) => handleUpdatePageProp({ backgroundColor: e.target.value })}
+                                            className="absolute inset-0 opacity-0 cursor-pointer"
+                                        />
+                                    </div>
+                                    <div className="flex-1">
+                                        <Input
+                                            type="text"
+                                            value={page.backgroundColor || ''}
+                                            onChange={(e) => handleUpdatePageProp({ backgroundColor: e.target.value })}
+                                            className="h-9 font-mono text-xs uppercase"
+                                            placeholder="#FFFFFF"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <Separator />
+
+                            {/* Image Config */}
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-xs font-semibold text-foreground">Background Image</Label>
+                                    {page.backgroundImage && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 text-xs text-destructive hover:bg-destructive/10 px-2"
+                                            onClick={() => handleUpdatePageProp({ backgroundImage: undefined })}
+                                        >
+                                            Remove
+                                        </Button>
+                                    )}
+                                </div>
+
+                                {/* Grid of Preset/Uploaded Options */}
+                                <div className="grid grid-cols-4 gap-2">
+                                    <div
+                                        className={cn(
+                                            "aspect-square rounded-md border-2 cursor-pointer flex items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors",
+                                            !page.backgroundImage ? "border-primary ring-2 ring-primary/10" : "border-muted"
+                                        )}
+                                        onClick={() => handleUpdatePageProp({ backgroundImage: undefined })}
+                                        title="No Image"
+                                    >
+                                        <span className="text-[10px] text-muted-foreground">None</span>
+                                    </div>
+
+                                    {availableBackgrounds.map((bg, index) => (
+                                        <div
+                                            key={index}
+                                            className={cn(
+                                                "aspect-square rounded-md border-2 cursor-pointer overflow-hidden relative group transition-all",
+                                                page.backgroundImage === bg ? "border-primary ring-2 ring-primary/10" : "border-muted hover:border-primary/50"
+                                            )}
+                                            onClick={() => handleUpdatePageProp({ backgroundImage: bg })}
+                                        >
+                                            <img src={bg} alt="bg" className="w-full h-full object-cover" />
+                                            <button
+                                                className="absolute top-0 right-0 p-1 bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-bl-md"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setAvailableBackgrounds(prev => prev.filter((_, i) => i !== index));
+                                                    if (page.backgroundImage === bg) handleUpdatePageProp({ backgroundImage: undefined });
+                                                }}
+                                            >
+                                                <Trash2 className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    ))}
+
+                                    <div
+                                        className="aspect-square rounded-md border-2 border-dashed border-muted hover:border-primary/50 cursor-pointer flex items-center justify-center bg-background transition-colors"
+                                        onClick={() => backgroundUploadRef.current?.click()}
+                                        title="Upload Image"
+                                    >
+                                        <PlusSquare className="w-5 h-5 text-muted-foreground" />
+                                    </div>
+                                </div>
+                                <input
+                                    ref={backgroundUploadRef}
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                            const reader = new FileReader();
+                                            reader.onload = (event) => {
+                                                const dataUrl = event.target?.result as string;
+                                                setAvailableBackgrounds(prev => [...prev, dataUrl]);
+                                                handleUpdatePageProp({ backgroundImage: dataUrl });
+                                            };
+                                            reader.readAsDataURL(file);
+                                        }
+                                        e.target.value = '';
+                                    }}
+                                />
+
+                                {/* Preview Box - Now separate and larger */}
+                                {page.backgroundImage && (
+                                    <div className="pt-2">
+                                        <Label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Active Preview</Label>
+                                        <div className="relative w-full h-32 rounded-lg border overflow-hidden bg-gray-100 shadow-inner">
+                                            <img src={page.backgroundImage} className="w-full h-full object-cover" alt="Active" />
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="pt-2">
+                                    <AiBackgroundGenerator
+                                        onBackgroundGenerated={(url) => {
+                                            setAvailableBackgrounds(prev => [...prev, url]);
+                                            handleUpdatePageProp({ backgroundImage: url });
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        </TabsContent>
+
+                        {/* STRUCTURE (SPINE & LAYOUT) TAB */}
+                        <TabsContent value="structure" className="p-4 space-y-6">
+                            {/* Spine Structural Settings */}
+                            <div className="space-y-4">
+                                <Label className="text-xs font-semibold text-foreground flex items-center gap-2">
+                                    <Layout className="w-3.5 h-3.5" /> Spine Structure
+                                </Label>
+
+                                {/* Spine Background Color - RESTORED */}
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Background Color & Opacity</Label>
+                                    <div className="flex items-center gap-3">
+                                        <SpineColorPicker
+                                            value={page.spineColor || 'transparent'}
+                                            onChange={(c) => handleUpdatePageProp({ spineColor: c })}
+                                            disableAlpha={false} // Transparency allowed for spine background
+                                        />
+                                        <div className="flex-1 text-xs text-muted-foreground">
+                                            Select the background color for the spine area. Supports transparency.
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <div className="flex justify-between">
+                                        <Label className="text-[10px] text-muted-foreground mb-1">Spine Width (px)</Label>
+                                        <span className="text-[10px] text-muted-foreground">{page.spineWidth ?? 40}px</span>
+                                    </div>
+                                    <Slider
+                                        value={[page.spineWidth ?? 40]}
+                                        min={20} max={100} step={1}
+                                        onValueChange={(val) => handleUpdatePageProp({ spineWidth: val[0] })}
+                                        className="py-1"
                                     />
                                 </div>
                             </div>
 
-                            {/* Color & Styles */}
-                            <div className="flex gap-2">
-                                <div className="space-y-1 flex-1">
-                                    <Label className="text-xs text-muted-foreground">Color</Label>
-                                    <div className="flex items-center gap-2">
-                                        <SpineColorPicker
-                                            value={activeText?.style.color || '#000000'}
-                                            onChange={(c) => handleUpdateText({ color: c })}
-                                            disableAlpha
-                                        />
+                            <Separator />
+
+                            {/* Spine Content & Style */}
+                            <div className="space-y-4">
+                                <Label className="text-xs font-semibold text-foreground flex items-center gap-2">
+                                    <Type className="w-3.5 h-3.5" /> Spine Text
+                                </Label>
+
+                                <Input
+                                    className="h-9 bg-background shadow-sm"
+                                    value={page.spineText || ''}
+                                    onChange={(e) => handleUpdatePageProp({ spineText: e.target.value })}
+                                    placeholder="Enter spine text (e.g. Album Title)"
+                                />
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Typeface</Label>
+                                        <select
+                                            className="w-full h-9 px-2 text-sm border rounded-md bg-background shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                                            value={page.spineFontFamily || 'Tahoma'}
+                                            onChange={(e) => handleUpdatePageProp({ spineFontFamily: e.target.value })}
+                                        >
+                                            {AVAILABLE_FONTS.map(f => <option key={f} value={f}>{f}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Size</Label>
+                                        <div className="relative">
+                                            <Input
+                                                type="number"
+                                                value={page.spineFontSize || 12}
+                                                onChange={(e) => handleUpdatePageProp({ spineFontSize: Number(e.target.value) })}
+                                                className="h-9 pr-6 bg-background shadow-sm"
+                                            />
+                                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">px</span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="space-y-1 flex-[2]">
-                                    <div className="flex items-center justify-between bg-muted/30 p-1 rounded-md border mt-5">
-                                        <div className="flex gap-0.5 border-r pr-1">
+
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Appearance</Label>
+                                    <div className="flex items-center gap-3">
+                                        <SpineColorPicker
+                                            value={page.spineTextColor}
+                                            onChange={(c) => handleUpdatePageProp({ spineTextColor: c })}
+                                            disableAlpha
+                                        />
+
+                                        <Separator orientation="vertical" className="h-8" />
+
+                                        <div className="flex-1 flex items-center justify-between gap-1 bg-background border rounded-md p-1 shadow-sm">
+                                            <div className="flex gap-0.5">
+                                                <Button
+                                                    variant={page.spineFontWeight === 'bold' ? 'secondary' : 'ghost'}
+                                                    size="icon" className="h-7 w-7"
+                                                    onClick={() => handleUpdatePageProp({ spineFontWeight: page.spineFontWeight === 'bold' ? 'normal' : 'bold' })}
+                                                >
+                                                    <Bold className="h-3.5 w-3.5" />
+                                                </Button>
+                                                <Button
+                                                    variant={page.spineFontStyle === 'italic' ? 'secondary' : 'ghost'}
+                                                    size="icon" className="h-7 w-7"
+                                                    onClick={() => handleUpdatePageProp({ spineFontStyle: page.spineFontStyle === 'italic' ? 'normal' : 'italic' })}
+                                                >
+                                                    <Italic className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </div>
+                                            <div className="w-px h-4 bg-border" />
+                                            <div className="flex gap-0.5">
+                                                <Button
+                                                    variant={page.spineTextAlign === 'left' ? 'secondary' : 'ghost'}
+                                                    size="icon" className="h-7 w-7"
+                                                    onClick={() => handleUpdatePageProp({ spineTextAlign: 'left' })}
+                                                >
+                                                    <AlignLeft className="h-3.5 w-3.5" />
+                                                </Button>
+                                                <Button
+                                                    variant={page.spineTextAlign === 'center' || !page.spineTextAlign ? 'secondary' : 'ghost'}
+                                                    size="icon" className="h-7 w-7"
+                                                    onClick={() => handleUpdatePageProp({ spineTextAlign: 'center' })}
+                                                >
+                                                    <AlignCenter className="h-3.5 w-3.5" />
+                                                </Button>
+                                                <Button
+                                                    variant={page.spineTextAlign === 'right' ? 'secondary' : 'ghost'}
+                                                    size="icon" className="h-7 w-7"
+                                                    onClick={() => handleUpdatePageProp({ spineTextAlign: 'right' })}
+                                                >
+                                                    <AlignRight className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </div>
+                                            <div className="w-px h-4 bg-border" />
                                             <Button
-                                                variant={activeText?.style.fontWeight === 'bold' ? 'secondary' : 'ghost'}
+                                                variant={page.spineTextRotated ? 'secondary' : 'ghost'}
                                                 size="icon" className="h-7 w-7"
-                                                onClick={() => handleUpdateText({ fontWeight: activeText?.style.fontWeight === 'bold' ? 'normal' : 'bold' })}
+                                                onClick={() => handleUpdatePageProp({ spineTextRotated: !page.spineTextRotated })}
+                                                title="Rotate Text"
                                             >
-                                                <Bold className="h-3.5 w-3.5" />
-                                            </Button>
-                                            <Button
-                                                variant={activeText?.style.fontStyle === 'italic' ? 'secondary' : 'ghost'}
-                                                size="icon" className="h-7 w-7"
-                                                onClick={() => handleUpdateText({ fontStyle: activeText?.style.fontStyle === 'italic' ? 'normal' : 'italic' })}
-                                            >
-                                                <Italic className="h-3.5 w-3.5" />
-                                            </Button>
-                                        </div>
-                                        <div className="flex gap-0.5 pl-1">
-                                            <Button
-                                                variant={activeText?.style.textAlign === 'left' ? 'secondary' : 'ghost'}
-                                                size="icon" className="h-7 w-7"
-                                                onClick={() => handleUpdateText({ textAlign: 'left' })}
-                                            >
-                                                <AlignLeft className="h-3.5 w-3.5" />
-                                            </Button>
-                                            <Button
-                                                variant={activeText?.style.textAlign === 'center' || !activeText?.style.textAlign ? 'secondary' : 'ghost'}
-                                                size="icon" className="h-7 w-7"
-                                                onClick={() => handleUpdateText({ textAlign: 'center' })}
-                                            >
-                                                <AlignCenter className="h-3.5 w-3.5" />
-                                            </Button>
-                                            <Button
-                                                variant={activeText?.style.textAlign === 'right' ? 'secondary' : 'ghost'}
-                                                size="icon" className="h-7 w-7"
-                                                onClick={() => handleUpdateText({ textAlign: 'right' })}
-                                            >
-                                                <AlignRight className="h-3.5 w-3.5" />
+                                                <RotateCw className="h-3.5 w-3.5" />
                                             </Button>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-
-                            <Button
-                                variant="destructive"
-                                size="sm"
-                                className="w-full gap-2 opacity-80 hover:opacity-100"
-                                onClick={handleDeleteText}
-                            >
-                                <Trash2 className="h-3 w-3" /> Delete
-                            </Button>
-                        </div>
-                    </div>
-
-                    <Separator />
-
-                    {/* Global Cover Settings */}
-                    <div className="space-y-2">
-                        <Label className="flex items-center gap-2 text-primary font-semibold">
-                            <Layout className="w-4 h-4" /> Global Settings
-                        </Label>
-
-                        <Tabs defaultValue="style">
-                            <TabsList className="w-full flex items-center border-b p-0 h-9 bg-transparent rounded-none">
-                                <TabsTrigger
-                                    value="style"
-                                    className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-2 py-2 text-xs text-muted-foreground data-[state=active]:text-foreground"
-                                >
-                                    Background
-                                </TabsTrigger>
-                                <TabsTrigger
-                                    value="structure"
-                                    className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-2 py-2 text-xs text-muted-foreground data-[state=active]:text-foreground"
-                                >
-                                    Layout & Spine
-                                </TabsTrigger>
-                            </TabsList>
-
-                            <TabsContent value="style" className="space-y-2 pt-4">
-                                {/* Background Section */}
-                                {/* Background Section */}
-                                <div className="space-y-3">
-                                    {/* Background Color */}
-                                    <div className="space-y-2">
-                                        <Label className="text-xs">Background Color</Label>
-                                        <div className="flex items-center gap-2">
-                                            <div className="relative">
-                                                <input
-                                                    type="color"
-                                                    value={page.backgroundColor || '#ffffff'}
-                                                    onChange={(e) => handleUpdatePageProp({ backgroundColor: e.target.value })}
-                                                    className="w-10 h-10 rounded border cursor-pointer opacity-0 absolute inset-0 z-10"
-                                                />
-                                                <div
-                                                    className="w-10 h-10 rounded border"
-                                                    style={{ backgroundColor: page.backgroundColor || '#ffffff' }}
-                                                />
-                                            </div>
-                                            <Input
-                                                type="text"
-                                                value={page.backgroundColor || ''}
-                                                onChange={(e) => handleUpdatePageProp({ backgroundColor: e.target.value })}
-                                                className="flex-1 h-8 px-2 text-sm"
-                                                placeholder="#ffffff"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <Separator />
-
-                                    {/* Background Image */}
-                                    <div className="space-y-2">
-                                        <Label className="text-xs">Background Image</Label>
-                                        <div className="grid grid-cols-3 gap-2">
-                                            {/* None option */}
-                                            <div
-                                                className={cn(
-                                                    "h-12 rounded border-2 cursor-pointer flex items-center justify-center bg-gray-100",
-                                                    !page.backgroundImage ? "border-primary ring-2 ring-primary/20" : "border-muted hover:border-primary/50"
-                                                )}
-                                                onClick={() => handleUpdatePageProp({ backgroundImage: undefined })}
-                                            >
-                                                <span className="text-xs text-muted-foreground">None</span>
-                                            </div>
-
-                                            {/* Available backgrounds */}
-                                            {availableBackgrounds.map((bg, index) => (
-                                                <div
-                                                    key={index}
-                                                    className={cn(
-                                                        "h-12 rounded border-2 cursor-pointer overflow-hidden relative group",
-                                                        page.backgroundImage === bg ? "border-primary ring-2 ring-primary/20" : "border-muted hover:border-primary/50"
-                                                    )}
-                                                    onClick={() => handleUpdatePageProp({ backgroundImage: bg })}
-                                                >
-                                                    <img src={bg} alt={`Background ${index + 1}`} className="w-full h-full object-contain" />
-                                                    <button
-                                                        className="absolute top-0 right-0 w-5 h-5 bg-black/50 text-white text-xs rounded-bl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-black/70"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setAvailableBackgrounds(prev => prev.filter((_, i) => i !== index));
-                                                            if (page.backgroundImage === bg) {
-                                                                handleUpdatePageProp({ backgroundImage: undefined });
-                                                            }
-                                                        }}
-                                                    >
-                                                        <Trash2 className="w-3 h-3" />
-                                                    </button>
-                                                </div>
-                                            ))}
-
-                                            {/* Upload button */}
-                                            <div
-                                                className="h-12 rounded border-2 border-dashed cursor-pointer flex items-center justify-center bg-gray-50 hover:bg-gray-100"
-                                                onClick={() => backgroundUploadRef.current?.click()}
-                                            >
-                                                <PlusSquare className="w-5 h-5 text-muted-foreground" />
-                                            </div>
-                                        </div>
-
-                                        <input
-                                            ref={backgroundUploadRef}
-                                            type="file"
-                                            accept="image/*"
-                                            className="hidden"
-                                            onChange={(e) => {
-                                                const file = e.target.files?.[0];
-                                                if (file) {
-                                                    const reader = new FileReader();
-                                                    reader.onload = (event) => {
-                                                        const dataUrl = event.target?.result as string;
-                                                        setAvailableBackgrounds(prev => [...prev, dataUrl]);
-                                                        handleUpdatePageProp({ backgroundImage: dataUrl });
-                                                    };
-                                                    reader.readAsDataURL(file);
-                                                }
-                                                e.target.value = '';
-                                            }}
-                                        />
-
-                                        {/* Preview of Current Selected */}
-                                        {page.backgroundImage && (
-                                            <div className="relative w-full aspect-video rounded-md overflow-hidden border group mt-2">
-                                                <img src={page.backgroundImage} alt="Bg" className="w-full h-full object-cover" />
-                                                <Button
-                                                    variant="destructive"
-                                                    size="icon"
-                                                    className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    onClick={() => handleUpdatePageProp({ backgroundImage: undefined })}
-                                                >
-                                                    <Trash2 className="w-3 h-3" />
-                                                </Button>
-                                            </div>
-                                        )}
-
-                                        <div className="pt-2">
-                                            <Label className="text-xs mb-2 block">Generate with AI</Label>
-                                            <AiBackgroundGenerator
-                                                onBackgroundGenerated={(url) => {
-                                                    setAvailableBackgrounds(prev => [...prev, url]);
-                                                    handleUpdatePageProp({ backgroundImage: url });
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            </TabsContent>
-
-                            <TabsContent value="structure" className="space-y-4 pt-4">
-                                {/* Spine Settings */}
-                                <div className="space-y-3 p-3 bg-muted/20 rounded-lg border">
-                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Spine</Label>
-
-                                    <div className="space-y-1">
-                                        <Input
-                                            className="h-8 bg-background"
-                                            value={page.spineText || ''}
-                                            onChange={(e) => handleUpdatePageProp({ spineText: e.target.value })}
-                                            placeholder="Spine Text"
-                                        />
-                                    </div>
-
-                                    {/* Typography Grid: Font + Size */}
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] text-muted-foreground">Font</Label>
-                                            <select
-                                                className="w-full h-8 px-2 text-sm border rounded bg-background"
-                                                value={page.spineFontFamily || 'Tahoma'}
-                                                onChange={(e) => handleUpdatePageProp({ spineFontFamily: e.target.value })}
-                                            >
-                                                {AVAILABLE_FONTS.map(f => <option key={f} value={f}>{f}</option>)}
-                                            </select>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] text-muted-foreground">Size (px)</Label>
-                                            <Input
-                                                type="number" className="h-8 bg-background"
-                                                value={page.spineFontSize || 12}
-                                                onChange={(e) => handleUpdatePageProp({ spineFontSize: Number(e.target.value) })}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Width */}
-                                    <div className="space-y-1">
-                                        <div className="flex justify-between">
-                                            <Label className="text-[10px] text-muted-foreground mb-1">Spine Width (px)</Label>
-                                            <span className="text-[10px] text-muted-foreground">{page.spineWidth ?? 40}px</span>
-                                        </div>
-                                        <Slider
-                                            value={[page.spineWidth ?? 40]}
-                                            min={0} max={100} step={1}
-                                            onValueChange={(val) => handleUpdatePageProp({ spineWidth: val[0] })}
-                                        />
-                                    </div>
-
-                                    {/* Color & Styles */}
-                                    <div className="flex gap-2">
-                                        <div className="space-y-1 flex-1">
-                                            <Label className="text-[10px] text-muted-foreground">Color</Label>
-                                            <div className="flex items-center gap-2">
-                                                <SpineColorPicker
-                                                    value={page.spineTextColor}
-                                                    onChange={(c) => handleUpdatePageProp({ spineTextColor: c })}
-                                                    disableAlpha
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="space-y-1 flex-[2]">
-                                            <Label className="text-[10px] text-muted-foreground invisible">Style</Label>
-                                            <div className="flex items-center justify-between bg-muted/30 p-1 rounded-md border">
-                                                <div className="flex gap-0.5 border-r pr-1">
-                                                    <Button
-                                                        variant={page.spineFontWeight === 'bold' ? 'secondary' : 'ghost'}
-                                                        size="icon" className="h-7 w-7"
-                                                        onClick={() => handleUpdatePageProp({ spineFontWeight: page.spineFontWeight === 'bold' ? 'normal' : 'bold' })}
-                                                    >
-                                                        <Bold className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                    <Button
-                                                        variant={page.spineFontStyle === 'italic' ? 'secondary' : 'ghost'}
-                                                        size="icon" className="h-7 w-7"
-                                                        onClick={() => handleUpdatePageProp({ spineFontStyle: page.spineFontStyle === 'italic' ? 'normal' : 'italic' })}
-                                                    >
-                                                        <Italic className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                </div>
-                                                <div className="flex gap-0.5 pl-1">
-                                                    <Button
-                                                        variant={page.spineTextAlign === 'left' ? 'secondary' : 'ghost'}
-                                                        size="icon" className="h-7 w-7"
-                                                        onClick={() => handleUpdatePageProp({ spineTextAlign: 'left' })}
-                                                    >
-                                                        <AlignLeft className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                    <Button
-                                                        variant={page.spineTextAlign === 'center' || !page.spineTextAlign ? 'secondary' : 'ghost'}
-                                                        size="icon" className="h-7 w-7"
-                                                        onClick={() => handleUpdatePageProp({ spineTextAlign: 'center' })}
-                                                    >
-                                                        <AlignCenter className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                    <Button
-                                                        variant={page.spineTextAlign === 'right' ? 'secondary' : 'ghost'}
-                                                        size="icon" className="h-7 w-7"
-                                                        onClick={() => handleUpdatePageProp({ spineTextAlign: 'right' })}
-                                                    >
-                                                        <AlignRight className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                    <div className="w-px bg-border mx-0.5" />
-                                                    <Button
-                                                        variant={page.spineTextRotated ? 'secondary' : 'ghost'}
-                                                        size="icon" className="h-7 w-7"
-                                                        onClick={() => handleUpdatePageProp({ spineTextRotated: !page.spineTextRotated })}
-                                                        title="Flip text direction"
-                                                    >
-                                                        <RotateCw className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-
-                            </TabsContent>
-                        </Tabs>
-                    </div>
+                        </TabsContent>
+                    </Tabs>
                 </div>
-            </ScrollArea>
+
+            </div>
         </div>
     );
 };
