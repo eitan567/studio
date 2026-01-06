@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { BookOpenText, Info, Trash2, LayoutTemplate, Download, Image as ImageIcon, Wand2, Undo, Crop, AlertTriangle, Pencil, BookOpen, Share2, FileText, FileDown, MoreHorizontal, FileImage } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 import type { AlbumPage, AlbumConfig, Photo } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
@@ -603,6 +603,91 @@ const PageToolbar = ({
   );
 };
 
+// --- Scaled Cover Preview Wrapper ---
+const ScaledCoverPreview = ({
+  page,
+  config,
+  onUpdateTitleSettings,
+  onDropPhoto,
+  onUpdatePhotoPanAndZoom
+}: {
+  page: AlbumPage;
+  config: AlbumConfig;
+  onUpdateTitleSettings?: any;
+  onDropPhoto?: any;
+  onUpdatePhotoPanAndZoom?: any;
+}) => {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const BASE_PAGE_PX = 450;
+
+  // Re-calculate logical dimensions for rendering
+  const [wStr, hStr] = config.size.split('x');
+  const cfgW = Number(wStr);
+  const cfgH = Number(hStr);
+  const pxPerUnit = BASE_PAGE_PX / cfgH;
+  const singlePageLogicalW = cfgW * pxPerUnit;
+  const spineWidth = page.spineWidth ?? 40;
+  const logicalWidth = (singlePageLogicalW * 2) + spineWidth;
+  const logicalHeight = BASE_PAGE_PX;
+
+  useEffect(() => {
+    if (!wrapperRef.current) return;
+    const measure = () => {
+      const wrapper = wrapperRef.current;
+      if (!wrapper) return;
+      const { width: availW, height: availH } = wrapper.getBoundingClientRect();
+      if (availW === 0 || availH === 0) return;
+
+      const scaleX = availW / logicalWidth;
+      const scaleY = availH / logicalHeight;
+      const fitScale = Math.min(scaleX, scaleY);
+      setScale(fitScale);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(wrapperRef.current);
+    return () => observer.disconnect();
+  }, [logicalWidth, logicalHeight]);
+
+  return (
+    <div ref={wrapperRef} className="w-full h-full flex items-center justify-center overflow-hidden">
+      <div style={{
+        width: logicalWidth,
+        height: logicalHeight,
+        transform: `scale(${scale})`,
+        transformOrigin: 'center center', // Scale from center
+        flexShrink: 0,
+        position: 'relative' // Ensure relative positioning for children
+      }}>
+        <AlbumCover
+          page={page}
+          config={config}
+          mode="preview"
+          activeView="full"
+          onUpdateTitleSettings={onUpdateTitleSettings}
+          onDropPhoto={onDropPhoto}
+          onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
+        />
+        <div className="absolute inset-0 z-20 pointer-events-none">
+          {page.titleText && (
+            <DraggableTitle
+              text={page.titleText}
+              color={page.titleColor}
+              fontSize={page.titleFontSize}
+              fontFamily={page.titleFontFamily}
+              position={page.titlePosition}
+              containerId={`front-cover-container-${page.id}`}
+              onUpdatePosition={(x, y) => onUpdateTitleSettings?.(page.id, { position: { x, y } })}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 export function AlbumPreview({
   pages,
   config,
@@ -672,51 +757,62 @@ export function AlbumPreview({
                   />
                 </div>
 
-                <AspectRatio ratio={page.isCover || page.type === 'spread' ? 2 / 1 : 2} className={cn(page.type === 'single' && 'w-1/2 mx-auto')}>
-                  <Card
-                    className="h-full w-full shadow-lg"
-                    style={{
-                      backgroundColor: page.backgroundColor || config.backgroundColor,
-                      backgroundImage: (page.backgroundImage || config.backgroundImage) ? `url(${page.backgroundImage || config.backgroundImage})` : undefined,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                    }}
+                <div className={cn(page.type === 'single' && 'w-1/2 mx-auto')}>
+                  <AspectRatio
+                    ratio={(
+                      () => {
+                        const [w, h] = config.size.split('x').map(Number);
+                        const baseRatio = w / h;
+                        if (page.isCover) {
+                          // Include spine width in cover ratio to match ScaledCoverPreview
+                          const BASE_PAGE_PX = 450;
+                          const pxPerUnit = BASE_PAGE_PX / h;
+                          const singlePageW = w * pxPerUnit;
+                          const spineWidth = page.spineWidth ?? 40;
+                          const coverWidth = (singlePageW * 2) + spineWidth;
+                          return coverWidth / BASE_PAGE_PX;
+                        }
+                        return page.type === 'spread' ? baseRatio * 2 : baseRatio;
+                      }
+                    )()}
                   >
-                    <CardContent
-                      className="flex h-full w-full items-center justify-center p-0"
-                      style={{ padding: page.isCover ? 0 : `${config.pageMargin}px` }}
+
+                    <Card
+                      className="h-full w-full shadow-lg"
+                      style={{
+                        backgroundColor: page.backgroundColor || config.backgroundColor,
+                        backgroundImage: (page.backgroundImage || config.backgroundImage) ? `url(${page.backgroundImage || config.backgroundImage})` : undefined,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                      }}
                     >
-                      {page.isCover ? (
-                        <div className="relative h-full w-full">
-                          <AlbumCover
+                      <CardContent
+                        className="flex h-full w-full items-center justify-center p-0"
+                        style={{ padding: page.isCover ? 0 : `${config.pageMargin}px` }}
+                      >
+                        {page.isCover ? (
+                          <ScaledCoverPreview
                             page={page}
                             config={config}
-                            mode="preview"
-                            activeView="full"
                             onUpdateTitleSettings={onUpdateTitleSettings}
                             onDropPhoto={onDropPhoto}
                             onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
                           />
-                          <div className="absolute inset-0 z-20 pointer-events-none">
-                            {page.titleText && (
-                              <DraggableTitle
-                                text={page.titleText}
-                                color={page.titleColor}
-                                fontSize={page.titleFontSize}
-                                fontFamily={page.titleFontFamily}
-                                position={page.titlePosition}
-                                containerId={`front-cover-container-${page.id}`}
-                                onUpdatePosition={(x, y) => onUpdateTitleSettings?.(page.id, { position: { x, y } })}
-                              />
-                            )}
+                        ) : page.type === 'spread' ? (
+                          <div className="relative h-full w-full">
+                            {/* Spine simulation */}
+                            <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10 pointer-events-none"></div>
+                            <div className="absolute inset-y-0 left-1/2 w-4 -ml-2 bg-gradient-to-r from-transparent to-black/10 z-10 pointer-events-none"></div>
+                            <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10 pointer-events-none"></div>
+                            <PageLayout
+                              page={page}
+                              photoGap={config.photoGap}
+                              onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
+                              onInteractionChange={setIsInteracting}
+                              onDropPhoto={onDropPhoto}
+                            />
                           </div>
-                        </div>
-                      ) : page.type === 'spread' ? (
-                        <div className="relative h-full w-full">
-                          {/* Spine simulation */}
-                          <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10 pointer-events-none"></div>
-                          <div className="absolute inset-y-0 left-1/2 w-4 -ml-2 bg-gradient-to-r from-transparent to-black/10 z-10 pointer-events-none"></div>
-                          <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10 pointer-events-none"></div>
+                        ) : (
                           <PageLayout
                             page={page}
                             photoGap={config.photoGap}
@@ -724,20 +820,12 @@ export function AlbumPreview({
                             onInteractionChange={setIsInteracting}
                             onDropPhoto={onDropPhoto}
                           />
-                        </div>
-                      ) : (
-                        <PageLayout
-                          page={page}
-                          photoGap={config.photoGap}
-                          onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
-                          onInteractionChange={setIsInteracting}
-                          onDropPhoto={onDropPhoto}
-                        />
-                      )}
+                        )}
 
-                    </CardContent>
-                  </Card>
-                </AspectRatio>
+                      </CardContent>
+                    </Card>
+                  </AspectRatio>
+                </div>
               </div>
             </div>
           ))

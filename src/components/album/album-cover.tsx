@@ -542,7 +542,7 @@ export const AlbumCover = ({
     };
 
     const handleDragEnd = () => {
-        if (!onUpdatePage || !page.coverTexts) return;
+        if (!onUpdatePage) return;
 
         // Commit changes to actual page state
         if (Object.keys(dragPositions).length === 0) return;
@@ -825,13 +825,23 @@ export const AlbumCover = ({
 
             let localX = currentX;
             let localY = currentY;
+            let localWidth = imgItem.width;
             let isVisible = true;
 
             if (isFront) {
+                // Global to Local (Front)
+                // Position
                 localX = (currentX - 50) * 2;
+                // Width: % of Full (Wide) -> % of Front (Narrow)
+                // Front container is 1/2 of Full. So same pixels = 2x percentage.
+                localWidth = imgItem.width * 2;
+
                 if (currentX < 50) isVisible = false;
             } else if (isBack) {
+                // Global to Local (Back)
                 localX = currentX * 2;
+                localWidth = imgItem.width * 2;
+
                 if (currentX > 50) isVisible = false;
             }
 
@@ -843,7 +853,7 @@ export const AlbumCover = ({
                 return (
                     <DraggableCoverImage
                         key={imgItem.id}
-                        item={{ ...imgItem, x: localX, y: localY }}
+                        item={{ ...imgItem, x: localX, y: localY, width: localWidth }}
                         isSelected={isSelected}
                         onSelect={(e) => {
                             onSelectImage([imgItem.id], e.ctrlKey || e.metaKey);
@@ -856,9 +866,11 @@ export const AlbumCover = ({
                             handleUpdateImagePosition(imgItem.id, globalX, globalY);
                         }}
                         onUpdateSize={(w) => {
-                            // Assuming uniform scaling, width percentage is enough
-                            // Aspect ratio handles height
-                            handleUpdateImageSize(imgItem.id, w);
+                            // w is Local Percentage. Convert to Global.
+                            let globalWidth = w;
+                            if (isFront || isBack) globalWidth = w / 2;
+
+                            handleUpdateImageSize(imgItem.id, globalWidth);
                         }}
                         onDragEnd={handleDragEnd}
                         containerRef={containerRef}
@@ -868,7 +880,7 @@ export const AlbumCover = ({
                 return (
                     <StaticCoverImage
                         key={imgItem.id}
-                        item={{ ...imgItem, x: localX, y: localY }}
+                        item={{ ...imgItem, x: localX, y: localY, width: localWidth }}
                     />
                 );
             }
