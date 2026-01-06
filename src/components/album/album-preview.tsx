@@ -107,6 +107,7 @@ interface AlbumPreviewProps {
   onUpdateTitleSettings?: (pageId: string, settings: { text?: string; color?: string; fontSize?: number; fontFamily?: string; position?: { x: number; y: number } }) => void;
   onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
   onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
+  onDownloadPage: (pageId: string) => void;
   allPhotos?: Photo[];
 }
 
@@ -341,6 +342,7 @@ const PageToolbar = ({
   onUpdateSpineSettings,
   onUpdateTitleSettings,
   onOpenCoverEditor, // New prop
+  onDownloadPage,
   toast
 }: {
   page: AlbumPage;
@@ -353,6 +355,7 @@ const PageToolbar = ({
   onUpdateSpineSettings?: (id: string, settings: { width?: number; color?: string; textColor?: string; fontSize?: number; fontFamily?: string }) => void;
   onUpdateTitleSettings?: (id: string, settings: { text?: string; color?: string; fontSize?: number; fontFamily?: string; position?: { x: number; y: number } }) => void;
   onOpenCoverEditor?: (pageId: string) => void;
+  onDownloadPage?: (pageId: string) => void;
   toast: any;
 }) => {
   if (page.isCover) {
@@ -555,7 +558,7 @@ const PageToolbar = ({
             </DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><Download className="h-5 w-5" /></Button>
+                <Button variant="ghost" size="icon" onClick={() => onDownloadPage?.(page.id)}><Download className="h-5 w-5" /></Button>
               </TooltipTrigger>
               <TooltipContent>Download Page</TooltipContent>
             </Tooltip>
@@ -606,6 +609,7 @@ export function AlbumPreview({
   onUpdateTitleSettings,
   onUpdatePhotoPanAndZoom,
   onDropPhoto,
+  onDownloadPage,
   allPhotos
 }: AlbumPreviewProps) {
   const { toast } = useToast();
@@ -656,6 +660,7 @@ export function AlbumPreview({
                     onUpdateSpineSettings={onUpdateSpineSettings}
                     onUpdateTitleSettings={onUpdateTitleSettings}
                     onOpenCoverEditor={handleOpenCoverEditor}
+                    onDownloadPage={onDownloadPage}
                     toast={toast}
                   />
                 </div>

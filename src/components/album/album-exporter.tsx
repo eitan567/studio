@@ -20,6 +20,7 @@ interface AlbumExporterProps {
 
 export interface AlbumExporterRef {
     exportAlbum: () => Promise<void>;
+    exportPage: (pageId: string) => Promise<void>;
 }
 
 export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
@@ -82,6 +83,47 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                 onExportComplete?.();
             } catch (err) {
                 console.error("Export failed:", err);
+                onExportError?.(err);
+            }
+        },
+        exportPage: async (pageId: string) => {
+            try {
+                if (!containerRef.current) return;
+
+                const exportContainer = containerRef.current;
+                const pageElement = Array.from(exportContainer.children).find(
+                    (el) => (el as HTMLElement).dataset.pageId === pageId
+                ) as HTMLElement;
+
+                if (!pageElement) {
+                    console.error(`Page element with ID ${pageId} not found`);
+                    return;
+                }
+
+                // Brief wait to ensure stable rendering if needed
+                await new Promise(r => setTimeout(r, 500));
+
+                const isSpread = pageElement.dataset.isSpread === 'true';
+                const isCover = pageElement.dataset.isCover === 'true';
+
+                const blob = await toBlob(pageElement, {
+                    quality: 0.95,
+                    pixelRatio: 2,
+                    skipAutoScale: true,
+                    fontEmbedCSS: '',
+                    cacheBust: false,
+                });
+
+                if (blob) {
+                    let filename = `page-${pageId.slice(0, 8)}.png`;
+                    if (isCover) filename = `cover.png`;
+                    else if (isSpread) filename = `spread-${pageId.slice(0, 8)}.png`;
+
+                    saveAs(blob, filename);
+                }
+
+            } catch (err) {
+                console.error("Single page export failed:", err);
                 onExportError?.(err);
             }
         }

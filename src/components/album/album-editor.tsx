@@ -691,6 +691,11 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     setIsGenerating(false);
   };
 
+  const handleDownloadPage = async (pageId: string) => {
+    toast({ title: "Downloading page..." });
+    await exporterRef.current?.exportPage(pageId);
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Global Top Toolbar */}
@@ -969,6 +974,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             onUpdateLayout={updatePageLayout}
             onUpdatePhotoPanAndZoom={updatePhotoPanAndZoom}
             onDropPhoto={handleDropPhoto}
+            onDownloadPage={handleDownloadPage}
             onUpdateCoverLayout={handleUpdateCoverLayout}
             onUpdateCoverType={handleUpdateCoverType}
             onUpdateSpineText={handleUpdateSpineText}
