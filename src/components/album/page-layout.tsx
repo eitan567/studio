@@ -13,6 +13,7 @@ export interface PageLayoutProps {
     overridePhotos?: Photo[];
     overrideLayout?: string;
     templateSource?: typeof LAYOUT_TEMPLATES;
+    useSimpleImage?: boolean;
 }
 
 const PageLayoutComponent = ({
@@ -23,7 +24,8 @@ const PageLayoutComponent = ({
     onDropPhoto,
     overridePhotos,
     overrideLayout,
-    templateSource = LAYOUT_TEMPLATES
+    templateSource = LAYOUT_TEMPLATES,
+    useSimpleImage
 }: PageLayoutProps) => {
     const photos = overridePhotos || page.photos;
     const layout = overrideLayout || page.layout;
@@ -75,6 +77,7 @@ const PageLayoutComponent = ({
                             photo={photo}
                             onUpdate={(panAndZoom) => onUpdatePhotoPanAndZoom(page.id, photo.id, panAndZoom)}
                             onInteractionChange={onInteractionChange}
+                            useSimpleImage={useSimpleImage}
                         />
                     </div>
                 );

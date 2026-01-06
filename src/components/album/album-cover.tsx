@@ -21,6 +21,7 @@ export interface AlbumCoverProps {
 
     // For Preview-specific legacy support or extra overlays
     onUpdateTitleSettings?: (pageId: string, settings: any) => void;
+    useSimpleImage?: boolean;
 }
 
 // --- Internal Helper Components ---
@@ -244,6 +245,7 @@ export const AlbumCover = ({
     onDropPhoto,
     onUpdatePhotoPanAndZoom,
     // onUpdateTitleSettings
+    useSimpleImage
 }: AlbumCoverProps) => {
     const containerRef = useRef<HTMLDivElement>(null);
     // Optimization: Local state for drag positions to avoid global re-renders
@@ -391,6 +393,7 @@ export const AlbumCover = ({
                             onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
                             onInteractionChange={() => { }}
                             onDropPhoto={onDropPhoto || (() => { })}
+                            useSimpleImage={useSimpleImage}
                         />
                     </div>
                 </div>
@@ -421,6 +424,7 @@ export const AlbumCover = ({
                                 onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
                                 onInteractionChange={() => { }}
                                 onDropPhoto={onDropPhoto || (() => { })}
+                                useSimpleImage={useSimpleImage}
                             />
                         </div>
                     </div>
@@ -472,6 +476,7 @@ export const AlbumCover = ({
                                 onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
                                 onInteractionChange={() => { }}
                                 onDropPhoto={onDropPhoto || (() => { })}
+                                useSimpleImage={useSimpleImage}
                             />
                         </div>
                     </div>

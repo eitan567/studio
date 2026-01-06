@@ -8,10 +8,11 @@ interface PhotoRendererProps {
   photo: Photo;
   onUpdate: (panAndZoom: PhotoPanAndZoom) => void;
   onInteractionChange?: (isInteracting: boolean) => void;
+  useSimpleImage?: boolean;
 }
 
 // Using memo to prevent re-rendering of all photos when only one is being updated
-export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onInteractionChange }: PhotoRendererProps) {
+export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onInteractionChange, useSimpleImage }: PhotoRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLDivElement>(null);
   const isInteracting = useRef(false);
@@ -199,6 +200,34 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
       if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     };
   }, [containerSize, photo.width, photo.height]);
+
+  if (useSimpleImage) {
+    return (
+      <div
+        ref={containerRef}
+        className="absolute inset-0 overflow-hidden"
+        style={{ pointerEvents: 'none' }}
+      >
+        <div
+          ref={imageRef}
+          className="absolute"
+          style={{ transition: 'none' }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={photo.src}
+            alt={photo.alt}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              pointerEvents: 'none'
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

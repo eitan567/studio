@@ -52,6 +52,7 @@ import Image from 'next/image';
 // Fix for alert import
 import { Alert as AlertUI, AlertDescription as AlertDescriptionUI, AlertTitle as AlertTitleUI } from '@/components/ui/alert';
 import { AiBackgroundGenerator } from './ai-background-generator';
+import { AlbumExporter, AlbumExporterRef } from './album-exporter';
 
 interface AlbumEditorProps {
   albumId: string;
@@ -86,6 +87,14 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   ]);
   const backgroundUploadRef = useRef<HTMLInputElement>(null);
   const colorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Export State
+  const [isExporting, setIsExporting] = useState(false);
+  const exporterRef = useRef<AlbumExporterRef>(null);
+
+  const handleExport = () => {
+    exporterRef.current?.exportAlbum();
+  };
 
   const handleColorChange = (color: string) => {
     // Clear previous timeout
@@ -659,9 +668,9 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             <span className="hidden sm:inline">Book View</span>
           </Button>
           <div className="h-4 w-px bg-border mx-1" />
-          <Button variant="ghost" size="sm" className="gap-2" onClick={() => toast({ title: "Exporting as Images..." })}>
-            <FileImage className="h-4 w-4" />
-            <span className="hidden sm:inline">Export Images</span>
+          <Button variant="ghost" size="sm" className="gap-2" onClick={handleExport} disabled={isExporting}>
+            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileImage className="h-4 w-4" />}
+            <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export Images'}</span>
           </Button>
           <Button variant="ghost" size="sm" className="gap-2" onClick={() => toast({ title: "Exporting PDF..." })}>
             <FileText className="h-4 w-4" />
@@ -674,6 +683,29 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           </Button>
         </div>
       </div>
+
+      {/* Exporter Component */}
+      <AlbumExporter
+        ref={exporterRef}
+        pages={albumPages}
+        config={config}
+        onExportStart={() => {
+          setIsExporting(true);
+          toast({ title: "Starting Export", description: "Preparing your images..." });
+        }}
+        onExportProgress={(current, total) => {
+          // Optional: Update toast or state if we want detailed progress
+          // toast({ title: "Exporting", description: `Processing page ${current} of ${total}` });
+        }}
+        onExportComplete={() => {
+          setIsExporting(false);
+          toast({ title: "Export Complete", description: "Your download should start shortly." });
+        }}
+        onExportError={(err) => {
+          setIsExporting(false);
+          toast({ title: "Export Failed", description: "Something went wrong.", variant: "destructive" });
+        }}
+      />
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 p-6 flex-1 overflow-hidden">
         {/* Left Sidebar: Config & Tools */}
