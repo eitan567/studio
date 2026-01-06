@@ -29,9 +29,11 @@ const AVAILABLE_FONTS = ['Inter', 'Serif', 'Mono', 'Cursive', 'Arial', 'Times Ne
 interface SidebarRightProps {
     page: AlbumPage;
     onUpdatePage: (page: AlbumPage) => void;
+    activeView: 'front' | 'back' | 'full';
+    onSetActiveView: (view: 'front' | 'back' | 'full') => void;
 }
 
-export const SidebarRight = ({ page, onUpdatePage }: SidebarRightProps) => {
+export const SidebarRight = ({ page, onUpdatePage, activeView, onSetActiveView }: SidebarRightProps) => {
 
     const [availableBackgrounds, setAvailableBackgrounds] = useState<string[]>([
         'https://picsum.photos/seed/bg1/800/600',
@@ -206,6 +208,75 @@ export const SidebarRight = ({ page, onUpdatePage }: SidebarRightProps) => {
 
                         {/* STRUCTURE (SPINE & LAYOUT) TAB */}
                         <TabsContent value="structure" className="p-4 space-y-6">
+
+                            {/* NEW: Cover Mode & View Settings */}
+                            <div className="space-y-4">
+                                <Label className="text-xs font-semibold text-foreground flex items-center gap-2">
+                                    <Layout className="w-3.5 h-3.5" /> Cover Configuration
+                                </Label>
+
+                                {/* Mode Selector */}
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Cover Mode</Label>
+                                    <div className="flex items-center bg-muted/20 rounded-lg p-0.5 border">
+                                        <Button
+                                            variant={page.coverType === 'full' ? 'secondary' : 'ghost'}
+                                            size="sm"
+                                            className="flex-1 h-7 text-xs"
+                                            onClick={() => {
+                                                onUpdatePage({ ...page, coverType: 'full' });
+                                                onSetActiveView('full');
+                                            }}
+                                        >
+                                            Full Spread
+                                        </Button>
+                                        <Button
+                                            variant={page.coverType === 'split' || !page.coverType ? 'secondary' : 'ghost'}
+                                            size="sm"
+                                            className="flex-1 h-7 text-xs"
+                                            onClick={() => {
+                                                onUpdatePage({ ...page, coverType: 'split' });
+                                                // Optional: Set to 'front' or keep current? keeping current is usually safer unless requested otherwise.
+                                            }}
+                                        >
+                                            Split Cover
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {/* View Selector */}
+                                <div className={cn("space-y-2", page.coverType === 'full' && "opacity-50 pointer-events-none")}>
+                                    <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Active View</Label>
+                                    <div className="flex items-center bg-muted/20 rounded-lg p-0.5 border">
+                                        <Button
+                                            variant={activeView === 'full' ? 'secondary' : 'ghost'}
+                                            size="sm"
+                                            className="flex-1 h-7 text-xs"
+                                            onClick={() => onSetActiveView('full')}
+                                        >
+                                            Full
+                                        </Button>
+                                        <Button
+                                            variant={activeView === 'front' ? 'secondary' : 'ghost'}
+                                            size="sm"
+                                            className="flex-1 h-7 text-xs"
+                                            onClick={() => onSetActiveView('front')}
+                                        >
+                                            Front
+                                        </Button>
+                                        <Button
+                                            variant={activeView === 'back' ? 'secondary' : 'ghost'}
+                                            size="sm"
+                                            className="flex-1 h-7 text-xs"
+                                            onClick={() => onSetActiveView('back')}
+                                        >
+                                            Back
+                                        </Button>
+                                    </div>
+                                </div>
+                                <Separator />
+                            </div>
+
                             {/* Spine Structural Settings */}
                             <div className="space-y-4">
                                 <Label className="text-xs font-semibold text-foreground flex items-center gap-2">

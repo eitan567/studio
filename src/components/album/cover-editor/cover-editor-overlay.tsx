@@ -242,35 +242,6 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
                                 <Type className="h-4 w-4" /> Add Text
                             </Button>
 
-                            <div className="w-px h-6 bg-border mx-2" />
-
-                            <div className="flex items-center bg-muted/20 rounded-lg p-0.5 border">
-                                <Button
-                                    variant={activeView === 'full' ? 'secondary' : 'ghost'}
-                                    size="sm"
-                                    className="h-7 text-xs px-3"
-                                    onClick={() => setActiveView('full')}
-                                >
-                                    Full
-                                </Button>
-                                <Button
-                                    variant={activeView === 'front' ? 'secondary' : 'ghost'}
-                                    size="sm"
-                                    className="h-7 text-xs px-3"
-                                    onClick={() => setActiveView('front')}
-                                >
-                                    Front
-                                </Button>
-                                <Button
-                                    variant={activeView === 'back' ? 'secondary' : 'ghost'}
-                                    size="sm"
-                                    className="h-7 text-xs px-3"
-                                    onClick={() => setActiveView('back')}
-                                >
-                                    Back
-                                </Button>
-                            </div>
-
                             {/* Selection Info (Integrated) */}
                             <div className="text-xs text-muted-foreground font-medium border-l pl-4 ml-2">
                                 {activeTextIds.length > 0 ? `${activeTextIds.length} items selected` : ''}
@@ -427,6 +398,8 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
                 <SidebarRight
                     page={localPage}
                     onUpdatePage={setLocalPage}
+                    activeView={activeView}
+                    onSetActiveView={setActiveView}
                 />
             </div>
         </div>
