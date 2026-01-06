@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { AlbumPage, CoverText, Photo, PhotoPanAndZoom } from '@/lib/types';
+import React, { useState, useRef } from 'react';
+import { AlbumPage, CoverText, CoverImage, Photo, PhotoPanAndZoom } from '@/lib/types';
 import { SidebarLeft } from './sidebar-left';
 import { SidebarRight } from './sidebar-right';
 import { CoverCanvas } from './cover-canvas';
@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import {
-    X,
     Check,
     Type,
+    X,
+    Image as ImageIcon,
     AlignStartVertical,
     AlignVerticalJustifyCenter,
     AlignEndVertical,
@@ -39,6 +40,8 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
     const [localPage, setLocalPage] = useState<AlbumPage>(page);
     const [activeView, setActiveView] = useState<'front' | 'back' | 'full'>('full');
     const [activeTextIds, setActiveTextIds] = useState<string[]>([]);
+    const [activeImageIds, setActiveImageIds] = useState<string[]>([]);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // 2. Handle Save
     const handleSave = () => {
@@ -54,6 +57,50 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
     // Helper to update texts
     const updateTexts = (newTexts: CoverText[]) => {
         setLocalPage({ ...localPage, coverTexts: newTexts });
+    };
+
+    // Helper to update images
+    const updateImages = (newImages: CoverImage[]) => {
+        setLocalPage({ ...localPage, coverImages: newImages });
+    };
+
+    const handleAddImageClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const url = event.target?.result as string;
+            const img = new Image();
+            img.onload = () => {
+                const aspectRatio = img.width / img.height;
+                const newImage: CoverImage = {
+                    id: crypto.randomUUID(),
+                    url: url,
+                    x: 50,
+                    y: 50,
+                    width: 20, // Default 20% width
+                    aspectRatio: aspectRatio,
+                    rotation: 0,
+                    opacity: 1,
+                    zIndex: 40
+                };
+
+                const existingImages = localPage.coverImages || [];
+                updateImages([...existingImages, newImage]);
+                setActiveImageIds([newImage.id]);
+                setActiveTextIds([]); // Deselect text
+            };
+            img.src = url;
+        };
+        reader.readAsDataURL(file);
+
+        // Reset input
+        e.target.value = '';
     };
 
     const handleAddText = () => {
@@ -137,8 +184,6 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
         });
     };
 
-
-
     const handleUpdatePhotoPanAndZoom = (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => {
         setLocalPage(prevPage => ({
             ...prevPage,
@@ -182,7 +227,7 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
     };
 
     const handleDistribute = (type: 'horizontal' | 'vertical') => {
-        if (activeTextIds.length < 3) return; // Need 3 to distribute meaningfully usually
+        if (activeTextIds.length < 3) return;
 
         const selectedTexts = localPage.coverTexts?.filter(t => activeTextIds.includes(t.id)) || [];
         if (selectedTexts.length < 3) return;
@@ -190,7 +235,6 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
         let newTexts = [...(localPage.coverTexts || [])];
 
         if (type === 'horizontal') {
-            // Sort by X
             const sorted = [...selectedTexts].sort((a, b) => a.x - b.x);
             const minX = sorted[0].x;
             const maxX = sorted[sorted.length - 1].x;
@@ -202,7 +246,6 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
                 newTexts = newTexts.map(t => t.id === item.id ? { ...t, x: newX } : t);
             });
         } else if (type === 'vertical') {
-            // Sort by Y
             const sorted = [...selectedTexts].sort((a, b) => a.y - b.y);
             const minY = sorted[0].y;
             const maxY = sorted[sorted.length - 1].y;
@@ -227,6 +270,7 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
                     onCancel={handleCancel}
                     page={localPage}
                     activeTextIds={activeTextIds}
+                    activeImageIds={activeImageIds}
                     onUpdatePage={setLocalPage}
                 />
 
@@ -241,10 +285,21 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
                             <Button variant="outline" size="sm" className="gap-2 h-8" onClick={handleAddText}>
                                 <Type className="h-4 w-4" /> Add Text
                             </Button>
+                            <Button variant="outline" size="sm" className="gap-2 h-8" onClick={handleAddImageClick}>
+                                <ImageIcon className="h-4 w-4" /> Add Image
+                            </Button>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                className="hidden"
+                                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                                onChange={handleImageUpload}
+                            />
 
                             {/* Selection Info (Integrated) */}
                             <div className="text-xs text-muted-foreground font-medium border-l pl-4 ml-2">
-                                {activeTextIds.length > 0 ? `${activeTextIds.length} items selected` : ''}
+                                {activeTextIds.length > 0 ? `${activeTextIds.length} text items selected` : ''}
+                                {activeImageIds.length > 0 ? `${activeImageIds.length} image items selected` : ''}
                             </div>
                         </div>
 
@@ -294,7 +349,7 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
                                 </div>
                             </div>
 
-                            {/* Alignment Tools (Horizontal Actions) - Using Vertical Icons per user request */}
+                            {/* Alignment Tools (Horizontal Actions) */}
                             <div className="flex items-center gap-1 border-r pr-4 mr-0">
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('left')} disabled={activeTextIds.length < 2} title="Align Left">
                                     <AlignStartVertical className="h-4 w-4" />
@@ -307,7 +362,7 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
                                 </Button>
                             </div>
 
-                            {/* Alignment Tools (Vertical Actions) - Using Horizontal Icons per user request */}
+                            {/* Alignment Tools (Vertical Actions) */}
                             <div className="flex items-center gap-1 border-r pr-4 mr-0">
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('top')} disabled={activeTextIds.length < 2} title="Align Top">
                                     <AlignStartHorizontal className="h-4 w-4" />
@@ -340,12 +395,10 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
                             activeTextIds={activeTextIds}
                             onSelectText={(target, isMulti) => {
                                 const targets = Array.isArray(target) ? target : (target ? [target] : []);
-
                                 if (targets.length === 0) {
                                     if (!isMulti) setActiveTextIds([]);
                                     return;
                                 }
-
                                 if (isMulti) {
                                     setActiveTextIds(prev => {
                                         const next = [...prev];
@@ -362,6 +415,33 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
                                     });
                                 } else {
                                     setActiveTextIds(targets);
+                                    setActiveImageIds([]);
+                                }
+                            }}
+                            activeImageIds={activeImageIds}
+                            onSelectImage={(target, isMulti) => {
+                                const targets = Array.isArray(target) ? target : (target ? [target] : []);
+                                if (targets.length === 0) {
+                                    if (!isMulti) setActiveImageIds([]);
+                                    return;
+                                }
+                                if (isMulti) {
+                                    setActiveImageIds(prev => {
+                                        const next = [...prev];
+                                        targets.forEach(t => {
+                                            if (next.includes(t)) {
+                                                const idx = next.indexOf(t);
+                                                if (idx > -1) next.splice(idx, 1);
+                                                else next.push(t);
+                                            } else {
+                                                next.push(t);
+                                            }
+                                        });
+                                        return next;
+                                    });
+                                } else {
+                                    setActiveImageIds(targets);
+                                    setActiveTextIds([]);
                                 }
                             }}
                             onUpdatePage={setLocalPage}

@@ -39,6 +39,18 @@ export interface CoverText {
   };
 }
 
+export interface CoverImage {
+  id: string;
+  url: string;
+  x: number; // percentage
+  y: number; // percentage
+  width: number; // percentage
+  aspectRatio: number; // width / height
+  rotation: number;
+  opacity: number;
+  zIndex?: number;
+}
+
 export type AlbumPage = {
   id: string; // Unique ID for each page
   type: 'single' | 'spread';
@@ -69,6 +81,7 @@ export type AlbumPage = {
 
   // Cover Objects
   coverTexts?: CoverText[];
+  coverImages?: CoverImage[];
 
   // Legacy Cover Title Props (Keep for migration if needed, or deprecate)
   titleText?: string;

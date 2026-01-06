@@ -9,14 +9,16 @@ interface CoverCanvasProps {
     page: AlbumPage;
     activeView: 'front' | 'back' | 'full';
     activeTextIds: string[];
-    onSelectText: (id: string | string[] | null, isMulti?: boolean) => void;
+    onSelectText: (target: string | string[] | null, isMulti?: boolean) => void;
+    activeImageIds?: string[];
+    onSelectImage?: (target: string | string[] | null, isMulti?: boolean) => void;
     onUpdatePage: (page: AlbumPage) => void;
     onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
     onUpdatePhotoPanAndZoom?: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
     config?: AlbumConfig;
 }
 
-export const CoverCanvas = ({ page, activeView, activeTextIds, onSelectText, onUpdatePage, onDropPhoto, onUpdatePhotoPanAndZoom, config }: CoverCanvasProps) => {
+export const CoverCanvas = ({ page, activeView, activeTextIds, onSelectText, activeImageIds, onSelectImage, onUpdatePage, onDropPhoto, onUpdatePhotoPanAndZoom, config }: CoverCanvasProps) => {
     const wrapperRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
 
@@ -108,7 +110,9 @@ export const CoverCanvas = ({ page, activeView, activeTextIds, onSelectText, onU
                     mode="editor"
                     activeView={activeView}
                     activeTextIds={activeTextIds}
+                    activeImageIds={activeImageIds}
                     onSelectText={onSelectText}
+                    onSelectImage={onSelectImage}
                     onUpdatePage={onUpdatePage}
                     onDropPhoto={onDropPhoto}
                     onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}

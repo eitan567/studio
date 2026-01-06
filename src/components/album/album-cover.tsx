@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { AlbumPage, CoverText, AlbumConfig, Photo, PhotoPanAndZoom } from '@/lib/types';
+import { AlbumPage, CoverText, CoverImage, AlbumConfig, Photo, PhotoPanAndZoom } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { PageLayout } from './page-layout';
 import { COVER_TEMPLATES } from './layout-templates';
@@ -18,6 +18,10 @@ export interface AlbumCoverProps {
     onUpdatePage?: (page: AlbumPage) => void;
     onDropPhoto?: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
     onUpdatePhotoPanAndZoom?: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
+
+    // Image Object Handlers
+    activeImageIds?: string[];
+    onSelectImage?: (id: string | string[] | null, isMulti?: boolean) => void;
 
     // For Preview-specific legacy support or extra overlays
     onUpdateTitleSettings?: (pageId: string, settings: any) => void;
@@ -231,6 +235,186 @@ const StaticCoverText = ({
     );
 };
 
+// Draggable Image for Editor
+const DraggableCoverImage = ({
+    item,
+    isSelected,
+    onSelect,
+    onUpdatePosition,
+    onUpdateSize,
+    onDragEnd,
+    containerRef
+}: {
+    item: CoverImage;
+    isSelected: boolean;
+    onSelect: (e: React.MouseEvent) => void;
+    onUpdatePosition: (x: number, y: number) => void;
+    onUpdateSize: (width: number) => void;
+    onDragEnd?: () => void;
+    containerRef: React.RefObject<HTMLDivElement | null>;
+}) => {
+    const [isDragging, setIsDragging] = useState(false);
+    const [isResizing, setIsResizing] = useState(false);
+    const hasMovedRef = useRef(false);
+    const containerRectRef = useRef<DOMRect | null>(null);
+    const startResizeRef = useRef<{
+        startWidth: number,
+        centerX: number,
+        centerY: number,
+        startDist: number
+    } | null>(null);
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+        if (e.button !== 0) return;
+        e.stopPropagation();
+
+        if (containerRef.current) {
+            containerRectRef.current = containerRef.current.getBoundingClientRect();
+        }
+
+        if (!isSelected || e.ctrlKey || e.metaKey) {
+            onSelect(e);
+        }
+
+        hasMovedRef.current = false;
+        setIsDragging(true);
+    };
+
+    const handleResizeStart = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+
+        if (!containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+        containerRectRef.current = rect;
+
+        // Calculate center of image in screen coordinates
+        const centerX = rect.left + (item.x / 100) * rect.width;
+        const centerY = rect.top + (item.y / 100) * rect.height;
+        const startDist = Math.hypot(e.clientX - centerX, e.clientY - centerY);
+
+        setIsResizing(true);
+        startResizeRef.current = {
+            startWidth: item.width,
+            centerX,
+            centerY,
+            startDist
+        };
+    };
+
+    const handleClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (isSelected && !hasMovedRef.current && !e.ctrlKey && !e.metaKey) {
+            onSelect(e);
+        }
+    };
+
+    useEffect(() => {
+        if (!isDragging && !isResizing) return;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!containerRectRef.current) return;
+            const rect = containerRectRef.current;
+            hasMovedRef.current = true;
+
+            if (isDragging) {
+                // Calculate percentage position
+                let x = ((e.clientX - rect.left) / rect.width) * 100;
+                let y = ((e.clientY - rect.top) / rect.height) * 100;
+                onUpdatePosition(x, y);
+            } else if (isResizing && startResizeRef.current) {
+                const { centerX, centerY, startDist, startWidth } = startResizeRef.current;
+                const currentDist = Math.hypot(e.clientX - centerX, e.clientY - centerY);
+
+                // Scale based on distance ratio
+                // Prevent division by zero
+                if (startDist <= 0) return;
+
+                const scale = currentDist / startDist;
+                const newWidth = Math.max(2, startWidth * scale); // Min 2% width
+
+                onUpdateSize(newWidth);
+            }
+        };
+
+        const handleMouseUp = () => {
+            if ((isDragging || isResizing) && onDragEnd && hasMovedRef.current) {
+                onDragEnd();
+            }
+            setIsDragging(false);
+            setIsResizing(false);
+            containerRectRef.current = null;
+            startResizeRef.current = null;
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isDragging, isResizing, onUpdatePosition, onUpdateSize, onDragEnd]);
+
+    return (
+        <div
+            className={cn(
+                "absolute cursor-move select-none",
+                isSelected ? "ring-2 ring-primary ring-dashed z-50" : "hover:ring-2 hover:ring-primary/20 z-40"
+            )}
+            style={{
+                left: `${item.x}%`,
+                top: `${item.y}%`,
+                width: `${item.width}%`,
+                aspectRatio: `${item.aspectRatio}`,
+                transform: `translate(-50%, -50%) rotate(${item.rotation}deg)`,
+                opacity: item.opacity,
+                zIndex: item.zIndex
+            }}
+            onMouseDown={handleMouseDown}
+            onClick={handleClick}
+        >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+                src={item.url}
+                alt="overlay"
+                className="w-full h-full object-contain pointer-events-none"
+                draggable={false}
+            />
+
+            {/* Resize Handles - Only visible when selected */}
+            {isSelected && (
+                <>
+                    <div
+                        className="absolute -bottom-1 -right-1 w-3 h-3 bg-white border border-primary rounded-full cursor-se-resize z-50"
+                        onMouseDown={handleResizeStart}
+                    />
+                </>
+            )}
+        </div>
+    );
+};
+
+// Static Image for Preview
+const StaticCoverImage = ({ item }: { item: CoverImage }) => {
+    return (
+        <div
+            className="absolute select-none pointer-events-none"
+            style={{
+                left: `${item.x}%`,
+                top: `${item.y}%`,
+                width: `${item.width}%`,
+                aspectRatio: `${item.aspectRatio}`,
+                transform: `translate(-50%, -50%) rotate(${item.rotation}deg)`,
+                opacity: item.opacity,
+                zIndex: item.zIndex || 40
+            }}
+        >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={item.url} alt="overlay" className="w-full h-full object-contain" />
+        </div>
+    );
+};
+
 
 // --- Main Component ---
 
@@ -241,6 +425,8 @@ export const AlbumCover = ({
     activeView = 'full',
     activeTextIds = [],
     onSelectText,
+    activeImageIds = [],
+    onSelectImage,
     onUpdatePage,
     onDropPhoto,
     onUpdatePhotoPanAndZoom,
@@ -253,10 +439,9 @@ export const AlbumCover = ({
 
     // Canvas click handler (for deselecting)
     const handleCanvasClick = (e: React.MouseEvent) => {
-        if (mode === 'editor' && onSelectText) {
-            // If we clicked on a text, stop propagation would have prevented this.
-            // So this is a click on empty space.
-            onSelectText(null);
+        if (mode === 'editor') {
+            onSelectText?.(null);
+            onSelectImage?.(null);
         }
     };
 
@@ -302,20 +487,81 @@ export const AlbumCover = ({
         setDragPositions(newPositions);
     };
 
+    const handleUpdateImagePosition = (triggerId: string, newX: number, newY: number) => {
+        // Similar to text position logic but for images (simplified for now as no grouping for images yet)
+        if (!page.coverImages) return;
+
+        const triggerImage = page.coverImages.find(img => img.id === triggerId);
+        if (!triggerImage) return;
+
+        const dx = newX - triggerImage.x;
+        const dy = newY - triggerImage.y;
+
+        const idsToMove = new Set<string>();
+        // If we support multi-select for images later:
+        if (activeImageIds.includes(triggerId)) {
+            activeImageIds.forEach(id => idsToMove.add(id));
+        } else {
+            idsToMove.add(triggerId);
+        }
+
+        const newPositions: Record<string, { x: number, y: number }> = {};
+
+        // We can reuse dragPositions for images too if keys are unique (UUIDs usually are)
+        // Or create separate state if needed. Reusing for simplicity.
+
+        page.coverImages.forEach(img => {
+            if (idsToMove.has(img.id)) {
+                newPositions[img.id] = {
+                    x: img.x + dx,
+                    y: img.y + dy
+                };
+            }
+        });
+
+        // Merge with existing drag positions to not lose text drags if happening concurrently (unlikely)
+        setDragPositions(prev => ({ ...prev, ...newPositions }));
+    };
+
+    const handleUpdateImageSize = (triggerId: string, newWidth: number) => {
+        // Direct update via onUpdatePage because resize is usually "per frame" not continuous drag like moves
+        // But for smoothness we probably want local state too.
+        // For now let's just update the page directly for simplicity, or we need a resize state.
+        // Let's modify handleDragEnd to also commit size changes if we stored them?
+        // Actually, DraggableCoverImage calls onUpdateSize during drag.
+        // Let's just update the page directly but maybe throttle it?
+        // Better: Use a separate local state for "Temp Size" just like positions?
+        // For MVP: Let's direct update (React is fast enough for 60fps usually).
+        // IF choppy, implemented "temp" state.
+
+        const newImages = page.coverImages?.map(img =>
+            img.id === triggerId ? { ...img, width: newWidth } : img
+        ) || [];
+
+        onUpdatePage?.({ ...page, coverImages: newImages });
+    };
+
     const handleDragEnd = () => {
         if (!onUpdatePage || !page.coverTexts) return;
 
         // Commit changes to actual page state
         if (Object.keys(dragPositions).length === 0) return;
 
-        const newTexts = page.coverTexts.map(t => {
+        const newTexts = page.coverTexts?.map(t => {
             if (dragPositions[t.id]) {
                 return { ...t, ...dragPositions[t.id] };
             }
             return t;
-        });
+        }) || [];
 
-        onUpdatePage({ ...page, coverTexts: newTexts });
+        const newImages = page.coverImages?.map(img => {
+            if (dragPositions[img.id]) {
+                return { ...img, ...dragPositions[img.id] };
+            }
+            return img;
+        }) || [];
+
+        onUpdatePage({ ...page, coverTexts: newTexts, coverImages: newImages });
         setDragPositions({});
     };
 
@@ -490,6 +736,8 @@ export const AlbumCover = ({
             )}
             {/* Text Overlay */}
             {renderTextOverlay()}
+            {/* Image Overlay */}
+            {renderImageOverlay()}
         </>
     );
 
@@ -560,6 +808,67 @@ export const AlbumCover = ({
                         key={textItem.id}
                         item={{ ...textItem, x: localX, y: localY }}
                         fontSizeOverride={fontSizeCss}
+                    />
+                );
+            }
+        });
+    };
+
+
+    // 2. Image Overlay Renderer
+    const renderImageOverlay = () => {
+        if (!page.coverImages) return null;
+
+        return page.coverImages.map(imgItem => {
+            const currentX = dragPositions[imgItem.id]?.x ?? imgItem.x;
+            const currentY = dragPositions[imgItem.id]?.y ?? imgItem.y;
+
+            let localX = currentX;
+            let localY = currentY;
+            let isVisible = true;
+
+            if (isFront) {
+                localX = (currentX - 50) * 2;
+                if (currentX < 50) isVisible = false;
+            } else if (isBack) {
+                localX = currentX * 2;
+                if (currentX > 50) isVisible = false;
+            }
+
+            if (!isVisible) return null;
+
+            const isSelected = activeImageIds?.includes(imgItem.id) ?? false;
+
+            if (mode === 'editor' && onSelectImage) {
+                return (
+                    <DraggableCoverImage
+                        key={imgItem.id}
+                        item={{ ...imgItem, x: localX, y: localY }}
+                        isSelected={isSelected}
+                        onSelect={(e) => {
+                            onSelectImage([imgItem.id], e.ctrlKey || e.metaKey);
+                        }}
+                        onUpdatePosition={(x, y) => {
+                            let globalX = x;
+                            let globalY = y;
+                            if (isFront) globalX = 50 + (x / 2);
+                            else if (isBack) globalX = x / 2;
+                            handleUpdateImagePosition(imgItem.id, globalX, globalY);
+                        }}
+                        onUpdateSize={(w) => {
+                            // Assuming uniform scaling, width percentage is enough
+                            // Aspect ratio handles height
+                            handleUpdateImageSize(imgItem.id, w);
+                        }}
+                        onDragEnd={handleDragEnd}
+                        containerRef={containerRef}
+                    />
+                );
+            } else {
+                return (
+                    <StaticCoverImage
+                        key={imgItem.id}
+                        item={{ ...imgItem, x: localX, y: localY }}
                     />
                 );
             }
