@@ -61,7 +61,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                     // Capture
                     const blob = await toBlob(element, {
                         quality: 0.95,
-                        pixelRatio: 2, // 2x resolution for better quality
+                        pixelRatio: 4, // 4x resolution to compensate for smaller base size (500px -> 2000px)
                         skipAutoScale: true, // We want to capture exactly what is rendered
                         fontEmbedCSS: '', // Disable font embedding to avoid CORS issues
                         cacheBust: false, // Disable cache bust to see if it fixes duplication
@@ -108,7 +108,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
 
                 const blob = await toBlob(pageElement, {
                     quality: 0.95,
-                    pixelRatio: 2,
+                    pixelRatio: 4,
                     skipAutoScale: true,
                     fontEmbedCSS: '',
                     cacheBust: false,
@@ -131,7 +131,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
 
     // Render all pages in a hidden container
     // We use fixed width to ensure consistency regardless of screen size
-    // Single: 1000px, Spread: 2000px
+    // Single: 500px (approx editor preview), Spread: 1000px
     return (
         <div
             ref={containerRef}
@@ -149,8 +149,8 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
         >
             {pages.map((page, index) => {
                 const isSpread = page.type === 'spread' || page.isCover;
-                const width = isSpread ? 2000 : 1000;
-                const height = 1000; // 2:1 ratio for spread, 1:1 for single (assuming square format preference in config, typically 20x20 is square)
+                const width = isSpread ? 1000 : 500;
+                const height = 500; // 2:1 ratio for spread, 1:1 for single (assuming square format preference in config, typically 20x20 is square)
                 // Note: The app supports 20x20 which is square. So Single is Square. Spread is 2 Squares (2:1).
 
                 return (
@@ -209,16 +209,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                                 left: `${page.titlePosition?.x || 50}%`,
                                                 top: `${page.titlePosition?.y || 50}%`,
                                                 transform: 'translate(-50%, -50%)',
-                                                fontSize: `${(page.titleFontSize || 24) * 2}px`, // Scale font size if we scaled container? 
-                                                // Actually, if we use standard px units in editor (e.g. 24px) but render at 1000px height...
-                                                // Editor view is usually ~400-600px height. 
-                                                // So 1000px height is ~2x. We might need to scale font size?
-                                                // DraggableTitle in preview uses px.
-                                                // If the capture container is larger than screen, px text remains small.
-                                                // If the user set 24px on a 500px screen, it looks X big.
-                                                // On a 1000px image, 24px will look 0.5X big.
-                                                // I should probably stick to a standard size or use a scaling factor.
-                                                // For now, I'll trust the user's px settings or the flow.
+                                                fontSize: `${(page.titleFontSize || 24)}px`, // No scaling needed as base is approx preview size
                                                 fontFamily: page.titleFontFamily,
                                                 color: page.titleColor,
                                                 whiteSpace: 'nowrap',
