@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { AlbumPage, CoverText } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
@@ -18,7 +18,9 @@ import {
     Type,
     Layout,
     Palette,
-    Settings2
+    Settings2,
+    PlusSquare,
+    Image as ImageIcon
 } from 'lucide-react';
 import { SpineColorPicker } from '../spine-color-picker';
 import { AiBackgroundGenerator } from '../ai-background-generator';
@@ -39,6 +41,13 @@ export const SidebarRight = ({ page, activeTextIds, onUpdatePage }: SidebarRight
     const activeTexts = page.coverTexts?.filter(t => activeTextIds.includes(t.id)) || [];
     // Primary text for displaying values (use the last selected)
     const activeText = activeTexts.length > 0 ? activeTexts[activeTexts.length - 1] : null;
+
+    const [availableBackgrounds, setAvailableBackgrounds] = useState<string[]>([
+        'https://picsum.photos/seed/bg1/800/600',
+        'https://picsum.photos/seed/bg2/800/600',
+        'https://picsum.photos/seed/bg3/800/600',
+    ]);
+    const backgroundUploadRef = useRef<HTMLInputElement>(null);
 
     const handleUpdateText = (updates: Partial<CoverText> | Partial<CoverText['style']>) => {
         if (activeTexts.length === 0 || !page.coverTexts) return;
@@ -263,37 +272,131 @@ export const SidebarRight = ({ page, activeTextIds, onUpdatePage }: SidebarRight
 
                             <TabsContent value="style" className="space-y-2 pt-4">
                                 {/* Background Section */}
+                                {/* Background Section */}
                                 <div className="space-y-3">
-                                    <div className="flex justify-between items-center">
-                                        <Label className="text-xs">Base Color</Label>
-                                        <SpineColorPicker
-                                            value={page.spineColor}
-                                            onChange={(c) => handleUpdatePageProp({ spineColor: c })}
-                                        />
+                                    {/* Background Color */}
+                                    <div className="space-y-2">
+                                        <Label className="text-xs">Background Color</Label>
+                                        <div className="flex items-center gap-2">
+                                            <div className="relative">
+                                                <input
+                                                    type="color"
+                                                    value={page.backgroundColor || '#ffffff'}
+                                                    onChange={(e) => handleUpdatePageProp({ backgroundColor: e.target.value })}
+                                                    className="w-10 h-10 rounded border cursor-pointer opacity-0 absolute inset-0 z-10"
+                                                />
+                                                <div
+                                                    className="w-10 h-10 rounded border"
+                                                    style={{ backgroundColor: page.backgroundColor || '#ffffff' }}
+                                                />
+                                            </div>
+                                            <Input
+                                                type="text"
+                                                value={page.backgroundColor || ''}
+                                                onChange={(e) => handleUpdatePageProp({ backgroundColor: e.target.value })}
+                                                className="flex-1 h-8 px-2 text-sm"
+                                                placeholder="#ffffff"
+                                            />
+                                        </div>
                                     </div>
 
                                     <Separator />
 
+                                    {/* Background Image */}
                                     <div className="space-y-2">
-                                        <Label className="text-xs">Background Image (AI)</Label>
-                                        <AiBackgroundGenerator
-                                            onBackgroundGenerated={(url) => handleUpdatePageProp({ backgroundImage: url })}
-                                        />
-                                    </div>
-
-                                    {page.backgroundImage && (
-                                        <div className="mt-2 relative group w-full aspect-video rounded-md overflow-hidden border">
-                                            <img src={page.backgroundImage} alt="Bg" className="w-full h-full" />
-                                            <Button
-                                                variant="destructive"
-                                                size="icon"
-                                                className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        <Label className="text-xs">Background Image</Label>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {/* None option */}
+                                            <div
+                                                className={cn(
+                                                    "h-12 rounded border-2 cursor-pointer flex items-center justify-center bg-gray-100",
+                                                    !page.backgroundImage ? "border-primary ring-2 ring-primary/20" : "border-muted hover:border-primary/50"
+                                                )}
                                                 onClick={() => handleUpdatePageProp({ backgroundImage: undefined })}
                                             >
-                                                <Trash2 className="w-3 h-3" />
-                                            </Button>
+                                                <span className="text-xs text-muted-foreground">None</span>
+                                            </div>
+
+                                            {/* Available backgrounds */}
+                                            {availableBackgrounds.map((bg, index) => (
+                                                <div
+                                                    key={index}
+                                                    className={cn(
+                                                        "h-12 rounded border-2 cursor-pointer overflow-hidden relative group",
+                                                        page.backgroundImage === bg ? "border-primary ring-2 ring-primary/20" : "border-muted hover:border-primary/50"
+                                                    )}
+                                                    onClick={() => handleUpdatePageProp({ backgroundImage: bg })}
+                                                >
+                                                    <img src={bg} alt={`Background ${index + 1}`} className="w-full h-full object-contain" />
+                                                    <button
+                                                        className="absolute top-0 right-0 w-5 h-5 bg-black/50 text-white text-xs rounded-bl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-black/70"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setAvailableBackgrounds(prev => prev.filter((_, i) => i !== index));
+                                                            if (page.backgroundImage === bg) {
+                                                                handleUpdatePageProp({ backgroundImage: undefined });
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Trash2 className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            ))}
+
+                                            {/* Upload button */}
+                                            <div
+                                                className="h-12 rounded border-2 border-dashed cursor-pointer flex items-center justify-center bg-gray-50 hover:bg-gray-100"
+                                                onClick={() => backgroundUploadRef.current?.click()}
+                                            >
+                                                <PlusSquare className="w-5 h-5 text-muted-foreground" />
+                                            </div>
                                         </div>
-                                    )}
+
+                                        <input
+                                            ref={backgroundUploadRef}
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    const reader = new FileReader();
+                                                    reader.onload = (event) => {
+                                                        const dataUrl = event.target?.result as string;
+                                                        setAvailableBackgrounds(prev => [...prev, dataUrl]);
+                                                        handleUpdatePageProp({ backgroundImage: dataUrl });
+                                                    };
+                                                    reader.readAsDataURL(file);
+                                                }
+                                                e.target.value = '';
+                                            }}
+                                        />
+
+                                        {/* Preview of Current Selected */}
+                                        {page.backgroundImage && (
+                                            <div className="relative w-full aspect-video rounded-md overflow-hidden border group mt-2">
+                                                <img src={page.backgroundImage} alt="Bg" className="w-full h-full object-cover" />
+                                                <Button
+                                                    variant="destructive"
+                                                    size="icon"
+                                                    className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    onClick={() => handleUpdatePageProp({ backgroundImage: undefined })}
+                                                >
+                                                    <Trash2 className="w-3 h-3" />
+                                                </Button>
+                                            </div>
+                                        )}
+
+                                        <div className="pt-2">
+                                            <Label className="text-xs mb-2 block">Generate with AI</Label>
+                                            <AiBackgroundGenerator
+                                                onBackgroundGenerated={(url) => {
+                                                    setAvailableBackgrounds(prev => [...prev, url]);
+                                                    handleUpdatePageProp({ backgroundImage: url });
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                             </TabsContent>
 

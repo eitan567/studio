@@ -347,7 +347,7 @@ export const AlbumCover = ({
                 <div
                     className="relative h-full w-full bg-white transition-all overflow-hidden flex"
                     style={{
-                        backgroundColor: page.backgroundImage ? 'transparent' : '#fff',
+                        backgroundColor: page.backgroundColor || config?.backgroundColor || '#fff',
                         backgroundImage: page.backgroundImage ? `url(${page.backgroundImage})` : undefined,
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
@@ -404,7 +404,7 @@ export const AlbumCover = ({
                             isFull ? "flex-1" : isBack ? "w-full" : "hidden"
                         )}
                         style={{
-                            backgroundColor: page.backgroundImage ? 'transparent' : '#fff',
+                            backgroundColor: page.backgroundColor || config?.backgroundColor || '#fff',
                             backgroundImage: page.backgroundImage ? `url(${page.backgroundImage})` : undefined,
                             backgroundSize: 'cover',
                             backgroundPosition: 'center',
@@ -455,7 +455,7 @@ export const AlbumCover = ({
                             isFull ? "flex-1" : isFront ? "w-full" : "hidden"
                         )}
                         style={{
-                            backgroundColor: page.backgroundImage ? 'transparent' : '#fff',
+                            backgroundColor: page.backgroundColor || config?.backgroundColor || '#fff',
                             backgroundImage: page.backgroundImage ? `url(${page.backgroundImage})` : undefined,
                             backgroundSize: 'cover',
                             backgroundPosition: 'center',

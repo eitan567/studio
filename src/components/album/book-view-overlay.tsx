@@ -30,7 +30,7 @@ function ReadOnlyPage({ page, config }: { page: AlbumPage; config: AlbumConfig }
             style={{
                 gap: `${config.photoGap}px`,
                 padding: `${config.pageMargin}px`,
-                backgroundColor: config.backgroundColor,
+                backgroundColor: page.backgroundColor || config.backgroundColor,
                 backgroundImage: (page.backgroundImage || config.backgroundImage) ? `url(${page.backgroundImage || config.backgroundImage})` : undefined,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',

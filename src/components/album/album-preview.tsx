@@ -664,7 +664,7 @@ export function AlbumPreview({
                   <Card
                     className="h-full w-full shadow-lg"
                     style={{
-                      backgroundColor: config.backgroundColor,
+                      backgroundColor: page.backgroundColor || config.backgroundColor,
                       backgroundImage: (page.backgroundImage || config.backgroundImage) ? `url(${page.backgroundImage || config.backgroundImage})` : undefined,
                       backgroundSize: 'cover',
                       backgroundPosition: 'center',

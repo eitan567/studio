@@ -61,6 +61,8 @@ export type AlbumPage = {
   spineTextAlign?: 'left' | 'center' | 'right';
   spineTextRotated?: boolean;
 
+  backgroundColor?: string; // Override background color for this specific page
+
   // Granular Cover Settings
   photoGap?: number;
   pageMargin?: number;
