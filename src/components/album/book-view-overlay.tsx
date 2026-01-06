@@ -17,6 +17,7 @@ interface Spread {
     right: AlbumPage | null;
     isCover?: boolean;
     isBackCover?: boolean;
+    isPanoramic?: boolean;
 }
 
 // Helper to render a single page face (read-only)
@@ -58,13 +59,12 @@ function ReadOnlyPage({ page, config }: { page: AlbumPage; config: AlbumConfig }
 export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps) {
     const [currentSpreadIndex, setCurrentSpreadIndex] = useState(0);
 
-    // Build Spreads Logic (mimicking reference)
+    // Build Spreads Logic
     const spreads = useMemo(() => {
         const newSpreads: Spread[] = [];
         if (pages.length === 0) return newSpreads;
 
         // Separate Cover and Inner Pages
-        // Allowing for flexibility, but typically pages[0] is cover.
         const frontCover = pages.find(p => p.isCover) || pages[0];
         const innerPages = pages.filter(p => !p.isCover && p !== frontCover);
 
@@ -73,18 +73,43 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
 
         // 2. Inner Spreads
         let i = 0;
-        while (i < innerPages.length) {
-            // If we have a pair, add them.
-            // If we have one left over at the end, it goes to LEFT.
-            const left = innerPages[i];
-            const right = innerPages[i + 1] || null;
 
-            newSpreads.push({ left, right });
-            i += 2;
+        // Check for Single Page at start
+        if (innerPages.length > 0 && innerPages[0].type === 'single') {
+            // First page is Single -> Place on Right, Left is Blank
+            newSpreads.push({ left: null, right: innerPages[0] });
+            i++;
+        }
+
+        while (i < innerPages.length) {
+            const current = innerPages[i];
+
+            // Layout Logic:
+            if (current.type === 'spread') {
+                // If it's a spread, it occupies BOTH sides.
+                newSpreads.push({
+                    left: current,
+                    right: current,
+                    isPanoramic: true
+                });
+                i++;
+            } else {
+                // It's a single page. Look for a partner.
+                const next = innerPages[i + 1];
+
+                if (next && next.type === 'single') {
+                    // Pair two singles
+                    newSpreads.push({ left: current, right: next });
+                    i += 2;
+                } else {
+                    // Next is missing or is a spread -> Solitary Single on Left
+                    newSpreads.push({ left: current, right: null });
+                    i++;
+                }
+            }
         }
 
         // 3. Back Cover
-        // Explicitly add a spread for the back cover (appearing on the Left)
         if (frontCover) {
             newSpreads.push({ left: frontCover, right: null, isBackCover: true });
         }
@@ -107,15 +132,8 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
     // Keyboard navigation
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            // Prevent default scrolling only if we are consuming the event
-            if (e.key === 'ArrowRight') {
-                // e.preventDefault();
-                goToNext();
-            }
-            if (e.key === 'ArrowLeft') {
-                // e.preventDefault();
-                goToPrev();
-            }
+            if (e.key === 'ArrowRight') goToNext();
+            if (e.key === 'ArrowLeft') goToPrev();
             if (e.key === 'Escape') onClose();
         };
         window.addEventListener('keydown', handleKeyDown);
@@ -169,9 +187,7 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
                 <div
                     className="relative flex shadow-2xl transition-transform duration-500 ease-out"
                     style={{
-                        // Constrain height and maintain aspect ratio
-                        // Assuming 2:1 spread
-                        height: 'min(85vh, 60vw)', // Dynamic sizing
+                        height: 'min(85vh, 60vw)',
                         aspectRatio: '2 / 1',
                         maxHeight: '900px'
                     }}
@@ -180,19 +196,23 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
                     <div
                         className={cn(
                             "flex-1 relative overflow-hidden transition-opacity duration-500 bg-white border-r border-[#ccc]",
-                            currentSpread.left ? "opacity-100" : "opacity-0"
+                            // Logic: If Left exists, Show. 
+                            // If Empty Slot: Hide (Transparent) if Cover; Show (White) if Inner.
+                            currentSpread.left || (!currentSpread.isCover && !currentSpread.isPanoramic) ? "opacity-100" : "opacity-0"
                         )}
                         style={{
                             borderTopLeftRadius: '4px',
                             borderBottomLeftRadius: '4px'
                         }}
                     >
-                        {currentSpread.left && (
-                            <div className="w-full h-full relative">
-                                {/* Inner Gradient Shadow (Spine) */}
-                                <div className="absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-black/20 to-transparent z-20 pointer-events-none mix-blend-multiply" />
+                        {/* Inner Gradient Shadow (Spine) - Visible unless transparent */}
+                        <div className={cn(
+                            "absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-black/20 to-transparent z-20 pointer-events-none mix-blend-multiply",
+                            !currentSpread.left && currentSpread.isCover ? "hidden" : "block"
+                        )} />
 
-                                {/* Render Content */}
+                        {currentSpread.left && (
+                            <div className={cn("w-full h-full relative", currentSpread.isPanoramic && "overflow-hidden")}>
                                 {currentSpread.isBackCover ? (
                                     <AlbumCover
                                         page={currentSpread.left}
@@ -201,7 +221,12 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
                                         activeView="back"
                                     />
                                 ) : (
-                                    <ReadOnlyPage page={currentSpread.left} config={config} />
+                                    <div className={cn(
+                                        "w-full h-full",
+                                        currentSpread.isPanoramic && "absolute top-0 left-0 w-[200%]" // Double width for panoramic left half
+                                    )}>
+                                        <ReadOnlyPage page={currentSpread.left} config={config} />
+                                    </div>
                                 )}
                             </div>
                         )}
@@ -214,19 +239,21 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
                     <div
                         className={cn(
                             "flex-1 relative overflow-hidden transition-opacity duration-500 bg-white",
-                            currentSpread.right ? "opacity-100" : "opacity-0"
+                            currentSpread.right || (!currentSpread.isBackCover && !currentSpread.isPanoramic) ? "opacity-100" : "opacity-0"
                         )}
                         style={{
                             borderTopRightRadius: '4px',
                             borderBottomRightRadius: '4px'
                         }}
                     >
-                        {currentSpread.right && (
-                            <div className="w-full h-full relative">
-                                {/* Inner Gradient Shadow (Spine) */}
-                                <div className="absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-black/20 to-transparent z-20 pointer-events-none mix-blend-multiply" />
+                        {/* Inner Gradient Shadow (Spine) */}
+                        <div className={cn(
+                            "absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-black/20 to-transparent z-20 pointer-events-none mix-blend-multiply",
+                            !currentSpread.right && currentSpread.isBackCover ? "hidden" : "block"
+                        )} />
 
-                                {/* Render Content */}
+                        {currentSpread.right && (
+                            <div className={cn("w-full h-full relative", currentSpread.isPanoramic && "overflow-hidden")}>
                                 {currentSpread.isCover ? (
                                     <AlbumCover
                                         page={currentSpread.right}
@@ -235,7 +262,12 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
                                         activeView="front"
                                     />
                                 ) : (
-                                    <ReadOnlyPage page={currentSpread.right} config={config} />
+                                    <div className={cn(
+                                        "w-full h-full",
+                                        currentSpread.isPanoramic && "absolute top-0 left-[-100%] w-[200%]" // Double width, shifted left for right half
+                                    )}>
+                                        <ReadOnlyPage page={currentSpread.right} config={config} />
+                                    </div>
                                 )}
                             </div>
                         )}

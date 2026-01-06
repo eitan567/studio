@@ -131,29 +131,54 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     const newPages: AlbumPage[] = [];
     const defaultPanAndZoom = { scale: 1, x: 50, y: 50 };
 
-    // Create cover photos using random images from loaded photos (4 for back + 4 for front = 8 total)
-    const coverPhotos: Photo[] = [];
-    for (let i = 0; i < 8; i++) {
-      const randomIndex = Math.floor(Math.random() * photos.length);
-      const randomPhoto = photos[randomIndex];
-      coverPhotos.push({
-        id: uuidv4(),
-        src: randomPhoto.src,
-        alt: randomPhoto.alt,
-        width: randomPhoto.width,
-        height: randomPhoto.height,
-        panAndZoom: defaultPanAndZoom
-      });
+    // --- 1. Randomize Cover Configuration ---
+    const coverTypes: ('full' | 'split')[] = ['full', 'split'];
+    const randomCoverType = coverTypes[Math.floor(Math.random() * coverTypes.length)];
+
+    let coverLayoutShim = { front: '4-mosaic-1', back: '4-mosaic-1' }; // Config for split
+    let fullCoverLayout = '1-full'; // Config for full
+    let coverPhotos: Photo[] = [];
+
+    if (randomCoverType === 'split') {
+      // Randomize Front Layout
+      const frontTemplate = COVER_TEMPLATES[Math.floor(Math.random() * COVER_TEMPLATES.length)];
+      // Randomize Back Layout
+      const backTemplate = COVER_TEMPLATES[Math.floor(Math.random() * COVER_TEMPLATES.length)];
+
+      coverLayoutShim = { front: frontTemplate.id, back: backTemplate.id };
+      const totalCoverPhotos = frontTemplate.photoCount + backTemplate.photoCount;
+
+      // Pick random photos for cover
+      for (let i = 0; i < totalCoverPhotos; i++) {
+        if (photos.length > 0) {
+          const randomIndex = Math.floor(Math.random() * photos.length);
+          const randomPhoto = photos[randomIndex];
+          coverPhotos.push({ ...randomPhoto, id: uuidv4(), panAndZoom: defaultPanAndZoom });
+        }
+      }
+    } else {
+      // Full Mode
+      const fullTemplate = COVER_TEMPLATES[Math.floor(Math.random() * COVER_TEMPLATES.length)];
+      fullCoverLayout = fullTemplate.id;
+
+      // Pick random photos for full cover
+      for (let i = 0; i < fullTemplate.photoCount; i++) {
+        if (photos.length > 0) {
+          const randomIndex = Math.floor(Math.random() * photos.length);
+          const randomPhoto = photos[randomIndex];
+          coverPhotos.push({ ...randomPhoto, id: uuidv4(), panAndZoom: defaultPanAndZoom });
+        }
+      }
     }
 
     newPages.push({
       id: 'cover',
       type: 'spread',
       photos: coverPhotos,
-      layout: 'cover',
+      layout: randomCoverType === 'full' ? fullCoverLayout : 'cover', // 'cover' layout is just a placeholder for split logic usually
       isCover: true,
-      coverLayouts: { front: '4-mosaic-1', back: '4-mosaic-1' },
-      coverType: 'split',
+      coverLayouts: coverLayoutShim,
+      coverType: randomCoverType,
       spineText: '',
       spineWidth: 20,
       spineColor: '#ffffff',
@@ -163,17 +188,108 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       pageMargin: 10
     });
 
-    if (photosPool.length > 0) {
-      newPages.push({ id: uuidv4(), type: 'single', photos: photosPool.splice(0, 1).map(p => ({ ...p, panAndZoom: defaultPanAndZoom })), layout: '1-full' });
+
+    // --- 2. Randomize Inner Pages ---
+
+    // Helper to get random template for N photos
+    const getRandomTemplateForCount = (count: number) => {
+      const matching = LAYOUT_TEMPLATES.filter(t => t.photoCount === count);
+      if (matching.length === 0) return LAYOUT_TEMPLATES[0];
+      return matching[Math.floor(Math.random() * matching.length)];
+    };
+
+    // Helper to get ANY random template that fits within max photos
+    const getRandomTemplateMax = (maxPhotos: number) => {
+      const candidates = LAYOUT_TEMPLATES.filter(t => t.photoCount <= maxPhotos);
+      if (candidates.length === 0) return LAYOUT_TEMPLATES[0]; // Fallback
+      return candidates[Math.floor(Math.random() * candidates.length)];
     }
 
-    const photosPerSpread = 2;
-    while (photosPool.length >= photosPerSpread) {
-      newPages.push({ id: uuidv4(), type: 'spread', photos: photosPool.splice(0, photosPerSpread).map(p => ({ ...p, panAndZoom: defaultPanAndZoom })), layout: '2-horiz' });
+    // First page should be Single (Right side)
+    if (photosPool.length > 0) {
+      // Try to pick a layout for 1 photo (standard start) or maybe complex single page?
+      // Usually single pages are 1 photo, but let's allow up to 4 if we have them?
+      // Actually, 'single' type pages in this app usually just support '1-full' layout or others? 
+      // Based on existing logic: layout='1-full'. Let's see if we can randomize.
+      // The app differentiates 'single' vs 'spread' mainly by canvas size. A 'single' page can have a grid layout too!
+      // Let's pick a random photo count for first page (1 to 4)
+
+      // NOTE: Current 'single' rendering might assume full page or specific layouts? 
+      // Checking album-preview.tsx might be wise, but let's stick to simple 1-photo start for safety, 
+      // OR randomize if we trust PageLayout handles 'single' with grid templates.
+      // Safety: Let's do 1 photo for first page for now to match classic book style, or maybe random 1.
+
+      const firstPagePhotos = photosPool.splice(0, 1);
+      newPages.push({
+        id: uuidv4(),
+        type: 'single',
+        photos: firstPagePhotos.map(p => ({ ...p, panAndZoom: defaultPanAndZoom })),
+        layout: '1-full' // Could randomize this if 'single' supports other layouts
+      });
     }
 
-    if (photosPool.length > 0) {
-      newPages.push({ id: uuidv4(), type: 'single', photos: photosPool.splice(0, 1).map(p => ({ ...p, panAndZoom: defaultPanAndZoom })), layout: '1-full' });
+    // Inner Spreads
+    while (photosPool.length > 0) {
+      // Check if we are at the very end (Last Page Single)
+      // If we have very few photos left, we might need to force a single page end.
+
+      // Strategy: Pick a random template. Check if we have enough photos.
+      // To make it robust: Pick a random template from ALL templates.
+      // If we don't have enough photos for it, pick one that fits what we have.
+
+      let selectedTemplate = LAYOUT_TEMPLATES[Math.floor(Math.random() * LAYOUT_TEMPLATES.length)];
+
+      // If not enough photos for this template, find one that fits exact count
+      if (photosPool.length < selectedTemplate.photoCount) {
+        const exactFit = LAYOUT_TEMPLATES.find(t => t.photoCount === photosPool.length);
+        if (exactFit) {
+          selectedTemplate = exactFit;
+        } else {
+          // Even exact fit not found (e.g. 5 photos and no 5-layout)? 
+          // Just take 1 photo and make a single/spread?
+          // Fallback to 1
+          selectedTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === 1)!;
+        }
+      }
+
+      // Now we have a template and enough photos (or we are emptying the pool).
+      const pagePhotos = photosPool.splice(0, selectedTemplate.photoCount);
+
+      // Decide if this is a Spread or a Single page?
+      // Usually inner pages are Spreads ('type: spread'). 
+      // Unless we are at the very last photo and want a closing single page.
+      // Logic: If photosPool is empty AFTER this splice, this MIGHT be the last page.
+      // But spreads are usually 2 pages wide. 
+      // The app seems to model: [Cover] [Single(Right)] [Spread] [Spread] ... [Single(Left)?]
+      // Let's stick to Spreads for the middle.
+
+      if (photosPool.length === 0 && newPages.length > 1) {
+        // This is the last batch. 
+        // If it's just 1 photo, maybe make it a 'single' closing page?
+        // If it's multiple, keep it as a spread.
+        if (pagePhotos.length === 1) {
+          newPages.push({
+            id: uuidv4(),
+            type: 'single',
+            photos: pagePhotos.map(p => ({ ...p, panAndZoom: defaultPanAndZoom })),
+            layout: '1-full'
+          });
+        } else {
+          newPages.push({
+            id: uuidv4(),
+            type: 'spread',
+            photos: pagePhotos.map(p => ({ ...p, panAndZoom: defaultPanAndZoom })),
+            layout: selectedTemplate.id,
+          });
+        }
+      } else {
+        newPages.push({
+          id: uuidv4(),
+          type: 'spread',
+          photos: pagePhotos.map(p => ({ ...p, panAndZoom: defaultPanAndZoom })),
+          layout: selectedTemplate.id,
+        });
+      }
     }
 
     setAlbumPages(newPages);
