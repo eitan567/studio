@@ -26,6 +26,7 @@ import type { Photo, AlbumConfig, AlbumPage, PhotoPanAndZoom } from '@/lib/types
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlbumPreview } from './album-preview';
+import { BookViewOverlay } from './book-view-overlay';
 import { useToast } from '@/hooks/use-toast';
 import {
   Form,
@@ -67,6 +68,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const [albumPages, setAlbumPages] = useState<AlbumPage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isBookViewOpen, setIsBookViewOpen] = useState(false);
   const { toast } = useToast();
   const [randomSeed, setRandomSeed] = useState('');
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
@@ -536,7 +538,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2 bg-background" onClick={() => toast({ title: "Book View Coming Soon" })}>
+          <Button variant="outline" className="gap-2 bg-background" onClick={() => setIsBookViewOpen(true)}>
             <BookOpen className="h-4 w-4" />
             <span className="hidden sm:inline">Book View</span>
           </Button>
@@ -868,6 +870,13 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           </Card>
         </div>
       </div >
+      {isBookViewOpen && (
+        <BookViewOverlay
+          pages={albumPages}
+          config={config}
+          onClose={() => setIsBookViewOpen(false)}
+        />
+      )}
     </div>
   );
 }
