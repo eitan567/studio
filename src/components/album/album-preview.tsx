@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { BookOpenText, Info, Trash2, LayoutTemplate, Download, Image as ImageIcon, Wand2, Undo, Crop, AlertTriangle, Pencil, BookOpen, Share2, FileText, FileDown, MoreHorizontal, FileImage } from 'lucide-react';
+import { BookOpenText, Info, Trash2, LayoutTemplate, Download, Image as ImageIcon, Wand2, Undo, Crop, AlertTriangle, Pencil, BookOpen, Share2, FileText, FileDown, MoreHorizontal, FileImage, Plus } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
 
 import type { AlbumPage, AlbumConfig, Photo } from '@/lib/types';
@@ -97,6 +97,7 @@ interface AlbumPreviewProps {
   pages: AlbumPage[];
   config: AlbumConfig;
   onDeletePage: (pageId: string) => void;
+  onAddSpread?: (afterIndex: number) => void;
   onUpdateLayout: (pageId: string, newLayout: string) => void;
   onUpdateCoverLayout?: (pageId: string, side: 'front' | 'back' | 'full', newLayout: string) => void;
   onUpdateCoverType?: (pageId: string, newType: 'split' | 'full') => void;
@@ -334,6 +335,7 @@ const SpineColorPicker = ({
 const PageToolbar = ({
   page,
   pageNumber,
+  canDelete = true,
   onDeletePage,
   onUpdateLayout,
   onUpdateCoverLayout,
@@ -347,6 +349,7 @@ const PageToolbar = ({
 }: {
   page: AlbumPage;
   pageNumber: number;
+  canDelete?: boolean;
   onDeletePage: (id: string) => void;
   onUpdateLayout: (id: string, layout: string) => void;
   onUpdateCoverLayout?: (id: string, side: 'front' | 'back' | 'full', layout: string) => void;
@@ -590,11 +593,20 @@ const PageToolbar = ({
             <div className="mx-1 h-6 w-px bg-border" />
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => onDeletePage(page.id)}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "text-destructive hover:bg-destructive/10 hover:text-destructive",
+                    !canDelete && "opacity-50 cursor-not-allowed"
+                  )}
+                  onClick={() => canDelete && onDeletePage(page.id)}
+                  disabled={!canDelete}
+                >
                   <Trash2 className="h-5 w-5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Delete Page</TooltipContent>
+              <TooltipContent>{canDelete ? "Delete Page" : "Cannot delete first/last page"}</TooltipContent>
             </Tooltip>
           </div>
         </div>
@@ -692,6 +704,7 @@ export function AlbumPreview({
   pages,
   config,
   onDeletePage,
+  onAddSpread,
   onUpdateLayout,
   onUpdateCoverLayout,
   onUpdateCoverType,
@@ -744,6 +757,7 @@ export function AlbumPreview({
                   <PageToolbar
                     page={page}
                     pageNumber={index}
+                    canDelete={!page.isCover && page.type !== 'single'}
                     onDeletePage={() => onDeletePage(page.id)}
                     onUpdateLayout={onUpdateLayout}
                     onUpdateCoverLayout={onUpdateCoverLayout}
@@ -827,6 +841,21 @@ export function AlbumPreview({
                   </AspectRatio>
                 </div>
               </div>
+
+              {/* Add Spread Button - Show between pages (not after cover, not after last page) */}
+              {onAddSpread && !page.isCover && index < pages.length - 1 && (
+                <div className="flex justify-center py-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="opacity-40 hover:opacity-100 transition-opacity"
+                    onClick={() => onAddSpread(index)}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Spread
+                  </Button>
+                </div>
+              )}
             </div>
           ))
           }

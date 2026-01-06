@@ -81,6 +81,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
   };
 
   // Sync with external changes (like AI enhancement or Undo)
+  // Re-run when photo.src changes because the container ref only exists when rendering actual image
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -94,11 +95,13 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
     });
     observer.observe(container);
     return () => observer.disconnect();
-  }, []);
+  }, [photo.src]);
 
   useEffect(() => {
-    applyTransform();
-  }, [containerSize, photo.width, photo.height]);
+    if (photo.src) {
+      applyTransform();
+    }
+  }, [containerSize, photo.width, photo.height, photo.src]);
 
   useEffect(() => {
     if (!isInteracting.current) {
@@ -107,9 +110,11 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
         x: photo.panAndZoom?.x ?? 50,
         y: photo.panAndZoom?.y ?? 50
       };
-      applyTransform();
+      if (photo.src) {
+        applyTransform();
+      }
     }
-  }, [photo.panAndZoom]);
+  }, [photo.panAndZoom, photo.src]);
 
   const commitChanges = () => {
     // Pass a fresh copy to the parent
@@ -183,7 +188,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container || !photo.src) return;
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -199,7 +204,17 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
       window.removeEventListener('mouseup', handleGlobalMouseUp);
       if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     };
-  }, [containerSize, photo.width, photo.height]);
+  }, [containerSize, photo.width, photo.height, photo.src]);
+
+  // Handle empty photo source - render placeholder instead of image
+  // This check is AFTER all hooks to comply with Rules of Hooks
+  if (!photo.src) {
+    return (
+      <div className="absolute inset-0 bg-muted flex items-center justify-center">
+        <span className="text-muted-foreground text-xs">Drop photo here</span>
+      </div>
+    );
+  }
 
   if (useSimpleImage) {
     return (

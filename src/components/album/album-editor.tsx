@@ -244,66 +244,56 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       });
     }
 
-    // Inner Spreads
+    // --- 3. Reserve photo for Last Single Page ---
+    // Always have first AND last single pages
+    let lastPagePhoto: typeof photosPool[0] | null = null;
+    if (photosPool.length > 0) {
+      lastPagePhoto = photosPool.pop()!; // Reserve last photo for final single page
+    }
+
+    // --- 4. Inner Spreads ---
     while (photosPool.length > 0) {
-      // Check if we are at the very end (Last Page Single)
-      // If we have very few photos left, we might need to force a single page end.
-
-      // Strategy: Pick a random template. Check if we have enough photos.
-      // To make it robust: Pick a random template from ALL templates.
-      // If we don't have enough photos for it, pick one that fits what we have.
-
+      // Pick a random template
       let selectedTemplate = LAYOUT_TEMPLATES[Math.floor(Math.random() * LAYOUT_TEMPLATES.length)];
 
-      // If not enough photos for this template, find one that fits exact count
+      // If not enough photos for this template, find one that fits
       if (photosPool.length < selectedTemplate.photoCount) {
         const exactFit = LAYOUT_TEMPLATES.find(t => t.photoCount === photosPool.length);
         if (exactFit) {
           selectedTemplate = exactFit;
         } else {
-          // Even exact fit not found (e.g. 5 photos and no 5-layout)? 
-          // Just take 1 photo and make a single/spread?
-          // Fallback to 1
+          // Fallback to 1-photo layout
           selectedTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === 1)!;
         }
       }
 
-      // Now we have a template and enough photos (or we are emptying the pool).
       const pagePhotos = photosPool.splice(0, selectedTemplate.photoCount);
 
-      // Decide if this is a Spread or a Single page?
-      // Usually inner pages are Spreads ('type: spread'). 
-      // Unless we are at the very last photo and want a closing single page.
-      // Logic: If photosPool is empty AFTER this splice, this MIGHT be the last page.
-      // But spreads are usually 2 pages wide. 
-      // The app seems to model: [Cover] [Single(Right)] [Spread] [Spread] ... [Single(Left)?]
-      // Let's stick to Spreads for the middle.
+      newPages.push({
+        id: uuidv4(),
+        type: 'spread',
+        photos: pagePhotos.map(p => ({ ...p, panAndZoom: defaultPanAndZoom })),
+        layout: selectedTemplate.id,
+      });
+    }
 
-      if (photosPool.length === 0 && newPages.length > 1) {
-        // This is the last batch. 
-        // If it's just 1 photo, maybe make it a 'single' closing page?
-        // If it's multiple, keep it as a spread.
-        if (pagePhotos.length === 1) {
-          newPages.push({
-            id: uuidv4(),
-            type: 'single',
-            photos: pagePhotos.map(p => ({ ...p, panAndZoom: defaultPanAndZoom })),
-            layout: '1-full'
-          });
-        } else {
-          newPages.push({
-            id: uuidv4(),
-            type: 'spread',
-            photos: pagePhotos.map(p => ({ ...p, panAndZoom: defaultPanAndZoom })),
-            layout: selectedTemplate.id,
-          });
-        }
-      } else {
+    // --- 5. Last Single Page (always present) ---
+    if (lastPagePhoto) {
+      newPages.push({
+        id: uuidv4(),
+        type: 'single',
+        photos: [{ ...lastPagePhoto, panAndZoom: defaultPanAndZoom }],
+        layout: '1-full'
+      });
+    } else if (newPages.length > 1) {
+      // No photo left for last page - duplicate first photo
+      const firstPagePhoto = newPages[1]?.photos?.[0];
+      if (firstPagePhoto) {
         newPages.push({
           id: uuidv4(),
-          type: 'spread',
-          photos: pagePhotos.map(p => ({ ...p, panAndZoom: defaultPanAndZoom })),
-          layout: selectedTemplate.id,
+          type: 'single',
+          photos: [{ ...firstPagePhoto, id: uuidv4(), panAndZoom: defaultPanAndZoom }],
+          layout: '1-full'
         });
       }
     }
@@ -334,95 +324,72 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     })
   }
 
+  // Add a new spread page at a specific index
+  const addSpreadPage = (afterIndex: number) => {
+    // Create 4 separate empty photo objects, each with its own unique ID
+    const createEmptyPhoto = () => ({
+      id: uuidv4(),
+      src: '',
+      alt: 'Empty slot',
+      panAndZoom: { scale: 1, x: 50, y: 50 }
+    });
+
+    const newSpread: AlbumPage = {
+      id: uuidv4(),
+      type: 'spread',
+      photos: [createEmptyPhoto(), createEmptyPhoto(), createEmptyPhoto(), createEmptyPhoto()],
+      layout: '4-grid'
+    };
+
+    setAlbumPages(prev => {
+      const newPages = [...prev];
+      newPages.splice(afterIndex + 1, 0, newSpread);
+      return newPages;
+    });
+
+    toast({
+      title: "Spread Added",
+      description: "A new double-page spread has been added."
+    });
+  }
+
+  // Simple layout change - only affects the specific page
+  // If new layout needs more photos than available, create empty slots
+  // If it needs fewer photos, keep what fits
+  // Don't redistribute photos to other pages
   const updatePageLayout = (pageId: string, newLayoutId: string) => {
     setAlbumPages(prevPages => {
-      const pageIndex = prevPages.findIndex(p => p.id === pageId);
-      if (pageIndex === -1) return prevPages;
+      return prevPages.map(page => {
+        if (page.id !== pageId) return page;
 
-      const pageToUpdate = { ...prevPages[pageIndex] };
-      const newTemplate = LAYOUT_TEMPLATES.find(t => t.id === newLayoutId);
-      if (!newTemplate) return prevPages;
+        const newTemplate = LAYOUT_TEMPLATES.find(t => t.id === newLayoutId);
+        if (!newTemplate) return page;
 
-      const newPhotoCount = newTemplate.photoCount;
+        const newPhotoCount = newTemplate.photoCount;
+        const currentPhotos = [...page.photos];
+        const defaultPanAndZoom = { scale: 1, x: 50, y: 50 };
 
-      const subsequentPages = prevPages.slice(pageIndex);
-      const subsequentPhotos = subsequentPages.flatMap(p => p.photos);
-      const subsequentLayouts = prevPages.slice(pageIndex + 1).map(p => ({
-        type: p.type,
-        layout: p.layout
-      }));
-
-      if (newPhotoCount > subsequentPhotos.length) {
-        toast({
-          title: 'Not Enough Photos',
-          description: `You don't have enough photos in the rest of the album to create this layout.`,
-          variant: 'destructive',
-        });
-        return prevPages;
-      }
-
-      const defaultPanAndZoom = { scale: 1, x: 50, y: 50 };
-      const newPages = [...prevPages.slice(0, pageIndex)];
-
-      const updatedPagePhotos = subsequentPhotos.splice(0, newPhotoCount).map(p => ({
-        ...p,
-        panAndZoom: p.panAndZoom || defaultPanAndZoom,
-      }));
-
-      newPages.push({ ...pageToUpdate, photos: updatedPagePhotos, layout: newLayoutId });
-
-      let remainingPhotosPool = [...subsequentPhotos];
-      let layoutIndex = 0;
-
-      while (remainingPhotosPool.length > 0) {
-        let photosForNextPage: Photo[] = [];
-        let nextPageType: 'single' | 'spread' = 'spread';
-        let nextPageLayout = '2-horiz';
-
-        if (layoutIndex < subsequentLayouts.length) {
-          const originalLayout = subsequentLayouts[layoutIndex];
-          const originalTemplate = LAYOUT_TEMPLATES.find(t => t.id === originalLayout.layout);
-          const originalPhotoCount = originalTemplate ? originalTemplate.photoCount : 1;
-
-          if (remainingPhotosPool.length >= originalPhotoCount) {
-            photosForNextPage = remainingPhotosPool.splice(0, originalPhotoCount);
-            nextPageType = originalLayout.type;
-            nextPageLayout = originalLayout.layout;
-          } else {
-            photosForNextPage = remainingPhotosPool.splice(0);
-            nextPageType = originalLayout.type;
-            const bestFitTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === photosForNextPage.length) || LAYOUT_TEMPLATES.find(t => t.photoCount === 1)!;
-            nextPageLayout = bestFitTemplate.id;
-          }
-          layoutIndex++;
-        } else {
-          const lastPage = newPages[newPages.length - 1];
-          if (lastPage.type === 'single' && remainingPhotosPool.length >= 2) {
-            photosForNextPage = remainingPhotosPool.splice(0, 2);
-            nextPageType = 'spread';
-            nextPageLayout = '2-horiz';
-          } else if (remainingPhotosPool.length === 1) {
-            photosForNextPage = remainingPhotosPool.splice(0, 1);
-            nextPageType = 'single';
-            nextPageLayout = '1-full';
-          } else {
-            const count = Math.min(remainingPhotosPool.length, 2);
-            photosForNextPage = remainingPhotosPool.splice(0, count);
-            const bestFitTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === count) || LAYOUT_TEMPLATES.find(t => t.photoCount === 1)!;
-            nextPageType = count > 1 ? 'spread' : 'single';
-            nextPageLayout = bestFitTemplate.id;
+        // If we need more photos than we have, create empty slots
+        if (currentPhotos.length < newPhotoCount) {
+          const emptySlotCount = newPhotoCount - currentPhotos.length;
+          for (let i = 0; i < emptySlotCount; i++) {
+            currentPhotos.push({
+              id: uuidv4(),
+              src: '',
+              alt: 'Empty slot',
+              panAndZoom: defaultPanAndZoom
+            });
           }
         }
-        newPages.push({
-          id: uuidv4(),
-          type: nextPageType,
-          photos: photosForNextPage.map(p => ({ ...p, panAndZoom: defaultPanAndZoom })),
-          layout: nextPageLayout,
-        });
-      }
 
-
-      return newPages;
+        // Only keep photos that fit in the new layout
+        // (Extra photos are kept in the array but won't be rendered)
+        return {
+          ...page,
+          layout: newLayoutId,
+          photos: currentPhotos
+        };
+      });
     });
   };
 
@@ -633,7 +600,9 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             return {
               ...droppedPhoto,
               id: targetPhotoId, // Keep the existing unique ID of the slot!
-              panAndZoom: { scale: 1, x: 50, y: 50 }
+              panAndZoom: { scale: 1, x: 50, y: 50 },
+              width: droppedPhoto.width || 800,
+              height: droppedPhoto.height || 600
             };
           }
           return p;
@@ -978,6 +947,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             pages={albumPages}
             config={config}
             onDeletePage={deletePage}
+            onAddSpread={addSpreadPage}
             onUpdateLayout={updatePageLayout}
             onUpdatePhotoPanAndZoom={updatePhotoPanAndZoom}
             onDropPhoto={handleDropPhoto}
