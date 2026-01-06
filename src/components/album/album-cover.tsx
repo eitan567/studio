@@ -587,6 +587,26 @@ export const AlbumCover = ({
     const photoGap = page.photoGap ?? config?.photoGap ?? 0;
     const spineWidth = page.spineWidth ?? 40;
 
+    // --- Spine-aware Coordinate Calculations ---
+    // For full view with spine, calculate the actual percentage boundaries
+    // Full width = (singlePage * 2) + spine
+    // Back ends at: singlePage / fullWidth
+    // Front starts at: (singlePage + spine) / fullWidth
+    const BASE_PAGE_PX = 450;
+    let configW = 20, configH = 20;
+    if (config?.size) {
+        const parts = config.size.split('x').map(Number);
+        if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+            configW = parts[0];
+            configH = parts[1];
+        }
+    }
+    const pxPerUnit = BASE_PAGE_PX / configH;
+    const singlePageW = configW * pxPerUnit;
+    const fullWidth = (singlePageW * 2) + spineWidth;
+    const backEndPercent = (singlePageW / fullWidth) * 100; // Where back cover ends
+    const frontStartPercent = ((singlePageW + spineWidth) / fullWidth) * 100; // Where front cover starts
+
     // --- Render Content Helper ---
     const renderContent = () => (
         <>
@@ -756,11 +776,15 @@ export const AlbumCover = ({
             let isVisible = true;
 
             if (isFront) { // Viewing only Front
-                localX = (currentX - 50) * 2;
-                if (currentX < 50) isVisible = false;
+                // Transform from global (frontStartPercent-100%) to local (0-100%)
+                // localX = (globalX - frontStartPercent) / (100 - frontStartPercent) * 100
+                const frontRange = 100 - frontStartPercent;
+                localX = ((currentX - frontStartPercent) / frontRange) * 100;
+                if (currentX < frontStartPercent) isVisible = false;
             } else if (isBack) { // Viewing only Back
-                localX = currentX * 2;
-                if (currentX > 50) isVisible = false;
+                // Transform from global (0-backEndPercent%) to local (0-100%)
+                localX = (currentX / backEndPercent) * 100;
+                if (currentX > backEndPercent) isVisible = false;
             }
 
             if (!isVisible) return null;
@@ -792,8 +816,14 @@ export const AlbumCover = ({
                             // Transform back to Global
                             let globalX = x;
                             let globalY = y;
-                            if (isFront) globalX = 50 + (x / 2);
-                            else if (isBack) globalX = x / 2;
+                            if (isFront) {
+                                // Local 0-100% maps to global frontStartPercent-100%
+                                const frontRange = 100 - frontStartPercent;
+                                globalX = frontStartPercent + (x / 100) * frontRange;
+                            } else if (isBack) {
+                                // Local 0-100% maps to global 0-backEndPercent%
+                                globalX = (x / 100) * backEndPercent;
+                            }
 
                             handleUpdateTextPosition(textItem.id, globalX, globalY);
                         }}
@@ -830,19 +860,20 @@ export const AlbumCover = ({
 
             if (isFront) {
                 // Global to Local (Front)
-                // Position
-                localX = (currentX - 50) * 2;
-                // Width: % of Full (Wide) -> % of Front (Narrow)
-                // Front container is 1/2 of Full. So same pixels = 2x percentage.
-                localWidth = imgItem.width * 2;
+                // Transform from global (frontStartPercent-100%) to local (0-100%)
+                const frontRange = 100 - frontStartPercent;
+                localX = ((currentX - frontStartPercent) / frontRange) * 100;
+                // Width: % of Full -> % of Front (Front is narrower proportionally)
+                localWidth = (imgItem.width / frontRange) * 100;
 
-                if (currentX < 50) isVisible = false;
+                if (currentX < frontStartPercent) isVisible = false;
             } else if (isBack) {
                 // Global to Local (Back)
-                localX = currentX * 2;
-                localWidth = imgItem.width * 2;
+                // Transform from global (0-backEndPercent%) to local (0-100%)
+                localX = (currentX / backEndPercent) * 100;
+                localWidth = (imgItem.width / backEndPercent) * 100;
 
-                if (currentX > 50) isVisible = false;
+                if (currentX > backEndPercent) isVisible = false;
             }
 
             if (!isVisible) return null;
@@ -861,14 +892,25 @@ export const AlbumCover = ({
                         onUpdatePosition={(x, y) => {
                             let globalX = x;
                             let globalY = y;
-                            if (isFront) globalX = 50 + (x / 2);
-                            else if (isBack) globalX = x / 2;
+                            if (isFront) {
+                                // Local 0-100% maps to global frontStartPercent-100%
+                                const frontRange = 100 - frontStartPercent;
+                                globalX = frontStartPercent + (x / 100) * frontRange;
+                            } else if (isBack) {
+                                // Local 0-100% maps to global 0-backEndPercent%
+                                globalX = (x / 100) * backEndPercent;
+                            }
                             handleUpdateImagePosition(imgItem.id, globalX, globalY);
                         }}
                         onUpdateSize={(w) => {
                             // w is Local Percentage. Convert to Global.
                             let globalWidth = w;
-                            if (isFront || isBack) globalWidth = w / 2;
+                            if (isFront) {
+                                const frontRange = 100 - frontStartPercent;
+                                globalWidth = (w / 100) * frontRange;
+                            } else if (isBack) {
+                                globalWidth = (w / 100) * backEndPercent;
+                            }
 
                             handleUpdateImageSize(imgItem.id, globalWidth);
                         }}
