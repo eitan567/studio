@@ -16,6 +16,7 @@ import {
   FileText,
   FileImage,
   Pencil,
+  Download,
 } from 'lucide-react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -43,6 +44,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { LAYOUT_TEMPLATES, COVER_TEMPLATES } from './layout-templates';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -716,11 +723,11 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           <div className="h-4 w-px bg-border mx-1" />
           <Button variant="ghost" size="sm" className="gap-2" onClick={handleExport} disabled={isExporting}>
             {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileImage className="h-4 w-4" />}
-            <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export Images'}</span>
+            <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export to Images'}</span>
           </Button>
-          <Button variant="ghost" size="sm" className="gap-2" onClick={() => toast({ title: "Exporting PDF..." })}>
+          <Button variant="ghost" size="sm" className="gap-2" onClick={() => exporterRef.current?.exportToPdf()}>
             <FileText className="h-4 w-4" />
-            <span className="hidden sm:inline">Export PDF</span>
+            <span className="hidden sm:inline">Export to PDF</span>
           </Button>
           <div className="h-4 w-px bg-border mx-1" />
           <Button variant="ghost" size="sm" className="gap-2" onClick={() => toast({ title: "Sharing Album..." })}>

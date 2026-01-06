@@ -1,6 +1,7 @@
 import React, { forwardRef, useImperativeHandle, useState } from 'react';
 import { toBlob } from 'html-to-image';
 import JSZip from 'jszip';
+import { jsPDF } from 'jspdf';
 import { saveAs } from 'file-saver';
 import { AlbumPage, AlbumConfig } from '@/lib/types';
 import { PageLayout } from './page-layout';
@@ -21,6 +22,7 @@ interface AlbumExporterProps {
 export interface AlbumExporterRef {
     exportAlbum: () => Promise<void>;
     exportPage: (pageId: string) => Promise<void>;
+    exportToPdf: () => Promise<void>;
 }
 
 export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
@@ -124,6 +126,69 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
 
             } catch (err) {
                 console.error("Single page export failed:", err);
+                onExportError?.(err);
+            }
+        },
+        exportToPdf: async () => {
+            try {
+                if (!containerRef.current) return;
+                onExportStart?.();
+
+                const exportContainer = containerRef.current;
+
+                // Wait for rendering
+                await new Promise(r => setTimeout(r, 1000));
+
+                const pageElements = Array.from(exportContainer.children) as HTMLElement[];
+                const total = pageElements.length;
+
+                // Initialize PDF
+                // We'll determine orientation based on the first page, but typically albums are landscape-ish or square.
+                // A4 is 210x297mm. 
+                // We will create a PDF where each page matches the image dimensions.
+                const pdf = new jsPDF({
+                    orientation: 'landscape',
+                    unit: 'px',
+                    hotfixes: ['px_scaling']
+                });
+
+                // Clear initial page if we want to set specific dimensions per page
+                pdf.deletePage(1);
+
+                for (let i = 0; i < total; i++) {
+                    const element = pageElements[i];
+                    onExportProgress?.(i + 1, total);
+
+                    const blob = await toBlob(element, {
+                        quality: 0.95,
+                        pixelRatio: 2, // 2x is enough for PDF usually, keeping it optimized
+                        skipAutoScale: true,
+                        fontEmbedCSS: '',
+                        cacheBust: false,
+                    });
+
+                    if (blob) {
+                        // Create a URL for the blob
+                        const imgData = await new Promise<string>((resolve) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result as string);
+                            reader.readAsDataURL(blob);
+                        });
+
+                        const imgProps = pdf.getImageProperties(imgData);
+                        const pdfWidth = imgProps.width;
+                        const pdfHeight = imgProps.height;
+
+                        // Add new page with the dimensions of the image
+                        pdf.addPage([pdfWidth, pdfHeight], pdfWidth > pdfHeight ? 'landscape' : 'portrait');
+                        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                    }
+                }
+
+                pdf.save(`album-export-${new Date().toISOString().split('T')[0]}.pdf`);
+                onExportComplete?.();
+            } catch (err) {
+                console.error("PDF Export failed:", err);
                 onExportError?.(err);
             }
         }
