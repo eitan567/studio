@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { BookOpenText, Info, Trash2, LayoutTemplate, Download, Image as ImageIcon, Wand2, Undo, Crop, AlertTriangle } from 'lucide-react';
+import { BookOpenText, Info, Trash2, LayoutTemplate, Download, Image as ImageIcon, Wand2, Undo, Crop, AlertTriangle, Pencil } from 'lucide-react';
 import React, { useState } from 'react';
 
 import type { AlbumPage, AlbumConfig, Photo } from '@/lib/types';
@@ -360,19 +360,7 @@ const PageToolbar = ({
       <div className="mb-2">
         <TooltipProvider>
           <div className="flex items-center justify-between gap-1 rounded-lg border bg-background p-0.5 shadow-lg px-2 flex-wrap">
-            <span className="text-sm font-semibold text-muted-foreground mr-2">Cover</span>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onOpenCoverEditor?.(page.id)}
-              className="gap-2 bg-primary/10 hover:bg-primary/20 mr-auto"
-            >
-              <BookOpenText className="h-4 w-4" />
-              Edit Cover Design
-            </Button>
-
-            <div className="h-4 w-px bg-border mx-2" />
+            <span className="text-sm font-semibold text-muted-foreground mr-auto pl-1">Cover</span>
 
             <div className="flex items-center gap-1">
               <span className="text-xs text-muted-foreground whitespace-nowrap">Mode:</span>
@@ -512,6 +500,21 @@ const PageToolbar = ({
                 </DropdownMenu>
               )}
             </div>
+
+            <div className="h-4 w-px bg-border mx-2" />
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onOpenCoverEditor?.(page.id)}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Edit Cover Design</TooltipContent>
+            </Tooltip>
           </div>
         </TooltipProvider>
       </div>
