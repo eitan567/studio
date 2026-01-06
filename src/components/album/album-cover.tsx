@@ -346,9 +346,12 @@ export const AlbumCover = ({
         <>
             {isFullSpread ? (
                 /* FULL COVER MODE (Spread) */
+                /* FULL COVER MODE (Spread) */
                 <div
-                    className="relative h-full w-full bg-white transition-all overflow-hidden flex"
+                    className="relative h-full bg-white transition-all overflow-hidden flex"
                     style={{
+                        width: isFull ? '100%' : '200%',
+                        transform: isFront ? 'translateX(-50%)' : 'none',
                         backgroundColor: page.backgroundColor || config?.backgroundColor || '#fff',
                         backgroundImage: page.backgroundImage ? `url(${page.backgroundImage})` : undefined,
                         backgroundSize: 'cover',
