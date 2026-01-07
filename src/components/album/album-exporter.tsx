@@ -6,6 +6,7 @@ import { saveAs } from 'file-saver';
 import { AlbumPage, AlbumConfig } from '@/lib/types';
 import { PageLayout } from './page-layout';
 import { AlbumCover, StaticCoverText, StaticCoverImage } from './album-cover';
+import { LAYOUT_TEMPLATES } from './layout-templates';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
@@ -285,20 +286,60 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                         </div>
                                     )}
                                 </div>
-                            ) : isSpread ? (
-                                <div className="relative h-full w-full">
-                                    <PageLayout
-                                        page={page}
-                                        // Scale gap? If we render at 2000px width (approx 50-60cm?), 
-                                        // and photoGap is 10px... 
-                                        // It's probably fine to keep 1:1 if we assume the editor config is "px on a large canvas".
-                                        photoGap={page.photoGap ?? config.photoGap}
-                                        onUpdatePhotoPanAndZoom={() => { }}
-                                        onInteractionChange={() => { }}
-                                        onDropPhoto={() => { }}
-                                        useSimpleImage={true}
-                                    />
-                                </div>
+                            ) : (isSpread && !page.isCover) ? (
+                                (() => {
+                                    const isSplit = page.spreadMode === 'split';
+                                    if (isSplit) {
+                                        const leftLayoutId = page.spreadLayouts?.left || LAYOUT_TEMPLATES[0].id;
+                                        const rightLayoutId = page.spreadLayouts?.right || LAYOUT_TEMPLATES[0].id;
+                                        const leftTemplate = LAYOUT_TEMPLATES.find(t => t.id === leftLayoutId) || LAYOUT_TEMPLATES[0];
+                                        const leftPhotos = page.photos.slice(0, leftTemplate.photoCount);
+                                        const rightPhotos = page.photos.slice(leftTemplate.photoCount);
+
+                                        return (
+                                            <div className="relative h-full w-full flex">
+                                                <div className="h-full w-1/2">
+                                                    <PageLayout
+                                                        page={page}
+                                                        photoGap={page.photoGap ?? config.photoGap}
+                                                        overridePhotos={leftPhotos}
+                                                        overrideLayout={leftLayoutId}
+                                                        onUpdatePhotoPanAndZoom={() => { }}
+                                                        onInteractionChange={() => { }}
+                                                        onDropPhoto={() => { }}
+                                                        useSimpleImage={true}
+                                                    />
+                                                </div>
+                                                <div className="h-full w-1/2">
+                                                    <PageLayout
+                                                        page={page}
+                                                        photoGap={page.photoGap ?? config.photoGap}
+                                                        overridePhotos={rightPhotos}
+                                                        overrideLayout={rightLayoutId}
+                                                        onUpdatePhotoPanAndZoom={() => { }}
+                                                        onInteractionChange={() => { }}
+                                                        onDropPhoto={() => { }}
+                                                        useSimpleImage={true}
+                                                        photoIndexOffset={leftTemplate.photoCount}
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <div className="relative h-full w-full">
+                                            <PageLayout
+                                                page={page}
+                                                photoGap={page.photoGap ?? config.photoGap}
+                                                onUpdatePhotoPanAndZoom={() => { }}
+                                                onInteractionChange={() => { }}
+                                                onDropPhoto={() => { }}
+                                                useSimpleImage={true}
+                                            />
+                                        </div>
+                                    );
+                                })()
                             ) : (
                                 <PageLayout
                                     page={page}
