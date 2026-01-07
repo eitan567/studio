@@ -345,6 +345,7 @@ const PageToolbar = ({
   onUpdateTitleSettings,
   onOpenCoverEditor, // New prop
   onDownloadPage,
+  onUpdatePage,
   toast
 }: {
   page: AlbumPage;
@@ -359,23 +360,36 @@ const PageToolbar = ({
   onUpdateTitleSettings?: (id: string, settings: { text?: string; color?: string; fontSize?: number; fontFamily?: string; position?: { x: number; y: number } }) => void;
   onOpenCoverEditor?: (pageId: string) => void;
   onDownloadPage?: (pageId: string) => void;
+  onUpdatePage?: (page: AlbumPage) => void;
   toast: any;
 }) => {
-  if (page.isCover) {
+  const isCoverOrSpread = page.isCover || page.type === 'spread';
+  const isSplit = page.isCover ? (page.coverType === 'split' || !page.coverType) : (page.spreadMode === 'split');
+  const isFull = !isSplit;
+
+  if (isCoverOrSpread) {
     return (
       <div className="mb-2">
         <TooltipProvider>
           <div className="flex items-center justify-between gap-1 rounded-lg border bg-background p-0.5 shadow-lg px-2 flex-wrap">
-            <span className="text-sm font-semibold text-muted-foreground mr-auto pl-1">Cover</span>
+            <span className="text-sm font-semibold text-muted-foreground mr-auto pl-1">
+              {page.isCover ? "Cover" : `Page ${pageNumber}`}
+            </span>
 
             <div className="flex items-center gap-1">
               <span className="text-xs text-muted-foreground whitespace-nowrap">Mode:</span>
               <div className="flex bg-muted/50 p-0.5 rounded-md border">
                 <button
-                  onClick={() => onUpdateCoverType?.(page.id, 'full')}
+                  onClick={() => {
+                    if (page.isCover) {
+                      onUpdateCoverType?.(page.id, 'full');
+                    } else {
+                      onUpdatePage?.({ ...page, spreadMode: 'full' });
+                    }
+                  }}
                   className={cn(
                     "px-2 py-0.5 text-xs rounded-sm transition-all",
-                    page.coverType === 'full'
+                    isFull
                       ? "bg-background shadow-sm text-foreground font-medium"
                       : "text-muted-foreground hover:text-foreground"
                   )}
@@ -384,10 +398,16 @@ const PageToolbar = ({
                 </button>
                 <div className="w-px bg-border/50 my-0.5" />
                 <button
-                  onClick={() => onUpdateCoverType?.(page.id, 'split')}
+                  onClick={() => {
+                    if (page.isCover) {
+                      onUpdateCoverType?.(page.id, 'split');
+                    } else {
+                      onUpdatePage?.({ ...page, spreadMode: 'split' });
+                    }
+                  }}
                   className={cn(
                     "px-2 py-0.5 text-xs rounded-sm transition-all",
-                    page.coverType === 'split' || !page.coverType
+                    isSplit
                       ? "bg-background shadow-sm text-foreground font-medium"
                       : "text-muted-foreground hover:text-foreground"
                   )}
@@ -399,29 +419,38 @@ const PageToolbar = ({
 
             <div className="h-4 w-px bg-border mx-2" />
 
-            {/* Layout Dropdowns (Simplified/Kept for Structure) */}
+            {/* Layout Dropdowns */}
             <div className="flex items-center gap-2">
-              {page.coverType !== 'full' ? (
+              {isSplit ? (
                 <>
-                  {/* Back Cover Layout */}
+                  {/* Left / Back Layout */}
                   <DropdownMenu>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="sm" className="gap-1 px-2">
                             <LayoutTemplate className="h-4 w-4" />
-                            <span className="text-xs">Back</span>
+                            <span className="text-xs">{page.isCover ? "Back" : "Page 1"}</span>
                           </Button>
                         </DropdownMenuTrigger>
                       </TooltipTrigger>
-                      <TooltipContent>Back Cover Layout</TooltipContent>
+                      <TooltipContent>{page.isCover ? "Back Cover Layout" : "Page 1 Layout"}</TooltipContent>
                     </Tooltip>
                     <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
-                      {COVER_TEMPLATES.map(template => (
+                      {(page.isCover ? COVER_TEMPLATES : LAYOUT_TEMPLATES).map(template => (
                         <DropdownMenuItem
                           key={template.id}
-                          onSelect={() => onUpdateCoverLayout?.(page.id, 'back', template.id)}
-                          className={cn("p-0 focus:bg-accent/50 rounded-md cursor-pointer", page.coverLayouts?.back === template.id && "ring-2 ring-primary")}
+                          onSelect={() => {
+                            if (page.isCover) {
+                              onUpdateCoverLayout?.(page.id, 'back', template.id);
+                            } else {
+                              const currentLayouts = page.spreadLayouts || { left: LAYOUT_TEMPLATES[0].id, right: LAYOUT_TEMPLATES[0].id };
+                              onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, left: template.id } });
+                            }
+                          }}
+                          className={cn("p-0 focus:bg-accent/50 rounded-md cursor-pointer",
+                            (page.isCover ? page.coverLayouts?.back : page.spreadLayouts?.left) === template.id && "ring-2 ring-primary"
+                          )}
                         >
                           <div className="w-24 h-24 p-1 flex flex-col items-center">
                             <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
@@ -438,25 +467,34 @@ const PageToolbar = ({
 
                   <div className="h-4 w-px bg-border" />
 
-                  {/* Front Cover Layout */}
+                  {/* Right / Front Layout */}
                   <DropdownMenu>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="sm" className="gap-1 px-2">
                             <LayoutTemplate className="h-4 w-4" />
-                            <span className="text-xs">Front</span>
+                            <span className="text-xs">{page.isCover ? "Front" : "Page 2"}</span>
                           </Button>
                         </DropdownMenuTrigger>
                       </TooltipTrigger>
-                      <TooltipContent>Front Cover Layout</TooltipContent>
+                      <TooltipContent>{page.isCover ? "Front Cover Layout" : "Page 2 Layout"}</TooltipContent>
                     </Tooltip>
                     <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
-                      {COVER_TEMPLATES.map(template => (
+                      {(page.isCover ? COVER_TEMPLATES : LAYOUT_TEMPLATES).map(template => (
                         <DropdownMenuItem
                           key={template.id}
-                          onSelect={() => onUpdateCoverLayout?.(page.id, 'front', template.id)}
-                          className={cn("p-0 focus:bg-accent/50 rounded-md cursor-pointer", page.coverLayouts?.front === template.id && "ring-2 ring-primary")}
+                          onSelect={() => {
+                            if (page.isCover) {
+                              onUpdateCoverLayout?.(page.id, 'front', template.id);
+                            } else {
+                              const currentLayouts = page.spreadLayouts || { left: LAYOUT_TEMPLATES[0].id, right: LAYOUT_TEMPLATES[0].id };
+                              onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, right: template.id } });
+                            }
+                          }}
+                          className={cn("p-0 focus:bg-accent/50 rounded-md cursor-pointer",
+                            (page.isCover ? page.coverLayouts?.front : page.spreadLayouts?.right) === template.id && "ring-2 ring-primary"
+                          )}
                         >
                           <div className="w-24 h-24 p-1 flex flex-col items-center">
                             <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
@@ -486,10 +524,16 @@ const PageToolbar = ({
                     <TooltipContent>Spread Layout</TooltipContent>
                   </Tooltip>
                   <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
-                    {COVER_TEMPLATES.map(template => (
+                    {(page.isCover ? COVER_TEMPLATES : LAYOUT_TEMPLATES).map(template => (
                       <DropdownMenuItem
                         key={template.id}
-                        onSelect={() => onUpdateCoverLayout?.(page.id, 'full', template.id)}
+                        onSelect={() => {
+                          if (page.isCover) {
+                            onUpdateCoverLayout?.(page.id, 'full', template.id);
+                          } else {
+                            onUpdateLayout(page.id, template.id);
+                          }
+                        }}
                         className={cn("p-0 focus:bg-accent/50 rounded-md cursor-pointer", page.layout === template.id && "ring-2 ring-primary")}
                       >
                         <div className="w-24 h-24 p-1 flex flex-col items-center">
@@ -508,14 +552,14 @@ const PageToolbar = ({
             </div>
 
             <div className="h-4 w-px bg-border mx-2" />
-
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon" onClick={() => onDownloadPage?.(page.id)}><Download className="h-5 w-5" /></Button>
               </TooltipTrigger>
-              <TooltipContent>Download Cover</TooltipContent>
+              <TooltipContent>Download {page.isCover ? "Cover" : "Spread"}</TooltipContent>
             </Tooltip>
 
+            {/* Restored Buttons: Pencil, Wand, Undo */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -526,13 +570,50 @@ const PageToolbar = ({
                   <Pencil className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Edit Cover Design</TooltipContent>
+              <TooltipContent>Edit Design</TooltipContent>
             </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><Wand2 className="h-5 w-5" /></Button>
+              </TooltipTrigger>
+              <TooltipContent>Enhance with AI</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><Undo className="h-5 w-5" /></Button>
+              </TooltipTrigger>
+              <TooltipContent>Undo AI Changes</TooltipContent>
+            </Tooltip>
+
+
+            {!page.isCover && (
+              <>
+                <div className="h-4 w-px bg-border mx-2" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                        "text-destructive hover:bg-destructive/10 hover:text-destructive",
+                        !canDelete && "opacity-50 cursor-not-allowed"
+                      )}
+                      onClick={() => canDelete && onDeletePage(page.id)}
+                      disabled={!canDelete}
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Delete Spread</TooltipContent>
+                </Tooltip>
+              </>
+            )}
           </div>
         </TooltipProvider>
       </div>
     );
   }
+
 
   return (
     <div className="mb-2">
@@ -776,6 +857,7 @@ export function AlbumPreview({
                     onUpdateTitleSettings={onUpdateTitleSettings}
                     onOpenCoverEditor={handleOpenPageEditor}
                     onDownloadPage={onDownloadPage}
+                    onUpdatePage={onUpdatePage}
                     toast={toast}
                   />
                 </div>

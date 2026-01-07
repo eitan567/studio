@@ -5,7 +5,7 @@ import { jsPDF } from 'jspdf';
 import { saveAs } from 'file-saver';
 import { AlbumPage, AlbumConfig } from '@/lib/types';
 import { PageLayout } from './page-layout';
-import { AlbumCover } from './album-cover';
+import { AlbumCover, StaticCoverText, StaticCoverImage } from './album-cover';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
@@ -310,6 +310,29 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                 />
                             )}
                         </div>
+
+                        {/* Overlays for Regular Pages */}
+                        {!page.isCover && (
+                            <>
+                                {page.coverTexts?.map(textItem => {
+                                    // Calculate font size in pixels relative to the export container width
+                                    // Reference widths match AlbumCover's logic (1600 for single, 3200 for spread/full)
+                                    const referenceWidth = isSpread ? 3200 : 1600;
+                                    const fontSizePx = (textItem.style.fontSize / referenceWidth) * width;
+
+                                    return (
+                                        <StaticCoverText
+                                            key={textItem.id}
+                                            item={textItem}
+                                            fontSizeOverride={`${fontSizePx}px`}
+                                        />
+                                    );
+                                })}
+                                {page.coverImages?.map(imageItem => (
+                                    <StaticCoverImage key={imageItem.id} item={imageItem} />
+                                ))}
+                            </>
+                        )}
                     </div>
                 );
             })}

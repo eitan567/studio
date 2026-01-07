@@ -205,7 +205,7 @@ const DraggableCoverText = ({
 };
 
 // Static Text for Preview
-const StaticCoverText = ({
+export const StaticCoverText = ({
     item,
     fontSizeOverride
 }: {
@@ -395,7 +395,7 @@ const DraggableCoverImage = ({
 };
 
 // Static Image for Preview
-const StaticCoverImage = ({ item }: { item: CoverImage }) => {
+export const StaticCoverImage = ({ item }: { item: CoverImage }) => {
     return (
         <div
             className="absolute select-none pointer-events-none"
@@ -569,7 +569,7 @@ export const AlbumCover = ({
     const isFull = activeView === 'full';
     const isFront = activeView === 'front';
     const isBack = activeView === 'back';
-    const isFullSpread = page.coverType === 'full' || (!page.isCover);
+    const isFullSpread = page.isCover ? (page.coverType === 'full') : (page.spreadMode !== 'split');
 
     // Layout Data
     const backLayoutId = page.coverLayouts?.back || COVER_TEMPLATES[0].id;
@@ -611,7 +611,6 @@ export const AlbumCover = ({
     const renderContent = () => (
         <>
             {isFullSpread ? (
-                /* FULL COVER MODE (Spread) */
                 /* FULL COVER MODE (Spread) */
                 <div
                     className="relative h-full bg-white transition-all overflow-hidden flex"
@@ -670,7 +669,7 @@ export const AlbumCover = ({
             ) : (
                 /* SPLIT COVER MODE */
                 <div className="relative w-full h-full flex">
-                    {/* Back Cover */}
+                    {/* Left / Back Page */}
                     <div
                         className={cn(
                             "relative h-full bg-white transition-all overflow-hidden",
@@ -688,9 +687,11 @@ export const AlbumCover = ({
                             <PageLayout
                                 page={page}
                                 photoGap={photoGap}
+                                // Use backPhotos (first chunk) for Back Cover OR Left Page
                                 overridePhotos={backPhotos}
-                                overrideLayout={backLayoutId}
-                                templateSource={COVER_TEMPLATES}
+                                // Use Left Layout for regular pages, Back Layout for covers
+                                overrideLayout={page.isCover ? backLayoutId : (page.spreadLayouts?.left || LAYOUT_TEMPLATES[0].id)}
+                                templateSource={page.isCover ? COVER_TEMPLATES : LAYOUT_TEMPLATES}
                                 onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
                                 onInteractionChange={() => { }}
                                 onDropPhoto={onDropPhoto || (() => { })}
@@ -700,30 +701,32 @@ export const AlbumCover = ({
                         </div>
                     </div>
 
-                    {/* Spine */}
-                    <div
-                        className={cn(
-                            "relative h-full flex z-10 shrink-0",
-                            isFull ? "flex" : "hidden"
-                        )}
-                        style={{ width: `${spineWidth}px` }}
-                    >
-                        <Spine
-                            text={page.spineText}
-                            width={spineWidth}
-                            color={page.spineColor}
-                            textColor={page.spineTextColor}
-                            fontSize={page.spineFontSize}
-                            fontFamily={page.spineFontFamily}
-                            fontWeight={page.spineFontWeight}
-                            fontStyle={page.spineFontStyle}
-                            textAlign={page.spineTextAlign}
-                            rotated={page.spineTextRotated}
-                            styleOverride={{ width: '100%' }}
-                        />
-                    </div>
+                    {/* Spine (Only for Covers) */}
+                    {page.isCover && (
+                        <div
+                            className={cn(
+                                "relative h-full flex z-10 shrink-0",
+                                isFull ? "flex" : "hidden"
+                            )}
+                            style={{ width: `${spineWidth}px` }}
+                        >
+                            <Spine
+                                text={page.spineText}
+                                width={spineWidth}
+                                color={page.spineColor}
+                                textColor={page.spineTextColor}
+                                fontSize={page.spineFontSize}
+                                fontFamily={page.spineFontFamily}
+                                fontWeight={page.spineFontWeight}
+                                fontStyle={page.spineFontStyle}
+                                textAlign={page.spineTextAlign}
+                                rotated={page.spineTextRotated}
+                                styleOverride={{ width: '100%' }}
+                            />
+                        </div>
+                    )}
 
-                    {/* Front Cover */}
+                    {/* Right / Front Page */}
                     <div
                         className={cn(
                             "relative h-full bg-white transition-all overflow-hidden",
@@ -741,9 +744,11 @@ export const AlbumCover = ({
                             <PageLayout
                                 page={page}
                                 photoGap={photoGap}
+                                // Use frontPhotos (second chunk) for Front Cover OR Right Page
                                 overridePhotos={frontPhotos}
-                                overrideLayout={frontLayoutId}
-                                templateSource={COVER_TEMPLATES}
+                                // Use Right Layout for regular pages, Front Layout for covers
+                                overrideLayout={page.isCover ? frontLayoutId : (page.spreadLayouts?.right || LAYOUT_TEMPLATES[0].id)}
+                                templateSource={page.isCover ? COVER_TEMPLATES : LAYOUT_TEMPLATES}
                                 onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
                                 onInteractionChange={() => { }}
                                 onDropPhoto={onDropPhoto || (() => { })}

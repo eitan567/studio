@@ -91,4 +91,11 @@ export type AlbumPage = {
   titlePosition?: { x: number; y: number }; // Percentage 0-100
 
   coverType?: 'split' | 'full'; // Defaults to 'split'
+
+  // Spread Settings for regular pages
+  spreadMode?: 'full' | 'split';
+  spreadLayouts?: {
+    left: string;
+    right: string;
+  };
 };
