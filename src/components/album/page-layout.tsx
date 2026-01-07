@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 import { AlbumPage, Photo, PhotoPanAndZoom } from '@/lib/types';
 import { LAYOUT_TEMPLATES } from './layout-templates';
 import { PhotoRenderer } from './photo-renderer';
+import { Image as ImageIcon, Plus } from 'lucide-react';
 
 export interface PageLayoutProps {
     page: AlbumPage;
@@ -60,7 +61,7 @@ const PageLayoutComponent = ({
                         <div
                             key={index}
                             className={cn(
-                                "bg-muted rounded-sm transition-all duration-200",
+                                "bg-muted rounded-sm transition-all duration-200 flex flex-col items-center justify-center gap-2 text-muted-foreground/50",
                                 gridClass,
                                 dragOverPhotoId === emptySlotId && "ring-2 ring-primary ring-offset-2 bg-primary/10"
                             )}
@@ -78,7 +79,13 @@ const PageLayoutComponent = ({
                                     onDropPhoto(page.id, `__INSERT_AT__${actualIndex}`, droppedPhotoId);
                                 }
                             }}
-                        />
+                        >
+                            <div className="relative">
+                                <ImageIcon className="w-8 h-8" />
+                                <Plus className="w-3 h-3 absolute -bottom-1 -right-1 bg-muted rounded-full" />
+                            </div>
+                            <span className="text-xs font-medium">Drop photo here</span>
+                        </div>
                     );
                 }
 

@@ -330,7 +330,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     const createEmptyPhoto = () => ({
       id: uuidv4(),
       src: '',
-      alt: 'Empty slot',
+      alt: 'Drop photo here',
       panAndZoom: { scale: 1, x: 50, y: 50 }
     });
 
@@ -376,7 +376,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             currentPhotos.push({
               id: uuidv4(),
               src: '',
-              alt: 'Empty slot',
+              alt: 'Drop photo here',
               panAndZoom: defaultPanAndZoom
             });
           }
@@ -408,8 +408,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             for (let i = 0; i < missingCount; i++) {
               currentPhotos.push({
                 id: uuidv4(),
-                src: 'https://placehold.co/600x400/e2e8f0/e2e8f0?text=+',
-                alt: 'Cover Placeholder',
+                src: '',
+                alt: 'Empty slot',
                 width: 600,
                 height: 400
               });
@@ -446,8 +446,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           for (let i = 0; i < missingCount; i++) {
             currentPhotos.push({
               id: uuidv4(),
-              src: 'https://placehold.co/600x400/e2e8f0/e2e8f0?text=+',
-              alt: 'Cover Placeholder',
+              src: '',
+              alt: 'Drop photo here',
               width: 600,
               height: 400
             });
@@ -577,8 +577,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         while (newPhotos.length < index) {
           newPhotos.push({
             id: uuidv4(),
-            src: 'https://placehold.co/600x400/e2e8f0/e2e8f0?text=+',
-            alt: 'Placeholder',
+            src: '',
+            alt: 'Drop photo here',
             width: 600,
             height: 400
           });
