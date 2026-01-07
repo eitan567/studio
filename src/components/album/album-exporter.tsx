@@ -297,8 +297,11 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                         const rightPhotos = page.photos.slice(leftTemplate.photoCount);
 
                                         return (
-                                            <div className="relative h-full w-full flex">
-                                                <div className="h-full w-1/2">
+                                            <div
+                                                className="relative h-full w-full flex"
+                                                style={{ gap: `${(page.photoGap ?? config.photoGap) * 2}px` }}
+                                            >
+                                                <div className="h-full flex-1 min-w-0">
                                                     <PageLayout
                                                         page={page}
                                                         photoGap={page.photoGap ?? config.photoGap}
@@ -310,7 +313,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                                         useSimpleImage={true}
                                                     />
                                                 </div>
-                                                <div className="h-full w-1/2">
+                                                <div className="h-full flex-1 min-w-0">
                                                     <PageLayout
                                                         page={page}
                                                         photoGap={page.photoGap ?? config.photoGap}
