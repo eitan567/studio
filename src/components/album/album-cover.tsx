@@ -572,10 +572,17 @@ export const AlbumCover = ({
     const isFullSpread = page.isCover ? (page.coverType === 'full') : (page.spreadMode !== 'split');
 
     // Layout Data
-    const backLayoutId = page.coverLayouts?.back || COVER_TEMPLATES[0].id;
-    const frontLayoutId = page.coverLayouts?.front || COVER_TEMPLATES[0].id;
-    const backTemplate = COVER_TEMPLATES.find(t => t.id === backLayoutId) || COVER_TEMPLATES[0];
-    const backPhotoCount = backTemplate.grid.length;
+    const backLayoutId = page.isCover
+        ? (page.coverLayouts?.back || COVER_TEMPLATES[0].id)
+        : (page.spreadLayouts?.left || LAYOUT_TEMPLATES[0].id);
+
+    const frontLayoutId = page.isCover
+        ? (page.coverLayouts?.front || COVER_TEMPLATES[0].id)
+        : (page.spreadLayouts?.right || LAYOUT_TEMPLATES[0].id);
+
+    const templateSource = page.isCover ? COVER_TEMPLATES : LAYOUT_TEMPLATES;
+    const backTemplate = templateSource.find(t => t.id === backLayoutId) || templateSource[0];
+    const backPhotoCount = backTemplate.photoCount;
 
     // Photos
     const backPhotos = page.photos.slice(0, backPhotoCount);
