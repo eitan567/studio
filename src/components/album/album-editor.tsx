@@ -17,6 +17,7 @@ import {
   FileImage,
   Pencil,
   Download,
+  ArrowUp,
 } from 'lucide-react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -98,6 +99,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   // Export State
   const [isExporting, setIsExporting] = useState(false);
   const exporterRef = useRef<AlbumExporterRef>(null);
+  const photoScrollRef = useRef<HTMLDivElement>(null);
 
   const handleExport = () => {
     exporterRef.current?.exportAlbum();
@@ -1074,14 +1076,14 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="flex-1 overflow-hidden p-0">
+            <CardContent className="flex-1 overflow-hidden p-0 relative">
               {allPhotos.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center">
                   <ImageIcon className="h-10 w-10 mb-2 opacity-20" />
                   <p className="text-sm">No photos loaded yet. Use "Load Photos" to start.</p>
                 </div>
               ) : (
-                <ScrollArea className="h-full px-4 py-2">
+                <ScrollArea ref={photoScrollRef} className="h-full px-4 py-2">
                   <div className="columns-2 gap-2 pb-4">
                     {allPhotos.map((photo) => (
                       <div
@@ -1114,6 +1116,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                   </div>
                 </ScrollArea>
               )}
+              <ScrollToTopButton scrollAreaRef={photoScrollRef} dependency={allPhotos.length} />
             </CardContent>
             <div className="p-3 border-t bg-muted/30 flex flex-col gap-2">
               <Button
@@ -1144,5 +1147,46 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         />
       )}
     </div>
+  );
+}
+
+// Helper Component for Scroll To Top
+function ScrollToTopButton({ scrollAreaRef, className, dependency }: { scrollAreaRef: React.RefObject<HTMLDivElement | null>; className?: string; dependency?: any }) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (!scrollContainer) return;
+
+    const handleScroll = () => {
+      if (scrollContainer.scrollTop > 100) {
+        setIsVisible(true);
+      } else {
+        setIsVisible(false);
+      }
+    };
+
+    scrollContainer.addEventListener('scroll', handleScroll);
+    return () => scrollContainer.removeEventListener('scroll', handleScroll);
+  }, [scrollAreaRef, dependency]);
+
+  const scrollToTop = () => {
+    const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    scrollContainer?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  return (
+    <Button
+      variant="secondary"
+      size="icon"
+      className={cn(
+        "absolute bottom-4 right-4 z-50 rounded-full shadow-lg transition-all duration-300",
+        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10 pointer-events-none",
+        className
+      )}
+      onClick={scrollToTop}
+    >
+      <ArrowUp className="h-5 w-5" />
+    </Button>
   );
 }

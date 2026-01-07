@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { BookOpenText, Info, Trash2, LayoutTemplate, Download, Image as ImageIcon, Wand2, Undo, Crop, AlertTriangle, Pencil, BookOpen, Share2, FileText, FileDown, MoreHorizontal, FileImage, Plus } from 'lucide-react';
+import { BookOpenText, Info, Trash2, LayoutTemplate, Download, Image as ImageIcon, Wand2, Undo, Crop, AlertTriangle, Pencil, BookOpen, Share2, FileText, FileDown, MoreHorizontal, FileImage, Plus, ArrowUp } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
 
 import type { AlbumPage, AlbumConfig, Photo } from '@/lib/types';
@@ -824,6 +824,7 @@ export function AlbumPreview({
   const [activePageId, setActivePageId] = useState<string | null>(null);
   const [isPageEditorOpen, setIsPageEditorOpen] = useState(false);
   const [dragOverPhotoId, setDragOverPhotoId] = useState<string | null>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const handleOpenPageEditor = (pageId: string) => {
     setActivePageId(pageId);
@@ -848,8 +849,8 @@ export function AlbumPreview({
 
 
   return (
-    <div className="w-full">
-      <ScrollArea className="h-[85vh] w-full pr-4" style={{ overflowY: isInteracting ? 'hidden' : 'auto' }}>
+    <div className="w-full relative">
+      <ScrollArea ref={scrollAreaRef} className="h-[85vh] w-full pr-4" style={{ overflowY: isInteracting ? 'hidden' : 'auto' }}>
         <div className="space-y-8">
           {pages.map((page, index) => (
             <div key={page.id} className="w-full max-w-4xl mx-auto">
@@ -978,6 +979,49 @@ export function AlbumPreview({
           onClose={() => setIsPageEditorOpen(false)}
         />
       )}
+
+      {/* Scroll to Top Button */}
+      <ScrollToTopButton scrollAreaRef={scrollAreaRef} />
     </div >
+  );
+}
+
+// Helper Component for Scroll To Top
+function ScrollToTopButton({ scrollAreaRef }: { scrollAreaRef: React.RefObject<HTMLDivElement | null> }) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (!scrollContainer) return;
+
+    const handleScroll = () => {
+      if (scrollContainer.scrollTop > 100) {
+        setIsVisible(true);
+      } else {
+        setIsVisible(false);
+      }
+    };
+
+    scrollContainer.addEventListener('scroll', handleScroll);
+    return () => scrollContainer.removeEventListener('scroll', handleScroll);
+  }, [scrollAreaRef]);
+
+  const scrollToTop = () => {
+    const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    scrollContainer?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  return (
+    <Button
+      variant="secondary"
+      size="icon"
+      className={cn(
+        "absolute bottom-6 right-8 z-50 rounded-full shadow-lg transition-all duration-300",
+        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10 pointer-events-none"
+      )}
+      onClick={scrollToTop}
+    >
+      <ArrowUp className="h-5 w-5" />
+    </Button>
   );
 }
