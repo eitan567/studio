@@ -251,7 +251,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                             width: '100%',
                             height: '100%',
                             zIndex: 1,
-                            padding: page.isCover ? 0 : `${config.pageMargin}px`,
+                            padding: page.isCover ? 0 : `${page.pageMargin ?? config.pageMargin}px`,
                             boxSizing: 'border-box'
                         }}>
                             {page.isCover ? (
@@ -292,7 +292,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                         // Scale gap? If we render at 2000px width (approx 50-60cm?), 
                                         // and photoGap is 10px... 
                                         // It's probably fine to keep 1:1 if we assume the editor config is "px on a large canvas".
-                                        photoGap={config.photoGap}
+                                        photoGap={page.photoGap ?? config.photoGap}
                                         onUpdatePhotoPanAndZoom={() => { }}
                                         onInteractionChange={() => { }}
                                         onDropPhoto={() => { }}
@@ -302,7 +302,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                             ) : (
                                 <PageLayout
                                     page={page}
-                                    photoGap={config.photoGap}
+                                    photoGap={page.photoGap ?? config.photoGap}
                                     onUpdatePhotoPanAndZoom={() => { }}
                                     onInteractionChange={() => { }}
                                     onDropPhoto={() => { }}
