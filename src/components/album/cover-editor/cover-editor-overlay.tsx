@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { AlbumPage, CoverText, CoverImage, Photo, PhotoPanAndZoom } from '@/lib/types';
+import { AlbumPage, CoverText, CoverImage, Photo, PhotoPanAndZoom, AlbumConfig } from '@/lib/types';
 import { SidebarLeft } from './sidebar-left';
 import { SidebarRight } from './sidebar-right';
 import { CoverCanvas } from './cover-canvas';
@@ -33,9 +33,11 @@ interface CoverEditorOverlayProps {
     onUpdatePage: (page: AlbumPage) => void;
     onClose: () => void;
     allPhotos?: Photo[];
+    isCover?: boolean; // Determines if spine settings should be shown
+    config?: AlbumConfig; // Config for default values
 }
 
-export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: CoverEditorOverlayProps) => {
+export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos, isCover = true, config }: CoverEditorOverlayProps) => {
     // 1. Local State for Transactional Editing
     const [localPage, setLocalPage] = useState<AlbumPage>(page);
     const [activeView, setActiveView] = useState<'front' | 'back' | 'full'>('full');
@@ -316,7 +318,7 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
                                         min={0}
                                         max={50}
                                         step={1}
-                                        value={[localPage.photoGap ?? 0]}
+                                        value={[localPage.photoGap ?? config?.photoGap ?? 0]}
                                         onValueChange={(vals) => setLocalPage({ ...localPage, photoGap: vals[0] })}
                                     />
                                     <Input
@@ -324,7 +326,7 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
                                         className="w-12 h-7 text-xs px-1 text-center"
                                         min={0}
                                         max={50}
-                                        value={localPage.photoGap ?? 0}
+                                        value={localPage.photoGap ?? config?.photoGap ?? 0}
                                         onChange={(e) => setLocalPage({ ...localPage, photoGap: Math.max(0, Number(e.target.value)) })}
                                     />
                                 </div>
@@ -335,7 +337,7 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
                                         min={0}
                                         max={50}
                                         step={1}
-                                        value={[localPage.pageMargin ?? 0]}
+                                        value={[localPage.pageMargin ?? config?.pageMargin ?? 0]}
                                         onValueChange={(vals) => setLocalPage({ ...localPage, pageMargin: vals[0] })}
                                     />
                                     <Input
@@ -343,7 +345,7 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
                                         className="w-12 h-7 text-xs px-1 text-center"
                                         min={0}
                                         max={50}
-                                        value={localPage.pageMargin ?? 0}
+                                        value={localPage.pageMargin ?? config?.pageMargin ?? 0}
                                         onChange={(e) => setLocalPage({ ...localPage, pageMargin: Math.max(0, Number(e.target.value)) })}
                                     />
                                 </div>
@@ -447,6 +449,8 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
                             onUpdatePage={setLocalPage}
                             onDropPhoto={handleDropPhoto}
                             onUpdatePhotoPanAndZoom={handleUpdatePhotoPanAndZoom}
+                            isCover={isCover}
+                            config={config}
                         />
                     </div>
 
@@ -480,6 +484,7 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos }: C
                     onUpdatePage={setLocalPage}
                     activeView={activeView}
                     onSetActiveView={setActiveView}
+                    isCover={isCover}
                 />
             </div>
         </div>

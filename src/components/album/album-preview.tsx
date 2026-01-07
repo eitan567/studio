@@ -574,9 +574,15 @@ const PageToolbar = ({
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><ImageIcon className="h-5 w-5" /></Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onOpenCoverEditor?.(page.id)}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
               </TooltipTrigger>
-              <TooltipContent>Set Background</TooltipContent>
+              <TooltipContent>Edit Page Design</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -720,15 +726,15 @@ export function AlbumPreview({
   const { toast } = useToast();
   const [isInteracting, setIsInteracting] = useState(false);
   const [activePageId, setActivePageId] = useState<string | null>(null);
-  const [isCoverEditorOpen, setIsCoverEditorOpen] = useState(false);
+  const [isPageEditorOpen, setIsPageEditorOpen] = useState(false);
   const [dragOverPhotoId, setDragOverPhotoId] = useState<string | null>(null);
 
-  const handleOpenCoverEditor = (pageId: string) => {
+  const handleOpenPageEditor = (pageId: string) => {
     setActivePageId(pageId);
-    setIsCoverEditorOpen(true);
+    setIsPageEditorOpen(true);
   };
 
-  const coverPage = pages.find(p => p.id === activePageId && p.isCover);
+  const editingPage = pages.find(p => p.id === activePageId);
 
 
   if (pages.length <= 0) {
@@ -765,7 +771,7 @@ export function AlbumPreview({
                     onUpdateSpineText={onUpdateSpineText}
                     onUpdateSpineSettings={onUpdateSpineSettings}
                     onUpdateTitleSettings={onUpdateTitleSettings}
-                    onOpenCoverEditor={handleOpenCoverEditor}
+                    onOpenCoverEditor={handleOpenPageEditor}
                     onDownloadPage={onDownloadPage}
                     toast={toast}
                   />
@@ -802,7 +808,7 @@ export function AlbumPreview({
                     >
                       <CardContent
                         className="flex h-full w-full items-center justify-center p-0"
-                        style={{ padding: page.isCover ? 0 : `${config.pageMargin}px` }}
+                        style={{ padding: page.isCover ? 0 : `${page.pageMargin ?? config.pageMargin}px` }}
                       >
                         {page.isCover ? (
                           <ScaledCoverPreview
@@ -820,7 +826,7 @@ export function AlbumPreview({
                             <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10 pointer-events-none"></div>
                             <PageLayout
                               page={page}
-                              photoGap={config.photoGap}
+                              photoGap={page.photoGap ?? config.photoGap}
                               onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
                               onInteractionChange={setIsInteracting}
                               onDropPhoto={onDropPhoto}
@@ -829,7 +835,7 @@ export function AlbumPreview({
                         ) : (
                           <PageLayout
                             page={page}
-                            photoGap={config.photoGap}
+                            photoGap={page.photoGap ?? config.photoGap}
                             onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
                             onInteractionChange={setIsInteracting}
                             onDropPhoto={onDropPhoto}
@@ -862,14 +868,16 @@ export function AlbumPreview({
         </div >
       </ScrollArea >
 
-      {isCoverEditorOpen && coverPage && (
+      {isPageEditorOpen && editingPage && (
         <CoverEditorOverlay
-          page={coverPage}
+          page={editingPage}
           allPhotos={allPhotos}
+          isCover={editingPage.isCover ?? false}
+          config={config}
           onUpdatePage={(updatedPage) => {
             onUpdatePage?.(updatedPage);
           }}
-          onClose={() => setIsCoverEditorOpen(false)}
+          onClose={() => setIsPageEditorOpen(false)}
         />
       )}
     </div >

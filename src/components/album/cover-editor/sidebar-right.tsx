@@ -31,9 +31,10 @@ interface SidebarRightProps {
     onUpdatePage: (page: AlbumPage) => void;
     activeView: 'front' | 'back' | 'full';
     onSetActiveView: (view: 'front' | 'back' | 'full') => void;
+    isCover?: boolean; // Determines if spine settings should be shown
 }
 
-export const SidebarRight = ({ page, onUpdatePage, activeView, onSetActiveView }: SidebarRightProps) => {
+export const SidebarRight = ({ page, onUpdatePage, activeView, onSetActiveView, isCover = true }: SidebarRightProps) => {
 
     const [availableBackgrounds, setAvailableBackgrounds] = useState<string[]>([
         'https://picsum.photos/seed/bg1/800/600',
@@ -209,214 +210,222 @@ export const SidebarRight = ({ page, onUpdatePage, activeView, onSetActiveView }
                         {/* STRUCTURE (SPINE & LAYOUT) TAB */}
                         <TabsContent value="structure" className="p-4 space-y-6">
 
-                            {/* NEW: Cover Mode & View Settings */}
-                            <div className="space-y-4">
-                                <Label className="text-xs font-semibold text-foreground flex items-center gap-2">
-                                    <Layout className="w-3.5 h-3.5" /> Cover Configuration
-                                </Label>
+                            {/* Cover Mode & View Settings - Only shown for cover pages */}
+                            {isCover && (
+                                <div className="space-y-4">
+                                    <Label className="text-xs font-semibold text-foreground flex items-center gap-2">
+                                        <Layout className="w-3.5 h-3.5" /> Cover Configuration
+                                    </Label>
 
-                                {/* Mode Selector */}
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Cover Mode</Label>
-                                    <div className="flex items-center bg-muted/20 rounded-lg p-0.5 border">
-                                        <Button
-                                            variant={page.coverType === 'full' ? 'secondary' : 'ghost'}
-                                            size="sm"
-                                            className="flex-1 h-7 text-xs"
-                                            onClick={() => {
-                                                onUpdatePage({ ...page, coverType: 'full' });
-                                                onSetActiveView('full');
-                                            }}
-                                        >
-                                            Full Spread
-                                        </Button>
-                                        <Button
-                                            variant={page.coverType === 'split' || !page.coverType ? 'secondary' : 'ghost'}
-                                            size="sm"
-                                            className="flex-1 h-7 text-xs"
-                                            onClick={() => {
-                                                onUpdatePage({ ...page, coverType: 'split' });
-                                                // Optional: Set to 'front' or keep current? keeping current is usually safer unless requested otherwise.
-                                            }}
-                                        >
-                                            Split Cover
-                                        </Button>
-                                    </div>
-                                </div>
-
-                                {/* View Selector */}
-                                <div className={cn("space-y-2", page.coverType === 'full' && "opacity-50 pointer-events-none")}>
-                                    <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Active View</Label>
-                                    <div className="flex items-center bg-muted/20 rounded-lg p-0.5 border">
-                                        <Button
-                                            variant={activeView === 'full' ? 'secondary' : 'ghost'}
-                                            size="sm"
-                                            className="flex-1 h-7 text-xs"
-                                            onClick={() => onSetActiveView('full')}
-                                        >
-                                            Full
-                                        </Button>
-                                        <Button
-                                            variant={activeView === 'front' ? 'secondary' : 'ghost'}
-                                            size="sm"
-                                            className="flex-1 h-7 text-xs"
-                                            onClick={() => onSetActiveView('front')}
-                                        >
-                                            Front
-                                        </Button>
-                                        <Button
-                                            variant={activeView === 'back' ? 'secondary' : 'ghost'}
-                                            size="sm"
-                                            className="flex-1 h-7 text-xs"
-                                            onClick={() => onSetActiveView('back')}
-                                        >
-                                            Back
-                                        </Button>
-                                    </div>
-                                </div>
-                                <Separator />
-                            </div>
-
-                            {/* Spine Structural Settings */}
-                            <div className="space-y-4">
-                                <Label className="text-xs font-semibold text-foreground flex items-center gap-2">
-                                    <Layout className="w-3.5 h-3.5" /> Spine Structure
-                                </Label>
-
-                                {/* Spine Background Color - RESTORED */}
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Background Color & Opacity</Label>
-                                    <div className="flex items-center gap-3">
-                                        <SpineColorPicker
-                                            value={page.spineColor || 'transparent'}
-                                            onChange={(c) => handleUpdatePageProp({ spineColor: c })}
-                                            disableAlpha={false} // Transparency allowed for spine background
-                                        />
-                                        <div className="flex-1 text-xs text-muted-foreground">
-                                            Select the background color for the spine area. Supports transparency.
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-1">
-                                    <div className="flex justify-between">
-                                        <Label className="text-[10px] text-muted-foreground mb-1">Spine Width (px)</Label>
-                                        <span className="text-[10px] text-muted-foreground">{page.spineWidth ?? 40}px</span>
-                                    </div>
-                                    <Slider
-                                        value={[page.spineWidth ?? 40]}
-                                        min={20} max={100} step={1}
-                                        onValueChange={(val) => handleUpdatePageProp({ spineWidth: val[0] })}
-                                        className="py-1"
-                                    />
-                                </div>
-                            </div>
-
-                            <Separator />
-
-                            {/* Spine Content & Style */}
-                            <div className="space-y-4">
-                                <Label className="text-xs font-semibold text-foreground flex items-center gap-2">
-                                    <Type className="w-3.5 h-3.5" /> Spine Text
-                                </Label>
-
-                                <Input
-                                    className="h-9 bg-background shadow-sm"
-                                    value={page.spineText || ''}
-                                    onChange={(e) => handleUpdatePageProp({ spineText: e.target.value })}
-                                    placeholder="Enter spine text (e.g. Album Title)"
-                                />
-
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Typeface</Label>
-                                        <select
-                                            className="w-full h-9 px-2 text-sm border rounded-md bg-background shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                                            value={page.spineFontFamily || 'Tahoma'}
-                                            onChange={(e) => handleUpdatePageProp({ spineFontFamily: e.target.value })}
-                                        >
-                                            {AVAILABLE_FONTS.map(f => <option key={f} value={f}>{f}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Size</Label>
-                                        <div className="relative">
-                                            <Input
-                                                type="number"
-                                                value={page.spineFontSize || 12}
-                                                onChange={(e) => handleUpdatePageProp({ spineFontSize: Number(e.target.value) })}
-                                                className="h-9 pr-6 bg-background shadow-sm"
-                                            />
-                                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">px</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <Label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Appearance</Label>
-                                    <div className="flex items-center gap-3">
-                                        <SpineColorPicker
-                                            value={page.spineTextColor}
-                                            onChange={(c) => handleUpdatePageProp({ spineTextColor: c })}
-                                            disableAlpha
-                                        />
-
-                                        <Separator orientation="vertical" className="h-8" />
-
-                                        <div className="flex-1 flex items-center justify-between gap-1 bg-background border rounded-md p-1 shadow-sm">
-                                            <div className="flex gap-0.5">
-                                                <Button
-                                                    variant={page.spineFontWeight === 'bold' ? 'secondary' : 'ghost'}
-                                                    size="icon" className="h-7 w-7"
-                                                    onClick={() => handleUpdatePageProp({ spineFontWeight: page.spineFontWeight === 'bold' ? 'normal' : 'bold' })}
-                                                >
-                                                    <Bold className="h-3.5 w-3.5" />
-                                                </Button>
-                                                <Button
-                                                    variant={page.spineFontStyle === 'italic' ? 'secondary' : 'ghost'}
-                                                    size="icon" className="h-7 w-7"
-                                                    onClick={() => handleUpdatePageProp({ spineFontStyle: page.spineFontStyle === 'italic' ? 'normal' : 'italic' })}
-                                                >
-                                                    <Italic className="h-3.5 w-3.5" />
-                                                </Button>
-                                            </div>
-                                            <div className="w-px h-4 bg-border" />
-                                            <div className="flex gap-0.5">
-                                                <Button
-                                                    variant={page.spineTextAlign === 'left' ? 'secondary' : 'ghost'}
-                                                    size="icon" className="h-7 w-7"
-                                                    onClick={() => handleUpdatePageProp({ spineTextAlign: 'left' })}
-                                                >
-                                                    <AlignLeft className="h-3.5 w-3.5" />
-                                                </Button>
-                                                <Button
-                                                    variant={page.spineTextAlign === 'center' || !page.spineTextAlign ? 'secondary' : 'ghost'}
-                                                    size="icon" className="h-7 w-7"
-                                                    onClick={() => handleUpdatePageProp({ spineTextAlign: 'center' })}
-                                                >
-                                                    <AlignCenter className="h-3.5 w-3.5" />
-                                                </Button>
-                                                <Button
-                                                    variant={page.spineTextAlign === 'right' ? 'secondary' : 'ghost'}
-                                                    size="icon" className="h-7 w-7"
-                                                    onClick={() => handleUpdatePageProp({ spineTextAlign: 'right' })}
-                                                >
-                                                    <AlignRight className="h-3.5 w-3.5" />
-                                                </Button>
-                                            </div>
-                                            <div className="w-px h-4 bg-border" />
+                                    {/* Mode Selector */}
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Cover Mode</Label>
+                                        <div className="flex items-center bg-muted/20 rounded-lg p-0.5 border">
                                             <Button
-                                                variant={page.spineTextRotated ? 'secondary' : 'ghost'}
-                                                size="icon" className="h-7 w-7"
-                                                onClick={() => handleUpdatePageProp({ spineTextRotated: !page.spineTextRotated })}
-                                                title="Rotate Text"
+                                                variant={page.coverType === 'full' ? 'secondary' : 'ghost'}
+                                                size="sm"
+                                                className="flex-1 h-7 text-xs"
+                                                onClick={() => {
+                                                    onUpdatePage({ ...page, coverType: 'full' });
+                                                    onSetActiveView('full');
+                                                }}
                                             >
-                                                <RotateCw className="h-3.5 w-3.5" />
+                                                Full Spread
+                                            </Button>
+                                            <Button
+                                                variant={page.coverType === 'split' || !page.coverType ? 'secondary' : 'ghost'}
+                                                size="sm"
+                                                className="flex-1 h-7 text-xs"
+                                                onClick={() => {
+                                                    onUpdatePage({ ...page, coverType: 'split' });
+                                                    // Optional: Set to 'front' or keep current? keeping current is usually safer unless requested otherwise.
+                                                }}
+                                            >
+                                                Split Cover
                                             </Button>
                                         </div>
                                     </div>
+
+                                    {/* View Selector */}
+                                    <div className={cn("space-y-2", page.coverType === 'full' && "opacity-50 pointer-events-none")}>
+                                        <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Active View</Label>
+                                        <div className="flex items-center bg-muted/20 rounded-lg p-0.5 border">
+                                            <Button
+                                                variant={activeView === 'full' ? 'secondary' : 'ghost'}
+                                                size="sm"
+                                                className="flex-1 h-7 text-xs"
+                                                onClick={() => onSetActiveView('full')}
+                                            >
+                                                Full
+                                            </Button>
+                                            <Button
+                                                variant={activeView === 'front' ? 'secondary' : 'ghost'}
+                                                size="sm"
+                                                className="flex-1 h-7 text-xs"
+                                                onClick={() => onSetActiveView('front')}
+                                            >
+                                                Front
+                                            </Button>
+                                            <Button
+                                                variant={activeView === 'back' ? 'secondary' : 'ghost'}
+                                                size="sm"
+                                                className="flex-1 h-7 text-xs"
+                                                onClick={() => onSetActiveView('back')}
+                                            >
+                                                Back
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <Separator />
                                 </div>
-                            </div>
+                            )}
+
+                            {/* Spine Structural Settings - Only shown for cover pages */}
+                            {isCover && (
+                                <div className="space-y-4">
+                                    <Label className="text-xs font-semibold text-foreground flex items-center gap-2">
+                                        <Layout className="w-3.5 h-3.5" /> Spine Structure
+                                    </Label>
+
+                                    {/* Spine Background Color - RESTORED */}
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Background Color & Opacity</Label>
+                                        <div className="flex items-center gap-3">
+                                            <SpineColorPicker
+                                                value={page.spineColor || 'transparent'}
+                                                onChange={(c) => handleUpdatePageProp({ spineColor: c })}
+                                                disableAlpha={false} // Transparency allowed for spine background
+                                            />
+                                            <div className="flex-1 text-xs text-muted-foreground">
+                                                Select the background color for the spine area. Supports transparency.
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <div className="flex justify-between">
+                                            <Label className="text-[10px] text-muted-foreground mb-1">Spine Width (px)</Label>
+                                            <span className="text-[10px] text-muted-foreground">{page.spineWidth ?? 40}px</span>
+                                        </div>
+                                        <Slider
+                                            value={[page.spineWidth ?? 40]}
+                                            min={20} max={100} step={1}
+                                            onValueChange={(val) => handleUpdatePageProp({ spineWidth: val[0] })}
+                                            className="py-1"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Spine Content & Style - Only shown for cover pages */}
+                            {isCover && (
+                                <>
+                                    <Separator />
+
+                                    <div className="space-y-4">
+                                        <Label className="text-xs font-semibold text-foreground flex items-center gap-2">
+                                            <Type className="w-3.5 h-3.5" /> Spine Text
+                                        </Label>
+
+                                        <Input
+                                            className="h-9 bg-background shadow-sm"
+                                            value={page.spineText || ''}
+                                            onChange={(e) => handleUpdatePageProp({ spineText: e.target.value })}
+                                            placeholder="Enter spine text (e.g. Album Title)"
+                                        />
+
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Typeface</Label>
+                                                <select
+                                                    className="w-full h-9 px-2 text-sm border rounded-md bg-background shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                                                    value={page.spineFontFamily || 'Tahoma'}
+                                                    onChange={(e) => handleUpdatePageProp({ spineFontFamily: e.target.value })}
+                                                >
+                                                    {AVAILABLE_FONTS.map(f => <option key={f} value={f}>{f}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Size</Label>
+                                                <div className="relative">
+                                                    <Input
+                                                        type="number"
+                                                        value={page.spineFontSize || 12}
+                                                        onChange={(e) => handleUpdatePageProp({ spineFontSize: Number(e.target.value) })}
+                                                        className="h-9 pr-6 bg-background shadow-sm"
+                                                    />
+                                                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">px</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Appearance</Label>
+                                            <div className="flex items-center gap-3">
+                                                <SpineColorPicker
+                                                    value={page.spineTextColor}
+                                                    onChange={(c) => handleUpdatePageProp({ spineTextColor: c })}
+                                                    disableAlpha
+                                                />
+
+                                                <Separator orientation="vertical" className="h-8" />
+
+                                                <div className="flex-1 flex items-center justify-between gap-1 bg-background border rounded-md p-1 shadow-sm">
+                                                    <div className="flex gap-0.5">
+                                                        <Button
+                                                            variant={page.spineFontWeight === 'bold' ? 'secondary' : 'ghost'}
+                                                            size="icon" className="h-7 w-7"
+                                                            onClick={() => handleUpdatePageProp({ spineFontWeight: page.spineFontWeight === 'bold' ? 'normal' : 'bold' })}
+                                                        >
+                                                            <Bold className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                        <Button
+                                                            variant={page.spineFontStyle === 'italic' ? 'secondary' : 'ghost'}
+                                                            size="icon" className="h-7 w-7"
+                                                            onClick={() => handleUpdatePageProp({ spineFontStyle: page.spineFontStyle === 'italic' ? 'normal' : 'italic' })}
+                                                        >
+                                                            <Italic className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    </div>
+                                                    <div className="w-px h-4 bg-border" />
+                                                    <div className="flex gap-0.5">
+                                                        <Button
+                                                            variant={page.spineTextAlign === 'left' ? 'secondary' : 'ghost'}
+                                                            size="icon" className="h-7 w-7"
+                                                            onClick={() => handleUpdatePageProp({ spineTextAlign: 'left' })}
+                                                        >
+                                                            <AlignLeft className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                        <Button
+                                                            variant={page.spineTextAlign === 'center' || !page.spineTextAlign ? 'secondary' : 'ghost'}
+                                                            size="icon" className="h-7 w-7"
+                                                            onClick={() => handleUpdatePageProp({ spineTextAlign: 'center' })}
+                                                        >
+                                                            <AlignCenter className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                        <Button
+                                                            variant={page.spineTextAlign === 'right' ? 'secondary' : 'ghost'}
+                                                            size="icon" className="h-7 w-7"
+                                                            onClick={() => handleUpdatePageProp({ spineTextAlign: 'right' })}
+                                                        >
+                                                            <AlignRight className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    </div>
+                                                    <div className="w-px h-4 bg-border" />
+                                                    <Button
+                                                        variant={page.spineTextRotated ? 'secondary' : 'ghost'}
+                                                        size="icon" className="h-7 w-7"
+                                                        onClick={() => handleUpdatePageProp({ spineTextRotated: !page.spineTextRotated })}
+                                                        title="Rotate Text"
+                                                    >
+                                                        <RotateCw className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                         </TabsContent>
                     </Tabs>
                 </div>

@@ -16,9 +16,10 @@ interface CoverCanvasProps {
     onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
     onUpdatePhotoPanAndZoom?: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
     config?: AlbumConfig;
+    isCover?: boolean; // Determines if this is a cover page (affects canvas dimensions)
 }
 
-export const CoverCanvas = ({ page, activeView, activeTextIds, onSelectText, activeImageIds, onSelectImage, onUpdatePage, onDropPhoto, onUpdatePhotoPanAndZoom, config }: CoverCanvasProps) => {
+export const CoverCanvas = ({ page, activeView, activeTextIds, onSelectText, activeImageIds, onSelectImage, onUpdatePage, onDropPhoto, onUpdatePhotoPanAndZoom, config, isCover = true }: CoverCanvasProps) => {
     const wrapperRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
 
@@ -42,8 +43,9 @@ export const CoverCanvas = ({ page, activeView, activeTextIds, onSelectText, act
     // --- 3. Calculate Logical Container Dimensions ---
     // These are the exact pixels the div will occupy at scale(1).
 
-    const spineWidth = page.spineWidth ?? 40;
-    const isFullSpread = activeView === 'full';
+    const spineWidth = isCover ? (page.spineWidth ?? 40) : 0;
+    const isSpread = page.type === 'spread';
+    const isFullSpread = isCover ? (activeView === 'full') : isSpread;
 
     let logicalWidth: number;
     let logicalHeight: number;
@@ -54,8 +56,13 @@ export const CoverCanvas = ({ page, activeView, activeTextIds, onSelectText, act
     const pageH_px = BASE_PAGE_PX;
 
     if (isFullSpread) {
-        // [Page] [Spine] [Page]
-        logicalWidth = (pageW_px * 2) + spineWidth;
+        if (isCover) {
+            // Cover spread: [Page] [Spine] [Page]
+            logicalWidth = (pageW_px * 2) + spineWidth;
+        } else {
+            // Regular spread: [Page] [Page]
+            logicalWidth = pageW_px * 2;
+        }
         logicalHeight = pageH_px;
     } else {
         // [Page]
@@ -100,23 +107,41 @@ export const CoverCanvas = ({ page, activeView, activeTextIds, onSelectText, act
                     height: logicalHeight,
                     transform: `scale(${scale})`,
                     border: '1px solid #ccc',
-                    boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)'
+                    boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
+                    // Only apply background/padding for regular pages - AlbumCover handles these internally
+                    ...(isCover ? {} : {
+                        backgroundColor: page.backgroundColor || config?.backgroundColor || '#ffffff',
+                        backgroundImage: (page.backgroundImage || config?.backgroundImage) ? `url(${page.backgroundImage || config?.backgroundImage})` : undefined,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        padding: `${page.pageMargin ?? config?.pageMargin ?? 0}px`,
+                    }),
                 }}
                 className="relative bg-white"
             >
-                <AlbumCover
-                    page={page}
-                    config={config}
-                    mode="editor"
-                    activeView={activeView}
-                    activeTextIds={activeTextIds}
-                    activeImageIds={activeImageIds}
-                    onSelectText={onSelectText}
-                    onSelectImage={onSelectImage}
-                    onUpdatePage={onUpdatePage}
-                    onDropPhoto={onDropPhoto}
-                    onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
-                />
+                {isCover ? (
+                    <AlbumCover
+                        page={page}
+                        config={config}
+                        mode="editor"
+                        activeView={activeView}
+                        activeTextIds={activeTextIds}
+                        activeImageIds={activeImageIds}
+                        onSelectText={onSelectText}
+                        onSelectImage={onSelectImage}
+                        onUpdatePage={onUpdatePage}
+                        onDropPhoto={onDropPhoto}
+                        onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
+                    />
+                ) : (
+                    <PageLayout
+                        page={page}
+                        photoGap={page.photoGap ?? config?.photoGap ?? 0}
+                        onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
+                        onInteractionChange={() => { }}
+                        onDropPhoto={onDropPhoto}
+                    />
+                )}
             </div>
         </div>
     );
