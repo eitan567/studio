@@ -49,7 +49,7 @@ export const CoverCanvas = ({ page, activeView, activeTextIds, onSelectText, act
 
     const spineWidth = isCover ? (page.spineWidth ?? 40) : 0;
     const isSpread = page.type === 'spread';
-    const isFullSpread = isCover ? (activeView === 'full') : isSpread;
+    const isFullSpread = activeView === 'full';
 
     let logicalWidth: number;
     let logicalHeight: number;
@@ -59,7 +59,7 @@ export const CoverCanvas = ({ page, activeView, activeTextIds, onSelectText, act
     const pageW_px = configW * pxPerUnit;
     const pageH_px = BASE_PAGE_PX;
 
-    if (isFullSpread) {
+    if (isFullSpread && (isCover || isSpread)) {
         if (isCover) {
             // Cover spread: [Page] [Spine] [Page]
             logicalWidth = (pageW_px * 2) + spineWidth;
@@ -138,7 +138,7 @@ export const CoverCanvas = ({ page, activeView, activeTextIds, onSelectText, act
                         page={displayPage}
                         config={config}
                         mode="editor"
-                        activeView="full"
+                        activeView={activeView}
                         activeTextIds={activeTextIds}
                         activeImageIds={activeImageIds}
                         onSelectText={onSelectText}
