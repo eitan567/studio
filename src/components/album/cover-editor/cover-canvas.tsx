@@ -23,6 +23,10 @@ export const CoverCanvas = ({ page, activeView, activeTextIds, onSelectText, act
     const wrapperRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
 
+    // Ensure the page object passed to AlbumCover respects the isCover prop
+    // This prevents "ghost spines" if the page object has stale isCover: true data
+    const displayPage = { ...page, isCover };
+
     // --- 1. Define Logic Base Resolution ---
     // The user expects "Scale 1" to equal the "Standard View Size" (like the preview card).
     // We set the base page height to 450px, which represents `scale(1)`.
@@ -109,19 +113,15 @@ export const CoverCanvas = ({ page, activeView, activeTextIds, onSelectText, act
                     border: '1px solid #ccc',
                     boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
                     // Only apply background/padding for regular pages - AlbumCover handles these internally
-                    ...(isCover ? {} : {
-                        backgroundColor: page.backgroundColor || config?.backgroundColor || '#ffffff',
-                        backgroundImage: (page.backgroundImage || config?.backgroundImage) ? `url(${page.backgroundImage || config?.backgroundImage})` : undefined,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        padding: `${page.pageMargin ?? config?.pageMargin ?? 0}px`,
-                    }),
+                    // REMOVED: AlbumCover now handles padding/background for ALL pages to ensure consistency.
+                    // This fixes the "double margin" issue.
+                    ...(isCover ? {} : {}),
                 }}
                 className="relative bg-white"
             >
                 {isCover ? (
                     <AlbumCover
-                        page={page}
+                        page={displayPage}
                         config={config}
                         mode="editor"
                         activeView={activeView}
@@ -134,12 +134,18 @@ export const CoverCanvas = ({ page, activeView, activeTextIds, onSelectText, act
                         onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
                     />
                 ) : (
-                    <PageLayout
-                        page={page}
-                        photoGap={page.photoGap ?? config?.photoGap ?? 0}
-                        onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
-                        onInteractionChange={() => { }}
+                    <AlbumCover
+                        page={displayPage}
+                        config={config}
+                        mode="editor"
+                        activeView="full"
+                        activeTextIds={activeTextIds}
+                        activeImageIds={activeImageIds}
+                        onSelectText={onSelectText}
+                        onSelectImage={onSelectImage}
+                        onUpdatePage={onUpdatePage}
                         onDropPhoto={onDropPhoto}
+                        onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
                     />
                 )}
             </div>

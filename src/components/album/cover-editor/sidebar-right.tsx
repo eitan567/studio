@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { SpineColorPicker } from '../spine-color-picker';
 import { AiBackgroundGenerator } from '../ai-background-generator';
+import { COVER_TEMPLATES, LAYOUT_TEMPLATES } from '../layout-templates';
 import { cn } from '@/lib/utils';
 
 // Helper for fonts
@@ -279,6 +280,50 @@ export const SidebarRight = ({ page, onUpdatePage, activeView, onSetActiveView, 
                                     <Separator />
                                 </div>
                             )}
+
+                            {/* Layout Selection */}
+                            <div className="space-y-4">
+                                <Label className="text-xs font-semibold text-foreground flex items-center gap-2">
+                                    <Layout className="w-3.5 h-3.5" /> {isCover ? 'Cover Layout' : 'Page Layout'}
+                                </Label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {(isCover ? COVER_TEMPLATES : LAYOUT_TEMPLATES).map(t => {
+                                        const isActive = isCover
+                                            ? page.coverLayouts?.[activeView === 'back' ? 'back' : 'front'] === t.id
+                                            : page.layout === t.id;
+
+                                        return (
+                                            <div
+                                                key={t.id}
+                                                className={cn(
+                                                    "aspect-[1.5] border rounded-sm cursor-pointer hover:border-primary/50 transition-all p-1",
+                                                    isActive
+                                                        ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                                                        : "border-muted bg-muted/20"
+                                                )}
+                                                onClick={() => {
+                                                    if (isCover) {
+                                                        const target = activeView === 'back' ? 'back' : 'front';
+                                                        const currentLayouts = page.coverLayouts || { front: COVER_TEMPLATES[0].id, back: COVER_TEMPLATES[0].id };
+                                                        onUpdatePage({ ...page, coverLayouts: { ...currentLayouts, [target]: t.id } });
+                                                    } else {
+                                                        onUpdatePage({ ...page, layout: t.id });
+                                                    }
+                                                }}
+                                                title={t.name}
+                                            >
+                                                {/* Mini representation of grid */}
+                                                <div className="w-full h-full grid gap-0.5" style={{ gridTemplateColumns: 'repeat(12, 1fr)', gridTemplateRows: 'repeat(12, 1fr)' }}>
+                                                    {t.grid.map((area, i) => (
+                                                        <div key={i} className={cn("bg-muted-foreground/20 rounded-[1px]", area)} />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <Separator />
+                            </div>
 
                             {/* Spine Structural Settings - Only shown for cover pages */}
                             {isCover && (

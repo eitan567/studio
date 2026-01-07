@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { AlbumPage, CoverText, CoverImage, AlbumConfig, Photo, PhotoPanAndZoom } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { PageLayout } from './page-layout';
-import { COVER_TEMPLATES } from './layout-templates';
+import { COVER_TEMPLATES, LAYOUT_TEMPLATES } from './layout-templates';
 
 // --- Types ---
 
@@ -569,7 +569,7 @@ export const AlbumCover = ({
     const isFull = activeView === 'full';
     const isFront = activeView === 'front';
     const isBack = activeView === 'back';
-    const isFullSpread = page.coverType === 'full';
+    const isFullSpread = page.coverType === 'full' || (!page.isCover);
 
     // Layout Data
     const backLayoutId = page.coverLayouts?.back || COVER_TEMPLATES[0].id;
@@ -582,10 +582,10 @@ export const AlbumCover = ({
     const frontPhotos = page.photos.slice(backPhotoCount);
 
     // Derived Styles
-    const pageMargin = page.pageMargin ?? 0;
+    const pageMargin = page.pageMargin ?? config?.pageMargin ?? 0;
     // Assuming config.photoGap is number. If string, parse it.
     const photoGap = page.photoGap ?? config?.photoGap ?? 0;
-    const spineWidth = page.spineWidth ?? 40;
+    const spineWidth = page.isCover ? (page.spineWidth ?? 40) : 0;
 
     // --- Spine-aware Coordinate Calculations ---
     // For full view with spine, calculate the actual percentage boundaries
@@ -657,8 +657,8 @@ export const AlbumCover = ({
                             page={page}
                             photoGap={photoGap}
                             overridePhotos={page.photos}
-                            overrideLayout={page.layout || COVER_TEMPLATES[0].id}
-                            templateSource={COVER_TEMPLATES}
+                            overrideLayout={page.layout || (page.isCover ? COVER_TEMPLATES[0].id : LAYOUT_TEMPLATES[0].id)}
+                            templateSource={page.isCover ? COVER_TEMPLATES : LAYOUT_TEMPLATES}
                             onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
                             onInteractionChange={() => { }}
                             onDropPhoto={onDropPhoto || (() => { })}

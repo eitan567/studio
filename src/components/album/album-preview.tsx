@@ -645,8 +645,11 @@ const ScaledCoverPreview = ({
   const cfgH = Number(hStr);
   const pxPerUnit = BASE_PAGE_PX / cfgH;
   const singlePageLogicalW = cfgW * pxPerUnit;
-  const spineWidth = page.spineWidth ?? 40;
-  const logicalWidth = (singlePageLogicalW * 2) + spineWidth;
+  // Use same logic as cover-canvas to ensure consistent "logical" size vs editor
+  // Spine is 0 for regular pages
+  const spineWidth = page.isCover ? (page.spineWidth ?? 40) : 0;
+  const isDouble = page.isCover || page.type === 'spread';
+  const logicalWidth = isDouble ? (singlePageLogicalW * 2) + spineWidth : singlePageLogicalW;
   const logicalHeight = BASE_PAGE_PX;
 
   useEffect(() => {
@@ -808,7 +811,7 @@ export function AlbumPreview({
                     >
                       <CardContent
                         className="flex h-full w-full items-center justify-center p-0"
-                        style={{ padding: page.isCover ? 0 : `${page.pageMargin ?? config.pageMargin}px` }}
+                        style={{ padding: 0 }}
                       >
                         {page.isCover ? (
                           <ScaledCoverPreview
@@ -824,21 +827,21 @@ export function AlbumPreview({
                             <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10 pointer-events-none"></div>
                             <div className="absolute inset-y-0 left-1/2 w-4 -ml-2 bg-gradient-to-r from-transparent to-black/10 z-10 pointer-events-none"></div>
                             <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10 pointer-events-none"></div>
-                            <PageLayout
+                            <ScaledCoverPreview
                               page={page}
-                              photoGap={page.photoGap ?? config.photoGap}
-                              onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
-                              onInteractionChange={setIsInteracting}
+                              config={config}
+                              onUpdateTitleSettings={onUpdateTitleSettings}
                               onDropPhoto={onDropPhoto}
+                              onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
                             />
                           </div>
                         ) : (
-                          <PageLayout
+                          <ScaledCoverPreview
                             page={page}
-                            photoGap={page.photoGap ?? config.photoGap}
-                            onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
-                            onInteractionChange={setIsInteracting}
+                            config={config}
+                            onUpdateTitleSettings={onUpdateTitleSettings}
                             onDropPhoto={onDropPhoto}
+                            onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
                           />
                         )}
 
