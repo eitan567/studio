@@ -29,8 +29,8 @@ function ReadOnlyPage({ page, config }: { page: AlbumPage; config: AlbumConfig }
         <div
             className="grid grid-cols-12 grid-rows-12 h-full w-full bg-white shadow-sm"
             style={{
-                gap: `${config.photoGap}px`,
-                padding: `${config.pageMargin}px`,
+                gap: `${page.photoGap ?? config.photoGap}px`,
+                padding: `${page.pageMargin ?? config.pageMargin}px`,
                 backgroundColor: page.backgroundColor || config.backgroundColor,
                 backgroundImage: (page.backgroundImage || config.backgroundImage) ? `url(${page.backgroundImage || config.backgroundImage})` : undefined,
                 backgroundSize: 'cover',
