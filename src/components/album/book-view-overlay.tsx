@@ -20,41 +20,8 @@ interface Spread {
     isPanoramic?: boolean;
 }
 
-// Helper to render a single page face (read-only)
-function ReadOnlyPage({ page, config }: { page: AlbumPage; config: AlbumConfig }) {
-    const template = LAYOUT_TEMPLATES.find(t => t.id === page.layout) || LAYOUT_TEMPLATES[0];
-    const photos = page.photos || [];
+// ReadOnlyPage removed in favor of direct AlbumCover usage for consistency
 
-    return (
-        <div
-            className="grid grid-cols-12 grid-rows-12 h-full w-full bg-white shadow-sm"
-            style={{
-                gap: `${page.photoGap ?? config.photoGap}px`,
-                padding: `${page.pageMargin ?? config.pageMargin}px`,
-                backgroundColor: page.backgroundColor || config.backgroundColor,
-                backgroundImage: (page.backgroundImage || config.backgroundImage) ? `url(${page.backgroundImage || config.backgroundImage})` : undefined,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-            }}
-        >
-            {photos.slice(0, template.photoCount).map((photo, index) => (
-                <div
-                    key={photo.id}
-                    className={cn(
-                        'relative overflow-hidden bg-muted pointer-events-none',
-                        template.grid[index]
-                    )}
-                >
-                    <PhotoRenderer
-                        photo={photo}
-                        onUpdate={() => { }}
-                        onInteractionChange={() => { }}
-                    />
-                </div>
-            ))}
-        </div>
-    );
-}
 
 export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps) {
     const [currentSpreadIndex, setCurrentSpreadIndex] = useState(0);
@@ -225,7 +192,12 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
                                         "w-full h-full",
                                         currentSpread.isPanoramic && "absolute top-0 left-0 w-[200%]" // Double width for panoramic left half
                                     )}>
-                                        <ReadOnlyPage page={currentSpread.left} config={config} />
+                                        <AlbumCover
+                                            page={currentSpread.left}
+                                            config={config}
+                                            mode="preview"
+                                            activeView="full"
+                                        />
                                     </div>
                                 )}
                             </div>
@@ -266,7 +238,12 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
                                         "w-full h-full",
                                         currentSpread.isPanoramic && "absolute top-0 left-[-100%] w-[200%]" // Double width, shifted left for right half
                                     )}>
-                                        <ReadOnlyPage page={currentSpread.right} config={config} />
+                                        <AlbumCover
+                                            page={currentSpread.right}
+                                            config={config}
+                                            mode="preview"
+                                            activeView="full"
+                                        />
                                     </div>
                                 )}
                             </div>
