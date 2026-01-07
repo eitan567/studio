@@ -316,8 +316,10 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                             <>
                                 {page.coverTexts?.map(textItem => {
                                     // Calculate font size in pixels relative to the export container width
-                                    // Reference widths match AlbumCover's logic (1600 for single, 3200 for spread/full)
-                                    const referenceWidth = isSpread ? 3200 : 1600;
+                                    // Spreads use 3200 (full view).
+                                    // Single pages in editor use 3200 logic but seemingly render slightly larger visually?
+                                    // Tuning single page reference to 3000 to match user expectation ("tiny bit small" -> larger text).
+                                    const referenceWidth = isSpread ? 3200 : 3000;
                                     const fontSizePx = (textItem.style.fontSize / referenceWidth) * width;
 
                                     return (
