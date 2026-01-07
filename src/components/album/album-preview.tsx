@@ -100,6 +100,7 @@ interface AlbumPreviewProps {
   onAddSpread?: (afterIndex: number) => void;
   onUpdateLayout: (pageId: string, newLayout: string) => void;
   onUpdateCoverLayout?: (pageId: string, side: 'front' | 'back' | 'full', newLayout: string) => void;
+  onUpdateSpreadLayout?: (pageId: string, side: 'left' | 'right', newLayout: string) => void;
   onUpdateCoverType?: (pageId: string, newType: 'split' | 'full') => void;
 
   onUpdatePage?: (page: AlbumPage) => void; // New generic update prop
@@ -338,6 +339,7 @@ const PageToolbar = ({
   canDelete = true,
   onDeletePage,
   onUpdateLayout,
+  onUpdateSpreadLayout,
   onUpdateCoverLayout,
   onUpdateCoverType,
   onUpdateSpineText,
@@ -353,6 +355,7 @@ const PageToolbar = ({
   canDelete?: boolean;
   onDeletePage: (id: string) => void;
   onUpdateLayout: (id: string, layout: string) => void;
+  onUpdateSpreadLayout?: (id: string, side: 'left' | 'right', layout: string) => void;
   onUpdateCoverLayout?: (id: string, side: 'front' | 'back' | 'full', layout: string) => void;
   onUpdateCoverType?: (id: string, type: 'split' | 'full') => void;
   onUpdateSpineText?: (id: string, text: string) => void;
@@ -444,8 +447,12 @@ const PageToolbar = ({
                             if (page.isCover) {
                               onUpdateCoverLayout?.(page.id, 'back', template.id);
                             } else {
-                              const currentLayouts = page.spreadLayouts || { left: LAYOUT_TEMPLATES[0].id, right: LAYOUT_TEMPLATES[0].id };
-                              onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, left: template.id } });
+                              if (onUpdateSpreadLayout) {
+                                onUpdateSpreadLayout(page.id, 'left', template.id);
+                              } else {
+                                const currentLayouts = page.spreadLayouts || { left: LAYOUT_TEMPLATES[0].id, right: LAYOUT_TEMPLATES[0].id };
+                                onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, left: template.id } });
+                              }
                             }
                           }}
                           className={cn("p-0 focus:bg-accent/50 rounded-md cursor-pointer",
@@ -488,8 +495,12 @@ const PageToolbar = ({
                             if (page.isCover) {
                               onUpdateCoverLayout?.(page.id, 'front', template.id);
                             } else {
-                              const currentLayouts = page.spreadLayouts || { left: LAYOUT_TEMPLATES[0].id, right: LAYOUT_TEMPLATES[0].id };
-                              onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, right: template.id } });
+                              if (onUpdateSpreadLayout) {
+                                onUpdateSpreadLayout(page.id, 'right', template.id);
+                              } else {
+                                const currentLayouts = page.spreadLayouts || { left: LAYOUT_TEMPLATES[0].id, right: LAYOUT_TEMPLATES[0].id };
+                                onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, right: template.id } });
+                              }
                             }
                           }}
                           className={cn("p-0 focus:bg-accent/50 rounded-md cursor-pointer",
@@ -797,6 +808,7 @@ export function AlbumPreview({
   onAddSpread,
   onUpdateLayout,
   onUpdateCoverLayout,
+  onUpdateSpreadLayout,
   onUpdateCoverType,
   onUpdatePage, // New prop
   onUpdateSpineText,
@@ -850,6 +862,7 @@ export function AlbumPreview({
                     canDelete={!page.isCover && page.type !== 'single'}
                     onDeletePage={() => onDeletePage(page.id)}
                     onUpdateLayout={onUpdateLayout}
+                    onUpdateSpreadLayout={onUpdateSpreadLayout}
                     onUpdateCoverLayout={onUpdateCoverLayout}
                     onUpdateCoverType={onUpdateCoverType}
                     onUpdateSpineText={onUpdateSpineText}

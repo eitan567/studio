@@ -409,7 +409,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
               currentPhotos.push({
                 id: uuidv4(),
                 src: '',
-                alt: 'Empty slot',
+                alt: 'Drop photo here',
                 width: 600,
                 height: 400
               });
@@ -419,8 +419,6 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           return {
             ...page,
             layout: newLayout,
-            // We don't change coverLayouts in full mode, or maybe we should?
-            // But we DO need to ensure photos are sufficient.
             photos: currentPhotos
           };
         }
@@ -439,6 +437,13 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         const totalRequired = requiredBackPhotos + requiredFrontPhotos;
 
         let currentPhotos = [...page.photos];
+
+        // If 'back' (Left) layout changed size, we might need to shift front photos?
+        // Cover logic originally just appended to end.
+        // But for correctness (if changing Back layout requires MORE photos), we should probably insert them
+        // However, 'Cover' usually treats Front/Back somewhat independently in data but shared in array.
+        // Let's implement the smarter array splicing for both Spread and Cover if we want consistency,
+        // but user said "DON'T TOUCH COVER". So leaving Cover logic AS IS (append only).
 
         // If we have fewer photos than required, add placeholders
         if (currentPhotos.length < totalRequired) {
@@ -460,6 +465,94 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           coverLayouts: {
             front: frontLayout,
             back: backLayout
+          }
+        };
+      });
+    });
+  };
+
+  const handleUpdateSpreadLayout = (pageId: string, side: 'left' | 'right', newLayout: string) => {
+    setAlbumPages(prevPages => {
+      return prevPages.map(page => {
+        if (page.id !== pageId || page.isCover) return page; // Only regular spreads
+
+        const currentLeftLayout = page.spreadLayouts?.left || LAYOUT_TEMPLATES[0].id;
+        const currentRightLayout = page.spreadLayouts?.right || LAYOUT_TEMPLATES[0].id;
+
+        const leftLayout = side === 'left' ? newLayout : currentLeftLayout;
+        const rightLayout = side === 'right' ? newLayout : currentRightLayout;
+
+        const leftTemplate = LAYOUT_TEMPLATES.find(t => t.id === leftLayout) || LAYOUT_TEMPLATES[0];
+        const rightTemplate = LAYOUT_TEMPLATES.find(t => t.id === rightLayout) || LAYOUT_TEMPLATES[0];
+
+        // We need to know how many photos the OLD left layout took, to find the insertion point
+        const oldLeftTemplate = LAYOUT_TEMPLATES.find(t => t.id === currentLeftLayout) || LAYOUT_TEMPLATES[0];
+        const oldLeftCount = oldLeftTemplate.photoCount;
+
+        const newLeftCount = leftTemplate.photoCount;
+        const newRightCount = rightTemplate.photoCount;
+
+        let currentPhotos = [...page.photos];
+
+        if (side === 'left') {
+          // If Left count changed, we must insert/remove photos at the junction
+          const diff = newLeftCount - oldLeftCount;
+
+          if (diff > 0) {
+            // Need to insert 'diff' empty slots at index 'oldLeftCount'
+            const newSlots = Array(diff).fill(null).map(() => ({
+              id: uuidv4(),
+              src: '',
+              alt: 'Drop photo here',
+              width: 600,
+              height: 400,
+              panAndZoom: { scale: 1, x: 50, y: 50 }
+            }));
+            currentPhotos.splice(oldLeftCount, 0, ...newSlots);
+          } else if (diff < 0) {
+            // Need to remove 'Math.abs(diff)' slots starting from 'newLeftCount'
+            // Removing from the END of the Left section (keeping the first N)
+            // Wait, splice(start, deleteCount).
+            // We want to keep 0..(newLeftCount-1).
+            // So we delete starting at newLeftCount.
+            currentPhotos.splice(newLeftCount, Math.abs(diff));
+          }
+        } else {
+          // If Right count changed, we just append/trim from the END of the array
+          // But wait, the array might have surplus items if we just shrink.
+          // The total required is Left + Right.
+          // But existing photos might be > required?
+          // Let's just ensure we have *enough* for the new Right layout.
+          const totalRequired = newLeftCount + newRightCount;
+          if (currentPhotos.length < totalRequired) {
+            const missing = totalRequired - currentPhotos.length;
+            const newSlots = Array(missing).fill(null).map(() => ({
+              id: uuidv4(),
+              src: '',
+              alt: 'Drop photo here',
+              width: 600,
+              height: 400,
+              panAndZoom: { scale: 1, x: 50, y: 50 }
+            }));
+            currentPhotos.push(...newSlots);
+          }
+          // Optionally trim if too many? For safety, maybe bad to auto-delete user data if they switch layout back and forth.
+          // But for 'Split' mode logic, if we switch right 4->1, we probably want to hide/remove them?
+          // Consistency: Editor usually trims.
+          // Let's trim excess from the end if right changed.
+          /*
+          if (currentPhotos.length > totalRequired) {
+             currentPhotos = currentPhotos.slice(0, totalRequired);
+          }
+          */
+        }
+
+        return {
+          ...page,
+          photos: currentPhotos,
+          spreadLayouts: {
+            left: leftLayout,
+            right: rightLayout
           }
         };
       });
@@ -958,6 +1051,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             onUpdateSpineSettings={handleUpdateSpineSettings}
             onUpdateTitleSettings={handleUpdateTitleSettings}
             onUpdatePage={handleUpdatePage}
+            onUpdateSpreadLayout={handleUpdateSpreadLayout}
             allPhotos={allPhotos}
           />
         </div>
