@@ -268,6 +268,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           draggable={false}
           priority
+          unoptimized
         />
       </div>
     </div>

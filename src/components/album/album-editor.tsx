@@ -1052,24 +1052,32 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
         {/* Main Content: Album Preview */}
         <div className="xl:col-span-7">
-          <AlbumPreview
-            pages={albumPages}
-            config={config}
-            onDeletePage={deletePage}
-            onAddSpread={addSpreadPage}
-            onUpdateLayout={updatePageLayout}
-            onUpdatePhotoPanAndZoom={updatePhotoPanAndZoom}
-            onDropPhoto={handleDropPhoto}
-            onDownloadPage={handleDownloadPage}
-            onUpdateCoverLayout={handleUpdateCoverLayout}
-            onUpdateCoverType={handleUpdateCoverType}
-            onUpdateSpineText={handleUpdateSpineText}
-            onUpdateSpineSettings={handleUpdateSpineSettings}
-            onUpdateTitleSettings={handleUpdateTitleSettings}
-            onUpdatePage={handleUpdatePage}
-            onUpdateSpreadLayout={handleUpdateSpreadLayout}
-            allPhotos={allPhotos}
-          />
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center h-[85vh] text-muted-foreground p-6 text-center animate-in fade-in duration-300 bg-muted/30 border-2 border-dashed rounded-lg">
+              <Loader2 className="h-12 w-12 mb-4 animate-spin text-primary" />
+              <h3 className="text-lg font-semibold mb-2">Generating Album Layout...</h3>
+              <p className="text-sm">Please wait while we prepare your pages.</p>
+            </div>
+          ) : (
+            <AlbumPreview
+              pages={albumPages}
+              config={config}
+              onDeletePage={deletePage}
+              onAddSpread={addSpreadPage}
+              onUpdateLayout={updatePageLayout}
+              onUpdatePhotoPanAndZoom={updatePhotoPanAndZoom}
+              onDropPhoto={handleDropPhoto}
+              onDownloadPage={handleDownloadPage}
+              onUpdateCoverLayout={handleUpdateCoverLayout}
+              onUpdateCoverType={handleUpdateCoverType}
+              onUpdateSpineText={handleUpdateSpineText}
+              onUpdateSpineSettings={handleUpdateSpineSettings}
+              onUpdateTitleSettings={handleUpdateTitleSettings}
+              onUpdatePage={handleUpdatePage}
+              onUpdateSpreadLayout={handleUpdateSpreadLayout}
+              allPhotos={allPhotos}
+            />
+          )}
         </div>
 
         {/* Right Sidebar: Photo Gallery */}
