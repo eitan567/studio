@@ -246,28 +246,107 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
     // --- 4. Inner Spreads ---
     while (photosPool.length > 0) {
-      // Pick a random template
-      let selectedTemplate = LAYOUT_TEMPLATES[Math.floor(Math.random() * LAYOUT_TEMPLATES.length)];
+      // Randomly decide between Full (panoramic) and Split (left/right) modes
+      const isSplit = Math.random() > 0.5;
 
-      // If not enough photos for this template, find one that fits
-      if (photosPool.length < selectedTemplate.photoCount) {
-        const exactFit = LAYOUT_TEMPLATES.find(t => t.photoCount === photosPool.length);
-        if (exactFit) {
-          selectedTemplate = exactFit;
-        } else {
-          // Fallback to 1-photo layout
-          selectedTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === 1)!;
+      if (isSplit) {
+        // --- SPLIT MODE ---
+        let leftTemplate = LAYOUT_TEMPLATES[Math.floor(Math.random() * LAYOUT_TEMPLATES.length)];
+        let rightTemplate = LAYOUT_TEMPLATES[Math.floor(Math.random() * LAYOUT_TEMPLATES.length)];
+
+        // Ensure we have enough photos. If not, fallback to smaller templates.
+        const totalNeeded = leftTemplate.photoCount + rightTemplate.photoCount;
+
+        if (photosPool.length < totalNeeded) {
+          // Try to find templates that fit the remaining photos
+          // Very simple strategy: assign remaining to left, empty right, or 1-1.
+          // Let's just try to fit what we can into Left, and fallback Right to empty or 1.
+          // Actually, easier to fall back to specifically fitting templates or just 1 per side.
+
+          // Simplest fallback: If not enough for the rand selection, just pick 1-photo templates if possible
+          if (photosPool.length >= 2) {
+            leftTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === 1) || LAYOUT_TEMPLATES[0];
+            rightTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === 1) || LAYOUT_TEMPLATES[0];
+          } else {
+            // Only 1 photo left? Panic fallback to Full mode 1-photo
+            // Or just Left=1, Right=Empty (if we supported empty)
+            // Let's just break loop and let the "Last Single Page" handler take it? 
+            // No, that handler expects "lastPagePhoto" to be pre-reserved. 
+            // Let's just create a last spread with what we have.
+            leftTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === 1) || LAYOUT_TEMPLATES[0];
+            rightTemplate = LAYOUT_TEMPLATES[0]; // Assume [0] is valid? usually [0] is 1-full or 1-grid.
+
+            // If we strictly only have 1 photo, we can't really do a split spread effectively unless right is empty.
+            // We'll revert to Full mode for this last chunk.
+            const fallbackTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === photosPool.length) || LAYOUT_TEMPLATES.find(t => t.photoCount === 1) || LAYOUT_TEMPLATES[0];
+            const pagePhotos = photosPool.splice(0, fallbackTemplate.photoCount);
+            newPages.push({
+              id: uuidv4(),
+              type: 'spread',
+              photos: pagePhotos.map(p => ({ ...p, panAndZoom: defaultPanAndZoom })),
+              layout: fallbackTemplate.id,
+              spreadMode: 'full'
+            });
+            continue;
+          }
         }
+
+        // consume photos
+        const leftPhotosCount = leftTemplate.photoCount;
+        const rightPhotosCount = rightTemplate.photoCount;
+
+        // Double check we have enough now
+        if (photosPool.length >= leftPhotosCount + rightPhotosCount) {
+          const pagePhotos = photosPool.splice(0, leftPhotosCount + rightPhotosCount);
+          newPages.push({
+            id: uuidv4(),
+            type: 'spread',
+            photos: pagePhotos.map(p => ({ ...p, panAndZoom: defaultPanAndZoom })),
+            layout: '4-grid', // Placeholder, not used in split mode
+            spreadMode: 'split',
+            spreadLayouts: {
+              left: leftTemplate.id,
+              right: rightTemplate.id
+            }
+          });
+        } else {
+          // Should not happen due to check above, but purely safe fallback
+          const fallbackTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === 1) || LAYOUT_TEMPLATES[0];
+          const pagePhotos = photosPool.splice(0, Math.min(photosPool.length, fallbackTemplate.photoCount));
+          newPages.push({
+            id: uuidv4(),
+            type: 'spread',
+            photos: pagePhotos.map(p => ({ ...p, panAndZoom: defaultPanAndZoom })),
+            layout: fallbackTemplate.id,
+            spreadMode: 'full'
+          });
+        }
+
+      } else {
+        // --- FULL MODE ---
+        let selectedTemplate = LAYOUT_TEMPLATES[Math.floor(Math.random() * LAYOUT_TEMPLATES.length)];
+
+        // If not enough photos for this template, find one that fits
+        if (photosPool.length < selectedTemplate.photoCount) {
+          const exactFit = LAYOUT_TEMPLATES.find(t => t.photoCount === photosPool.length);
+          if (exactFit) {
+            selectedTemplate = exactFit;
+          } else {
+            // Fallback to 1-photo layout
+            selectedTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === 1)!;
+          }
+        }
+
+        const pagePhotos = photosPool.splice(0, selectedTemplate.photoCount);
+
+        newPages.push({
+          id: uuidv4(),
+          type: 'spread',
+          photos: pagePhotos.map(p => ({ ...p, panAndZoom: defaultPanAndZoom })),
+          layout: selectedTemplate.id,
+          spreadMode: 'full'
+        });
       }
-
-      const pagePhotos = photosPool.splice(0, selectedTemplate.photoCount);
-
-      newPages.push({
-        id: uuidv4(),
-        type: 'spread',
-        photos: pagePhotos.map(p => ({ ...p, panAndZoom: defaultPanAndZoom })),
-        layout: selectedTemplate.id,
-      });
     }
 
     // --- 5. Last Single Page (always present) ---
