@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { BookOpenText, Info, Trash2, LayoutTemplate, Download, Image as ImageIcon, Wand2, Undo, Crop, AlertTriangle, Pencil, BookOpen, Share2, FileText, FileDown, MoreHorizontal, FileImage, Plus, ArrowUp } from 'lucide-react';
+import { BookOpenText, Info, Trash2, LayoutTemplate, Download, Image as ImageIcon, Wand2, Undo, Crop, AlertTriangle, Pencil, BookOpen, Share2, FileText, FileDown, MoreHorizontal, FileImage, Plus, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, CornerDownRight } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
 
 import type { AlbumPage, AlbumConfig, Photo } from '@/lib/types';
@@ -24,6 +24,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 
 interface PageLayoutProps {
@@ -853,7 +854,7 @@ export function AlbumPreview({
       <ScrollArea ref={scrollAreaRef} className="h-[85vh] w-full pr-4" style={{ overflowY: isInteracting ? 'hidden' : 'auto' }}>
         <div className="space-y-8">
           {pages.map((page, index) => (
-            <div key={page.id} className="w-full max-w-4xl mx-auto">
+            <div key={page.id} id={`album-page-${index}`} className="w-full max-w-4xl mx-auto">
               <div className="w-full relative group/page">
 
                 <div className={cn("h-18", page.type === 'single' ? 'w-1/2 mx-auto' : 'w-full')}>
@@ -982,6 +983,9 @@ export function AlbumPreview({
 
       {/* Scroll to Top Button */}
       <ScrollToTopButton scrollAreaRef={scrollAreaRef} />
+
+      {/* Navigation Controls */}
+      <NavigationControls scrollAreaRef={scrollAreaRef} totalPages={pages.length} />
     </div >
   );
 }
@@ -1023,5 +1027,69 @@ function ScrollToTopButton({ scrollAreaRef }: { scrollAreaRef: React.RefObject<H
     >
       <ArrowUp className="h-5 w-5" />
     </Button>
+  );
+}
+
+function NavigationControls({ scrollAreaRef, totalPages }: { scrollAreaRef: React.RefObject<HTMLDivElement | null>, totalPages: number }) {
+  const [targetPage, setTargetPage] = useState<string>("");
+
+  const scrollToIndex = (index: number) => {
+    const el = document.getElementById(`album-page-${index}`);
+    if (el) {
+      // Find the closest scrollable container if needed, or just scrollIntoView
+      // Since it's inside a Radix ScrollArea, scrollIntoView on the element works best
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  const handleJump = () => {
+    const pageNum = parseInt(targetPage);
+    if (!isNaN(pageNum)) {
+      // Match the display logic: "1" = Page 1 (Index 1). "0" = Cover (Index 0).
+      // Clamp to valid range
+      const idx = Math.max(0, Math.min(totalPages - 1, pageNum));
+      scrollToIndex(idx);
+      setTargetPage(""); // Clear input on jump? Or keep it? Clearing is often nicer.
+    }
+  };
+
+  return (
+    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 bg-background/90 backdrop-blur-sm p-1.5 rounded-full shadow-lg border">
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => scrollToIndex(0)}>
+              <ChevronsUp className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Jump to Start</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <div className="flex items-center gap-1 mx-1">
+        <Input
+          type="number"
+          className="w-14 h-8 px-1 text-center text-sm appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          placeholder="#"
+          value={targetPage}
+          onChange={(e) => setTargetPage(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleJump()}
+        />
+        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={handleJump} disabled={!targetPage}>
+          <CornerDownRight className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => scrollToIndex(totalPages - 1)}>
+              <ChevronsDown className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Jump to End</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
   );
 }
