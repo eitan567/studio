@@ -76,12 +76,9 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const [allPhotos, setAllPhotos] = useState<Photo[]>([]);
   const [albumPages, setAlbumPages] = useState<AlbumPage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isBookViewOpen, setIsBookViewOpen] = useState(false);
   const { toast } = useToast();
   const [randomSeed, setRandomSeed] = useState('');
-  const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
-  const [randomSuggestion, setRandomSuggestion] = useState('');
   const [isClient, setIsClient] = useState(false);
   const [allowDuplicates, setAllowDuplicates] = useState(true);
   const [photoGap, setPhotoGap] = useState(10);
@@ -121,12 +118,6 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   useEffect(() => {
     setIsClient(true);
     setRandomSeed(Math.random().toString(36).substring(7));
-    const suggestions = [
-      "For a more dynamic feel, try a 6-photo spread for pages with action shots.",
-      "The portrait on page 3 would 'pop' more with increased contrast.",
-      "Consider a black and white filter for the photos on pages 8-9 for a timeless look.",
-    ];
-    setRandomSuggestion(suggestions[Math.floor(Math.random() * suggestions.length)]);
   }, []);
 
   const form = useForm<ConfigFormData>({
@@ -764,17 +755,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     }, 1500);
   };
 
-  const handleAiEnhance = async () => {
-    setIsGenerating(true);
-    setAiSuggestion(null);
-    toast({
-      title: 'AI Assistant',
-      description: 'Analyzing your album and generating suggestions...'
-    });
-    await new Promise((res) => setTimeout(res, 2000));
-    setAiSuggestion(randomSuggestion);
-    setIsGenerating(false);
-  };
+
 
   const handleDownloadPage = async (pageId: string) => {
     toast({ title: "Downloading page..." });
@@ -1023,27 +1004,23 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="font-headline text-lg flex items-center gap-2">
-                    <Wand2 className="h-5 w-5" /> Actions
+                    <Wand2 className="h-5 w-5" /> Test Actions
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <Button
                     variant="outline"
-                    className="w-full border-accent text-accent hover:bg-accent hover:text-accent-foreground"
-                    onClick={handleAiEnhance}
-                    disabled={isGenerating || allPhotos.length === 0}
+                    className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                    onClick={generateDummyPhotos}
+                    disabled={isLoading || !randomSeed}
                   >
-                    {isGenerating ? (<Loader2 className="h-4 w-4 animate-spin" />) : (<Sparkles className="mr-2 h-4 w-4" />)}
-                    AI Suggest
+                    {isLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <PlusSquare className="mr-2 h-4 w-4" />
+                    )}
+                    Load Photos
                   </Button>
-
-                  {aiSuggestion && (
-                    <AlertUI className="mt-2">
-                      <Sparkles className="h-4 w-4" />
-                      <AlertTitleUI className="text-xs">AI Suggestion</AlertTitleUI>
-                      <AlertDescriptionUI className="text-xs">{aiSuggestion}</AlertDescriptionUI>
-                    </AlertUI>
-                  )}
                 </CardContent>
               </Card>
             </>
@@ -1146,19 +1123,6 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
               <ScrollToTopButton scrollAreaRef={photoScrollRef} dependency={allPhotos.length} />
             </CardContent>
             <div className="p-3 border-t bg-muted/30 flex flex-col gap-2">
-              <Button
-                className="w-full"
-                variant="secondary"
-                onClick={generateDummyPhotos}
-                disabled={isLoading || !randomSeed}
-              >
-                {isLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <PlusSquare className="mr-2 h-4 w-4" />
-                )}
-                Load Photos
-              </Button>
               <p className="text-xs text-muted-foreground text-center">
                 {allPhotos.length} photos total • {usedPhotoIds.size} used
               </p>
