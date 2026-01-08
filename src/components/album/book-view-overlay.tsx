@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, BookOpen } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, BookOpen, ChevronsLeft, ChevronsRight, CornerDownRight } from 'lucide-react';
 import { AlbumPage, AlbumConfig } from '@/lib/types';
 import { AlbumCover } from './album-cover';
 import { PhotoRenderer } from './photo-renderer';
@@ -262,11 +262,75 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
 
             </div>
 
-            {/* Footer Info */}
-            <div className="absolute bottom-4 text-white/40 text-xs tracking-widest uppercase pointer-events-none">
+            {/* Footer Navigation */}
+            <div className="absolute bottom-4 z-50">
+                <BookNavigationControls
+                    currentIndex={currentSpreadIndex}
+                    totalSpreads={spreads.length}
+                    onJump={(idx) => setCurrentSpreadIndex(idx)}
+                />
+            </div>
+
+            {/* Footer Info (Moved slightly down or kept as subtle context) */}
+            <div className="absolute bottom-1 text-white/20 text-[10px] tracking-widest uppercase pointer-events-none">
                 {currentSpread.isCover ? 'Front Cover' :
                     currentSpread.isBackCover ? 'Back Cover' : 'Open Album'}
             </div>
+        </div>
+    );
+}
+
+function BookNavigationControls({ currentIndex, totalSpreads, onJump }: { currentIndex: number, totalSpreads: number, onJump: (idx: number) => void }) {
+    const [targetSpread, setTargetSpread] = useState<string>("");
+
+    const handleJump = () => {
+        const pageNum = parseInt(targetSpread);
+        if (!isNaN(pageNum)) {
+            // User enters 1-based "Spread Number"
+            // Clamp to valid range (1 to totalSpreads) -> Convert to 0-based index
+            const idx = Math.max(0, Math.min(totalSpreads - 1, pageNum - 1));
+            onJump(idx);
+            setTargetSpread("");
+        }
+    };
+
+    return (
+        <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md p-1.5 rounded-full border border-white/10 shadow-2xl">
+            <button
+                onClick={() => onJump(0)}
+                className="p-2 rounded-full hover:bg-white/10 text-white/80 hover:text-white transition-colors disabled:opacity-30"
+                disabled={currentIndex === 0}
+                title="Jump to Start"
+            >
+                <ChevronsLeft className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-1 mx-1 bg-white/5 rounded-full px-2 py-0.5 border border-white/5 focus-within:border-white/20 transition-colors">
+                <input
+                    type="number"
+                    className="w-8 bg-transparent text-center text-sm text-white focus:outline-none appearance-none [&::-webkit-inner-spin-button]:appearance-none font-mono"
+                    placeholder="#"
+                    value={targetSpread}
+                    onChange={(e) => setTargetSpread(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleJump()}
+                />
+                <button
+                    onClick={handleJump}
+                    disabled={!targetSpread}
+                    className="p-1 rounded-full hover:bg-white/20 text-white/50 hover:text-white transition-colors disabled:opacity-0"
+                >
+                    <CornerDownRight className="w-3 h-3" />
+                </button>
+            </div>
+
+            <button
+                onClick={() => onJump(totalSpreads - 1)}
+                className="p-2 rounded-full hover:bg-white/10 text-white/80 hover:text-white transition-colors disabled:opacity-30"
+                disabled={currentIndex === totalSpreads - 1}
+                title="Jump to End"
+            >
+                <ChevronsRight className="w-4 h-4" />
+            </button>
         </div>
     );
 }
