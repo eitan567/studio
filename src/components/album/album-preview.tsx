@@ -337,6 +337,7 @@ const SpineColorPicker = ({
 const PageToolbar = ({
   page,
   pageNumber,
+  displayLabel, // New Prop
   canDelete = true,
   onDeletePage,
   onUpdateLayout,
@@ -353,6 +354,7 @@ const PageToolbar = ({
 }: {
   page: AlbumPage;
   pageNumber: number;
+  displayLabel?: string;
   canDelete?: boolean;
   onDeletePage: (id: string) => void;
   onUpdateLayout: (id: string, layout: string) => void;
@@ -377,7 +379,7 @@ const PageToolbar = ({
         <TooltipProvider>
           <div className="flex items-center justify-between gap-1 rounded-lg border bg-background p-0.5 shadow-lg px-2 flex-wrap">
             <span className="text-sm font-semibold text-muted-foreground mr-auto pl-1">
-              {page.isCover ? "Cover" : `Page ${pageNumber}`}
+              {displayLabel || (page.isCover ? "Cover" : `Page ${pageNumber}`)}
             </span>
 
             <div className="flex items-center gap-1">
@@ -631,8 +633,8 @@ const PageToolbar = ({
     <div className="mb-2">
       <TooltipProvider>
         <div className="flex items-center justify-between gap-1 rounded-lg border bg-background p-0.5 shadow-lg px-2">
-          <span className="text-sm font-semibold text-muted-foreground">
-            {`Page ${pageNumber}`}
+          <span className="text-sm font-semibold text-muted-foreground mr-auto">
+            {displayLabel || `Page ${pageNumber}`}
           </span>
           <div className="flex items-center gap-1">
             <DropdownMenu>
@@ -849,81 +851,91 @@ export function AlbumPreview({
 
 
 
+  // Calculate Page Info (Labels and Ranges)
+  const pageInfo = React.useMemo(() => {
+    let counter = 1;
+    return pages.map(page => {
+      if (page.isCover) {
+        return { label: "Cover", start: 0, end: 0, isCover: true };
+      }
+      if (page.type === 'spread') {
+        const start = counter;
+        const end = counter + 1;
+        counter += 2;
+        return { label: `Pages ${start}-${end}`, start, end, isCover: false };
+      }
+      // Single
+      const current = counter;
+      counter += 1;
+      return { label: `Page ${current}`, start: current, end: current, isCover: false };
+    });
+  }, [pages]);
+
   return (
     <div className="w-full relative">
       <ScrollArea ref={scrollAreaRef} className="h-[85vh] w-full pr-4" style={{ overflowY: isInteracting ? 'hidden' : 'auto' }}>
         <div className="space-y-8">
-          {pages.map((page, index) => (
-            <div key={page.id} id={`album-page-${index}`} className="w-full max-w-4xl mx-auto">
-              <div className="w-full relative group/page">
+          {pages.map((page, index) => {
+            const info = pageInfo[index];
+            return (
+              <div key={page.id} id={`album-page-${index}`} className="w-full max-w-4xl mx-auto">
+                <div className="w-full relative group/page">
 
-                <div className={cn("h-18", page.type === 'single' ? 'w-1/2 mx-auto' : 'w-full')}>
-                  <PageToolbar
-                    page={page}
-                    pageNumber={index}
-                    canDelete={!page.isCover && page.type !== 'single'}
-                    onDeletePage={() => onDeletePage(page.id)}
-                    onUpdateLayout={onUpdateLayout}
-                    onUpdateSpreadLayout={onUpdateSpreadLayout}
-                    onUpdateCoverLayout={onUpdateCoverLayout}
-                    onUpdateCoverType={onUpdateCoverType}
-                    onUpdateSpineText={onUpdateSpineText}
-                    onUpdateSpineSettings={onUpdateSpineSettings}
-                    onUpdateTitleSettings={onUpdateTitleSettings}
-                    onOpenCoverEditor={handleOpenPageEditor}
-                    onDownloadPage={onDownloadPage}
-                    onUpdatePage={onUpdatePage}
-                    toast={toast}
-                  />
-                </div>
+                  <div className={cn("h-18", page.type === 'single' ? 'w-1/2 mx-auto' : 'w-full')}>
+                    <PageToolbar
+                      page={page}
+                      pageNumber={index} // Keep for internal logic if needed, but display comes from label
+                      displayLabel={info.label} // New Prop
+                      canDelete={!page.isCover && page.type !== 'single'}
+                      onDeletePage={() => onDeletePage(page.id)}
+                      onUpdateLayout={onUpdateLayout}
+                      onUpdateSpreadLayout={onUpdateSpreadLayout}
+                      onUpdateCoverLayout={onUpdateCoverLayout}
+                      onUpdateCoverType={onUpdateCoverType}
+                      onUpdateSpineText={onUpdateSpineText}
+                      onUpdateSpineSettings={onUpdateSpineSettings}
+                      onUpdateTitleSettings={onUpdateTitleSettings}
+                      onOpenCoverEditor={handleOpenPageEditor}
+                      onDownloadPage={onDownloadPage}
+                      onUpdatePage={onUpdatePage}
+                      toast={toast}
+                    />
+                  </div>
 
-                <div className={cn(page.type === 'single' && 'w-1/2 mx-auto')}>
-                  <AspectRatio
-                    ratio={(
-                      () => {
-                        const [w, h] = config.size.split('x').map(Number);
-                        const baseRatio = w / h;
-                        if (page.isCover) {
-                          // Include spine width in cover ratio to match ScaledCoverPreview
-                          const BASE_PAGE_PX = 450;
-                          const pxPerUnit = BASE_PAGE_PX / h;
-                          const singlePageW = w * pxPerUnit;
-                          const spineWidth = page.spineWidth ?? 40;
-                          const coverWidth = (singlePageW * 2) + spineWidth;
-                          return coverWidth / BASE_PAGE_PX;
+                  <div className={cn(page.type === 'single' && 'w-1/2 mx-auto')}>
+                    <AspectRatio
+                      ratio={(
+                        () => {
+                          const [w, h] = config.size.split('x').map(Number);
+                          const baseRatio = w / h;
+                          if (page.isCover) {
+                            // Include spine width in cover ratio to match ScaledCoverPreview
+                            const BASE_PAGE_PX = 450;
+                            const pxPerUnit = BASE_PAGE_PX / h;
+                            const singlePageW = w * pxPerUnit;
+                            const spineWidth = page.spineWidth ?? 40;
+                            const coverWidth = (singlePageW * 2) + spineWidth;
+                            return coverWidth / BASE_PAGE_PX;
+                          }
+                          return page.type === 'spread' ? baseRatio * 2 : baseRatio;
                         }
-                        return page.type === 'spread' ? baseRatio * 2 : baseRatio;
-                      }
-                    )()}
-                  >
-
-                    <Card
-                      className="h-full w-full shadow-lg"
-                      style={{
-                        backgroundColor: page.backgroundColor || config.backgroundColor,
-                        backgroundImage: (page.backgroundImage || config.backgroundImage) ? `url(${page.backgroundImage || config.backgroundImage})` : undefined,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                      }}
+                      )()}
                     >
-                      <CardContent
-                        className="flex h-full w-full items-center justify-center p-0"
-                        style={{ padding: 0 }}
+
+                      <Card
+                        className="h-full w-full shadow-lg"
+                        style={{
+                          backgroundColor: page.backgroundColor || config.backgroundColor,
+                          backgroundImage: (page.backgroundImage || config.backgroundImage) ? `url(${page.backgroundImage || config.backgroundImage})` : undefined,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                        }}
                       >
-                        {page.isCover ? (
-                          <ScaledCoverPreview
-                            page={page}
-                            config={config}
-                            onUpdateTitleSettings={onUpdateTitleSettings}
-                            onDropPhoto={onDropPhoto}
-                            onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
-                          />
-                        ) : page.type === 'spread' ? (
-                          <div className="relative h-full w-full">
-                            {/* Spine simulation */}
-                            <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10 pointer-events-none"></div>
-                            <div className="absolute inset-y-0 left-1/2 w-4 -ml-2 bg-gradient-to-r from-transparent to-black/10 z-10 pointer-events-none"></div>
-                            <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10 pointer-events-none"></div>
+                        <CardContent
+                          className="flex h-full w-full items-center justify-center p-0"
+                          style={{ padding: 0 }}
+                        >
+                          {page.isCover ? (
                             <ScaledCoverPreview
                               page={page}
                               config={config}
@@ -931,40 +943,53 @@ export function AlbumPreview({
                               onDropPhoto={onDropPhoto}
                               onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
                             />
-                          </div>
-                        ) : (
-                          <ScaledCoverPreview
-                            page={page}
-                            config={config}
-                            onUpdateTitleSettings={onUpdateTitleSettings}
-                            onDropPhoto={onDropPhoto}
-                            onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
-                          />
-                        )}
+                          ) : page.type === 'spread' ? (
+                            <div className="relative h-full w-full">
+                              {/* Spine simulation */}
+                              <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10 pointer-events-none"></div>
+                              <div className="absolute inset-y-0 left-1/2 w-4 -ml-2 bg-gradient-to-r from-transparent to-black/10 z-10 pointer-events-none"></div>
+                              <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10 pointer-events-none"></div>
+                              <ScaledCoverPreview
+                                page={page}
+                                config={config}
+                                onUpdateTitleSettings={onUpdateTitleSettings}
+                                onDropPhoto={onDropPhoto}
+                                onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
+                              />
+                            </div>
+                          ) : (
+                            <ScaledCoverPreview
+                              page={page}
+                              config={config}
+                              onUpdateTitleSettings={onUpdateTitleSettings}
+                              onDropPhoto={onDropPhoto}
+                              onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
+                            />
+                          )}
 
-                      </CardContent>
-                    </Card>
-                  </AspectRatio>
+                        </CardContent>
+                      </Card>
+                    </AspectRatio>
+                  </div>
                 </div>
+
+                {/* Add Spread Button - Show between pages (not after cover, not after last page) */}
+                {onAddSpread && !page.isCover && index < pages.length - 1 && (
+                  <div className="flex justify-center py-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="opacity-40 hover:opacity-100 transition-opacity"
+                      onClick={() => onAddSpread(index)}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Spread
+                    </Button>
+                  </div>
+                )}
               </div>
-
-              {/* Add Spread Button - Show between pages (not after cover, not after last page) */}
-              {onAddSpread && !page.isCover && index < pages.length - 1 && (
-                <div className="flex justify-center py-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="opacity-40 hover:opacity-100 transition-opacity"
-                    onClick={() => onAddSpread(index)}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Spread
-                  </Button>
-                </div>
-              )}
-            </div>
-          ))
-          }
+            );
+          })}
         </div >
       </ScrollArea >
 
@@ -985,7 +1010,11 @@ export function AlbumPreview({
       <ScrollToTopButton scrollAreaRef={scrollAreaRef} />
 
       {/* Navigation Controls */}
-      <NavigationControls scrollAreaRef={scrollAreaRef} totalPages={pages.length} />
+      <NavigationControls
+        scrollAreaRef={scrollAreaRef}
+        totalPages={pages.length}
+        pageInfo={pageInfo} // Pass the calculated info
+      />
     </div >
   );
 }
@@ -1030,14 +1059,20 @@ function ScrollToTopButton({ scrollAreaRef }: { scrollAreaRef: React.RefObject<H
   );
 }
 
-function NavigationControls({ scrollAreaRef, totalPages }: { scrollAreaRef: React.RefObject<HTMLDivElement | null>, totalPages: number }) {
+function NavigationControls({
+  scrollAreaRef,
+  totalPages,
+  pageInfo
+}: {
+  scrollAreaRef: React.RefObject<HTMLDivElement | null>,
+  totalPages: number,
+  pageInfo: { label: string; start: number; end: number; isCover: boolean; }[]
+}) {
   const [targetPage, setTargetPage] = useState<string>("");
 
   const scrollToIndex = (index: number) => {
     const el = document.getElementById(`album-page-${index}`);
     if (el) {
-      // Find the closest scrollable container if needed, or just scrollIntoView
-      // Since it's inside a Radix ScrollArea, scrollIntoView on the element works best
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   };
@@ -1045,11 +1080,17 @@ function NavigationControls({ scrollAreaRef, totalPages }: { scrollAreaRef: Reac
   const handleJump = () => {
     const pageNum = parseInt(targetPage);
     if (!isNaN(pageNum)) {
-      // Match the display logic: "1" = Page 1 (Index 1). "0" = Cover (Index 0).
-      // Clamp to valid range
-      const idx = Math.max(0, Math.min(totalPages - 1, pageNum));
-      scrollToIndex(idx);
-      setTargetPage(""); // Clear input on jump? Or keep it? Clearing is often nicer.
+      // Find the index where the pageNum falls within range
+      const targetIndex = pageInfo.findIndex(info => !info.isCover && pageNum >= info.start && pageNum <= info.end);
+
+      if (targetIndex !== -1) {
+        scrollToIndex(targetIndex);
+        setTargetPage("");
+      } else if (pageNum === 0) {
+        // Allow 0 for cover
+        scrollToIndex(0);
+        setTargetPage("");
+      }
     }
   };
 
@@ -1074,6 +1115,7 @@ function NavigationControls({ scrollAreaRef, totalPages }: { scrollAreaRef: Reac
           value={targetPage}
           onChange={(e) => setTargetPage(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleJump()}
+          title="Type page number and press Enter"
         />
         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={handleJump} disabled={!targetPage}>
           <CornerDownRight className="h-4 w-4" />

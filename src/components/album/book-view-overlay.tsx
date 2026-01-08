@@ -18,6 +18,9 @@ interface Spread {
     isCover?: boolean;
     isBackCover?: boolean;
     isPanoramic?: boolean;
+    pageLabel: string;
+    pageStart?: number;
+    pageEnd?: number;
 }
 
 // ReadOnlyPage removed in favor of direct AlbumCover usage for consistency
@@ -35,8 +38,10 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
         const frontCover = pages.find(p => p.isCover) || pages[0];
         const innerPages = pages.filter(p => !p.isCover && p !== frontCover);
 
+        let pageCounter = 1;
+
         // 1. Front Cover (Right side)
-        newSpreads.push({ left: null, right: frontCover, isCover: true });
+        newSpreads.push({ left: null, right: frontCover, isCover: true, pageLabel: "Front Cover", pageStart: 0, pageEnd: 0 });
 
         // 2. Inner Spreads
         let i = 0;
@@ -44,7 +49,9 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
         // Check for Single Page at start
         if (innerPages.length > 0 && innerPages[0].type === 'single') {
             // First page is Single -> Place on Right, Left is Blank
-            newSpreads.push({ left: null, right: innerPages[0] });
+            const current = pageCounter;
+            newSpreads.push({ left: null, right: innerPages[0], pageLabel: `Page ${current}`, pageStart: current, pageEnd: current });
+            pageCounter++;
             i++;
         }
 
@@ -54,11 +61,17 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
             // Layout Logic:
             if (current.type === 'spread') {
                 // If it's a spread, it occupies BOTH sides.
+                const start = pageCounter;
+                const end = pageCounter + 1;
                 newSpreads.push({
                     left: current,
                     right: current,
-                    isPanoramic: true
+                    isPanoramic: true,
+                    pageLabel: `Pages ${start}-${end}`,
+                    pageStart: start,
+                    pageEnd: end
                 });
+                pageCounter += 2;
                 i++;
             } else {
                 // It's a single page. Look for a partner.
@@ -66,11 +79,16 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
 
                 if (next && next.type === 'single') {
                     // Pair two singles
-                    newSpreads.push({ left: current, right: next });
+                    const start = pageCounter;
+                    const end = pageCounter + 1;
+                    newSpreads.push({ left: current, right: next, pageLabel: `Pages ${start}-${end}`, pageStart: start, pageEnd: end });
+                    pageCounter += 2;
                     i += 2;
                 } else {
                     // Next is missing or is a spread -> Solitary Single on Left
-                    newSpreads.push({ left: current, right: null });
+                    const cur = pageCounter;
+                    newSpreads.push({ left: current, right: null, pageLabel: `Page ${cur}`, pageStart: cur, pageEnd: cur });
+                    pageCounter++;
                     i++;
                 }
             }
@@ -78,7 +96,7 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
 
         // 3. Back Cover
         if (frontCover) {
-            newSpreads.push({ left: frontCover, right: null, isBackCover: true });
+            newSpreads.push({ left: frontCover, right: null, isBackCover: true, pageLabel: "Back Cover", pageStart: 0, pageEnd: 0 });
         }
 
         return newSpreads;
@@ -161,8 +179,7 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
                 >
                     {/* Top Label */}
                     <div className="absolute -top-8 w-full text-center text-white/40 text-xs tracking-widest uppercase pointer-events-none">
-                        {currentSpread.isCover ? 'Front Cover' :
-                            currentSpread.isBackCover ? 'Back Cover' : 'Open Album'}
+                        {currentSpread.pageLabel}
                     </div>
 
                     {/* Left Page */}
@@ -273,6 +290,7 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
                 <BookNavigationControls
                     currentIndex={currentSpreadIndex}
                     totalSpreads={spreads.length}
+                    spreads={spreads}
                     onJump={(idx) => setCurrentSpreadIndex(idx)}
                 />
             </div>
@@ -280,17 +298,24 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
     );
 }
 
-function BookNavigationControls({ currentIndex, totalSpreads, onJump }: { currentIndex: number, totalSpreads: number, onJump: (idx: number) => void }) {
+function BookNavigationControls({ currentIndex, totalSpreads, spreads, onJump }: { currentIndex: number, totalSpreads: number, spreads: Spread[], onJump: (idx: number) => void }) {
     const [targetSpread, setTargetSpread] = useState<string>("");
 
     const handleJump = () => {
         const pageNum = parseInt(targetSpread);
         if (!isNaN(pageNum)) {
-            // User enters 1-based "Spread Number"
-            // Clamp to valid range (1 to totalSpreads) -> Convert to 0-based index
-            const idx = Math.max(0, Math.min(totalSpreads - 1, pageNum - 1));
-            onJump(idx);
-            setTargetSpread("");
+            // Find spread containing this page number
+            // Start/End are undefined for covers (0)
+            const idx = spreads.findIndex(s => s.pageStart && s.pageEnd && pageNum >= s.pageStart && pageNum <= s.pageEnd);
+
+            if (idx !== -1) {
+                onJump(idx);
+                setTargetSpread("");
+            } else if (pageNum === 0) {
+                // Jump to cover?
+                onJump(0);
+                setTargetSpread("");
+            }
         }
     };
 
