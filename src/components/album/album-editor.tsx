@@ -740,13 +740,27 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           height: dim.h,
         };
       });
-      setAllPhotos(dummyPhotos);
-      generateInitialPages(dummyPhotos); // Use all photos
-      setIsLoading(false);
-      toast({
-        title: 'Photos & Album Generated',
-        description: '100 dummy photos and a full album layout have been created.',
-      });
+
+      // Preload images
+      const preloadImage = (src: string) => {
+        return new Promise((resolve, reject) => {
+          const img = new window.Image();
+          img.src = src;
+          img.onload = resolve;
+          img.onerror = resolve; // Resolve even on error to not block everything
+        });
+      };
+
+      Promise.all(dummyPhotos.map(photo => preloadImage(photo.src)))
+        .then(() => {
+          setAllPhotos(dummyPhotos);
+          generateInitialPages(dummyPhotos); // Use all photos
+          setIsLoading(false);
+          toast({
+            title: 'Photos & Album Generated',
+            description: '100 dummy photos and a full album layout have been created.',
+          });
+        });
     }, 1500);
   };
 
@@ -1077,7 +1091,12 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
               </div>
             </CardHeader>
             <CardContent className="flex-1 overflow-hidden p-0 relative">
-              {allPhotos.length === 0 ? (
+              {isLoading ? (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center animate-in fade-in duration-300">
+                  <Loader2 className="h-10 w-10 mb-2 animate-spin text-primary" />
+                  <p className="text-sm font-medium">Loading photos...</p>
+                </div>
+              ) : allPhotos.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center">
                   <ImageIcon className="h-10 w-10 mb-2 opacity-20" />
                   <p className="text-sm">No photos loaded yet. Use "Load Photos" to start.</p>

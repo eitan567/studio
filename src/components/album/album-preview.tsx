@@ -835,22 +835,6 @@ export function AlbumPreview({
   };
 
   const editingPage = pages.find(p => p.id === activePageId);
-
-
-  if (pages.length <= 0) {
-    return (
-      <Card className="flex h-[85vh] w-full items-center justify-center bg-muted/50 border-2 border-dashed">
-        <div className="text-center text-muted-foreground">
-          <BookOpenText className="mx-auto h-12 w-12" />
-          <h3 className="mt-4 text-lg font-semibold">Your Album Preview</h3>
-          <p>Generate dummy photos to begin creating your photobook.</p>
-        </div>
-      </Card>
-    );
-  }
-
-
-
   // Calculate Page Info (Labels and Ranges)
   const pageInfo = React.useMemo(() => {
     let counter = 1;
@@ -870,6 +854,19 @@ export function AlbumPreview({
       return { label: `Page ${current}`, start: current, end: current, isCover: false };
     });
   }, [pages]);
+
+
+  if (pages.length <= 0) {
+    return (
+      <Card className="flex h-[85vh] w-full items-center justify-center bg-muted/50 border-2 border-dashed">
+        <div className="text-center text-muted-foreground">
+          <BookOpenText className="mx-auto h-12 w-12" />
+          <h3 className="mt-4 text-lg font-semibold">Your Album Preview</h3>
+          <p>Generate dummy photos to begin creating your photobook.</p>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <div className="w-full relative">
