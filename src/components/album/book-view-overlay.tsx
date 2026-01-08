@@ -159,6 +159,12 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
                         maxHeight: '900px'
                     }}
                 >
+                    {/* Top Label */}
+                    <div className="absolute -top-8 w-full text-center text-white/40 text-xs tracking-widest uppercase pointer-events-none">
+                        {currentSpread.isCover ? 'Front Cover' :
+                            currentSpread.isBackCover ? 'Back Cover' : 'Open Album'}
+                    </div>
+
                     {/* Left Page */}
                     <div
                         className={cn(
@@ -269,12 +275,6 @@ export function BookViewOverlay({ pages, config, onClose }: BookViewOverlayProps
                     totalSpreads={spreads.length}
                     onJump={(idx) => setCurrentSpreadIndex(idx)}
                 />
-            </div>
-
-            {/* Footer Info (Moved slightly down or kept as subtle context) */}
-            <div className="absolute bottom-1 text-white/20 text-[10px] tracking-widest uppercase pointer-events-none">
-                {currentSpread.isCover ? 'Front Cover' :
-                    currentSpread.isBackCover ? 'Back Cover' : 'Open Album'}
             </div>
         </div>
     );
