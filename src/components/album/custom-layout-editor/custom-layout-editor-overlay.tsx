@@ -61,8 +61,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config }: CustomLayoutEdito
     const [spreadMode, setSpreadMode] = useState<'full' | 'split'>('split');
     const [photoGap, setPhotoGap] = useState(10);
     const [pageMargin, setPageMargin] = useState(10);
-    const [useDummyPhotos, setUseDummyPhotos] = useState(false);
-    const [dummyPage, setDummyPage] = useState<AlbumPage>(() => createDummyPage('4-grid', false));
+    const [useDummyPhotos, setUseDummyPhotos] = useState(true);
+    const [dummyPage, setDummyPage] = useState<AlbumPage>(() => createDummyPage('4-grid', true));
 
     // Update dummy page when layout changes
     const handleLayoutChange = (layoutId: string) => {
