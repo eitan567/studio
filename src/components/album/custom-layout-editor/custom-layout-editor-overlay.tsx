@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Check, X, Layout } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { LAYOUT_TEMPLATES } from '../layout-templates';
+import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 
 interface CustomLayoutEditorOverlayProps {
     onClose: () => void;
@@ -63,6 +64,41 @@ export const CustomLayoutEditorOverlay = ({ onClose, config }: CustomLayoutEdito
     const [pageMargin, setPageMargin] = useState(10);
     const [useDummyPhotos, setUseDummyPhotos] = useState(true);
     const [dummyPage, setDummyPage] = useState<AlbumPage>(() => createDummyPage('4-grid', true));
+    const [selectedAdvancedTemplate, setSelectedAdvancedTemplate] = useState<AdvancedTemplate | null>(null);
+
+    // Handle advanced template selection
+    const handleSelectAdvancedTemplate = (template: AdvancedTemplate) => {
+        setSelectedAdvancedTemplate(template);
+        // Create a dummy page with the right number of photos for this template
+        const photos = Array(template.photoCount).fill(null).map((_, index) => {
+            if (useDummyPhotos) {
+                const seed = `adv-${template.id}-${index}`;
+                return {
+                    id: uuidv4(),
+                    src: `https://picsum.photos/seed/${seed}/800/600`,
+                    alt: `Sample photo ${index + 1}`,
+                    width: 800,
+                    height: 600,
+                    panAndZoom: { scale: 1, x: 50, y: 50 }
+                };
+            }
+            return {
+                id: uuidv4(),
+                src: '',
+                alt: 'Drop photo here',
+                panAndZoom: { scale: 1, x: 50, y: 50 }
+            };
+        });
+
+        setDummyPage(prev => ({
+            ...prev,
+            photos,
+            layout: template.id,
+            photoGap,
+            pageMargin,
+            spreadMode
+        }));
+    };
 
     // Update dummy page when layout changes
     const handleLayoutChange = (layoutId: string) => {
@@ -126,6 +162,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config }: CustomLayoutEdito
                 <LayoutSidebarLeft
                     onSave={handleSave}
                     onCancel={handleCancel}
+                    selectedAdvancedTemplate={selectedAdvancedTemplate}
+                    onSelectAdvancedTemplate={handleSelectAdvancedTemplate}
                 />
 
                 {/* 2. Main Content Area (Canvas) */}
@@ -155,6 +193,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config }: CustomLayoutEdito
                                 pageMargin
                             }}
                             onUpdatePage={handleUpdatePage}
+                            advancedTemplate={selectedAdvancedTemplate}
                         />
                     </div>
 
