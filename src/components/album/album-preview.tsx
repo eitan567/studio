@@ -1092,7 +1092,7 @@ function NavigationControls({
   };
 
   return (
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 bg-background/90 backdrop-blur-sm p-1.5 rounded-full shadow-lg border">
+    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-49 flex items-center gap-1 bg-background/90 backdrop-blur-sm p-1.5 rounded-full shadow-lg border">
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
