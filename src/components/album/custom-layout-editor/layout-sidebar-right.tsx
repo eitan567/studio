@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { LAYOUT_TEMPLATES } from '../layout-templates';
 import { cn } from '@/lib/utils';
-import { Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface LayoutSidebarRightProps {
@@ -178,20 +177,6 @@ export const LayoutSidebarRight = ({
                     </div>
                     <p className="text-xs text-muted-foreground">
                         Automatically fill layout with sample images when changing templates.
-                    </p>
-                </div>
-
-                {/* AI Generation Placeholder */}
-                <div className="space-y-3 pt-4 border-t">
-                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        AI Generation
-                    </Label>
-                    <Button variant="outline" className="w-full gap-2" disabled>
-                        <Sparkles className="h-4 w-4" />
-                        Generate with AI
-                    </Button>
-                    <p className="text-xs text-muted-foreground">
-                        Coming soon: Generate custom layout templates using AI.
                     </p>
                 </div>
             </div>
