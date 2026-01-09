@@ -18,6 +18,7 @@ import {
   Pencil,
   Download,
   ArrowUp,
+  Layout,
 } from 'lucide-react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -61,6 +62,7 @@ import Image from 'next/image';
 import { Alert as AlertUI, AlertDescription as AlertDescriptionUI, AlertTitle as AlertTitleUI } from '@/components/ui/alert';
 import { AiBackgroundGenerator } from './ai-background-generator';
 import { AlbumExporter, AlbumExporterRef } from './album-exporter';
+import { CustomLayoutEditorOverlay } from './custom-layout-editor/custom-layout-editor-overlay';
 
 interface AlbumEditorProps {
   albumId: string;
@@ -77,6 +79,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const [albumPages, setAlbumPages] = useState<AlbumPage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isBookViewOpen, setIsBookViewOpen] = useState(false);
+  const [isCustomLayoutEditorOpen, setIsCustomLayoutEditorOpen] = useState(false);
   const { toast } = useToast();
   const [randomSeed, setRandomSeed] = useState('');
   const [isClient, setIsClient] = useState(false);
@@ -858,6 +861,10 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             <BookOpen className="h-4 w-4" />
             <span className="hidden sm:inline">Book View</span>
           </Button>
+          <Button variant="outline" className="gap-2 bg-background" onClick={() => setIsCustomLayoutEditorOpen(true)}>
+            <Layout className="h-4 w-4" />
+            <span className="hidden sm:inline">Custom Layout</span>
+          </Button>
           <div className="h-4 w-px bg-border mx-1" />
           <Button variant="ghost" size="sm" className="gap-2" onClick={handleExport} disabled={isExporting}>
             {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileImage className="h-4 w-4" />}
@@ -1214,6 +1221,12 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           pages={albumPages}
           config={config}
           onClose={() => setIsBookViewOpen(false)}
+        />
+      )}
+      {isCustomLayoutEditorOpen && (
+        <CustomLayoutEditorOverlay
+          config={config}
+          onClose={() => setIsCustomLayoutEditorOpen(false)}
         />
       )}
     </div>
