@@ -33,8 +33,9 @@ export const LayoutCanvas = ({ page, config, onUpdatePage }: LayoutCanvasProps) 
     const pageW_px = configW * pxPerUnit;
     const pageH_px = BASE_PAGE_PX;
 
-    // Double page spread
-    const logicalWidth = pageW_px * 2;
+    // Double page spread for Split mode, single for Full mode
+    const isFull = page.spreadMode === 'full';
+    const logicalWidth = isFull ? pageW_px * 2 : pageW_px * 2;
     const logicalHeight = pageH_px;
 
     // --- Auto-Scale to Fit Viewport ---
@@ -52,7 +53,7 @@ export const LayoutCanvas = ({ page, config, onUpdatePage }: LayoutCanvasProps) 
             const scaleY = availH / logicalHeight;
             const fitScale = Math.min(scaleX, scaleY);
 
-            setScale(fitScale * 0.9); // 10% padding
+            setScale(fitScale * 0.85); // 15% padding for better viewing
         };
 
         measure();
@@ -62,10 +63,12 @@ export const LayoutCanvas = ({ page, config, onUpdatePage }: LayoutCanvasProps) 
         return () => observer.disconnect();
     }, [logicalWidth, logicalHeight]);
 
-    // Calculate gap as percentage for PageLayout
+    // Get spacing values - use px as base unit
     const photoGap = page.photoGap ?? config?.photoGap ?? 0;
     const pageMargin = page.pageMargin ?? config?.pageMargin ?? 0;
-    const gapValue = `${(photoGap / pageW_px) * 100}%`;
+
+    // Gap value as px string for PageLayout
+    const gapValue = `${photoGap}px`;
 
     // Get layout template
     const template = LAYOUT_TEMPLATES.find(t => t.id === page.layout) || LAYOUT_TEMPLATES[0];
@@ -95,41 +98,57 @@ export const LayoutCanvas = ({ page, config, onUpdatePage }: LayoutCanvasProps) 
                     transform: `scale(${scale})`,
                     border: '1px solid #ccc',
                     boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
-                    padding: `${pageMargin}px`,
                     backgroundColor: config?.backgroundColor || '#ffffff',
                 }}
                 className="relative"
             >
-                {/* Two-page spread layout */}
-                <div className="flex h-full w-full gap-1">
-                    {/* Left Page */}
+                {isFull ? (
+                    /* Full Mode: Single layout across entire spread */
                     <div
-                        className="flex-1 bg-white relative overflow-hidden rounded-sm"
+                        className="h-full w-full bg-white relative overflow-hidden"
                         style={{
                             padding: `${pageMargin}px`,
                             backgroundColor: config?.backgroundColor || '#ffffff'
                         }}
                     >
                         <PageLayout
-                            page={{ ...page, id: 'left-page' }}
+                            page={{ ...page, id: 'full-spread' }}
                             photoGap={gapValue}
                             onUpdatePhotoPanAndZoom={handleUpdatePhotoPanAndZoom}
                             onInteractionChange={handleInteractionChange}
                             onDropPhoto={handleDropPhoto}
-                            overrideLayout={page.spreadLayouts?.left || page.layout}
+                            overrideLayout={page.layout}
                             photoIndexOffset={0}
                         />
                     </div>
-
-                    {/* Center Spine - only show in Split mode */}
-                    {page.spreadMode !== 'full' && (
-                        <div className="w-px bg-muted-foreground/20" />
-                    )}
-
-                    {/* Right Page - only show in Split mode */}
-                    {page.spreadMode !== 'full' && (
+                ) : (
+                    /* Split Mode: Two-page spread layout */
+                    <div className="flex h-full w-full">
+                        {/* Left Page */}
                         <div
-                            className="flex-1 bg-white relative overflow-hidden rounded-sm"
+                            className="flex-1 bg-white relative overflow-hidden"
+                            style={{
+                                padding: `${pageMargin}px`,
+                                backgroundColor: config?.backgroundColor || '#ffffff'
+                            }}
+                        >
+                            <PageLayout
+                                page={{ ...page, id: 'left-page' }}
+                                photoGap={gapValue}
+                                onUpdatePhotoPanAndZoom={handleUpdatePhotoPanAndZoom}
+                                onInteractionChange={handleInteractionChange}
+                                onDropPhoto={handleDropPhoto}
+                                overrideLayout={page.spreadLayouts?.left || page.layout}
+                                photoIndexOffset={0}
+                            />
+                        </div>
+
+                        {/* Center Spine */}
+                        <div className="w-px bg-muted-foreground/30" />
+
+                        {/* Right Page */}
+                        <div
+                            className="flex-1 bg-white relative overflow-hidden"
                             style={{
                                 padding: `${pageMargin}px`,
                                 backgroundColor: config?.backgroundColor || '#ffffff'
@@ -145,8 +164,8 @@ export const LayoutCanvas = ({ page, config, onUpdatePage }: LayoutCanvasProps) 
                                 photoIndexOffset={template.photoCount}
                             />
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
             </div>
         </div>
     );
