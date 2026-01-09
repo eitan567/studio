@@ -2,6 +2,7 @@ import React from 'react';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { LAYOUT_TEMPLATES } from '../layout-templates';
 import { cn } from '@/lib/utils';
 import { Sparkles } from 'lucide-react';
@@ -14,6 +15,8 @@ interface LayoutSidebarRightProps {
     onPhotoGapChange: (gap: number) => void;
     pageMargin: number;
     onPageMarginChange: (margin: number) => void;
+    useDummyPhotos: boolean;
+    onUseDummyPhotosChange: (use: boolean) => void;
 }
 
 export const LayoutSidebarRight = ({
@@ -22,7 +25,9 @@ export const LayoutSidebarRight = ({
     photoGap,
     onPhotoGapChange,
     pageMargin,
-    onPageMarginChange
+    onPageMarginChange,
+    useDummyPhotos,
+    onUseDummyPhotosChange
 }: LayoutSidebarRightProps) => {
     return (
         <div className="w-72 border-l bg-background flex flex-col shrink-0 overflow-hidden">
@@ -117,6 +122,29 @@ export const LayoutSidebarRight = ({
                             onValueChange={(vals) => onPageMarginChange(vals[0])}
                         />
                     </div>
+                </div>
+
+                {/* Dummy Photos Option */}
+                <div className="space-y-3 pt-4 border-t">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Preview Options
+                    </Label>
+                    <div className="flex items-center space-x-2">
+                        <Checkbox
+                            id="useDummyPhotos"
+                            checked={useDummyPhotos}
+                            onCheckedChange={(checked) => onUseDummyPhotosChange(checked === true)}
+                        />
+                        <Label
+                            htmlFor="useDummyPhotos"
+                            className="text-sm font-normal cursor-pointer"
+                        >
+                            Load dummy photos
+                        </Label>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                        Automatically fill layout with sample images when changing templates.
+                    </p>
                 </div>
 
                 {/* AI Generation Placeholder */}

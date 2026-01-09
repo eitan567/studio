@@ -14,20 +14,37 @@ interface CustomLayoutEditorOverlayProps {
 }
 
 export const CustomLayoutEditorOverlay = ({ onClose, config }: CustomLayoutEditorOverlayProps) => {
-    // Create a dummy page with empty photo slots
-    const createDummyPage = (layoutId: string): AlbumPage => {
+    // Create a dummy page with empty or sample photo slots
+    const createDummyPage = (layoutId: string, useDummy: boolean = false): AlbumPage => {
         const template = LAYOUT_TEMPLATES.find(t => t.id === layoutId) || LAYOUT_TEMPLATES[0];
-        const emptyPhotos = Array(template.photoCount * 2).fill(null).map(() => ({
-            id: uuidv4(),
-            src: '',
-            alt: 'Drop photo here',
-            panAndZoom: { scale: 1, x: 50, y: 50 }
-        }));
+        const totalPhotos = template.photoCount * 2; // For both pages of spread
+
+        const photos = Array(totalPhotos).fill(null).map((_, index) => {
+            if (useDummy) {
+                // Generate sample images using picsum.photos with different seeds
+                const seed = `layout-${layoutId}-${index}`;
+                return {
+                    id: uuidv4(),
+                    src: `https://picsum.photos/seed/${seed}/800/600`,
+                    alt: `Sample photo ${index + 1}`,
+                    width: 800,
+                    height: 600,
+                    panAndZoom: { scale: 1, x: 50, y: 50 }
+                };
+            } else {
+                return {
+                    id: uuidv4(),
+                    src: '',
+                    alt: 'Drop photo here',
+                    panAndZoom: { scale: 1, x: 50, y: 50 }
+                };
+            }
+        });
 
         return {
             id: 'custom-layout-preview',
             type: 'spread',
-            photos: emptyPhotos,
+            photos,
             layout: layoutId,
             spreadMode: 'split',
             spreadLayouts: {
@@ -39,16 +56,28 @@ export const CustomLayoutEditorOverlay = ({ onClose, config }: CustomLayoutEdito
         };
     };
 
+
     const [selectedLayout, setSelectedLayout] = useState('4-grid');
     const [photoGap, setPhotoGap] = useState(10);
     const [pageMargin, setPageMargin] = useState(10);
-    const [dummyPage, setDummyPage] = useState<AlbumPage>(() => createDummyPage('4-grid'));
+    const [useDummyPhotos, setUseDummyPhotos] = useState(false);
+    const [dummyPage, setDummyPage] = useState<AlbumPage>(() => createDummyPage('4-grid', false));
 
     // Update dummy page when layout changes
     const handleLayoutChange = (layoutId: string) => {
         setSelectedLayout(layoutId);
         setDummyPage(prev => ({
-            ...createDummyPage(layoutId),
+            ...createDummyPage(layoutId, useDummyPhotos),
+            photoGap,
+            pageMargin
+        }));
+    };
+
+    // Update dummy page when useDummyPhotos changes
+    const handleUseDummyPhotosChange = (use: boolean) => {
+        setUseDummyPhotos(use);
+        setDummyPage(prev => ({
+            ...createDummyPage(selectedLayout, use),
             photoGap,
             pageMargin
         }));
@@ -149,6 +178,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config }: CustomLayoutEdito
                     onPhotoGapChange={handlePhotoGapChange}
                     pageMargin={pageMargin}
                     onPageMarginChange={handlePageMarginChange}
+                    useDummyPhotos={useDummyPhotos}
+                    onUseDummyPhotosChange={handleUseDummyPhotosChange}
                 />
             </div>
         </div>
