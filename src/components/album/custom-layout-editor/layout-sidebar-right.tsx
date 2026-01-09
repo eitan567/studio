@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { LAYOUT_TEMPLATES } from '../layout-templates';
 import { cn } from '@/lib/utils';
+import { Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface LayoutSidebarRightProps {
@@ -35,8 +36,10 @@ export const LayoutSidebarRight = ({
     return (
         <div className="w-72 border-l bg-background flex flex-col shrink-0 overflow-hidden">
             {/* Header */}
-            <div className="p-4 border-b">
-                <h2 className="font-semibold text-sm">Layout Properties</h2>
+            <div className="p-4 border-b h-14 flex items-center justify-between bg-accent/5">
+                <h2 className="font-semibold text-sm uppercase tracking-wider text-primary flex items-center gap-2">
+                    <Settings2 className="w-4 h-4" /> Layout Properties
+                </h2>
             </div>
 
             {/* Content */}
