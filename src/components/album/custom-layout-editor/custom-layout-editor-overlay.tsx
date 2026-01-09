@@ -58,6 +58,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config }: CustomLayoutEdito
 
 
     const [selectedLayout, setSelectedLayout] = useState('4-grid');
+    const [spreadMode, setSpreadMode] = useState<'full' | 'split'>('split');
     const [photoGap, setPhotoGap] = useState(10);
     const [pageMargin, setPageMargin] = useState(10);
     const [useDummyPhotos, setUseDummyPhotos] = useState(false);
@@ -79,7 +80,17 @@ export const CustomLayoutEditorOverlay = ({ onClose, config }: CustomLayoutEdito
         setDummyPage(prev => ({
             ...createDummyPage(selectedLayout, use),
             photoGap,
-            pageMargin
+            pageMargin,
+            spreadMode
+        }));
+    };
+
+    // Update dummy page when spread mode changes
+    const handleSpreadModeChange = (mode: 'full' | 'split') => {
+        setSpreadMode(mode);
+        setDummyPage(prev => ({
+            ...prev,
+            spreadMode: mode
         }));
     };
 
@@ -174,6 +185,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config }: CustomLayoutEdito
                 <LayoutSidebarRight
                     selectedLayout={selectedLayout}
                     onSelectLayout={handleLayoutChange}
+                    spreadMode={spreadMode}
+                    onSpreadModeChange={handleSpreadModeChange}
                     photoGap={photoGap}
                     onPhotoGapChange={handlePhotoGapChange}
                     pageMargin={pageMargin}

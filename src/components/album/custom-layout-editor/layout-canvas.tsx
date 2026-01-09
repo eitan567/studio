@@ -121,27 +121,31 @@ export const LayoutCanvas = ({ page, config, onUpdatePage }: LayoutCanvasProps) 
                         />
                     </div>
 
-                    {/* Center Spine */}
-                    <div className="w-px bg-muted-foreground/20" />
+                    {/* Center Spine - only show in Split mode */}
+                    {page.spreadMode !== 'full' && (
+                        <div className="w-px bg-muted-foreground/20" />
+                    )}
 
-                    {/* Right Page */}
-                    <div
-                        className="flex-1 bg-white relative overflow-hidden rounded-sm"
-                        style={{
-                            padding: `${pageMargin}px`,
-                            backgroundColor: config?.backgroundColor || '#ffffff'
-                        }}
-                    >
-                        <PageLayout
-                            page={{ ...page, id: 'right-page' }}
-                            photoGap={gapValue}
-                            onUpdatePhotoPanAndZoom={handleUpdatePhotoPanAndZoom}
-                            onInteractionChange={handleInteractionChange}
-                            onDropPhoto={handleDropPhoto}
-                            overrideLayout={page.spreadLayouts?.right || page.layout}
-                            photoIndexOffset={template.photoCount}
-                        />
-                    </div>
+                    {/* Right Page - only show in Split mode */}
+                    {page.spreadMode !== 'full' && (
+                        <div
+                            className="flex-1 bg-white relative overflow-hidden rounded-sm"
+                            style={{
+                                padding: `${pageMargin}px`,
+                                backgroundColor: config?.backgroundColor || '#ffffff'
+                            }}
+                        >
+                            <PageLayout
+                                page={{ ...page, id: 'right-page' }}
+                                photoGap={gapValue}
+                                onUpdatePhotoPanAndZoom={handleUpdatePhotoPanAndZoom}
+                                onInteractionChange={handleInteractionChange}
+                                onDropPhoto={handleDropPhoto}
+                                overrideLayout={page.spreadLayouts?.right || page.layout}
+                                photoIndexOffset={template.photoCount}
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 interface LayoutSidebarRightProps {
     selectedLayout: string;
     onSelectLayout: (layoutId: string) => void;
+    spreadMode: 'full' | 'split';
+    onSpreadModeChange: (mode: 'full' | 'split') => void;
     photoGap: number;
     onPhotoGapChange: (gap: number) => void;
     pageMargin: number;
@@ -22,6 +24,8 @@ interface LayoutSidebarRightProps {
 export const LayoutSidebarRight = ({
     selectedLayout,
     onSelectLayout,
+    spreadMode,
+    onSpreadModeChange,
     photoGap,
     onPhotoGapChange,
     pageMargin,
@@ -38,6 +42,36 @@ export const LayoutSidebarRight = ({
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                {/* Spread Mode */}
+                <div className="space-y-3">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Spread Mode
+                    </Label>
+                    <div className="flex gap-2">
+                        <Button
+                            variant={spreadMode === 'full' ? 'default' : 'outline'}
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => onSpreadModeChange('full')}
+                        >
+                            Full
+                        </Button>
+                        <Button
+                            variant={spreadMode === 'split' ? 'default' : 'outline'}
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => onSpreadModeChange('split')}
+                        >
+                            Split
+                        </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                        {spreadMode === 'full'
+                            ? 'Full mode: Layout spans entire spread.'
+                            : 'Split mode: Separate layouts for left and right pages.'}
+                    </p>
+                </div>
+
                 {/* Layout Templates */}
                 <div className="space-y-3">
                     <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
