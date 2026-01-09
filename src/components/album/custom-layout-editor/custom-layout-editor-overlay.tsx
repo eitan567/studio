@@ -70,7 +70,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config }: CustomLayoutEdito
         setDummyPage(prev => ({
             ...createDummyPage(layoutId, useDummyPhotos),
             photoGap,
-            pageMargin
+            pageMargin,
+            spreadMode
         }));
     };
 
