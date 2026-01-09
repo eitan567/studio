@@ -224,20 +224,7 @@ export const ADVANCED_TEMPLATES: AdvancedTemplate[] = [
         ],
     },
 
-    // Left circle with rectangles  
-    {
-        id: 'left-circle',
-        name: 'Left Circle',
-        category: 'geometric',
-        photoCount: 4,
-        createdBy: 'system',
-        regions: [
-            { id: 'circle', shape: 'circle', bounds: { x: 0, y: 25, width: 50, height: 50 }, zIndex: 1 },
-            { id: 'right-top', shape: 'rect', bounds: { x: 50, y: 0, width: 50, height: 50 }, zIndex: 0 },
-            { id: 'right-mid', shape: 'rect', bounds: { x: 50, y: 50, width: 50, height: 25 }, zIndex: 0 },
-            { id: 'right-bot', shape: 'rect', bounds: { x: 50, y: 75, width: 50, height: 25 }, zIndex: 0 },
-        ],
-    },
+
 
     // ========== MOSAIC GRIDS ==========
 
@@ -361,21 +348,7 @@ export const ADVANCED_TEMPLATES: AdvancedTemplate[] = [
 
     // ========== MOOD BOARD STYLE ==========
 
-    // Large center circle with 4 corners (like user example)
-    {
-        id: 'big-circle-center',
-        name: 'Big Circle Center',
-        category: 'geometric',
-        photoCount: 5,
-        createdBy: 'system',
-        regions: [
-            { id: 'tl', shape: 'rect', bounds: { x: 0, y: 0, width: 35, height: 35 }, zIndex: 0 },
-            { id: 'tr', shape: 'rect', bounds: { x: 65, y: 0, width: 35, height: 35 }, zIndex: 0 },
-            { id: 'center', shape: 'circle', bounds: { x: 15, y: 15, width: 70, height: 70 }, zIndex: 1 },
-            { id: 'bl', shape: 'rect', bounds: { x: 0, y: 65, width: 35, height: 35 }, zIndex: 0 },
-            { id: 'br', shape: 'rect', bounds: { x: 65, y: 65, width: 35, height: 35 }, zIndex: 0 },
-        ],
-    },
+
 
     // Mosaic grid (asymmetric, mood board style)
     {
@@ -396,51 +369,11 @@ export const ADVANCED_TEMPLATES: AdvancedTemplate[] = [
         ],
     },
 
-    // Circle with side rectangles
-    {
-        id: 'circle-sides',
-        name: 'Circle + Sides',
-        category: 'geometric',
-        photoCount: 5,
-        createdBy: 'system',
-        regions: [
-            { id: 'left-top', shape: 'rect', bounds: { x: 0, y: 0, width: 25, height: 50 }, zIndex: 0 },
-            { id: 'left-bot', shape: 'rect', bounds: { x: 0, y: 50, width: 25, height: 50 }, zIndex: 0 },
-            { id: 'center', shape: 'circle', bounds: { x: 25, y: 10, width: 50, height: 80 }, zIndex: 1 },
-            { id: 'right-top', shape: 'rect', bounds: { x: 75, y: 0, width: 25, height: 50 }, zIndex: 0 },
-            { id: 'right-bot', shape: 'rect', bounds: { x: 75, y: 50, width: 25, height: 50 }, zIndex: 0 },
-        ],
-    },
 
-    // 4 equal with center overlapping circle
-    {
-        id: 'quad-circle-overlay',
-        name: 'Quad + Circle',
-        category: 'geometric',
-        photoCount: 5,
-        createdBy: 'system',
-        regions: [
-            { id: 'q1', shape: 'rect', bounds: { x: 0, y: 0, width: 50, height: 50 }, zIndex: 0 },
-            { id: 'q2', shape: 'rect', bounds: { x: 50, y: 0, width: 50, height: 50 }, zIndex: 0 },
-            { id: 'q3', shape: 'rect', bounds: { x: 0, y: 50, width: 50, height: 50 }, zIndex: 0 },
-            { id: 'q4', shape: 'rect', bounds: { x: 50, y: 50, width: 50, height: 50 }, zIndex: 0 },
-            { id: 'circle', shape: 'circle', bounds: { x: 25, y: 25, width: 50, height: 50 }, zIndex: 1 },
-        ],
-    },
 
-    // Horizontal strips (3 rows)
-    {
-        id: 'h-strips-3',
-        name: 'H Strips',
-        category: 'grid',
-        photoCount: 3,
-        createdBy: 'system',
-        regions: [
-            { id: 'h1', shape: 'rect', bounds: { x: 0, y: 0, width: 100, height: 33 }, zIndex: 0 },
-            { id: 'h2', shape: 'rect', bounds: { x: 0, y: 33, width: 100, height: 34 }, zIndex: 0 },
-            { id: 'h3', shape: 'rect', bounds: { x: 0, y: 67, width: 100, height: 33 }, zIndex: 0 },
-        ],
-    },
+
+
+
 
     // Vertical strips (3 columns)
     {

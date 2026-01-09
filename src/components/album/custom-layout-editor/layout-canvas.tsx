@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { AlbumPage, AlbumConfig, PhotoPanAndZoom } from '@/lib/types';
+import { AlbumPage, AlbumConfig, PhotoPanAndZoom, Photo } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { PageLayout } from '../page-layout';
 import { LAYOUT_TEMPLATES } from '../layout-templates';
@@ -26,7 +26,7 @@ const ShapeRegion = ({
     onInteractionChange
 }: {
     region: LayoutRegion;
-    photo?: { id: string; src: string; alt?: string; panAndZoom?: any };
+    photo?: Photo;
     photoGap: number;
     backgroundColor: string;
     containerWidth: number;
@@ -213,9 +213,7 @@ const ShapeRegion = ({
                             <div className="w-full h-full relative">
                                 <PhotoRenderer
                                     photo={photo}
-                                    containerWidth={widthPx}
-                                    containerHeight={heightPx}
-                                    onUpdatePanAndZoom={onUpdatePanAndZoom}
+                                    onUpdate={onUpdatePanAndZoom || (() => { })}
                                     onInteractionChange={onInteractionChange}
                                 />
                             </div>
