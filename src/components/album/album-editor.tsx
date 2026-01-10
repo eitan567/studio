@@ -497,7 +497,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         if (page.id !== pageId || !page.isCover) return page;
 
         if (side === 'full') {
-          const template = COVER_TEMPLATES.find(t => t.id === newLayout) || COVER_TEMPLATES[0];
+          const template = COVER_TEMPLATES.find(t => t.id === newLayout) || ADVANCED_TEMPLATES.find(t => t.id === newLayout) || COVER_TEMPLATES[0];
           const requiredPhotos = template.photoCount;
           let currentPhotos = [...page.photos];
 

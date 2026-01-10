@@ -571,7 +571,7 @@ const PageToolbar = ({
                     <TooltipContent>Spread Layout</TooltipContent>
                   </Tooltip>
                   <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
-                    {(page.isCover ? COVER_TEMPLATES : [...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES]).map(template => (
+                    {(page.isCover ? [...COVER_TEMPLATES, ...ADVANCED_TEMPLATES] : [...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES]).map(template => (
                       <DropdownMenuItem
                         key={template.id}
                         onSelect={() => {
