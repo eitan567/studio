@@ -2,7 +2,7 @@ import React from 'react';
 import { Photo } from '@/lib/types';
 import { LayoutRegion, regionToClipPath } from '@/lib/advanced-layout-types';
 import { PhotoRenderer } from './photo-renderer';
-import { Image as ImageIcon, Plus } from 'lucide-react';
+import { EmptyPhotoSlot } from './empty-photo-slot';
 import { cn } from '@/lib/utils';
 
 export const ShapeRegion = ({
@@ -155,21 +155,19 @@ export const ShapeRegion = ({
     const renderContent = () => {
         if (!photo || !photo.src) {
             return (
-                <div className={cn(
-                    "absolute inset-0 flex flex-col items-center justify-center text-muted-foreground",
-                    isPreview ? "bg-primary/20" : "bg-muted/20"
-                )}>
-                    {!isPreview && (
-                        <>
-                            <ImageIcon className="w-8 h-8 mb-2 opacity-50" />
-                            <div className="absolute bottom-2 right-2">
-                                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
-                                    <Plus className="w-4 h-4 text-primary" />
-                                </div>
-                            </div>
-                        </>
+                <EmptyPhotoSlot
+                    className={cn(
+                        isPreview && "bg-primary/20"
                     )}
-                </div>
+                    showText={!isPreview}
+                    onDragOver={onDragOver}
+                    onDragLeave={onDragLeave}
+                    onDrop={onDrop ? (e) => {
+                        e.preventDefault();
+                        const droppedPhotoId = e.dataTransfer.getData('photoId');
+                        if (droppedPhotoId) onDrop(droppedPhotoId);
+                    } : undefined}
+                />
             );
         }
 

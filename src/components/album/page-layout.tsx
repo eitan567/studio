@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 import { AlbumPage, Photo, PhotoPanAndZoom } from '@/lib/types';
 import { LAYOUT_TEMPLATES } from './layout-templates';
 import { PhotoRenderer } from './photo-renderer';
-import { Image as ImageIcon, Plus } from 'lucide-react';
+import { EmptyPhotoSlot } from './empty-photo-slot';
 import { ADVANCED_TEMPLATES } from '@/lib/advanced-layout-types';
 import { ShapeRegion } from './shape-region';
 
@@ -206,31 +206,28 @@ const PageLayoutComponent = ({
                     return (
                         <div
                             key={index}
-                            className={cn(
-                                "bg-muted rounded-sm transition-all duration-200 flex flex-col items-center justify-center gap-2 text-muted-foreground/50",
-                                gridClass,
-                                dragOverPhotoId === emptySlotId && "ring-2 ring-primary ring-offset-2 bg-primary/10"
-                            )}
-                            onDragOver={(e) => {
-                                e.preventDefault();
-                                setDragOverPhotoId(emptySlotId);
-                            }}
-                            onDragLeave={() => setDragOverPhotoId(null)}
-                            onDrop={(e) => {
-                                e.preventDefault();
-                                setDragOverPhotoId(null);
-                                const droppedPhotoId = e.dataTransfer.getData('photoId');
-                                if (droppedPhotoId) {
-                                    // Use special ID format to indicate insertion at index
-                                    onDropPhoto(page.id, `__INSERT_AT__${actualIndex}`, droppedPhotoId);
-                                }
-                            }}
+                            className={gridClass}
                         >
-                            <div className="relative">
-                                <ImageIcon className="w-8 h-8" />
-                                <Plus className="w-3 h-3 absolute -bottom-1 -right-1 bg-muted rounded-full" />
-                            </div>
-                            <span className="text-xs font-medium">Drop photo here</span>
+                            <EmptyPhotoSlot
+                                className={cn(
+                                    "rounded-sm",
+                                    dragOverPhotoId === emptySlotId && "ring-2 ring-primary ring-offset-2 bg-primary/10"
+                                )}
+                                onDragOver={(e) => {
+                                    e.preventDefault();
+                                    setDragOverPhotoId(emptySlotId);
+                                }}
+                                onDragLeave={() => setDragOverPhotoId(null)}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    setDragOverPhotoId(null);
+                                    const droppedPhotoId = e.dataTransfer.getData('photoId');
+                                    if (droppedPhotoId) {
+                                        // Use special ID format to indicate insertion at index
+                                        onDropPhoto(page.id, `__INSERT_AT__${actualIndex}`, droppedPhotoId);
+                                    }
+                                }}
+                            />
                         </div>
                     );
                 }

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, memo, useState } from 'react';
 import Image from 'next/image';
-import { Image as ImageIcon, Plus } from 'lucide-react';
+import { EmptyPhotoSlot } from './empty-photo-slot';
 import type { Photo, PhotoPanAndZoom } from '@/lib/types';
 
 interface PhotoRendererProps {
@@ -211,13 +211,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
   // This check is AFTER all hooks to comply with Rules of Hooks
   if (!photo.src) {
     return (
-      <div className="absolute inset-0 bg-muted flex flex-col items-center justify-center gap-2 text-muted-foreground/50">
-        <div className="relative">
-          <ImageIcon className="w-8 h-8" />
-          <Plus className="w-3 h-3 absolute -bottom-1 -right-1 bg-muted rounded-full" />
-        </div>
-        <span className="text-xs font-medium">Drop photo here</span>
-      </div>
+      <EmptyPhotoSlot />
     );
   }
 
