@@ -139,11 +139,8 @@ const PageLayoutComponent = ({
                                 }}
                                 onDragOver={() => setDragOverPhotoId(photo?.id || `__empty_${actualIndex}`)}
                                 onDragLeave={() => setDragOverPhotoId(null)}
+                                isDragOver={dragOverPhotoId === (photo?.id || `__empty_${actualIndex}`)}
                             />
-                            {/* Visual Highlight for Drop Target */}
-                            {dragOverPhotoId === (photo?.id || `__empty_${actualIndex}`) && (
-                                <div className="absolute inset-0 border-2 border-primary pointer-events-none z-10" />
-                            )}
                             {/* Overlay for Drop Target? 
                                 ShapeRegion is complex SVG. 
                                 Checking intersection for Drop on a polygon is hard.
@@ -238,7 +235,7 @@ const PageLayoutComponent = ({
                         className={cn(
                             "relative overflow-hidden rounded-sm transition-all duration-200 group ring-2 ring-transparent hover:ring-primary/20",
                             gridClass,
-                            dragOverPhotoId === photo.id && "ring-primary ring-offset-2"
+                            dragOverPhotoId === photo.id && "ring-2 ring-primary ring-offset-2"
                         )}
                         onDragOver={(e) => {
                             e.preventDefault();

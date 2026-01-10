@@ -17,7 +17,8 @@ export const ShapeRegion = ({
     isPreview = false,
     onDrop,
     onDragOver,
-    onDragLeave
+    onDragLeave,
+    isDragOver = false
 }: {
     region: LayoutRegion;
     photo?: Photo;
@@ -31,13 +32,28 @@ export const ShapeRegion = ({
     onDrop?: (photoId: string) => void;
     onDragOver?: (e: React.DragEvent) => void;
     onDragLeave?: (e: React.DragEvent) => void;
+    isDragOver?: boolean;
 }) => {
     // Unique ID for the mask (though we use clip-path now, keeping IDs unique is good practice)
     const shapeId = `shape-${region.id}`;
 
-    // Dimensions in pixels (for legacy consistency if needed, but we use percentages for layout)
+    const isRect = region.shape === 'rect';
+    const isCircle = region.shape === 'circle';
+
+    // Dimensions in relative percentages and pixels
     const widthPx = (region.bounds.width / 100) * containerWidth;
     const heightPx = (region.bounds.height / 100) * containerHeight;
+
+    // Content size and centering for circles
+    const contentSizePx = Math.min(widthPx, heightPx);
+    const contentWidthPx = isCircle ? contentSizePx : widthPx;
+    const contentHeightPx = isCircle ? contentSizePx : heightPx;
+
+    const photoGapNum = typeof photoGap === 'string' ? parseFloat(photoGap) : photoGap;
+    // contentInset is HALF the gap (shared between slots)
+    const contentInset = photoGapNum / 2;
+
+    const maskId = `mask-outside-${region.id}`;
 
     // Convert polygon points to percentage string relative to the region (0-100)
     let svgPoints = "";
@@ -51,88 +67,42 @@ export const ShapeRegion = ({
             .join(' ');
     }
 
-    // Calculate internal edges for custom stroking
+    // INTERNAL STROKES: Only needed for non-rect complex shapes to fill the 'gap' area
     const renderInternalStrokes = () => {
-        if (photoGap <= 0) return null;
-        if (region.shape !== 'polygon' && region.shape !== 'rect') return null;
+        if (photoGapNum <= 0 || region.shape !== 'polygon') return null;
 
         let p = region.points || [];
-
-        // If it's a rect, synthesize 4 points for the stroke logic
-        if (region.shape === 'rect') {
-            const { x, y, width, height } = region.bounds;
-            p = [
-                [x, y],
-                [x + width, y],
-                [x + width, y + height],
-                [x, y + height]
-            ];
-        }
-
         if (p.length < 2) return null;
 
         const n = p.length;
         const segments = [];
+        const EPSILON = 0.5;
 
         for (let i = 0; i < n; i++) {
             const curr = p[i];
             const next = p[(i + 1) % n];
+            // Only draw strokes for internal edges (not on page bounds)
+            const isOnBound =
+                (Math.abs(curr[0] - 0) < EPSILON && Math.abs(next[0] - 0) < EPSILON) ||
+                (Math.abs(curr[0] - 100) < EPSILON && Math.abs(next[0] - 100) < EPSILON) ||
+                (Math.abs(curr[1] - 0) < EPSILON && Math.abs(next[1] - 0) < EPSILON) ||
+                (Math.abs(curr[1] - 100) < EPSILON && Math.abs(next[1] - 100) < EPSILON);
 
-            const p1x = curr[0];
-            const p1y = curr[1];
-            const p2x = next[0];
-            const p2y = next[1];
-
-            const EPSILON = 0.5;
-
-            // Check if points are on the page boundary
-            const isP1Bound = Math.abs(p1x) < EPSILON || Math.abs(p1x - 100) < EPSILON ||
-                Math.abs(p1y) < EPSILON || Math.abs(p1y - 100) < EPSILON;
-
-            const isP2Bound = Math.abs(p2x) < EPSILON || Math.abs(p2x - 100) < EPSILON ||
-                Math.abs(p2y) < EPSILON || Math.abs(p2y - 100) < EPSILON;
-
-            // Check if the edge ITSELF lies ON the boundary
-            const isLeft = Math.abs(p1x) < EPSILON && Math.abs(p2x) < EPSILON;
-            const isRight = Math.abs(p1x - 100) < EPSILON && Math.abs(p2x - 100) < EPSILON;
-            const isTop = Math.abs(p1y) < EPSILON && Math.abs(p2y) < EPSILON;
-            const isBottom = Math.abs(p1y - 100) < EPSILON && Math.abs(p2y - 100) < EPSILON;
-            const isEdgeOnBoundary = isLeft || isRight || isTop || isBottom;
-
-            if (!isEdgeOnBoundary) {
-                // Calculate relative coords in the 0-100 SVG coordinate system
-                let x1 = ((curr[0] - region.bounds.x) / region.bounds.width) * 100;
-                let y1 = ((curr[1] - region.bounds.y) / region.bounds.height) * 100;
-                let x2 = ((next[0] - region.bounds.x) / region.bounds.width) * 100;
-                let y2 = ((next[1] - region.bounds.y) / region.bounds.height) * 100;
-
-                const dx = x2 - x1;
-                const dy = y2 - y1;
-                const len = Math.sqrt(dx * dx + dy * dy) || 1;
-                const ux = dx / len;
-                const uy = dy / len;
-
-                const extension = 5;
-
-                if (isP1Bound) {
-                    x1 -= ux * extension;
-                    y1 -= uy * extension;
-                }
-
-                if (isP2Bound) {
-                    x2 += ux * extension;
-                    y2 += uy * extension;
-                }
+            if (!isOnBound) {
+                const relP1X = ((curr[0] - region.bounds.x) / region.bounds.width) * 100;
+                const relP1Y = ((curr[1] - region.bounds.y) / region.bounds.height) * 100;
+                const relP2X = ((next[0] - region.bounds.x) / region.bounds.width) * 100;
+                const relP2Y = ((next[1] - region.bounds.y) / region.bounds.height) * 100;
 
                 segments.push(
                     <line
                         key={i}
-                        x1={x1}
-                        y1={y1}
-                        x2={x2}
-                        y2={y2}
+                        x1={`${relP1X}%`}
+                        y1={`${relP1Y}%`}
+                        x2={`${relP2X}%`}
+                        y2={`${relP2Y}%`}
                         stroke={backgroundColor}
-                        strokeWidth={photoGap}
+                        strokeWidth={photoGapNum}
                         vectorEffect="non-scaling-stroke"
                         strokeLinecap="round"
                         pointerEvents="none"
@@ -143,30 +113,15 @@ export const ShapeRegion = ({
         return segments;
     };
 
-    // For circular shapes, we want the CONTENT container to be a square matching the diameter.
-    // This prevents PhotoRenderer from over-scaling the photo to fill the "extra" width in Full mode.
-    const isCircle = region.shape === 'circle';
-    const contentWidthPx = isCircle ? Math.min(widthPx, heightPx) : widthPx;
-    const contentHeightPx = isCircle ? Math.min(widthPx, heightPx) : heightPx;
-
-    const isRectNoGap = region.shape === 'rect' && photoGap <= 0;
-
-    // Helper render for the photo content to avoid repetition
     const renderContent = () => {
         if (!photo || !photo.src) {
             return (
                 <EmptyPhotoSlot
                     className={cn(
-                        isPreview && "bg-primary/20"
+                        "w-full h-full",
+                        isPreview && "bg-primary/20",
                     )}
                     showText={!isPreview}
-                    onDragOver={onDragOver}
-                    onDragLeave={onDragLeave}
-                    onDrop={onDrop ? (e) => {
-                        e.preventDefault();
-                        const droppedPhotoId = e.dataTransfer.getData('photoId');
-                        if (droppedPhotoId) onDrop(droppedPhotoId);
-                    } : undefined}
                 />
             );
         }
@@ -180,10 +135,14 @@ export const ShapeRegion = ({
         );
     };
 
+    // Calculate highlight insets in percentages for SVG use
+    const hInsetX = widthPx > 0 ? (contentInset / widthPx) * 100 : 0;
+    const hInsetY = heightPx > 0 ? (contentInset / heightPx) * 100 : 0;
+
     return (
         <div
             id={shapeId}
-            className="absolute pointer-events-auto"
+            className="absolute pointer-events-auto transition-all duration-300"
             style={{
                 left: `${region.bounds.x}%`,
                 top: `${region.bounds.y}%`,
@@ -193,22 +152,28 @@ export const ShapeRegion = ({
             }}
         >
             {/* 
-                THE CONTENT LAYER 
-                Rendered outside SVG to avoid transformation distortion.
+                THE CONTENT WRAPPER
+                This implements the 'photoGap' via inset and handles all interactions.
             */}
             <div
-                className="absolute"
+                className={cn(
+                    "absolute overflow-hidden transition-all duration-300",
+                    isRect && "rounded-sm",
+                    isRect && isDragOver && "ring-2 ring-primary ring-offset-2",
+                    isDragOver && (!photo || !photo.src) && "bg-primary/10"
+                )}
                 style={{
-                    // Center the square content inside the potentially rectangular region
-                    left: isCircle ? '50%' : '0',
-                    top: isCircle ? '50%' : '0',
+                    // Centering logic for circles
+                    left: isCircle ? '50%' : `${contentInset}px`,
+                    top: isCircle ? '50%' : `${contentInset}px`,
+                    right: isCircle ? 'auto' : `${contentInset}px`,
+                    bottom: isCircle ? 'auto' : `${contentInset}px`,
                     transform: isCircle ? 'translate(-50%, -50%)' : 'none',
-                    width: isCircle ? `${(contentWidthPx / widthPx) * 100}%` : '100%',
-                    height: isCircle ? `${(contentHeightPx / heightPx) * 100}%` : '100%',
-                    backgroundColor: photoGap > 0 ? backgroundColor : 'transparent',
-                    clipPath: regionToClipPath(region),
-                    WebkitClipPath: regionToClipPath(region),
-                    overflow: 'hidden'
+                    width: isCircle ? `${(contentWidthPx / widthPx) * 100}%` : 'auto',
+                    height: isCircle ? `${(contentHeightPx / heightPx) * 100}%` : 'auto',
+                    backgroundColor: photoGapNum > 0 ? backgroundColor : 'transparent',
+                    clipPath: isRect ? 'none' : regionToClipPath(region),
+                    WebkitClipPath: isRect ? 'none' : regionToClipPath(region),
                 }}
                 onDragOver={(e) => {
                     if (isPreview || !onDragOver) return;
@@ -227,41 +192,108 @@ export const ShapeRegion = ({
                     e.preventDefault();
                     e.stopPropagation();
                     const photoId = e.dataTransfer.getData('photoId');
-                    if (photoId) {
-                        onDrop(photoId);
-                    }
+                    if (photoId) onDrop(photoId);
                 }}
             >
                 {renderContent()}
             </div>
 
             {/* 
-                THE STROKE LAYER (Overlay)
-                Always absolute positioned 0,0,100,100 to match root div.
+                SVG OVERLAYS: Only for non-rectangular shapes.
+                Rectangular gaps/highlights are handled by the Content Wrapper (CSS inset + ring).
             */}
-            {photoGap > 0 && !isRectNoGap && (
-                <svg
-                    className="absolute inset-0 pointer-events-none"
-                    width="100%"
-                    height="100%"
-                    viewBox="0 0 100 100"
-                    preserveAspectRatio={region.shape === 'circle' ? "xMidYMid meet" : "none"}
-                    style={{ overflow: 'visible', zIndex: 10 }}
-                >
-                    {region.shape === 'circle' && (
-                        <ellipse
-                            cx="50"
-                            cy="50"
-                            rx="50"
-                            ry="50"
-                            fill="none"
-                            stroke={backgroundColor}
-                            strokeWidth={photoGap}
-                            vectorEffect="non-scaling-stroke"
-                        />
+            {!isRect && (
+                <>
+                    {/* Stroke Layer (Internal Gaps) */}
+                    {photoGapNum > 0 && (
+                        <svg
+                            className="absolute inset-0 pointer-events-none"
+                            width="100%"
+                            height="100%"
+                            viewBox="0 0 100 100"
+                            preserveAspectRatio={isCircle ? "xMidYMid meet" : "none"}
+                            style={{ overflow: 'visible', zIndex: 10 }}
+                        >
+                            {isCircle && (
+                                <ellipse
+                                    cx="50"
+                                    cy="50"
+                                    rx="50"
+                                    ry="50"
+                                    fill="none"
+                                    stroke={backgroundColor}
+                                    strokeWidth={photoGapNum}
+                                    vectorEffect="non-scaling-stroke"
+                                />
+                            )}
+                            {renderInternalStrokes()}
+                        </svg>
                     )}
-                    {renderInternalStrokes()}
-                </svg>
+
+                    {/* Foreground Highlight (Ring Effect) */}
+                    <svg
+                        className={cn(
+                            "absolute inset-0 pointer-events-none transition-opacity duration-300",
+                            isDragOver ? "opacity-100" : "opacity-0"
+                        )}
+                        width="100%"
+                        height="100%"
+                        viewBox="0 0 100 100"
+                        preserveAspectRatio={isCircle ? "xMidYMid meet" : "none"}
+                        style={{ overflow: 'visible', zIndex: 100 }}
+                    >
+                        <defs>
+                            <mask id={maskId}>
+                                <rect x="-100" y="-100" width="300" height="300" fill="white" />
+                                {isCircle ? (
+                                    <ellipse
+                                        cx="50" cy="50"
+                                        rx={50 - hInsetX} ry={50 - hInsetY}
+                                        fill="black"
+                                    />
+                                ) : (
+                                    <polygon
+                                        points={svgPoints}
+                                        fill="black"
+                                        transform={`translate(50,50) scale(${1 - (hInsetX / 50)}, ${1 - (hInsetY / 50)}) translate(-50,-50)`}
+                                    />
+                                )}
+                            </mask>
+                        </defs>
+
+                        <g mask={`url(#${maskId})`}>
+                            {isCircle ? (
+                                <>
+                                    <ellipse
+                                        cx="50" cy="50" rx={50 - hInsetX} ry={50 - hInsetY}
+                                        fill="none" stroke="hsl(var(--primary))" strokeWidth="8"
+                                        strokeLinejoin="round" vectorEffect="non-scaling-stroke"
+                                    />
+                                    <ellipse
+                                        cx="50" cy="50" rx={50 - hInsetX} ry={50 - hInsetY}
+                                        fill="none" stroke="#ffffff" strokeWidth="4"
+                                        strokeLinejoin="round" vectorEffect="non-scaling-stroke"
+                                    />
+                                </>
+                            ) : (
+                                <>
+                                    <polygon
+                                        points={svgPoints}
+                                        fill="none" stroke="hsl(var(--primary))" strokeWidth="8"
+                                        strokeLinejoin="round" vectorEffect="non-scaling-stroke"
+                                        transform={`translate(50,50) scale(${1 - (hInsetX / 50)}, ${1 - (hInsetY / 50)}) translate(-50,-50)`}
+                                    />
+                                    <polygon
+                                        points={svgPoints}
+                                        fill="none" stroke="#ffffff" strokeWidth="4"
+                                        strokeLinejoin="round" vectorEffect="non-scaling-stroke"
+                                        transform={`translate(50,50) scale(${1 - (hInsetX / 50)}, ${1 - (hInsetY / 50)}) translate(-50,-50)`}
+                                    />
+                                </>
+                            )}
+                        </g>
+                    </svg>
+                </>
             )}
         </div>
     );
