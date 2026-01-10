@@ -151,144 +151,199 @@ export const ShapeRegion = ({
         return segments;
     };
 
+    const isRectNoGap = region.shape === 'rect' && photoGap <= 0;
+
     return (
         <div
             className="absolute pointer-events-auto"
             style={{
-                left: leftPx,
-                top: topPx,
-                width: widthPx,
-                height: heightPx,
+                left: `${region.bounds.x}%`,
+                top: `${region.bounds.y}%`,
+                width: `${region.bounds.width}%`,
+                height: `${region.bounds.height}%`,
                 zIndex: region.zIndex ?? 0,
-                // Remove local overflow clipping so that:
-                // 1. Strokes adjacent to neighbors can be seen (filling their gap)
-                // 2. Extended strokes at boundaries are not clipped by the region box (but by the page)
-                overflow: 'visible',
+                overflow: isRectNoGap ? 'hidden' : 'visible',
             }}
         >
-            <svg
-                width="100%"
-                height="100%"
-                viewBox={`0 0 ${widthPx} ${heightPx}`}
-                preserveAspectRatio="none"
-                style={{ overflow: 'visible' }} // Allow stroke to bleed out
-            >
-                <defs>
-                    <mask id={maskId}>
-                        {/* Visible area: The shape itself in white */}
-                        {region.shape === 'circle' && (
-                            <ellipse
-                                cx={widthPx / 2}
-                                cy={heightPx / 2}
-                                rx={widthPx / 2}
-                                ry={heightPx / 2}
-                                fill="white"
-                            />
-                        )}
-                        {region.shape === 'rect' && (
-                            <rect
-                                x="0"
-                                y="0"
-                                width={widthPx}
-                                height={heightPx}
-                                fill="white"
-                            />
-                        )}
-                        {region.shape === 'polygon' && (
-                            <polygon points={svgPoints} fill="white" />
-                        )}
-                    </mask>
-                </defs>
-
-                {/* The Content: A foreignObject clipped by the mask */}
-                <foreignObject
-                    x="0"
-                    y="0"
-                    width={widthPx}
-                    height={heightPx}
-                    mask={`url(#${maskId})`}
-                    style={{
-                        // Ensure internal content handles overflow correctly
-                        overflow: 'hidden'
+            {isRectNoGap ? (
+                /* Optimized Rect Rendering: Skip SVG and masks for perfect pixel alignment */
+                <div
+                    className="w-full h-full relative"
+                    style={{ backgroundColor }}
+                    onDragOver={(e) => {
+                        if (isPreview || !onDragOver) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onDragOver(e);
+                    }}
+                    onDragLeave={(e) => {
+                        if (isPreview || !onDragLeave) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onDragLeave(e);
+                    }}
+                    onDrop={(e) => {
+                        if (isPreview || !onDrop) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const photoId = e.dataTransfer.getData('photoId');
+                        if (photoId) {
+                            onDrop(photoId);
+                        }
                     }}
                 >
-                    {/* Inner content container */}
-                    <div
-                        className="w-full h-full relative"
+                    {!photo ? (
+                        <div className={cn(
+                            "absolute inset-0 flex flex-col items-center justify-center text-muted-foreground",
+                            isPreview ? "bg-primary/20" : "bg-muted/20"
+                        )}>
+                            {!isPreview && (
+                                <>
+                                    <ImageIcon className="w-8 h-8 mb-2 opacity-50" />
+                                    <div className="absolute bottom-2 right-2">
+                                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+                                            <Plus className="w-4 h-4 text-primary" />
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="w-full h-full relative">
+                            <PhotoRenderer
+                                photo={photo}
+                                onUpdate={onUpdatePanAndZoom || (() => { })}
+                                onInteractionChange={onInteractionChange}
+                            />
+                        </div>
+                    )}
+                </div>
+            ) : (
+                /* Standard SVG Clipping Path for non-rect shapes or when Gap > 0 */
+                <svg
+                    width="100%"
+                    height="100%"
+                    viewBox={`0 0 ${widthPx} ${heightPx}`}
+                    preserveAspectRatio="none"
+                    style={{ overflow: 'visible' }} // Allow stroke to bleed out
+                >
+                    <defs>
+                        <mask id={maskId}>
+                            {/* Visible area: The shape itself in white */}
+                            {region.shape === 'circle' && (
+                                <ellipse
+                                    cx={widthPx / 2}
+                                    cy={heightPx / 2}
+                                    rx={widthPx / 2}
+                                    ry={heightPx / 2}
+                                    fill="white"
+                                />
+                            )}
+                            {region.shape === 'rect' && (
+                                <rect
+                                    x="0"
+                                    y="0"
+                                    width={widthPx}
+                                    height={heightPx}
+                                    fill="white"
+                                />
+                            )}
+                            {region.shape === 'polygon' && (
+                                <polygon points={svgPoints} fill="white" />
+                            )}
+                        </mask>
+                    </defs>
+
+                    {/* The Content: A foreignObject clipped by the mask */}
+                    <foreignObject
+                        x="0"
+                        y="0"
+                        width={widthPx}
+                        height={heightPx}
+                        mask={`url(#${maskId})`}
                         style={{
-                            backgroundColor,
-                            clipPath: regionToClipPath(region),
-                            WebkitClipPath: regionToClipPath(region)
-                        }}
-                        onDragOver={(e) => {
-                            if (isPreview || !onDragOver) return;
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onDragOver(e);
-                        }}
-                        onDragLeave={(e) => {
-                            if (isPreview || !onDragLeave) return;
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onDragLeave(e);
-                        }}
-                        onDrop={(e) => {
-                            if (isPreview || !onDrop) return;
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const photoId = e.dataTransfer.getData('photoId');
-                            if (photoId) {
-                                onDrop(photoId);
-                            }
+                            // Ensure internal content handles overflow correctly
+                            overflow: 'hidden'
                         }}
                     >
-                        {!photo ? (
-                            <div className={cn(
-                                "absolute inset-0 flex flex-col items-center justify-center text-muted-foreground",
-                                isPreview ? "bg-primary/20" : "bg-muted/20"
-                            )}>
-                                {!isPreview && (
-                                    <>
-                                        <ImageIcon className="w-8 h-8 mb-2 opacity-50" />
-                                        <div className="absolute bottom-2 right-2">
-                                            <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
-                                                <Plus className="w-4 h-4 text-primary" />
+                        {/* Inner content container */}
+                        <div
+                            className="w-full h-full relative"
+                            style={{
+                                backgroundColor,
+                                clipPath: regionToClipPath(region),
+                                WebkitClipPath: regionToClipPath(region)
+                            }}
+                            onDragOver={(e) => {
+                                if (isPreview || !onDragOver) return;
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onDragOver(e);
+                            }}
+                            onDragLeave={(e) => {
+                                if (isPreview || !onDragLeave) return;
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onDragLeave(e);
+                            }}
+                            onDrop={(e) => {
+                                if (isPreview || !onDrop) return;
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const photoId = e.dataTransfer.getData('photoId');
+                                if (photoId) {
+                                    onDrop(photoId);
+                                }
+                            }}
+                        >
+                            {!photo ? (
+                                <div className={cn(
+                                    "absolute inset-0 flex flex-col items-center justify-center text-muted-foreground",
+                                    isPreview ? "bg-primary/20" : "bg-muted/20"
+                                )}>
+                                    {!isPreview && (
+                                        <>
+                                            <ImageIcon className="w-8 h-8 mb-2 opacity-50" />
+                                            <div className="absolute bottom-2 right-2">
+                                                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+                                                    <Plus className="w-4 h-4 text-primary" />
+                                                </div>
                                             </div>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="w-full h-full relative">
-                                <PhotoRenderer
-                                    photo={photo}
-                                    onUpdate={onUpdatePanAndZoom || (() => { })}
-                                    onInteractionChange={onInteractionChange}
-                                />
-                            </div>
-                        )}
-                    </div>
-                </foreignObject>
+                                        </>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="w-full h-full relative">
+                                    <PhotoRenderer
+                                        photo={photo}
+                                        onUpdate={onUpdatePanAndZoom || (() => { })}
+                                        onInteractionChange={onInteractionChange}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    </foreignObject>
 
-                {/* Visible Internal Stroke for Gaps */}
-                {photoGap > 0 && (
-                    <>
-                        {region.shape === 'circle' && (
-                            <ellipse
-                                cx={widthPx / 2}
-                                cy={heightPx / 2}
-                                rx={widthPx / 2}
-                                ry={heightPx / 2}
-                                fill="none"
-                                stroke={backgroundColor}
-                                strokeWidth={photoGap}
-                                pointerEvents="none"
-                            />
-                        )}
-                        {renderInternalStrokes()}
-                    </>
-                )}
-            </svg>
+                    {/* Visible Internal Stroke for Gaps */}
+                    {photoGap > 0 && (
+                        <>
+                            {region.shape === 'circle' && (
+                                <ellipse
+                                    cx={widthPx / 2}
+                                    cy={heightPx / 2}
+                                    rx={widthPx / 2}
+                                    ry={heightPx / 2}
+                                    fill="none"
+                                    stroke={backgroundColor}
+                                    strokeWidth={photoGap}
+                                    pointerEvents="none"
+                                />
+                            )}
+                            {renderInternalStrokes()}
+                        </>
+                    )}
+                </svg>
+            )}
         </div>
     );
 };
