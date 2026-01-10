@@ -143,6 +143,12 @@ export const ShapeRegion = ({
         return segments;
     };
 
+    // For circular shapes, we want the CONTENT container to be a square matching the diameter.
+    // This prevents PhotoRenderer from over-scaling the photo to fill the "extra" width in Full mode.
+    const isCircle = region.shape === 'circle';
+    const contentWidthPx = isCircle ? Math.min(widthPx, heightPx) : widthPx;
+    const contentHeightPx = isCircle ? Math.min(widthPx, heightPx) : heightPx;
+
     const isRectNoGap = region.shape === 'rect' && photoGap <= 0;
 
     // Helper render for the photo content to avoid repetition
@@ -193,8 +199,14 @@ export const ShapeRegion = ({
                 Rendered outside SVG to avoid transformation distortion.
             */}
             <div
-                className="w-full h-full relative"
+                className="absolute"
                 style={{
+                    // Center the square content inside the potentially rectangular region
+                    left: isCircle ? '50%' : '0',
+                    top: isCircle ? '50%' : '0',
+                    transform: isCircle ? 'translate(-50%, -50%)' : 'none',
+                    width: isCircle ? `${(contentWidthPx / widthPx) * 100}%` : '100%',
+                    height: isCircle ? `${(contentHeightPx / heightPx) * 100}%` : '100%',
                     backgroundColor: photoGap > 0 ? backgroundColor : 'transparent',
                     clipPath: regionToClipPath(region),
                     WebkitClipPath: regionToClipPath(region),
