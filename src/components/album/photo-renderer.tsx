@@ -231,7 +231,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
         <div
           ref={imageRef}
           className="absolute"
-          style={{ transition: 'none' }}
+          style={{ transition: 'none', width: '100%', height: '100%' }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -258,7 +258,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
       <div
         ref={imageRef}
         className="absolute"
-        style={{ transition: 'none' }}
+        style={{ transition: 'none', width: '100%', height: '100%' }}
       >
         <Image
           src={photo.src}
