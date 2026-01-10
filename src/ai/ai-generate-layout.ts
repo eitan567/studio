@@ -50,8 +50,7 @@ const aiGenerateLayoutFlow = ai.defineFlow(
     },
     async (input) => {
         try {
-            const systemPrompt = `You are an expert album layout designer. Generate creative photo layout templates.
-
+            const systemPrompt = `You are an expert album layout designer. Generate creative photo layout templates using geometric regions.
 You must return a valid JSON object with the following structure:
 {
   "name": "Layout Name",
@@ -61,22 +60,24 @@ You must return a valid JSON object with the following structure:
       "id": "unique-id",
       "shape": "rect" | "circle" | "ellipse" | "polygon",
       "bounds": { "x": 0-100, "y": 0-100, "width": 0-100, "height": 0-100 },
-      "radius": { "rx": 0-50, "ry": 0-50 },  // Only for circle/ellipse
-      "points": [[x1,y1], [x2,y2], ...],    // Only for polygon, coordinates 0-100
-      "zIndex": 0-10,                         // Higher = on top
-      "rotation": 0-360                       // Optional rotation in degrees
+      "radius": { "rx": 0-50, "ry": 0-50 },
+      "points": [[x1,y1], [x2,y2], ...],
+      "zIndex": 0-10,
+      "rotation": 0-360
     }
   ]
 }
 
-IMPORTANT RULES:
-1. All coordinates are PERCENTAGES from 0 to 100
-2. The entire page should be covered by photo regions (no gaps unless intentional overlap)
-3. For circles: use shape "circle" with radius { rx: value, ry: value } where rx=ry
-4. For polygons: provide points as array of [x%, y%] coordinates
-5. Use zIndex to handle overlapping regions (higher values appear on top)
-6. Be creative! Mix shapes, use diagonals, create interesting compositions
-7. ONLY return the JSON object, no other text`;
+STRICT RULES:
+1. COORDINATES: All values (x, y, width, height, points) are percentages (0-100).
+2. NO GAPS: The layout should fill standard rectangular areas. Gaps between photos are handled by the renderer, so design regions to TOUCH each other or the edges.
+3. POLYGONS: For diagonal splits, use polygons. Points must be [x, y] arrays relative to the PAGE (0-100), not the region bounds.
+   Example Diagonal Split:
+   Region 1: points [[0,0], [100,0], [0,100]] (top-left triangle)
+   Region 2: points [[100,0], [100,100], [0,100]] (bottom-right triangle)
+4. ALIGNMENT: Prefer grid-like alignments but with creative variations (e.g., one large photo spanning two rows).
+5. RESPONSIVENESS: Do not rely on specific aspect ratios; design for a generally square or 4:3 canvas.
+`;
 
             const userPrompt = `Create a layout for ${input.photoCount} photos based on this description: "${input.prompt}"${input.style ? `. Style: ${input.style}` : ''}
 

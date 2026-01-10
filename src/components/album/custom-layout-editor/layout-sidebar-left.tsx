@@ -14,6 +14,8 @@ interface LayoutSidebarLeftProps {
     onCancel: () => void;
     selectedAdvancedTemplate: AdvancedTemplate | null;
     onSelectAdvancedTemplate: (template: AdvancedTemplate) => void;
+    customTemplates?: AdvancedTemplate[];
+    onAddTemplate?: (template: AdvancedTemplate) => void;
 }
 
 // Render a single region as SVG element
@@ -128,7 +130,9 @@ export const LayoutSidebarLeft = ({
     onSave,
     onCancel,
     selectedAdvancedTemplate,
-    onSelectAdvancedTemplate
+    onSelectAdvancedTemplate,
+    customTemplates = [],
+    onAddTemplate
 }: LayoutSidebarLeftProps) => {
     const [aiPrompt, setAiPrompt] = useState('');
     const [photoCount, setPhotoCount] = useState(4);
@@ -148,7 +152,11 @@ export const LayoutSidebarLeft = ({
             });
 
             if (result.success && result.template) {
-                onSelectAdvancedTemplate(result.template as AdvancedTemplate);
+                const newTemplate = result.template as AdvancedTemplate;
+                // Add to persistent storage
+                onAddTemplate?.(newTemplate);
+                // Also select it
+                onSelectAdvancedTemplate(newTemplate);
                 setAiPrompt('');
             } else {
                 setError(result.error || 'Failed to generate layout');
@@ -211,6 +219,38 @@ export const LayoutSidebarLeft = ({
                             <p className="text-xs text-destructive">{error}</p>
                         )}
                     </div>
+
+                    {/* Custom Templates */}
+                    {customTemplates.length > 0 && (
+                        <div className="space-y-3">
+                            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                My Templates
+                            </Label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {customTemplates.map((template) => (
+                                    <button
+                                        key={template.id}
+                                        onClick={() => onSelectAdvancedTemplate(template)}
+                                        className={cn(
+                                            "aspect-square rounded-lg border-2 p-1 transition-all hover:border-primary/50 relative overflow-hidden bg-muted/30",
+                                            selectedAdvancedTemplate?.id === template.id
+                                                ? "border-primary ring-2 ring-primary/20"
+                                                : "border-muted-foreground/20"
+                                        )}
+                                        title={`${template.name} (${template.photoCount} photos)`}
+                                    >
+                                        <TemplatePreview
+                                            template={template}
+                                            isSelected={selectedAdvancedTemplate?.id === template.id}
+                                        />
+                                        <span className="absolute bottom-0 left-0 right-0 text-[9px] text-center bg-background/90 py-1 font-medium truncate px-1">
+                                            {template.name}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Advanced Templates */}
                     <div className="space-y-3">

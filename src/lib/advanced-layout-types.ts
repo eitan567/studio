@@ -259,23 +259,6 @@ export const ADVANCED_TEMPLATES: AdvancedTemplate[] = [
         ],
     },
 
-    // Classic 6-grid (2 rows, 3 columns)
-    {
-        id: 'grid-6',
-        name: '6 Grid',
-        category: 'grid',
-        photoCount: 6,
-        createdBy: 'system',
-        regions: [
-            { id: 'g1', shape: 'rect', bounds: { x: 0, y: 0, width: 33.33, height: 50 }, zIndex: 0 },
-            { id: 'g2', shape: 'rect', bounds: { x: 33.33, y: 0, width: 33.34, height: 50 }, zIndex: 0 },
-            { id: 'g3', shape: 'rect', bounds: { x: 66.67, y: 0, width: 33.33, height: 50 }, zIndex: 0 },
-            { id: 'g4', shape: 'rect', bounds: { x: 0, y: 50, width: 33.33, height: 50 }, zIndex: 0 },
-            { id: 'g5', shape: 'rect', bounds: { x: 33.33, y: 50, width: 33.34, height: 50 }, zIndex: 0 },
-            { id: 'g6', shape: 'rect', bounds: { x: 66.67, y: 50, width: 33.33, height: 50 }, zIndex: 0 },
-        ],
-    },
-
     // ========== DIAGONAL LAYOUTS ==========
 
     // 4 diagonal strips (like user example image 2)

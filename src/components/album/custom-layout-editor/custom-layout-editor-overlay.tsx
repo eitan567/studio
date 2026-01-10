@@ -12,9 +12,11 @@ import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 interface CustomLayoutEditorOverlayProps {
     onClose: () => void;
     config?: AlbumConfig;
+    customTemplates?: AdvancedTemplate[];
+    onAddTemplate?: (template: AdvancedTemplate) => void;
 }
 
-export const CustomLayoutEditorOverlay = ({ onClose, config }: CustomLayoutEditorOverlayProps) => {
+export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, onAddTemplate }: CustomLayoutEditorOverlayProps) => {
     // Create a dummy page with empty or sample photo slots
     const createDummyPage = (layoutId: string, useDummy: boolean = false): AlbumPage => {
         const template = LAYOUT_TEMPLATES.find(t => t.id === layoutId) || LAYOUT_TEMPLATES[0];
@@ -164,6 +166,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config }: CustomLayoutEdito
                     onCancel={handleCancel}
                     selectedAdvancedTemplate={selectedAdvancedTemplate}
                     onSelectAdvancedTemplate={handleSelectAdvancedTemplate}
+                    customTemplates={customTemplates}
+                    onAddTemplate={onAddTemplate}
                 />
 
                 {/* 2. Main Content Area (Canvas) */}

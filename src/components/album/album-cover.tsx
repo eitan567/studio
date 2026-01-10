@@ -3,6 +3,7 @@ import { AlbumPage, CoverText, CoverImage, AlbumConfig, Photo, PhotoPanAndZoom }
 import { cn } from '@/lib/utils';
 import { PageLayout } from './page-layout';
 import { COVER_TEMPLATES, LAYOUT_TEMPLATES } from './layout-templates';
+import { ADVANCED_TEMPLATES } from '@/lib/advanced-layout-types';
 
 // --- Types ---
 
@@ -18,6 +19,7 @@ export interface AlbumCoverProps {
     onUpdatePage?: (page: AlbumPage) => void;
     onDropPhoto?: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
     onUpdatePhotoPanAndZoom?: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
+    onInteractionChange?: (isInteracting: boolean) => void;
 
     // Image Object Handlers
     activeImageIds?: string[];
@@ -430,6 +432,7 @@ export const AlbumCover = ({
     onUpdatePage,
     onDropPhoto,
     onUpdatePhotoPanAndZoom,
+    onInteractionChange,
     // onUpdateTitleSettings
     useSimpleImage
 }: AlbumCoverProps) => {
@@ -580,7 +583,7 @@ export const AlbumCover = ({
         ? (page.coverLayouts?.front || COVER_TEMPLATES[0].id)
         : (page.spreadLayouts?.right || LAYOUT_TEMPLATES[0].id);
 
-    const templateSource = page.isCover ? COVER_TEMPLATES : LAYOUT_TEMPLATES;
+    const templateSource = page.isCover ? [...COVER_TEMPLATES, ...ADVANCED_TEMPLATES] : [...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES];
     const backTemplate = templateSource.find(t => t.id === backLayoutId) || templateSource[0];
     const backPhotoCount = backTemplate.photoCount;
 
@@ -664,9 +667,9 @@ export const AlbumCover = ({
                             photoGap={photoGap}
                             overridePhotos={page.photos}
                             overrideLayout={page.layout || (page.isCover ? COVER_TEMPLATES[0].id : LAYOUT_TEMPLATES[0].id)}
-                            templateSource={page.isCover ? COVER_TEMPLATES : LAYOUT_TEMPLATES}
+                            templateSource={page.isCover ? [...COVER_TEMPLATES, ...ADVANCED_TEMPLATES] as any : [...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES] as any}
                             onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
-                            onInteractionChange={() => { }}
+                            onInteractionChange={onInteractionChange || (() => { })}
                             onDropPhoto={onDropPhoto || (() => { })}
                             useSimpleImage={useSimpleImage}
                             photoIndexOffset={0}
@@ -698,7 +701,7 @@ export const AlbumCover = ({
                                 overridePhotos={backPhotos}
                                 // Use Left Layout for regular pages, Back Layout for covers
                                 overrideLayout={page.isCover ? backLayoutId : (page.spreadLayouts?.left || LAYOUT_TEMPLATES[0].id)}
-                                templateSource={page.isCover ? COVER_TEMPLATES : LAYOUT_TEMPLATES}
+                                templateSource={page.isCover ? [...COVER_TEMPLATES, ...ADVANCED_TEMPLATES] as any : [...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES] as any}
                                 onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
                                 onInteractionChange={() => { }}
                                 onDropPhoto={onDropPhoto || (() => { })}
@@ -755,7 +758,7 @@ export const AlbumCover = ({
                                 overridePhotos={frontPhotos}
                                 // Use Right Layout for regular pages, Front Layout for covers
                                 overrideLayout={page.isCover ? frontLayoutId : (page.spreadLayouts?.right || LAYOUT_TEMPLATES[0].id)}
-                                templateSource={page.isCover ? COVER_TEMPLATES : LAYOUT_TEMPLATES}
+                                templateSource={page.isCover ? [...COVER_TEMPLATES, ...ADVANCED_TEMPLATES] as any : [...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES] as any}
                                 onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
                                 onInteractionChange={() => { }}
                                 onDropPhoto={onDropPhoto || (() => { })}

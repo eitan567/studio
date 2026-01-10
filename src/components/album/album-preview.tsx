@@ -20,78 +20,93 @@ import { PhotoRenderer } from './photo-renderer';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { LAYOUT_TEMPLATES, COVER_TEMPLATES } from './layout-templates';
+import { ADVANCED_TEMPLATES, AdvancedTemplate, LayoutRegion, insetPolygon } from '@/lib/advanced-layout-types';
+import { ShapeRegion } from './shape-region';
+import { PageLayout } from './page-layout';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 
+// Helper function to render a clean preview of an advanced template
+// Uses CSS positioned divs to match the style of grid-based templates
+const renderAdvancedTemplatePreview = (template: AdvancedTemplate) => {
+  const sortedRegions = [...template.regions].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
 
-interface PageLayoutProps {
-  page: AlbumPage;
-  photoGap: number;
-  onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
-  onInteractionChange: (isInteracting: boolean) => void;
-  onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
-  overridePhotos?: Photo[];
-  overrideLayout?: string;
-  templateSource?: typeof LAYOUT_TEMPLATES;
-}
+  // Small inset to create visible gaps between regions (matches gap-0.5)
+  const GAP_INSET = 1; // 1% inset for gaps between regions
+  const EDGE_MARGIN = 2; // 2% margin on edges (p-0.5 equivalent)
 
-function PageLayout({
-  page,
-  photoGap,
-  onUpdatePhotoPanAndZoom,
-  onInteractionChange,
-  onDropPhoto,
-  overridePhotos,
-  overrideLayout,
-  templateSource = LAYOUT_TEMPLATES
-}: PageLayoutProps) {
-  const photos = overridePhotos || page.photos;
-  const layout = overrideLayout || page.layout;
-  const template = templateSource.find(t => t.id === layout) || templateSource[0];
-
-  const [dragOverPhotoId, setDragOverPhotoId] = useState<string | null>(null);
+  // Scale factor to fit content within margins
+  const scale = (100 - EDGE_MARGIN * 2) / 100;
 
   return (
-    <div
-      className={cn("grid grid-cols-12 grid-rows-12 h-full w-full")}
-      style={{ gap: `${photoGap}px` }}
-    >
-      {photos.slice(0, template.photoCount).map((photo, index) => (
-        <div
-          key={photo.id}
-          className={cn(
-            'relative overflow-hidden bg-muted group/photo transition-all',
-            template.grid[index],
-            dragOverPhotoId === photo.id && 'ring-4 ring-primary ring-inset'
-          )}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOverPhotoId(photo.id);
-          }}
-          onDragLeave={() => setDragOverPhotoId(null)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragOverPhotoId(null);
-            const droppedPhotoId = e.dataTransfer.getData('photoId');
-            if (droppedPhotoId) {
-              onDropPhoto(page.id, photo.id, droppedPhotoId);
-            }
-          }}
-        >
-          <PhotoRenderer
-            photo={photo}
-            onUpdate={(panAndZoom) => onUpdatePhotoPanAndZoom(page.id, photo.id, panAndZoom)}
-            onInteractionChange={onInteractionChange}
+    <div className="w-full h-full relative">
+      {sortedRegions.map((region, index) => {
+        // For circles/ellipses, we'll use border-radius
+        const isCircular = region.shape === 'circle' || region.shape === 'ellipse';
+        const isPolygon = region.shape === 'polygon' && region.points && region.points.length >= 3;
+
+        // For polygons, render using CSS clip-path with the actual polygon points
+        if (isPolygon && region.points) {
+          // Apply inset to polygon points to create visible gaps between shapes
+          const insetPoints = insetPolygon(region.points, GAP_INSET);
+
+          const clipPathPoints = insetPoints.map(([px, py]) => {
+            const scaledX = EDGE_MARGIN + (px * scale);
+            const scaledY = EDGE_MARGIN + (py * scale);
+            return `${scaledX}% ${scaledY}%`;
+          }).join(', ');
+
+          return (
+            <div
+              key={region.id || index}
+              className="absolute bg-primary/20"
+              style={{
+                left: 0,
+                top: 0,
+                width: '100%',
+                height: '100%',
+                clipPath: `polygon(${clipPathPoints})`,
+                zIndex: region.zIndex ?? 0,
+              }}
+            />
+          );
+        }
+
+        // For rectangles and circles: use bounds with gap inset
+        const gapX = region.bounds.x + GAP_INSET;
+        const gapY = region.bounds.y + GAP_INSET;
+        const gapW = Math.max(0, region.bounds.width - (GAP_INSET * 2));
+        const gapH = Math.max(0, region.bounds.height - (GAP_INSET * 2));
+
+        // Apply edge margin scaling
+        const x = EDGE_MARGIN + (gapX * scale);
+        const y = EDGE_MARGIN + (gapY * scale);
+        const width = gapW * scale;
+        const height = gapH * scale;
+
+        return (
+          <div
+            key={region.id || index}
+            className={cn(
+              'absolute bg-primary/20',
+              isCircular ? 'rounded-full' : 'rounded-sm'
+            )}
+            style={{
+              left: `${x}%`,
+              top: `${y}%`,
+              width: `${width}%`,
+              height: `${height}%`,
+              zIndex: region.zIndex ?? 0,
+            }}
           />
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
-}
-
+};
 
 
 interface AlbumPreviewProps {
@@ -112,6 +127,7 @@ interface AlbumPreviewProps {
   onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
   onDownloadPage: (pageId: string) => void;
   allPhotos?: Photo[];
+  customTemplates?: AdvancedTemplate[];
 }
 
 import { CoverEditorOverlay } from './cover-editor/cover-editor-overlay';
@@ -443,7 +459,7 @@ const PageToolbar = ({
                       <TooltipContent>{page.isCover ? "Back Cover Layout" : "Page 1 Layout"}</TooltipContent>
                     </Tooltip>
                     <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
-                      {(page.isCover ? COVER_TEMPLATES : LAYOUT_TEMPLATES).map(template => (
+                      {(page.isCover ? [...COVER_TEMPLATES, ...ADVANCED_TEMPLATES] : [...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES]).map(template => (
                         <DropdownMenuItem
                           key={template.id}
                           onSelect={() => {
@@ -463,11 +479,17 @@ const PageToolbar = ({
                           )}
                         >
                           <div className="w-24 h-24 p-1 flex flex-col items-center">
-                            <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
-                              {template.grid.map((gridClass, i) => (
-                                <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
-                              ))}
-                            </div>
+                            {'grid' in template ? (
+                              <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
+                                {template.grid.map((gridClass, i) => (
+                                  <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="w-full h-16 bg-muted relative overflow-hidden">
+                                {renderAdvancedTemplatePreview(template as AdvancedTemplate)}
+                              </div>
+                            )}
                             <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
                           </div>
                         </DropdownMenuItem>
@@ -491,7 +513,12 @@ const PageToolbar = ({
                       <TooltipContent>{page.isCover ? "Front Cover Layout" : "Page 2 Layout"}</TooltipContent>
                     </Tooltip>
                     <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
-                      {(page.isCover ? COVER_TEMPLATES : LAYOUT_TEMPLATES).map(template => (
+                      {/* For Cover: Combine Cover Templates + Advanced Templates */}
+                      {/* For Pages: Combine Layout Templates + Advanced Templates */}
+                      {(page.isCover
+                        ? [...COVER_TEMPLATES, ...ADVANCED_TEMPLATES]
+                        : [...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES]
+                      ).map(template => (
                         <DropdownMenuItem
                           key={template.id}
                           onSelect={() => {
@@ -511,11 +538,17 @@ const PageToolbar = ({
                           )}
                         >
                           <div className="w-24 h-24 p-1 flex flex-col items-center">
-                            <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
-                              {template.grid.map((gridClass, i) => (
-                                <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
-                              ))}
-                            </div>
+                            {'grid' in template ? (
+                              <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
+                                {template.grid.map((gridClass, i) => (
+                                  <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="w-full h-16 bg-muted relative overflow-hidden">
+                                {renderAdvancedTemplatePreview(template as AdvancedTemplate)}
+                              </div>
+                            )}
                             <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
                           </div>
                         </DropdownMenuItem>
@@ -538,7 +571,7 @@ const PageToolbar = ({
                     <TooltipContent>Spread Layout</TooltipContent>
                   </Tooltip>
                   <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
-                    {(page.isCover ? COVER_TEMPLATES : LAYOUT_TEMPLATES).map(template => (
+                    {(page.isCover ? COVER_TEMPLATES : [...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES]).map(template => (
                       <DropdownMenuItem
                         key={template.id}
                         onSelect={() => {
@@ -551,11 +584,17 @@ const PageToolbar = ({
                         className={cn("p-0 focus:bg-accent/50 rounded-md cursor-pointer", page.layout === template.id && "ring-2 ring-primary")}
                       >
                         <div className="w-24 h-24 p-1 flex flex-col items-center">
-                          <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
-                            {template.grid.map((gridClass, i) => (
-                              <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
-                            ))}
-                          </div>
+                          {'grid' in template ? (
+                            <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
+                              {template.grid.map((gridClass, i) => (
+                                <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="w-full h-16 bg-muted relative overflow-hidden">
+                              {renderAdvancedTemplatePreview(template as AdvancedTemplate)}
+                            </div>
+                          )}
                           <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
                         </div>
                       </DropdownMenuItem>
@@ -647,14 +686,20 @@ const PageToolbar = ({
                 <TooltipContent>Page Layout</TooltipContent>
               </Tooltip>
               <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
-                {LAYOUT_TEMPLATES.map(template => (
+                {[...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES].map(template => (
                   <DropdownMenuItem key={template.id} onSelect={() => onUpdateLayout(page.id, template.id)} className="p-0 focus:bg-accent/50 rounded-md cursor-pointer">
                     <div className="w-24 h-24 p-1 flex flex-col items-center">
-                      <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
-                        {template.grid.map((gridClass, i) => (
-                          <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
-                        ))}
-                      </div>
+                      {'grid' in template ? (
+                        <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
+                          {template.grid.map((gridClass, i) => (
+                            <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="w-full h-16 bg-muted relative overflow-hidden">
+                          {renderAdvancedTemplatePreview(template as AdvancedTemplate)}
+                        </div>
+                      )}
                       <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
                     </div>
                   </DropdownMenuItem>
@@ -722,13 +767,15 @@ const ScaledCoverPreview = ({
   config,
   onUpdateTitleSettings,
   onDropPhoto,
-  onUpdatePhotoPanAndZoom
+  onUpdatePhotoPanAndZoom,
+  onInteractionChange,
 }: {
   page: AlbumPage;
   config: AlbumConfig;
   onUpdateTitleSettings?: any;
   onDropPhoto?: any;
   onUpdatePhotoPanAndZoom?: any;
+  onInteractionChange?: (isInteracting: boolean) => void;
 }) => {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -784,6 +831,7 @@ const ScaledCoverPreview = ({
           onUpdateTitleSettings={onUpdateTitleSettings}
           onDropPhoto={onDropPhoto}
           onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
+          onInteractionChange={onInteractionChange}
         />
         <div className="absolute inset-0 z-20 pointer-events-none">
           {page.titleText && (
@@ -939,6 +987,7 @@ export function AlbumPreview({
                               onUpdateTitleSettings={onUpdateTitleSettings}
                               onDropPhoto={onDropPhoto}
                               onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
+                              onInteractionChange={setIsInteracting}
                             />
                           ) : page.type === 'spread' ? (
                             <div className="relative h-full w-full">
@@ -952,6 +1001,7 @@ export function AlbumPreview({
                                 onUpdateTitleSettings={onUpdateTitleSettings}
                                 onDropPhoto={onDropPhoto}
                                 onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
+                                onInteractionChange={setIsInteracting}
                               />
                             </div>
                           ) : (

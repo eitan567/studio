@@ -53,6 +53,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LAYOUT_TEMPLATES, COVER_TEMPLATES } from './layout-templates';
+import { ADVANCED_TEMPLATES, AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -80,6 +81,28 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isBookViewOpen, setIsBookViewOpen] = useState(false);
   const [isCustomLayoutEditorOpen, setIsCustomLayoutEditorOpen] = useState(false);
+  const [isCoverEditorOpen, setIsCoverEditorOpen] = useState(false);
+  const [customTemplates, setCustomTemplates] = useState<AdvancedTemplate[]>([]);
+
+  // Load custom templates from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('custom_album_templates');
+    if (saved) {
+      try {
+        setCustomTemplates(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to load custom templates', e);
+      }
+    }
+  }, []);
+
+  const handleAddCustomTemplate = (template: AdvancedTemplate) => {
+    setCustomTemplates(prev => {
+      const next = [...prev, template];
+      localStorage.setItem('custom_album_templates', JSON.stringify(next));
+      return next;
+    });
+  };
   const { toast } = useToast();
   const [randomSeed, setRandomSeed] = useState('');
   const [isClient, setIsClient] = useState(false);
@@ -437,7 +460,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       return prevPages.map(page => {
         if (page.id !== pageId) return page;
 
-        const newTemplate = LAYOUT_TEMPLATES.find(t => t.id === newLayoutId);
+        const newTemplate = LAYOUT_TEMPLATES.find(t => t.id === newLayoutId) || ADVANCED_TEMPLATES.find(t => t.id === newLayoutId);
         if (!newTemplate) return page;
 
         const newPhotoCount = newTemplate.photoCount;
@@ -557,11 +580,11 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         const leftLayout = side === 'left' ? newLayout : currentLeftLayout;
         const rightLayout = side === 'right' ? newLayout : currentRightLayout;
 
-        const leftTemplate = LAYOUT_TEMPLATES.find(t => t.id === leftLayout) || LAYOUT_TEMPLATES[0];
-        const rightTemplate = LAYOUT_TEMPLATES.find(t => t.id === rightLayout) || LAYOUT_TEMPLATES[0];
+        const leftTemplate = LAYOUT_TEMPLATES.find(t => t.id === leftLayout) || ADVANCED_TEMPLATES.find(t => t.id === leftLayout) || LAYOUT_TEMPLATES[0];
+        const rightTemplate = LAYOUT_TEMPLATES.find(t => t.id === rightLayout) || ADVANCED_TEMPLATES.find(t => t.id === rightLayout) || LAYOUT_TEMPLATES[0];
 
         // We need to know how many photos the OLD left layout took, to find the insertion point
-        const oldLeftTemplate = LAYOUT_TEMPLATES.find(t => t.id === currentLeftLayout) || LAYOUT_TEMPLATES[0];
+        const oldLeftTemplate = LAYOUT_TEMPLATES.find(t => t.id === currentLeftLayout) || ADVANCED_TEMPLATES.find(t => t.id === currentLeftLayout) || LAYOUT_TEMPLATES[0];
         const oldLeftCount = oldLeftTemplate.photoCount;
 
         const newLeftCount = leftTemplate.photoCount;
@@ -1139,6 +1162,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
               onUpdatePage={handleUpdatePage}
               onUpdateSpreadLayout={handleUpdateSpreadLayout}
               allPhotos={allPhotos}
+              customTemplates={customTemplates}
             />
           )}
         </div>
@@ -1214,7 +1238,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
               </p>
             </div>
           </Card>
-        </div>
+        </div >
       </div >
       {isBookViewOpen && (
         <BookViewOverlay
@@ -1227,6 +1251,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         <CustomLayoutEditorOverlay
           config={config}
           onClose={() => setIsCustomLayoutEditorOpen(false)}
+          customTemplates={customTemplates}
+          onAddTemplate={handleAddCustomTemplate}
         />
       )}
     </div>
