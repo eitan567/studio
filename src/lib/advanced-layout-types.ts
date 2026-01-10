@@ -143,12 +143,15 @@ export function insetPolygon(points: [number, number][], insetAmount: number): [
 export function regionToClipPath(region: LayoutRegion): ClipPathValue {
     switch (region.shape) {
         case 'circle': {
-            // For circles, use 50% centered within the element
-            return `circle(50% at 50% 50%)`;
+            // For circles, use 50% of the closest side to ensure it remains a circle
+            // even if the container is not square.
+            return `circle(closest-side)`;
         }
 
         case 'ellipse': {
-            return `ellipse(50% 50% at 50% 50%)`;
+            // Similarly for ellipses if we want them to remain circular or 
+            // at least be centered and contained.
+            return `ellipse(closest-side closest-side at 50% 50%)`;
         }
 
         case 'polygon': {

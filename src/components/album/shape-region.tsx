@@ -41,14 +41,14 @@ export const ShapeRegion = ({
     const leftPx = (region.bounds.x / 100) * containerWidth;
     const topPx = (region.bounds.y / 100) * containerHeight;
 
-    // Convert polygon points to pixel string relative to the region
+    // Convert polygon points to percentage string relative to the region (0-100)
     let svgPoints = "";
     if (region.shape === 'polygon' && region.points) {
         svgPoints = region.points
             .map(p => {
-                const pX_px = (p[0] / 100) * containerWidth;
-                const pY_px = (p[1] / 100) * containerHeight;
-                return `${pX_px - leftPx},${pY_px - topPx}`;
+                const relX = ((p[0] - region.bounds.x) / region.bounds.width) * 100;
+                const relY = ((p[1] - region.bounds.y) / region.bounds.height) * 100;
+                return `${relX},${relY}`;
             })
             .join(' ');
     }
@@ -107,11 +107,11 @@ export const ShapeRegion = ({
 
             if (!isEdgeOnBoundary) {
                 // It's an internal edge.
-                // Calculate pixel coords relative to this region's SVG
-                let x1 = ((curr[0] / 100) * containerWidth) - leftPx;
-                let y1 = ((curr[1] / 100) * containerHeight) - topPx;
-                let x2 = ((next[0] / 100) * containerWidth) - leftPx;
-                let y2 = ((next[1] / 100) * containerHeight) - topPx;
+                // Calculate relative coords in the 0-100 SVG coordinate system
+                let x1 = ((curr[0] - region.bounds.x) / region.bounds.width) * 100;
+                let y1 = ((curr[1] - region.bounds.y) / region.bounds.height) * 100;
+                let x2 = ((next[0] - region.bounds.x) / region.bounds.width) * 100;
+                let y2 = ((next[1] - region.bounds.y) / region.bounds.height) * 100;
 
                 // Extend segments ONLY at boundary endpoints to ensure clean cuts.
                 // Do NOT extend at internal vertices (where they join), to avoid artifacts.
@@ -121,7 +121,8 @@ export const ShapeRegion = ({
                 const ux = dx / len;
                 const uy = dy / len;
 
-                const extension = photoGap * 2;
+                // Extension in SVG units (roughly pixels since 100 units = 100%)
+                const extension = 5;
 
                 if (isP1Bound) {
                     x1 -= ux * extension;
@@ -142,6 +143,7 @@ export const ShapeRegion = ({
                         y2={y2}
                         stroke={backgroundColor}
                         strokeWidth={photoGap}
+                        vectorEffect="non-scaling-stroke" // Ensure stroke width is true pixels
                         strokeLinecap="round" // Smooth merges at internal corners
                         pointerEvents="none"
                     />
@@ -223,8 +225,8 @@ export const ShapeRegion = ({
                 <svg
                     width="100%"
                     height="100%"
-                    viewBox={`0 0 ${widthPx} ${heightPx}`}
-                    preserveAspectRatio="none"
+                    viewBox="0 0 100 100"
+                    preserveAspectRatio={region.shape === 'circle' ? "xMidYMid meet" : "none"}
                     style={{ overflow: 'visible' }} // Allow stroke to bleed out
                 >
                     <defs>
@@ -232,10 +234,10 @@ export const ShapeRegion = ({
                             {/* Visible area: The shape itself in white */}
                             {region.shape === 'circle' && (
                                 <ellipse
-                                    cx={widthPx / 2}
-                                    cy={heightPx / 2}
-                                    rx={widthPx / 2}
-                                    ry={heightPx / 2}
+                                    cx="50"
+                                    cy="50"
+                                    rx="50"
+                                    ry="50"
                                     fill="white"
                                 />
                             )}
@@ -243,8 +245,8 @@ export const ShapeRegion = ({
                                 <rect
                                     x="0"
                                     y="0"
-                                    width={widthPx}
-                                    height={heightPx}
+                                    width="100"
+                                    height="100"
                                     fill="white"
                                 />
                             )}
@@ -258,8 +260,8 @@ export const ShapeRegion = ({
                     <foreignObject
                         x="0"
                         y="0"
-                        width={widthPx}
-                        height={heightPx}
+                        width="100"
+                        height="100"
                         mask={`url(#${maskId})`}
                         style={{
                             // Ensure internal content handles overflow correctly
@@ -329,13 +331,14 @@ export const ShapeRegion = ({
                         <>
                             {region.shape === 'circle' && (
                                 <ellipse
-                                    cx={widthPx / 2}
-                                    cy={heightPx / 2}
-                                    rx={widthPx / 2}
-                                    ry={heightPx / 2}
+                                    cx="50"
+                                    cy="50"
+                                    rx="50"
+                                    ry="50"
                                     fill="none"
                                     stroke={backgroundColor}
                                     strokeWidth={photoGap}
+                                    vectorEffect="non-scaling-stroke"
                                     pointerEvents="none"
                                 />
                             )}
