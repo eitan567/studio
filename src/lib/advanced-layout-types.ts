@@ -229,23 +229,6 @@ export const ADVANCED_TEMPLATES: AdvancedTemplate[] = [
 
 
 
-    // ========== MOSAIC GRIDS ==========
-
-    // Large left + 3 small right (very common pattern)
-    {
-        id: 'big-left-3',
-        name: 'Feature Left',
-        category: 'grid',
-        photoCount: 4,
-        createdBy: 'system',
-        regions: [
-            { id: 'main', shape: 'rect', bounds: { x: 0, y: 0, width: 60, height: 100 }, zIndex: 0 },
-            { id: 'r1', shape: 'rect', bounds: { x: 60, y: 0, width: 40, height: 33.33 }, zIndex: 0 },
-            { id: 'r2', shape: 'rect', bounds: { x: 60, y: 33.33, width: 40, height: 33.34 }, zIndex: 0 },
-            { id: 'r3', shape: 'rect', bounds: { x: 60, y: 66.67, width: 40, height: 33.33 }, zIndex: 0 },
-        ],
-    },
-
     // L-shape with small squares (like user example)
     {
         id: 'l-shape-mosaic',

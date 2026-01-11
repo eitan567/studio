@@ -51,17 +51,41 @@ export const ShapeRegion = ({
 
     const photoGapNum = typeof photoGap === 'string' ? parseFloat(photoGap) : photoGap;
     // contentInset is HALF the gap (shared between slots)
-    const contentInset = photoGapNum / 2;
+    const baseInset = photoGapNum / 2;
+
+    // Detect if edges touch page boundaries (0% or 100%)
+    const EPSILON = 0.5;
+    const isAtLeft = region.bounds.x < EPSILON;
+    const isAtTop = region.bounds.y < EPSILON;
+    const isAtRight = (region.bounds.x + region.bounds.width) > 100 - EPSILON;
+    const isAtBottom = (region.bounds.y + region.bounds.height) > 100 - EPSILON;
+
+    // Directional insets: 0 if at boundary, baseInset if internal
+    const insetL = isAtLeft ? 0 : baseInset;
+    const insetT = isAtTop ? 0 : baseInset;
+    const insetR = isAtRight ? 0 : baseInset;
+    const insetB = isAtBottom ? 0 : baseInset;
 
     const maskId = `mask-outside-${region.id}`;
 
-    // Convert polygon points to percentage string relative to the region (0-100)
+    // Convert directional pixel insets to percentages RELATIVE TO THE PAGE
+    const pInsetL = (insetL / containerWidth) * 100;
+    const pInsetT = (insetT / containerHeight) * 100;
+    const pInsetW = ((insetL + insetR) / containerWidth) * 100;
+    const pInsetH = ((insetT + insetB) / containerHeight) * 100;
+
+    // Convert polygon points to percentage string relative to the *adjusted* region container (0-100)
     let svgPoints = "";
     if (region.shape === 'polygon' && region.points) {
+        const newX = region.bounds.x + pInsetL;
+        const newY = region.bounds.y + pInsetT;
+        const newW = region.bounds.width - pInsetW;
+        const newH = region.bounds.height - pInsetH;
+
         svgPoints = region.points
             .map(p => {
-                const relX = ((p[0] - region.bounds.x) / region.bounds.width) * 100;
-                const relY = ((p[1] - region.bounds.y) / region.bounds.height) * 100;
+                const relX = ((p[0] - newX) / newW) * 100;
+                const relY = ((p[1] - newY) / newH) * 100;
                 return `${relX},${relY}`;
             })
             .join(' ');
@@ -76,7 +100,6 @@ export const ShapeRegion = ({
 
         const n = p.length;
         const segments = [];
-        const EPSILON = 0.5;
 
         for (let i = 0; i < n; i++) {
             const curr = p[i];
@@ -89,10 +112,16 @@ export const ShapeRegion = ({
                 (Math.abs(curr[1] - 100) < EPSILON && Math.abs(next[1] - 100) < EPSILON);
 
             if (!isOnBound) {
-                const relP1X = ((curr[0] - region.bounds.x) / region.bounds.width) * 100;
-                const relP1Y = ((curr[1] - region.bounds.y) / region.bounds.height) * 100;
-                const relP2X = ((next[0] - region.bounds.x) / region.bounds.width) * 100;
-                const relP2Y = ((next[1] - region.bounds.y) / region.bounds.height) * 100;
+                // Projection must match the *adjusted* container coordinates
+                const newX = region.bounds.x + pInsetL;
+                const newY = region.bounds.y + pInsetT;
+                const newW = region.bounds.width - pInsetW;
+                const newH = region.bounds.height - pInsetH;
+
+                const relP1X = ((curr[0] - newX) / newW) * 100;
+                const relP1Y = ((curr[1] - newY) / newH) * 100;
+                const relP2X = ((next[0] - newX) / newW) * 100;
+                const relP2Y = ((next[1] - newY) / newH) * 100;
 
                 segments.push(
                     <line
@@ -135,166 +164,173 @@ export const ShapeRegion = ({
         );
     };
 
-    // Calculate highlight insets in percentages for SVG use
-    const hInsetX = widthPx > 0 ? (contentInset / widthPx) * 100 : 0;
-    const hInsetY = heightPx > 0 ? (contentInset / heightPx) * 100 : 0;
+    // Local clip-path calculation using the adjusted container's relative coordinates
+    const clipPathStyle = isCircle ? 'circle(closest-side)' : (
+        svgPoints ? `polygon(${svgPoints.split(' ').map(p => {
+            const [sx, sy] = p.split(',');
+            return `${sx}% ${sy}%`;
+        }).join(', ')})` : 'none'
+    );
 
-    return (
-        <div
-            id={shapeId}
-            className="absolute pointer-events-auto transition-all duration-300"
-            style={{
-                left: `${region.bounds.x}%`,
-                top: `${region.bounds.y}%`,
-                width: `${region.bounds.width}%`,
-                height: `${region.bounds.height}%`,
-                zIndex: region.zIndex ?? 0,
-            }}
-        >
-            {/* 
-                THE CONTENT WRAPPER
-                This implements the 'photoGap' via inset and handles all interactions.
-            */}
+    const commonStyle: React.CSSProperties = {
+        left: `calc(${region.bounds.x}% + ${insetL}px)`,
+        top: `calc(${region.bounds.y}% + ${insetT}px)`,
+        width: `calc(${region.bounds.width}% - ${insetL + insetR}px)`,
+        height: `calc(${region.bounds.height}% - ${insetT + insetB}px)`,
+        zIndex: region.zIndex ?? 0,
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        if (isPreview || !onDragOver) return;
+        e.preventDefault();
+        e.stopPropagation();
+        onDragOver(e);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        if (isPreview || !onDragLeave) return;
+        e.preventDefault();
+        e.stopPropagation();
+        onDragLeave(e);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        if (isPreview || !onDrop) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const photoId = e.dataTransfer.getData('photoId');
+        if (photoId) onDrop(photoId);
+    };
+
+    // CLEAN RECT PATH: 1:1 Parity with Grid Slots
+    if (isRect) {
+        return (
             <div
+                id={shapeId}
                 className={cn(
-                    "absolute overflow-hidden transition-all duration-300",
-                    isRect && "rounded-sm",
-                    isRect && isDragOver && "ring-2 ring-primary ring-offset-2",
+                    "absolute pointer-events-auto transition-all duration-200 rounded-sm overflow-hidden group",
+                    "ring-2 ring-transparent hover:ring-primary/20",
+                    isDragOver && "ring-primary ring-offset-2",
                     isDragOver && (!photo || !photo.src) && "bg-primary/10"
                 )}
                 style={{
-                    // Centering logic for circles
-                    left: isCircle ? '50%' : `${contentInset}px`,
-                    top: isCircle ? '50%' : `${contentInset}px`,
-                    right: isCircle ? 'auto' : `${contentInset}px`,
-                    bottom: isCircle ? 'auto' : `${contentInset}px`,
-                    transform: isCircle ? 'translate(-50%, -50%)' : 'none',
-                    width: isCircle ? `${(contentWidthPx / widthPx) * 100}%` : 'auto',
-                    height: isCircle ? `${(contentHeightPx / heightPx) * 100}%` : 'auto',
+                    ...commonStyle,
                     backgroundColor: photoGapNum > 0 ? backgroundColor : 'transparent',
-                    clipPath: isRect ? 'none' : regionToClipPath(region),
-                    WebkitClipPath: isRect ? 'none' : regionToClipPath(region),
+                    ['--tw-ring-offset-color' as any]: backgroundColor,
                 }}
-                onDragOver={(e) => {
-                    if (isPreview || !onDragOver) return;
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onDragOver(e);
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+            >
+                {renderContent()}
+            </div>
+        );
+    }
+
+    // ADVANCED PATH: SVG/Clip-Path for Circles and Polygons
+    return (
+        <div
+            id={shapeId}
+            className="absolute pointer-events-auto transition-all duration-200 group"
+            style={commonStyle}
+        >
+            <div
+                className={cn(
+                    "absolute inset-0 pointer-events-auto overflow-hidden transition-all duration-200",
+                    isDragOver && (!photo || !photo.src) && "bg-primary/10"
+                )}
+                style={{
+                    backgroundColor: photoGapNum > 0 ? backgroundColor : 'transparent',
+                    clipPath: clipPathStyle,
+                    WebkitClipPath: clipPathStyle,
                 }}
-                onDragLeave={(e) => {
-                    if (isPreview || !onDragLeave) return;
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onDragLeave(e);
-                }}
-                onDrop={(e) => {
-                    if (isPreview || !onDrop) return;
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const photoId = e.dataTransfer.getData('photoId');
-                    if (photoId) onDrop(photoId);
-                }}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
             >
                 {renderContent()}
             </div>
 
-            {/* 
-                SVG OVERLAYS: Only for non-rectangular shapes.
-                Rectangular gaps/highlights are handled by the Content Wrapper (CSS inset + ring).
-            */}
-            {!isRect && (
-                <>
-                    {/* Stroke Layer (Internal Gaps) */}
-                    {photoGapNum > 0 && (
-                        <svg
-                            className="absolute inset-0 pointer-events-none"
-                            width="100%"
-                            height="100%"
-                            viewBox="0 0 100 100"
-                            preserveAspectRatio={isCircle ? "xMidYMid meet" : "none"}
-                            style={{ overflow: 'visible', zIndex: 10 }}
-                        >
-                            {isCircle && (
-                                <ellipse
-                                    cx="50"
-                                    cy="50"
-                                    rx="50"
-                                    ry="50"
-                                    fill="none"
-                                    stroke={backgroundColor}
-                                    strokeWidth={photoGapNum}
-                                    vectorEffect="non-scaling-stroke"
-                                />
-                            )}
-                            {renderInternalStrokes()}
-                        </svg>
+            {/* Stroke Layer (Internal Gaps) */}
+            {photoGapNum > 0 && (
+                <svg
+                    className="absolute inset-0 pointer-events-none"
+                    width="100%"
+                    height="100%"
+                    viewBox="0 0 100 100"
+                    preserveAspectRatio={isCircle ? "xMidYMid meet" : "none"}
+                    style={{ overflow: 'visible', zIndex: 10 }}
+                >
+                    {isCircle && (
+                        <ellipse
+                            cx="50"
+                            cy="50"
+                            rx="50"
+                            ry="50"
+                            fill="none"
+                            stroke={backgroundColor}
+                            strokeWidth={photoGapNum}
+                            vectorEffect="non-scaling-stroke"
+                        />
                     )}
-
-                    {/* Foreground Highlight (Ring Effect) */}
-                    <svg
-                        className={cn(
-                            "absolute inset-0 pointer-events-none transition-opacity duration-300",
-                            isDragOver ? "opacity-100" : "opacity-0"
-                        )}
-                        width="100%"
-                        height="100%"
-                        viewBox="0 0 100 100"
-                        preserveAspectRatio={isCircle ? "xMidYMid meet" : "none"}
-                        style={{ overflow: 'visible', zIndex: 100 }}
-                    >
-                        <defs>
-                            <mask id={maskId}>
-                                <rect x="-100" y="-100" width="300" height="300" fill="white" />
-                                {isCircle ? (
-                                    <ellipse
-                                        cx="50" cy="50"
-                                        rx={50 - hInsetX} ry={50 - hInsetY}
-                                        fill="black"
-                                    />
-                                ) : (
-                                    <polygon
-                                        points={svgPoints}
-                                        fill="black"
-                                        transform={`translate(50,50) scale(${1 - (hInsetX / 50)}, ${1 - (hInsetY / 50)}) translate(-50,-50)`}
-                                    />
-                                )}
-                            </mask>
-                        </defs>
-
-                        <g mask={`url(#${maskId})`}>
-                            {isCircle ? (
-                                <>
-                                    <ellipse
-                                        cx="50" cy="50" rx={50 - hInsetX} ry={50 - hInsetY}
-                                        fill="none" stroke="hsl(var(--primary))" strokeWidth="8"
-                                        strokeLinejoin="round" vectorEffect="non-scaling-stroke"
-                                    />
-                                    <ellipse
-                                        cx="50" cy="50" rx={50 - hInsetX} ry={50 - hInsetY}
-                                        fill="none" stroke="#ffffff" strokeWidth="4"
-                                        strokeLinejoin="round" vectorEffect="non-scaling-stroke"
-                                    />
-                                </>
-                            ) : (
-                                <>
-                                    <polygon
-                                        points={svgPoints}
-                                        fill="none" stroke="hsl(var(--primary))" strokeWidth="8"
-                                        strokeLinejoin="round" vectorEffect="non-scaling-stroke"
-                                        transform={`translate(50,50) scale(${1 - (hInsetX / 50)}, ${1 - (hInsetY / 50)}) translate(-50,-50)`}
-                                    />
-                                    <polygon
-                                        points={svgPoints}
-                                        fill="none" stroke="#ffffff" strokeWidth="4"
-                                        strokeLinejoin="round" vectorEffect="non-scaling-stroke"
-                                        transform={`translate(50,50) scale(${1 - (hInsetX / 50)}, ${1 - (hInsetY / 50)}) translate(-50,-50)`}
-                                    />
-                                </>
-                            )}
-                        </g>
-                    </svg>
-                </>
+                    {renderInternalStrokes()}
+                </svg>
             )}
+
+            {/* Foreground Highlight (Ring Effect) */}
+            <svg
+                className={cn(
+                    "absolute inset-0 pointer-events-none transition-opacity duration-200",
+                    isDragOver ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                )}
+                width="100%"
+                height="100%"
+                viewBox="0 0 100 100"
+                preserveAspectRatio={isCircle ? "xMidYMid meet" : "none"}
+                style={{ overflow: 'visible', zIndex: 100 }}
+            >
+                <defs>
+                    <mask id={maskId}>
+                        <rect x="-100" y="-100" width="300" height="300" fill="white" />
+                        {isCircle ? (
+                            <ellipse cx="50" cy="50" rx="50" ry="50" fill="black" />
+                        ) : (
+                            <polygon points={svgPoints} fill="black" />
+                        )}
+                    </mask>
+                </defs>
+
+                <g mask={`url(#${maskId})`}>
+                    {isCircle ? (
+                        <>
+                            <ellipse
+                                cx="50" cy="50" rx="50" ry="50"
+                                fill="none" stroke={isDragOver ? "hsl(var(--primary))" : "hsl(var(--primary) / 0.2)"} strokeWidth="8"
+                                strokeLinejoin="round" vectorEffect="non-scaling-stroke"
+                            />
+                            <ellipse
+                                cx="50" cy="50" rx="50" ry="50"
+                                fill="none" stroke={backgroundColor} strokeWidth="4"
+                                strokeLinejoin="round" vectorEffect="non-scaling-stroke"
+                            />
+                        </>
+                    ) : (
+                        <>
+                            <polygon
+                                points={svgPoints}
+                                fill="none" stroke={isDragOver ? "hsl(var(--primary))" : "hsl(var(--primary) / 0.2)"} strokeWidth="8"
+                                strokeLinejoin="round" vectorEffect="non-scaling-stroke"
+                            />
+                            <polygon
+                                points={svgPoints}
+                                fill="none" stroke={backgroundColor} strokeWidth="4"
+                                strokeLinejoin="round" vectorEffect="non-scaling-stroke"
+                            />
+                        </>
+                    )}
+                </g>
+            </svg>
         </div>
     );
 };
+

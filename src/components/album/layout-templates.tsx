@@ -37,6 +37,30 @@ export const LAYOUT_TEMPLATES = [
       'col-start-7 col-end-13 row-start-8 row-end-13',
     ],
   },
+  // 4 Photos - Based on 3-vert-lead (large left + 3 small stacked right)
+  {
+    id: '4-vert-lead',
+    name: '4 Photos',
+    photoCount: 4,
+    grid: [
+      'col-start-1 col-end-8 row-span-12',            // Same large frame as 3-vert-lead
+      'col-start-8 col-end-13 row-start-1 row-end-5', // 3 equal small frames (rows 1-5, 5-9, 9-13)
+      'col-start-8 col-end-13 row-start-5 row-end-9',
+      'col-start-8 col-end-13 row-start-9 row-end-13',
+    ],
+  },
+  // 4 Photos - Based on 3-horiz-lead (large top + 3 small columns bottom)
+  {
+    id: '4-horiz-lead',
+    name: '4 Photos',
+    photoCount: 4,
+    grid: [
+      'col-span-12 row-start-1 row-end-8',            // Same large frame as 3-horiz-lead
+      'col-start-1 col-end-5 row-start-8 row-end-13', // 3 equal small frames (columns 1-5, 5-9, 9-13)
+      'col-start-5 col-end-9 row-start-8 row-end-13',
+      'col-start-9 col-end-13 row-start-8 row-end-13',
+    ],
+  },
   {
     id: '4-grid',
     name: '4 Photos',
