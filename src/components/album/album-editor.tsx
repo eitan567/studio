@@ -65,6 +65,17 @@ import { AiBackgroundGenerator } from './ai-background-generator';
 import { AlbumExporter, AlbumExporterRef } from './album-exporter';
 import { CustomLayoutEditorOverlay } from './custom-layout-editor/custom-layout-editor-overlay';
 
+// Parse layout ID to extract base template and rotation
+function parseLayoutId(layoutId: string): { baseId: string; rotation: number } {
+  const rotationMatch = layoutId.match(/_r(90|180|270)$/);
+  if (rotationMatch) {
+    const rotation = parseInt(rotationMatch[1]);
+    const baseId = layoutId.replace(/_r(90|180|270)$/, '');
+    return { baseId, rotation };
+  }
+  return { baseId: layoutId, rotation: 0 };
+}
+
 interface AlbumEditorProps {
   albumId: string;
 }
@@ -460,7 +471,9 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       return prevPages.map(page => {
         if (page.id !== pageId) return page;
 
-        const newTemplate = LAYOUT_TEMPLATES.find(t => t.id === newLayoutId) || ADVANCED_TEMPLATES.find(t => t.id === newLayoutId);
+        // Parse the layout ID to get the base template ID (without rotation suffix)
+        const { baseId } = parseLayoutId(newLayoutId);
+        const newTemplate = LAYOUT_TEMPLATES.find(t => t.id === baseId) || ADVANCED_TEMPLATES.find(t => t.id === baseId);
         if (!newTemplate) return page;
 
         const newPhotoCount = newTemplate.photoCount;
@@ -497,7 +510,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         if (page.id !== pageId || !page.isCover) return page;
 
         if (side === 'full') {
-          const template = COVER_TEMPLATES.find(t => t.id === newLayout) || ADVANCED_TEMPLATES.find(t => t.id === newLayout) || COVER_TEMPLATES[0];
+          const { baseId: baseLayoutId } = parseLayoutId(newLayout);
+          const template = COVER_TEMPLATES.find(t => t.id === baseLayoutId) || ADVANCED_TEMPLATES.find(t => t.id === baseLayoutId) || COVER_TEMPLATES[0];
           const requiredPhotos = template.photoCount;
           let currentPhotos = [...page.photos];
 
@@ -527,8 +541,10 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         const frontLayout = side === 'front' ? newLayout : currentFrontLayout;
         const backLayout = side === 'back' ? newLayout : currentBackLayout;
 
-        const frontTemplate = COVER_TEMPLATES.find(t => t.id === frontLayout) || COVER_TEMPLATES[0];
-        const backTemplate = COVER_TEMPLATES.find(t => t.id === backLayout) || COVER_TEMPLATES[0];
+        const { baseId: frontBaseId } = parseLayoutId(frontLayout);
+        const { baseId: backBaseId } = parseLayoutId(backLayout);
+        const frontTemplate = COVER_TEMPLATES.find(t => t.id === frontBaseId) || COVER_TEMPLATES[0];
+        const backTemplate = COVER_TEMPLATES.find(t => t.id === backBaseId) || COVER_TEMPLATES[0];
 
         const requiredBackPhotos = backTemplate.photoCount;
         const requiredFrontPhotos = frontTemplate.photoCount;
@@ -580,11 +596,14 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         const leftLayout = side === 'left' ? newLayout : currentLeftLayout;
         const rightLayout = side === 'right' ? newLayout : currentRightLayout;
 
-        const leftTemplate = LAYOUT_TEMPLATES.find(t => t.id === leftLayout) || ADVANCED_TEMPLATES.find(t => t.id === leftLayout) || LAYOUT_TEMPLATES[0];
-        const rightTemplate = LAYOUT_TEMPLATES.find(t => t.id === rightLayout) || ADVANCED_TEMPLATES.find(t => t.id === rightLayout) || LAYOUT_TEMPLATES[0];
+        const { baseId: leftBaseId } = parseLayoutId(leftLayout);
+        const { baseId: rightBaseId } = parseLayoutId(rightLayout);
+        const leftTemplate = LAYOUT_TEMPLATES.find(t => t.id === leftBaseId) || ADVANCED_TEMPLATES.find(t => t.id === leftBaseId) || LAYOUT_TEMPLATES[0];
+        const rightTemplate = LAYOUT_TEMPLATES.find(t => t.id === rightBaseId) || ADVANCED_TEMPLATES.find(t => t.id === rightBaseId) || LAYOUT_TEMPLATES[0];
 
         // We need to know how many photos the OLD left layout took, to find the insertion point
-        const oldLeftTemplate = LAYOUT_TEMPLATES.find(t => t.id === currentLeftLayout) || ADVANCED_TEMPLATES.find(t => t.id === currentLeftLayout) || LAYOUT_TEMPLATES[0];
+        const { baseId: oldLeftBaseId } = parseLayoutId(currentLeftLayout);
+        const oldLeftTemplate = LAYOUT_TEMPLATES.find(t => t.id === oldLeftBaseId) || ADVANCED_TEMPLATES.find(t => t.id === oldLeftBaseId) || LAYOUT_TEMPLATES[0];
         const oldLeftCount = oldLeftTemplate.photoCount;
 
         const newLeftCount = leftTemplate.photoCount;

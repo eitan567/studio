@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { BookOpenText, Info, Trash2, LayoutTemplate, Download, Image as ImageIcon, Wand2, Undo, Crop, AlertTriangle, Pencil, BookOpen, Share2, FileText, FileDown, MoreHorizontal, FileImage, Plus, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, CornerDownRight } from 'lucide-react';
+import { BookOpenText, Info, Trash2, LayoutTemplate, Download, Image as ImageIcon, Wand2, Undo, Crop, AlertTriangle, Pencil, BookOpen, Share2, FileText, FileDown, MoreHorizontal, FileImage, Plus, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, CornerDownRight, RotateCw } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
 
 import type { AlbumPage, AlbumConfig, Photo } from '@/lib/types';
@@ -28,6 +28,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { rotateGridTemplate, rotateAdvancedTemplate, getNextRotation, RotationAngle } from '@/lib/template-rotation';
 
 // Helper function to render a clean preview of an advanced template
 // Uses CSS positioned divs to match the style of grid-based templates
@@ -105,6 +106,66 @@ const renderAdvancedTemplatePreview = (template: AdvancedTemplate) => {
         );
       })}
     </div>
+  );
+};
+
+
+// Template Thumbnail - simple static preview for selection
+type TemplateWithGrid = { id: string; name: string; photoCount: number; grid: string[] };
+type TemplateUnion = TemplateWithGrid | AdvancedTemplate;
+
+// Parse layout ID to extract base template and rotation (same as in page-layout.tsx)
+function parseLayoutId(layoutId: string): { baseId: string; rotation: RotationAngle } {
+  const rotationMatch = layoutId.match(/_r(90|180|270)$/);
+  if (rotationMatch) {
+    const rotation = parseInt(rotationMatch[1]) as RotationAngle;
+    const baseId = layoutId.replace(/_r(90|180|270)$/, '');
+    return { baseId, rotation };
+  }
+  return { baseId: layoutId, rotation: 0 };
+}
+
+const TemplateThumbnail = ({
+  template,
+  isSelected,
+  onSelect
+}: {
+  template: TemplateUnion;
+  isSelected: boolean;
+  onSelect: (templateId: string) => void;
+}) => {
+  // Render static preview (no rotation - rotation is handled in toolbar)
+  const renderPreview = () => {
+    if ('grid' in template) {
+      return (
+        <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
+          {template.grid.map((gridClass, i) => (
+            <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
+          ))}
+        </div>
+      );
+    } else {
+      return (
+        <div className="w-full h-16 bg-muted relative overflow-hidden">
+          {renderAdvancedTemplatePreview(template as AdvancedTemplate)}
+        </div>
+      );
+    }
+  };
+
+  return (
+    <DropdownMenuItem
+      onSelect={() => onSelect(template.id)}
+      className={cn(
+        "p-0 focus:bg-accent/50 rounded-md cursor-pointer",
+        isSelected && "ring-2 ring-primary"
+      )}
+    >
+      <div className="w-24 h-24 p-1 flex flex-col items-center">
+        {renderPreview()}
+        <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
+      </div>
+    </DropdownMenuItem>
   );
 };
 
@@ -460,39 +521,27 @@ const PageToolbar = ({
                     </Tooltip>
                     <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
                       {(page.isCover ? [...COVER_TEMPLATES, ...ADVANCED_TEMPLATES] : [...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES]).map(template => (
-                        <DropdownMenuItem
+                        <TemplateThumbnail
                           key={template.id}
-                          onSelect={() => {
+                          template={template}
+                          isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.back || '' : page.spreadLayouts?.left || '').baseId === template.id}
+                          onSelect={(templateId) => {
+                            // When selecting a new template, preserve current rotation if any
+                            const currentLayoutId = page.isCover ? page.coverLayouts?.back : page.spreadLayouts?.left;
+                            const { rotation } = parseLayoutId(currentLayoutId || '');
+                            const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
                             if (page.isCover) {
-                              onUpdateCoverLayout?.(page.id, 'back', template.id);
+                              onUpdateCoverLayout?.(page.id, 'back', finalId);
                             } else {
                               if (onUpdateSpreadLayout) {
-                                onUpdateSpreadLayout(page.id, 'left', template.id);
+                                onUpdateSpreadLayout(page.id, 'left', finalId);
                               } else {
                                 const currentLayouts = page.spreadLayouts || { left: LAYOUT_TEMPLATES[0].id, right: LAYOUT_TEMPLATES[0].id };
-                                onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, left: template.id } });
+                                onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, left: finalId } });
                               }
                             }
                           }}
-                          className={cn("p-0 focus:bg-accent/50 rounded-md cursor-pointer",
-                            (page.isCover ? page.coverLayouts?.back : page.spreadLayouts?.left) === template.id && "ring-2 ring-primary"
-                          )}
-                        >
-                          <div className="w-24 h-24 p-1 flex flex-col items-center">
-                            {'grid' in template ? (
-                              <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
-                                {template.grid.map((gridClass, i) => (
-                                  <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="w-full h-16 bg-muted relative overflow-hidden">
-                                {renderAdvancedTemplatePreview(template as AdvancedTemplate)}
-                              </div>
-                            )}
-                            <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
-                          </div>
-                        </DropdownMenuItem>
+                        />
                       ))}
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -519,39 +568,26 @@ const PageToolbar = ({
                         ? [...COVER_TEMPLATES, ...ADVANCED_TEMPLATES]
                         : [...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES]
                       ).map(template => (
-                        <DropdownMenuItem
+                        <TemplateThumbnail
                           key={template.id}
-                          onSelect={() => {
+                          template={template}
+                          isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.front || '' : page.spreadLayouts?.right || '').baseId === template.id}
+                          onSelect={(templateId) => {
+                            const currentLayoutId = page.isCover ? page.coverLayouts?.front : page.spreadLayouts?.right;
+                            const { rotation } = parseLayoutId(currentLayoutId || '');
+                            const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
                             if (page.isCover) {
-                              onUpdateCoverLayout?.(page.id, 'front', template.id);
+                              onUpdateCoverLayout?.(page.id, 'front', finalId);
                             } else {
                               if (onUpdateSpreadLayout) {
-                                onUpdateSpreadLayout(page.id, 'right', template.id);
+                                onUpdateSpreadLayout(page.id, 'right', finalId);
                               } else {
                                 const currentLayouts = page.spreadLayouts || { left: LAYOUT_TEMPLATES[0].id, right: LAYOUT_TEMPLATES[0].id };
-                                onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, right: template.id } });
+                                onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, right: finalId } });
                               }
                             }
                           }}
-                          className={cn("p-0 focus:bg-accent/50 rounded-md cursor-pointer",
-                            (page.isCover ? page.coverLayouts?.front : page.spreadLayouts?.right) === template.id && "ring-2 ring-primary"
-                          )}
-                        >
-                          <div className="w-24 h-24 p-1 flex flex-col items-center">
-                            {'grid' in template ? (
-                              <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
-                                {template.grid.map((gridClass, i) => (
-                                  <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="w-full h-16 bg-muted relative overflow-hidden">
-                                {renderAdvancedTemplatePreview(template as AdvancedTemplate)}
-                              </div>
-                            )}
-                            <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
-                          </div>
-                        </DropdownMenuItem>
+                        />
                       ))}
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -572,37 +608,53 @@ const PageToolbar = ({
                   </Tooltip>
                   <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
                     {(page.isCover ? [...COVER_TEMPLATES, ...ADVANCED_TEMPLATES] : [...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES]).map(template => (
-                      <DropdownMenuItem
+                      <TemplateThumbnail
                         key={template.id}
-                        onSelect={() => {
+                        template={template}
+                        isSelected={parseLayoutId(page.layout || '').baseId === template.id}
+                        onSelect={(templateId) => {
+                          const { rotation } = parseLayoutId(page.layout || '');
+                          const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
                           if (page.isCover) {
-                            onUpdateCoverLayout?.(page.id, 'full', template.id);
+                            onUpdateCoverLayout?.(page.id, 'full', finalId);
                           } else {
-                            onUpdateLayout(page.id, template.id);
+                            onUpdateLayout(page.id, finalId);
                           }
                         }}
-                        className={cn("p-0 focus:bg-accent/50 rounded-md cursor-pointer", page.layout === template.id && "ring-2 ring-primary")}
-                      >
-                        <div className="w-24 h-24 p-1 flex flex-col items-center">
-                          {'grid' in template ? (
-                            <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
-                              {template.grid.map((gridClass, i) => (
-                                <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="w-full h-16 bg-muted relative overflow-hidden">
-                              {renderAdvancedTemplatePreview(template as AdvancedTemplate)}
-                            </div>
-                          )}
-                          <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
-                        </div>
-                      </DropdownMenuItem>
+                      />
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
             </div>
+
+            {/* Rotation Button for Full mode */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    const { baseId, rotation } = parseLayoutId(page.layout || '');
+                    const newRotation = getNextRotation(rotation);
+                    const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
+                    if (page.isCover) {
+                      onUpdateCoverLayout?.(page.id, 'full', newLayout);
+                    } else {
+                      onUpdateLayout(page.id, newLayout);
+                    }
+                  }}
+                >
+                  <RotateCw className="h-4 w-4" />
+                  {parseLayoutId(page.layout || '').rotation !== 0 && (
+                    <span className="absolute -top-1 -right-1 text-[9px] bg-primary text-primary-foreground px-1 rounded">
+                      {parseLayoutId(page.layout || '').rotation}°
+                    </span>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Rotate Layout 90°</TooltipContent>
+            </Tooltip>
 
             <div className="h-4 w-px bg-border mx-2" />
             <Tooltip>
@@ -687,25 +739,47 @@ const PageToolbar = ({
               </Tooltip>
               <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
                 {[...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES].map(template => (
-                  <DropdownMenuItem key={template.id} onSelect={() => onUpdateLayout(page.id, template.id)} className="p-0 focus:bg-accent/50 rounded-md cursor-pointer">
-                    <div className="w-24 h-24 p-1 flex flex-col items-center">
-                      {'grid' in template ? (
-                        <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
-                          {template.grid.map((gridClass, i) => (
-                            <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="w-full h-16 bg-muted relative overflow-hidden">
-                          {renderAdvancedTemplatePreview(template as AdvancedTemplate)}
-                        </div>
-                      )}
-                      <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
-                    </div>
-                  </DropdownMenuItem>
+                  <TemplateThumbnail
+                    key={template.id}
+                    template={template}
+                    isSelected={parseLayoutId(page.layout || '').baseId === template.id}
+                    onSelect={(templateId) => {
+                      const { rotation } = parseLayoutId(page.layout || '');
+                      const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
+                      onUpdateLayout(page.id, finalId);
+                    }}
+                  />
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+            {/* Rotation Button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    console.log('[RotateButton] Clicked! Current layout:', page.layout);
+                    const { baseId, rotation } = parseLayoutId(page.layout || '');
+                    console.log('[RotateButton] Parsed:', { baseId, rotation });
+                    const newRotation = getNextRotation(rotation);
+                    console.log('[RotateButton] New rotation:', newRotation);
+                    const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
+                    console.log('[RotateButton] New layout ID:', newLayout);
+                    onUpdateLayout(page.id, newLayout);
+                  }}
+                  className="relative"
+                >
+                  <RotateCw className="h-4 w-4" />
+                  {parseLayoutId(page.layout || '').rotation !== 0 && (
+                    <span className="absolute -top-1 -right-1 text-[9px] bg-primary text-primary-foreground px-1 rounded">
+                      {parseLayoutId(page.layout || '').rotation}°
+                    </span>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Rotate Layout 90°</TooltipContent>
+            </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon" onClick={() => onDownloadPage?.(page.id)}><Download className="h-5 w-5" /></Button>

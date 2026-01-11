@@ -6,6 +6,18 @@ import { PhotoRenderer } from './photo-renderer';
 import { EmptyPhotoSlot } from './empty-photo-slot';
 import { ADVANCED_TEMPLATES } from '@/lib/advanced-layout-types';
 import { ShapeRegion } from './shape-region';
+import { rotateGridTemplate, rotateAdvancedTemplate, RotationAngle } from '@/lib/template-rotation';
+
+// Parse layout ID to extract base template and rotation
+function parseLayoutId(layoutId: string): { baseId: string; rotation: RotationAngle } {
+    const rotationMatch = layoutId.match(/_r(90|180|270)$/);
+    if (rotationMatch) {
+        const rotation = parseInt(rotationMatch[1]) as RotationAngle;
+        const baseId = layoutId.replace(/_r(90|180|270)$/, '');
+        return { baseId, rotation };
+    }
+    return { baseId: layoutId, rotation: 0 };
+}
 
 export interface PageLayoutProps {
     page: AlbumPage;
@@ -33,9 +45,13 @@ const PageLayoutComponent = ({
     photoIndexOffset = 0
 }: PageLayoutProps) => {
     const photos = overridePhotos || page.photos;
-    const layout = overrideLayout || page.layout;
+    const rawLayout = overrideLayout || page.layout;
 
-    // Check for templates in both sources
+    // Parse rotation from layout ID
+    const { baseId: layout, rotation } = parseLayoutId(rawLayout);
+    console.log('[PageLayout] Rendering with:', { rawLayout, layout, rotation });
+
+    // Check for templates in both sources using the BASE layout ID
     // First, try to find in templateSource (which may include both grid and advanced templates)
     const foundTemplate = templateSource.find(t => t.id === layout);
 
@@ -44,12 +60,25 @@ const PageLayoutComponent = ({
     const isAdvancedTemplate = foundTemplate && 'regions' in foundTemplate;
 
     // If not found in templateSource, also check ADVANCED_TEMPLATES directly
-    const advancedTemplate = isAdvancedTemplate
+    let advancedTemplate = isAdvancedTemplate
         ? foundTemplate as any // Found in templateSource as advanced
         : (!foundTemplate ? ADVANCED_TEMPLATES.find(t => t.id === layout) : null);
 
+    // Apply rotation to advanced template if needed
+    if (advancedTemplate && rotation !== 0) {
+        advancedTemplate = rotateAdvancedTemplate(advancedTemplate, rotation);
+    }
+
     // Grid template for legacy grid rendering
-    const template = isGridTemplate ? foundTemplate : (!advancedTemplate ? templateSource[0] : null);
+    let template = isGridTemplate ? foundTemplate : (!advancedTemplate ? templateSource[0] : null);
+
+    // Apply rotation to grid template if needed
+    if (template && 'grid' in template && rotation !== 0) {
+        template = {
+            ...template,
+            grid: rotateGridTemplate(template.grid, rotation)
+        };
+    }
 
     const [dragOverPhotoId, setDragOverPhotoId] = useState<string | null>(null);
     const containerRef = React.useRef<HTMLDivElement>(null);
