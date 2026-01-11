@@ -115,7 +115,7 @@ const PageLayoutComponent = ({
         return (
             <div
                 ref={containerRef}
-                className={cn("w-full h-full relative overflow-hidden")}
+                className={cn("w-full h-full relative")}
             >
                 {/* Only render regions if we have dimensions, otherwise wait for measure */}
                 {W > 0 && H > 0 && sortedRegions.map((region, index) => {

@@ -86,16 +86,22 @@ export const ShapePhotoFrame = ({
     // Render empty slot
     if (!photo || !photo.src) {
         return (
-            <div style={style}>
+            <div
+                style={style}
+                className={cn(
+                    "transition-all duration-200",
+                    isDragOver && "ring-2 ring-primary ring-offset-2"
+                )}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+            >
                 <div
                     style={innerStyle}
                     className={cn(
-                        "bg-muted flex flex-col items-center justify-center transition-all duration-200",
-                        isDragOver && "ring-2 ring-primary ring-inset bg-primary/10"
+                        "bg-muted flex flex-col items-center justify-center",
+                        isDragOver && "bg-primary/10"
                     )}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
                 >
                     <div className="relative text-muted-foreground/50">
                         <ImageIcon className="w-8 h-8" />
@@ -113,16 +119,17 @@ export const ShapePhotoFrame = ({
     return (
         <div
             style={style}
+            className={cn(
+                "transition-all duration-200",
+                isDragOver && "ring-2 ring-primary ring-offset-2"
+            )}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
         >
             <div
                 style={innerStyle}
-                className={cn(
-                    "overflow-hidden transition-all duration-200",
-                    isDragOver && "ring-2 ring-primary ring-inset"
-                )}
+                className="overflow-hidden"
             >
                 <div className="w-full h-full relative">
                     <PhotoRenderer
