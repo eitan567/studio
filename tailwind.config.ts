@@ -1,4 +1,4 @@
-import type {Config} from 'tailwindcss';
+import type { Config } from 'tailwindcss';
 
 export default {
   darkMode: ['class'],
@@ -6,6 +6,22 @@ export default {
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/lib/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+  // Safelist all grid positioning classes for dynamic rotation
+  safelist: [
+    // col-start-1 through col-start-13
+    ...Array.from({ length: 13 }, (_, i) => `col-start-${i + 1}`),
+    // col-end-1 through col-end-13
+    ...Array.from({ length: 13 }, (_, i) => `col-end-${i + 1}`),
+    // col-span-1 through col-span-12
+    ...Array.from({ length: 12 }, (_, i) => `col-span-${i + 1}`),
+    // row-start-1 through row-start-13
+    ...Array.from({ length: 13 }, (_, i) => `row-start-${i + 1}`),
+    // row-end-1 through row-end-13
+    ...Array.from({ length: 13 }, (_, i) => `row-end-${i + 1}`),
+    // row-span-1 through row-span-12
+    ...Array.from({ length: 12 }, (_, i) => `row-span-${i + 1}`),
   ],
   theme: {
     container: {
