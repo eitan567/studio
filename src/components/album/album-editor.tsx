@@ -156,11 +156,143 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     }, 100);
   };
 
+  // Generate empty album structure (cover + single + spread + single)
+  const generateEmptyAlbum = () => {
+    const emptyPhoto = (id?: string) => ({
+      id: id || uuidv4(),
+      src: '',
+      alt: 'Drop photo here',
+      width: 600,
+      height: 400,
+      panAndZoom: { scale: 1, x: 50, y: 50 }
+    });
 
+    const newPages: AlbumPage[] = [
+      // Cover page
+      {
+        id: 'cover',
+        type: 'spread',
+        photos: [emptyPhoto()],
+        layout: '1-full',
+        isCover: true,
+        coverLayouts: { front: '1-full', back: '1-full' },
+        coverType: 'full',
+        spineText: '',
+        spineWidth: 20,
+        spineColor: '#ffffff',
+        spineTextColor: '#000000',
+        spineFontFamily: 'Tahoma',
+        photoGap: 10,
+        pageMargin: 10
+      },
+      // First single page (right side)
+      {
+        id: uuidv4(),
+        type: 'single',
+        photos: [emptyPhoto()],
+        layout: '1-full'
+      },
+      // Double spread (empty)
+      {
+        id: uuidv4(),
+        type: 'spread',
+        photos: [emptyPhoto(), emptyPhoto()],
+        layout: '2-horizontal',
+        spreadMode: 'split',
+        spreadLayouts: { left: '1-full', right: '1-full' }
+      },
+      // Last single page (left side)
+      {
+        id: uuidv4(),
+        type: 'single',
+        photos: [emptyPhoto()],
+        layout: '1-full'
+      }
+    ];
+
+    setAlbumPages(newPages);
+  };
+
+  // Extract EXIF date from JPEG files
+  const extractExifDate = (arrayBuffer: ArrayBuffer): Date | undefined => {
+    try {
+      const view = new DataView(arrayBuffer);
+      // Check for JPEG magic number
+      if (view.getUint16(0) !== 0xFFD8) return undefined;
+
+      let offset = 2;
+      while (offset < view.byteLength - 2) {
+        const marker = view.getUint16(offset);
+        offset += 2;
+
+        if (marker === 0xFFE1) { // APP1 - EXIF
+          const length = view.getUint16(offset);
+          offset += 2;
+
+          // Check for "Exif\0\0"
+          const exifHeader = String.fromCharCode(
+            view.getUint8(offset), view.getUint8(offset + 1),
+            view.getUint8(offset + 2), view.getUint8(offset + 3)
+          );
+          if (exifHeader !== 'Exif') return undefined;
+
+          const tiffOffset = offset + 6;
+          const littleEndian = view.getUint16(tiffOffset) === 0x4949;
+
+          // Find IFD0
+          const ifd0Offset = tiffOffset + view.getUint32(tiffOffset + 4, littleEndian);
+
+          // Look for EXIF IFD pointer (tag 0x8769)
+          const ifd0Count = view.getUint16(ifd0Offset, littleEndian);
+          let exifIfdOffset = 0;
+
+          for (let i = 0; i < ifd0Count; i++) {
+            const entryOffset = ifd0Offset + 2 + i * 12;
+            const tag = view.getUint16(entryOffset, littleEndian);
+            if (tag === 0x8769) {
+              exifIfdOffset = tiffOffset + view.getUint32(entryOffset + 8, littleEndian);
+              break;
+            }
+          }
+
+          if (exifIfdOffset) {
+            const exifCount = view.getUint16(exifIfdOffset, littleEndian);
+            for (let i = 0; i < exifCount; i++) {
+              const entryOffset = exifIfdOffset + 2 + i * 12;
+              const tag = view.getUint16(entryOffset, littleEndian);
+              if (tag === 0x9003 || tag === 0x9004) { // DateTimeOriginal or DateTimeDigitized
+                const valueOffset = tiffOffset + view.getUint32(entryOffset + 8, littleEndian);
+                let dateStr = '';
+                for (let j = 0; j < 19; j++) {
+                  dateStr += String.fromCharCode(view.getUint8(valueOffset + j));
+                }
+                // Format: "YYYY:MM:DD HH:MM:SS"
+                const [datePart, timePart] = dateStr.split(' ');
+                const [year, month, day] = datePart.split(':').map(Number);
+                const [hour, min, sec] = timePart.split(':').map(Number);
+                return new Date(year, month - 1, day, hour, min, sec);
+              }
+            }
+          }
+          return undefined;
+        } else if ((marker & 0xFF00) === 0xFF00) {
+          // Skip other markers
+          offset += view.getUint16(offset);
+        } else {
+          break;
+        }
+      }
+    } catch {
+      return undefined;
+    }
+    return undefined;
+  };
 
   useEffect(() => {
     setIsClient(true);
     setRandomSeed(Math.random().toString(36).substring(7));
+    // Initialize with empty album
+    generateEmptyAlbum();
   }, []);
 
   const form = useForm<ConfigFormData>({
@@ -912,24 +1044,35 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       const newPhotos: Photo[] = await Promise.all(
         imageFiles.map(file => {
           return new Promise<Photo>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-              const dataUrl = e.target?.result as string;
-              const img = new window.Image();
-              img.onload = () => {
-                resolve({
-                  id: uuidv4(),
-                  src: dataUrl,
-                  alt: file.name,
-                  width: img.width,
-                  height: img.height,
-                });
+            // Read as ArrayBuffer for EXIF, then convert to data URL
+            const arrayReader = new FileReader();
+            arrayReader.onload = (arrayEvent) => {
+              const arrayBuffer = arrayEvent.target?.result as ArrayBuffer;
+              const captureDate = extractExifDate(arrayBuffer);
+
+              // Now read as data URL for display
+              const dataReader = new FileReader();
+              dataReader.onload = (dataEvent) => {
+                const dataUrl = dataEvent.target?.result as string;
+                const img = new window.Image();
+                img.onload = () => {
+                  resolve({
+                    id: uuidv4(),
+                    src: dataUrl,
+                    alt: file.name,
+                    width: img.width,
+                    height: img.height,
+                    captureDate,
+                  });
+                };
+                img.onerror = () => reject(new Error(`Failed to load image: ${file.name}`));
+                img.src = dataUrl;
               };
-              img.onerror = () => reject(new Error(`Failed to load image: ${file.name}`));
-              img.src = dataUrl;
+              dataReader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
+              dataReader.readAsDataURL(file);
             };
-            reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
-            reader.readAsDataURL(file);
+            arrayReader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
+            arrayReader.readAsArrayBuffer(file);
           });
         })
       );
@@ -948,6 +1091,32 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         variant: 'destructive'
       });
     }
+  };
+
+  // Generate album from existing photos (sorted by capture date)
+  const handleGenerateAlbum = () => {
+    if (allPhotos.length === 0) {
+      toast({
+        title: 'No photos',
+        description: 'Please upload photos first.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    // Sort photos by capture date (oldest first), photos without date go to end
+    const sortedPhotos = [...allPhotos].sort((a, b) => {
+      if (!a.captureDate && !b.captureDate) return 0;
+      if (!a.captureDate) return 1;
+      if (!b.captureDate) return -1;
+      return a.captureDate.getTime() - b.captureDate.getTime();
+    });
+
+    generateInitialPages(sortedPhotos);
+    toast({
+      title: 'Album Generated',
+      description: `Album created with ${sortedPhotos.length} photos sorted by date.`,
+    });
   };
 
 
@@ -1281,6 +1450,15 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                     title="Upload photos"
                   >
                     <Upload className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={handleGenerateAlbum}
+                    title="Generate album from photos"
+                  >
+                    <Wand2 className="h-4 w-4" />
                   </Button>
                   <div className="h-4 w-px bg-border" />
                   <label htmlFor="allow-duplicates" className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">

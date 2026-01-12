@@ -11,6 +11,7 @@ export type Photo = {
   width?: number;
   height?: number;
   panAndZoom?: PhotoPanAndZoom;
+  captureDate?: Date; // EXIF capture date for sorting
 };
 
 export type AlbumConfig = {
