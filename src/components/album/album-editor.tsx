@@ -19,6 +19,8 @@ import {
   Download,
   ArrowUp,
   Layout,
+  FolderUp,
+  Upload,
 } from 'lucide-react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -129,6 +131,10 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   ]);
   const backgroundUploadRef = useRef<HTMLInputElement>(null);
   const colorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Photo Upload Refs
+  const folderUploadRef = useRef<HTMLInputElement>(null);
+  const photoUploadRef = useRef<HTMLInputElement>(null);
 
   // Export State
   const [isExporting, setIsExporting] = useState(false);
@@ -879,6 +885,70 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     }, 1500);
   };
 
+  // Process uploaded photo files (from folder or individual selection)
+  const processUploadedFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    const imageFiles = Array.from(files).filter(file =>
+      /\.(jpg|jpeg|png|gif|webp)$/i.test(file.name)
+    );
+
+    if (imageFiles.length === 0) {
+      toast({
+        title: 'No images found',
+        description: 'Please select valid image files (jpg, jpeg, png, gif, webp).',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    toast({
+      title: 'Uploading Photos',
+      description: `Processing ${imageFiles.length} image(s)...`,
+    });
+
+    try {
+      const newPhotos: Photo[] = await Promise.all(
+        imageFiles.map(file => {
+          return new Promise<Photo>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const dataUrl = e.target?.result as string;
+              const img = new window.Image();
+              img.onload = () => {
+                resolve({
+                  id: uuidv4(),
+                  src: dataUrl,
+                  alt: file.name,
+                  width: img.width,
+                  height: img.height,
+                });
+              };
+              img.onerror = () => reject(new Error(`Failed to load image: ${file.name}`));
+              img.src = dataUrl;
+            };
+            reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
+            reader.readAsDataURL(file);
+          });
+        })
+      );
+
+      setAllPhotos(prev => [...prev, ...newPhotos]);
+      setIsLoading(false);
+      toast({
+        title: 'Photos Uploaded',
+        description: `${newPhotos.length} photo(s) added to gallery.`,
+      });
+    } catch (error) {
+      setIsLoading(false);
+      toast({
+        title: 'Upload Failed',
+        description: 'Some images could not be processed.',
+        variant: 'destructive'
+      });
+    }
+  };
 
 
   const handleDownloadPage = async (pageId: string) => {
@@ -1193,6 +1263,26 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
               <div className="flex items-center justify-between">
                 <CardTitle className="font-headline text-lg">Photo Gallery</CardTitle>
                 <div className="flex items-center gap-2">
+                  {/* Upload Buttons */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => folderUploadRef.current?.click()}
+                    title="Upload folder"
+                  >
+                    <FolderUp className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => photoUploadRef.current?.click()}
+                    title="Upload photos"
+                  >
+                    <Upload className="h-4 w-4" />
+                  </Button>
+                  <div className="h-4 w-px bg-border" />
                   <label htmlFor="allow-duplicates" className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                     Allow Multi
                   </label>
@@ -1203,6 +1293,30 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                   />
                 </div>
               </div>
+              {/* Hidden file inputs */}
+              <input
+                ref={folderUploadRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                {...({ webkitdirectory: "", directory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
+                onChange={(e) => {
+                  processUploadedFiles(e.target.files);
+                  e.target.value = '';
+                }}
+              />
+              <input
+                ref={photoUploadRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  processUploadedFiles(e.target.files);
+                  e.target.value = '';
+                }}
+              />
             </CardHeader>
             <CardContent className="flex-1 overflow-hidden p-0 relative">
               {isLoading ? (
