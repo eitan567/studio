@@ -5,6 +5,15 @@ import { PageLayout } from './page-layout';
 import { COVER_TEMPLATES, LAYOUT_TEMPLATES } from './layout-templates';
 import { ADVANCED_TEMPLATES } from '@/lib/advanced-layout-types';
 
+// Helper to parse layout ID and extract base ID (without rotation suffix)
+function parseLayoutId(layoutId: string): { baseId: string; rotation: number } {
+    const match = layoutId.match(/^(.+?)(_r(90|180|270))?$/);
+    if (!match) return { baseId: layoutId, rotation: 0 };
+    const baseId = match[1];
+    const rotation = match[3] ? parseInt(match[3], 10) : 0;
+    return { baseId, rotation };
+}
+
 // --- Types ---
 
 export interface AlbumCoverProps {
@@ -586,7 +595,13 @@ export const AlbumCover = ({
         : (page.spreadLayouts?.right || LAYOUT_TEMPLATES[0].id);
 
     const templateSource = page.isCover ? [...COVER_TEMPLATES, ...ADVANCED_TEMPLATES] : [...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES];
-    const backTemplate = templateSource.find(t => t.id === backLayoutId) || templateSource[0];
+
+    // Parse layout IDs to get base IDs for template lookup (removes rotation suffix)
+    const { baseId: backBaseId } = parseLayoutId(backLayoutId);
+    const { baseId: frontBaseId } = parseLayoutId(frontLayoutId);
+
+    const backTemplate = templateSource.find(t => t.id === backBaseId) || templateSource[0];
+    const frontTemplate = templateSource.find(t => t.id === frontBaseId) || templateSource[0];
     const backPhotoCount = backTemplate.photoCount;
 
     // Photos
