@@ -273,7 +273,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
             e.stopPropagation();
             onRemove();
           }}
-          className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-destructive text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-auto"
+          className="absolute top-2 right-2 p-1.5 bg-black/50 text-white/70 rounded-full hover:text-destructive opacity-0 group-hover:opacity-100 transition-all z-50 pointer-events-auto"
           title="Remove Photo"
         >
           <svg
