@@ -60,6 +60,7 @@ import { LAYOUT_TEMPLATES, COVER_TEMPLATES } from './layout-templates';
 import { ADVANCED_TEMPLATES, AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, TooltipArrow } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 
@@ -1612,6 +1613,51 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                             <AlertTriangle className="h-4 w-4 fill-orange-500 text-white" />
                           </div>
                         )}
+                        {/* Magnify button with Radix Tooltip - smart positioning */}
+                        <div className="absolute bottom-1 right-1 z-20">
+                          <TooltipProvider delayDuration={0}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  className="p-1 bg-black/60 text-white rounded hover:bg-black/80 transition-colors"
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  >
+                                    <circle cx="11" cy="11" r="8" />
+                                    <path d="m21 21-4.3-4.3" />
+                                    <path d="M11 8v6" />
+                                    <path d="M8 11h6" />
+                                  </svg>
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent
+                                side="left"
+                                sideOffset={8}
+                                className="p-0.5 bg-white rounded-lg shadow-2xl border-0"
+                                style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}
+                              >
+                                <TooltipArrow className="fill-white" width={12} height={8} />
+                                <img
+                                  src={photo.src}
+                                  alt="Preview"
+                                  className="block rounded"
+                                  style={{ width: '300px', height: 'auto' }}
+                                />
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
                           <span className="text-[10px] text-white font-bold bg-black/50 px-1.5 py-0.5 rounded">DRAG ME</span>
                         </div>
