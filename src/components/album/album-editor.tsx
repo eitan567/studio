@@ -21,6 +21,8 @@ import {
   Layout,
   FolderUp,
   Upload,
+  Eraser,
+  RotateCcw,
 } from 'lucide-react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -1119,6 +1121,23 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     });
   };
 
+  // Clear all photos from gallery
+  const handleClearGallery = () => {
+    setAllPhotos([]);
+    toast({
+      title: 'Gallery Cleared',
+      description: 'All photos have been removed from the gallery.',
+    });
+  };
+
+  // Reset album to empty state
+  const handleResetAlbum = () => {
+    generateEmptyAlbum();
+    toast({
+      title: 'Album Reset',
+      description: 'Album has been reset to empty state.',
+    });
+  };
 
   const handleDownloadPage = async (pageId: string) => {
     toast({ title: "Downloading page..." });
@@ -1544,6 +1563,26 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
               <ScrollToTopButton scrollAreaRef={photoScrollRef} dependency={allPhotos.length} />
             </CardContent>
             <div className="p-3 border-t bg-muted/30 flex flex-col gap-2">
+              <div className="flex items-center justify-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={handleClearGallery}
+                >
+                  <Eraser className="h-3 w-3" />
+                  Clear Gallery
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={handleResetAlbum}
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  Reset Album
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground text-center">
                 {allPhotos.length} photos total • {usedPhotoIds.size} used
               </p>
