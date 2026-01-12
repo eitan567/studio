@@ -184,9 +184,9 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         spineWidth: 20,
         spineColor: '#ffffff',
         spineTextColor: '#000000',
-        spineFontFamily: 'Tahoma',
-        photoGap: 10,
-        pageMargin: 10
+        spineFontFamily: 'Tahoma'
+        // Note: photoGap and pageMargin are intentionally omitted
+        // so the cover uses global config values from sliders
       },
       // First single page (right side)
       {
@@ -371,9 +371,9 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       spineWidth: 20,
       spineColor: '#ffffff',
       spineTextColor: '#000000',
-      spineFontFamily: 'Tahoma',
-      photoGap: 10,
-      pageMargin: 10
+      spineFontFamily: 'Tahoma'
+      // Note: photoGap and pageMargin are intentionally omitted
+      // so the cover uses global config values from sliders
     });
 
 
