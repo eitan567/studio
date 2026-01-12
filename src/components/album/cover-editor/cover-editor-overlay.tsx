@@ -384,7 +384,7 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos, isC
                             </div>
 
                             {/* Alignment Tools (Vertical Actions) */}
-                            <div className="flex items-center gap-1 border-r pr-4 mr-0">
+                            <div className="flex items-center gap-1 mr-0">
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAlign('top')} disabled={activeTextIds.length < 2} title="Align Top">
                                     <AlignStartHorizontal className="h-4 w-4" />
                                 </Button>
@@ -397,14 +397,14 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos, isC
                             </div>
 
                             {/* Distribute Tools */}
-                            <div className="flex items-center gap-1">
+                            {/* <div className="flex items-center gap-1">
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDistribute('horizontal')} disabled={activeTextIds.length < 3} title="Distribute Horizontally">
                                     <AlignHorizontalDistributeCenter className="h-4 w-4" />
                                 </Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDistribute('vertical')} disabled={activeTextIds.length < 3} title="Distribute Vertically">
                                     <AlignVerticalDistributeCenter className="h-4 w-4" />
                                 </Button>
-                            </div>
+                            </div> */}
                         </div>
                     </div>
 

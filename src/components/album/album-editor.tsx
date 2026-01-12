@@ -1745,7 +1745,7 @@ function ScrollToTopButton({ scrollAreaRef, className, dependency }: { scrollAre
       variant="secondary"
       size="icon"
       className={cn(
-        "absolute bottom-4 right-4 z-50 rounded-full shadow-lg transition-all duration-300",
+        "absolute bottom-4 right-4 z-49rounded-full shadow-lg transition-all duration-300",
         isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10 pointer-events-none",
         className
       )}
