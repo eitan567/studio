@@ -17,6 +17,8 @@ interface LayoutSidebarRightProps {
     onPhotoGapChange: (gap: number) => void;
     pageMargin: number;
     onPageMarginChange: (margin: number) => void;
+    cornerRadius: number;
+    onCornerRadiusChange: (radius: number) => void;
     useDummyPhotos: boolean;
     onUseDummyPhotosChange: (use: boolean) => void;
 }
@@ -30,6 +32,8 @@ export const LayoutSidebarRight = ({
     onPhotoGapChange,
     pageMargin,
     onPageMarginChange,
+    cornerRadius,
+    onCornerRadiusChange,
     useDummyPhotos,
     onUseDummyPhotosChange
 }: LayoutSidebarRightProps) => {
@@ -156,6 +160,28 @@ export const LayoutSidebarRight = ({
                             step={1}
                             value={[pageMargin]}
                             onValueChange={(vals) => onPageMarginChange(vals[0])}
+                        />
+                    </div>
+
+                    {/* Corner Radius */}
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <Label className="text-sm">Corner Radius</Label>
+                            <Input
+                                type="number"
+                                className="w-16 h-7 text-xs text-center"
+                                value={cornerRadius}
+                                min={0}
+                                max={50}
+                                onChange={(e) => onCornerRadiusChange(Math.max(0, Math.min(50, Number(e.target.value))))}
+                            />
+                        </div>
+                        <Slider
+                            min={0}
+                            max={50}
+                            step={1}
+                            value={[cornerRadius]}
+                            onValueChange={(vals) => onCornerRadiusChange(vals[0])}
                         />
                     </div>
                 </div>

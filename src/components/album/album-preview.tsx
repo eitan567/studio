@@ -507,7 +507,7 @@ const PageToolbar = ({
             <div className="flex items-center gap-2">
               {isSplit ? (
                 <>
-                  {/* Left / Back Layout */}
+                  {/* Left / Back Layout + Rotation */}
                   <DropdownMenu>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -546,10 +546,44 @@ const PageToolbar = ({
                       ))}
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  {/* Rotation Button for Left/Back */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="relative h-8 w-8"
+                        onClick={() => {
+                          const currentLayoutId = page.isCover ? page.coverLayouts?.back : page.spreadLayouts?.left;
+                          const { baseId, rotation } = parseLayoutId(currentLayoutId || '');
+                          const newRotation = getNextRotation(rotation);
+                          const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
+                          if (page.isCover) {
+                            onUpdateCoverLayout?.(page.id, 'back', newLayout);
+                          } else {
+                            if (onUpdateSpreadLayout) {
+                              onUpdateSpreadLayout(page.id, 'left', newLayout);
+                            } else {
+                              const currentLayouts = page.spreadLayouts || { left: LAYOUT_TEMPLATES[0].id, right: LAYOUT_TEMPLATES[0].id };
+                              onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, left: newLayout } });
+                            }
+                          }
+                        }}
+                      >
+                        <RotateCw className="h-4 w-4" />
+                        {parseLayoutId(page.isCover ? page.coverLayouts?.back || '' : page.spreadLayouts?.left || '').rotation !== 0 && (
+                          <span className="absolute -top-1 -right-1 text-[9px] bg-primary text-primary-foreground px-1 rounded">
+                            {parseLayoutId(page.isCover ? page.coverLayouts?.back || '' : page.spreadLayouts?.left || '').rotation}°
+                          </span>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Rotate {page.isCover ? "Back" : "Page 1"} Layout 90°</TooltipContent>
+                  </Tooltip>
 
-                  <div className="h-4 w-px bg-border" />
+                  <div className="h-4 w-px bg-border mx-1" />
 
-                  {/* Right / Front Layout */}
+                  {/* Right / Front Layout + Rotation */}
                   <DropdownMenu>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -592,6 +626,40 @@ const PageToolbar = ({
                       ))}
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  {/* Rotation Button for Right/Front */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="relative h-8 w-8"
+                        onClick={() => {
+                          const currentLayoutId = page.isCover ? page.coverLayouts?.front : page.spreadLayouts?.right;
+                          const { baseId, rotation } = parseLayoutId(currentLayoutId || '');
+                          const newRotation = getNextRotation(rotation);
+                          const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
+                          if (page.isCover) {
+                            onUpdateCoverLayout?.(page.id, 'front', newLayout);
+                          } else {
+                            if (onUpdateSpreadLayout) {
+                              onUpdateSpreadLayout(page.id, 'right', newLayout);
+                            } else {
+                              const currentLayouts = page.spreadLayouts || { left: LAYOUT_TEMPLATES[0].id, right: LAYOUT_TEMPLATES[0].id };
+                              onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, right: newLayout } });
+                            }
+                          }
+                        }}
+                      >
+                        <RotateCw className="h-4 w-4" />
+                        {parseLayoutId(page.isCover ? page.coverLayouts?.front || '' : page.spreadLayouts?.right || '').rotation !== 0 && (
+                          <span className="absolute -top-1 -right-1 text-[9px] bg-primary text-primary-foreground px-1 rounded">
+                            {parseLayoutId(page.isCover ? page.coverLayouts?.front || '' : page.spreadLayouts?.right || '').rotation}°
+                          </span>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Rotate {page.isCover ? "Front" : "Page 2"} Layout 90°</TooltipContent>
+                  </Tooltip>
                 </>
               ) : (
                 /* Full Spread Layout Selector */
@@ -629,33 +697,35 @@ const PageToolbar = ({
               )}
             </div>
 
-            {/* Rotation Button for Full mode */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    const { baseId, rotation } = parseLayoutId(page.layout || '');
-                    const newRotation = getNextRotation(rotation);
-                    const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
-                    if (page.isCover) {
-                      onUpdateCoverLayout?.(page.id, 'full', newLayout);
-                    } else {
-                      onUpdateLayout(page.id, newLayout);
-                    }
-                  }}
-                >
-                  <RotateCw className="h-4 w-4" />
-                  {parseLayoutId(page.layout || '').rotation !== 0 && (
-                    <span className="absolute -top-1 -right-1 text-[9px] bg-primary text-primary-foreground px-1 rounded">
-                      {parseLayoutId(page.layout || '').rotation}°
-                    </span>
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Rotate Layout 90°</TooltipContent>
-            </Tooltip>
+            {/* Rotation Button for Full mode only (Split mode has its own rotation buttons above) */}
+            {isFull && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      const { baseId, rotation } = parseLayoutId(page.layout || '');
+                      const newRotation = getNextRotation(rotation);
+                      const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
+                      if (page.isCover) {
+                        onUpdateCoverLayout?.(page.id, 'full', newLayout);
+                      } else {
+                        onUpdateLayout(page.id, newLayout);
+                      }
+                    }}
+                  >
+                    <RotateCw className="h-4 w-4" />
+                    {parseLayoutId(page.layout || '').rotation !== 0 && (
+                      <span className="absolute -top-1 -right-1 text-[9px] bg-primary text-primary-foreground px-1 rounded">
+                        {parseLayoutId(page.layout || '').rotation}°
+                      </span>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Rotate Layout 90°</TooltipContent>
+              </Tooltip>
+            )}
 
             <div className="h-4 w-px bg-border mx-2" />
             <Tooltip>

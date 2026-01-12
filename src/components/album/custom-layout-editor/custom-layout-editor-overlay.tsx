@@ -64,6 +64,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const [spreadMode, setSpreadMode] = useState<'full' | 'split'>('split');
     const [photoGap, setPhotoGap] = useState(10);
     const [pageMargin, setPageMargin] = useState(10);
+    const [cornerRadius, setCornerRadius] = useState(0);
     const [useDummyPhotos, setUseDummyPhotos] = useState(true);
     const [dummyPage, setDummyPage] = useState<AlbumPage>(() => createDummyPage('4-grid', true));
     const [selectedAdvancedTemplate, setSelectedAdvancedTemplate] = useState<AdvancedTemplate | null>(null);
@@ -144,6 +145,10 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         setDummyPage(prev => ({ ...prev, pageMargin: margin }));
     };
 
+    const handleCornerRadiusChange = (radius: number) => {
+        setCornerRadius(radius);
+    };
+
     const handleSave = () => {
         // For now, just close - future: save custom layout template
         onClose();
@@ -194,7 +199,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                                 backgroundColor: config?.backgroundColor ?? '#ffffff',
                                 backgroundImage: config?.backgroundImage,
                                 photoGap,
-                                pageMargin
+                                pageMargin,
+                                cornerRadius
                             }}
                             onUpdatePage={handleUpdatePage}
                             advancedTemplate={selectedAdvancedTemplate}
@@ -235,6 +241,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                     onPhotoGapChange={handlePhotoGapChange}
                     pageMargin={pageMargin}
                     onPageMarginChange={handlePageMarginChange}
+                    cornerRadius={cornerRadius}
+                    onCornerRadiusChange={handleCornerRadiusChange}
                     useDummyPhotos={useDummyPhotos}
                     onUseDummyPhotosChange={handleUseDummyPhotosChange}
                 />

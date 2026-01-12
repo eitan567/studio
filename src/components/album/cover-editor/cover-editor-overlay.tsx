@@ -349,6 +349,25 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos, isC
                                         onChange={(e) => setLocalPage({ ...localPage, pageMargin: Math.max(0, Number(e.target.value)) })}
                                     />
                                 </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-medium text-muted-foreground w-10">Radius</span>
+                                    <Slider
+                                        className="w-20"
+                                        min={0}
+                                        max={50}
+                                        step={1}
+                                        value={[localPage.cornerRadius ?? config?.cornerRadius ?? 0]}
+                                        onValueChange={(vals) => setLocalPage({ ...localPage, cornerRadius: vals[0] })}
+                                    />
+                                    <Input
+                                        type="number"
+                                        className="w-12 h-7 text-xs px-1 text-center"
+                                        min={0}
+                                        max={50}
+                                        value={localPage.cornerRadius ?? config?.cornerRadius ?? 0}
+                                        onChange={(e) => setLocalPage({ ...localPage, cornerRadius: Math.max(0, Number(e.target.value)) })}
+                                    />
+                                </div>
                             </div>
 
                             {/* Alignment Tools (Horizontal Actions) */}

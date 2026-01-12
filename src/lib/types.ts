@@ -80,6 +80,7 @@ export type AlbumPage = {
   // Granular Cover Settings
   photoGap?: number;
   pageMargin?: number;
+  cornerRadius?: number;
 
   // Cover Objects
   coverTexts?: CoverText[];
