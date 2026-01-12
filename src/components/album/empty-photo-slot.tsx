@@ -6,6 +6,7 @@ import { Image as ImageIcon, Plus } from 'lucide-react';
 
 interface EmptyPhotoSlotProps {
     className?: string;
+    style?: React.CSSProperties;
     onDragOver?: (e: React.DragEvent) => void;
     onDragLeave?: (e: React.DragEvent) => void;
     onDrop?: (e: React.DragEvent) => void;
@@ -15,6 +16,7 @@ interface EmptyPhotoSlotProps {
 
 export const EmptyPhotoSlot = ({
     className,
+    style,
     onDragOver,
     onDragLeave,
     onDrop,
@@ -27,6 +29,7 @@ export const EmptyPhotoSlot = ({
                 "bg-muted flex flex-col items-center justify-center transition-all duration-200 w-full h-full",
                 className
             )}
+            style={style}
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
             onDrop={onDrop}

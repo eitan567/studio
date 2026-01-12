@@ -20,6 +20,7 @@ export type AlbumConfig = {
   pageMargin: number; // Margin from page edge in pixels
   backgroundColor: string; // Background color for pages
   backgroundImage?: string; // Default background image URL for pages
+  cornerRadius?: number; // Corner radius for photo frames in pixels (default 0)
 };
 
 // New Interface for Cover Text Objects

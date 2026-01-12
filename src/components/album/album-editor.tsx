@@ -124,6 +124,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const [allowDuplicates, setAllowDuplicates] = useState(true);
   const [photoGap, setPhotoGap] = useState(10);
   const [pageMargin, setPageMargin] = useState(10);
+  const [cornerRadius, setCornerRadius] = useState(0);
   const [backgroundColor, setBackgroundColor] = useState('#ffffff');
   const [backgroundImage, setBackgroundImage] = useState<string | undefined>(undefined);
   const [availableBackgrounds, setAvailableBackgrounds] = useState<string[]>([
@@ -310,6 +311,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     pageMargin,
     backgroundColor,
     backgroundImage,
+    cornerRadius,
   };
 
   const generateInitialPages = (photos: Photo[]) => {
@@ -1316,6 +1318,30 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                           max="50"
                           value={pageMargin}
                           onChange={(e) => setPageMargin(Number(e.target.value))}
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm font-medium">Corner Radius</label>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              min="0"
+                              max="20"
+                              value={cornerRadius}
+                              onChange={(e) => setCornerRadius(Math.max(0, Math.min(20, Number(e.target.value) || 0)))}
+                              className="w-14 h-7 text-center text-sm border rounded"
+                            />
+                            <span className="text-sm text-muted-foreground">px</span>
+                          </div>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="20"
+                          value={cornerRadius}
+                          onChange={(e) => setCornerRadius(Number(e.target.value))}
                           className="w-full"
                         />
                       </div>

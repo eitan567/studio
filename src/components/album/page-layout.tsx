@@ -31,6 +31,7 @@ export interface PageLayoutProps {
     useSimpleImage?: boolean;
     photoIndexOffset?: number;
     onRemovePhoto?: (pageId: string, photoId: string) => void;
+    cornerRadius?: number;
 }
 
 const PageLayoutComponent = ({
@@ -44,14 +45,15 @@ const PageLayoutComponent = ({
     templateSource = LAYOUT_TEMPLATES,
     useSimpleImage,
     photoIndexOffset = 0,
-    onRemovePhoto
+    onRemovePhoto,
+    cornerRadius = 0
 }: PageLayoutProps) => {
     const photos = overridePhotos || page.photos;
     const rawLayout = overrideLayout || page.layout;
 
     // Parse rotation from layout ID
     const { baseId: layout, rotation } = parseLayoutId(rawLayout);
-    console.log('[PageLayout] Rendering with:', { rawLayout, layout, rotation });
+    console.log('[PageLayout] Rendering with:', { rawLayout, layout, rotation, cornerRadius });
 
     // Check for templates in both sources using the BASE layout ID
     // First, try to find in templateSource (which may include both grid and advanced templates)
@@ -172,6 +174,7 @@ const PageLayoutComponent = ({
                                 onDragLeave={() => setDragOverPhotoId(null)}
                                 isDragOver={dragOverPhotoId === (photo?.id || `__empty_${actualIndex}`)}
                                 onRemovePhoto={(photoId) => onRemovePhoto?.(page.id, photoId)}
+                                cornerRadius={cornerRadius}
                             />
                             {/* Overlay for Drop Target? 
                                 ShapeRegion is complex SVG. 
@@ -239,9 +242,9 @@ const PageLayoutComponent = ({
                         >
                             <EmptyPhotoSlot
                                 className={cn(
-                                    "rounded-sm",
                                     dragOverPhotoId === emptySlotId && "ring-2 ring-primary ring-offset-2 bg-primary/10"
                                 )}
+                                style={{ borderRadius: `${cornerRadius}px` }}
                                 onDragOver={(e) => {
                                     e.preventDefault();
                                     setDragOverPhotoId(emptySlotId);
@@ -265,10 +268,11 @@ const PageLayoutComponent = ({
                     <div
                         key={photo.id}
                         className={cn(
-                            "relative overflow-hidden rounded-sm transition-all duration-200 group ring-2 ring-transparent hover:ring-primary/20",
+                            "relative overflow-hidden transition-all duration-200 group ring-2 ring-transparent hover:ring-primary/20",
                             gridClass,
                             dragOverPhotoId === photo.id && "ring-2 ring-primary ring-offset-2"
                         )}
+                        style={{ borderRadius: `${cornerRadius}px` }}
                         onDragOver={(e) => {
                             e.preventDefault();
                             setDragOverPhotoId(photo.id);
@@ -303,6 +307,7 @@ export const PageLayout = React.memo(PageLayoutComponent, (prev, next) => {
 
     // Simple props check
     if (prev.photoGap !== next.photoGap) return false;
+    if (prev.cornerRadius !== next.cornerRadius) return false;
     if (prev.overrideLayout !== next.overrideLayout) return false;
     if (prev.page.layout !== next.page.layout) return false;
     if (prev.page.id !== next.page.id) return false;

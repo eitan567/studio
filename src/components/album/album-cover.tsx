@@ -676,6 +676,7 @@ export const AlbumCover = ({
                             useSimpleImage={useSimpleImage}
                             photoIndexOffset={0}
                             onRemovePhoto={onRemovePhoto}
+                            cornerRadius={config?.cornerRadius ?? 0}
                         />
                     </div>
                 </div>
@@ -711,6 +712,7 @@ export const AlbumCover = ({
                                 useSimpleImage={useSimpleImage}
                                 photoIndexOffset={0}
                                 onRemovePhoto={onRemovePhoto}
+                                cornerRadius={config?.cornerRadius ?? 0}
                             />
                         </div>
                     </div>
@@ -769,6 +771,7 @@ export const AlbumCover = ({
                                 useSimpleImage={useSimpleImage}
                                 photoIndexOffset={backPhotoCount}
                                 onRemovePhoto={onRemovePhoto}
+                                cornerRadius={config?.cornerRadius ?? 0}
                             />
                         </div>
                     </div>

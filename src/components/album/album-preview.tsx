@@ -997,7 +997,7 @@ export function AlbumPreview({
 
   return (
     <div className="w-full relative">
-      <ScrollArea ref={scrollAreaRef} className="h-[85vh] w-full pr-4" style={{ overflowY: isInteracting ? 'hidden' : 'auto' }}>
+      <ScrollArea ref={scrollAreaRef} className="h-[85vh] w-full" style={{ overflowY: isInteracting ? 'hidden' : 'auto' }}>
         <div className="space-y-8">
           {pages.map((page, index) => {
             const info = pageInfo[index];

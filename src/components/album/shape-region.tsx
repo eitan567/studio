@@ -20,6 +20,7 @@ export const ShapeRegion = ({
     onDragLeave,
     isDragOver = false,
     onRemovePhoto,
+    cornerRadius = 0,
 }: {
     region: LayoutRegion;
     photo?: Photo;
@@ -35,6 +36,7 @@ export const ShapeRegion = ({
     onDragLeave?: (e: React.DragEvent) => void;
     isDragOver?: boolean;
     onRemovePhoto?: (photoId: string) => void;
+    cornerRadius?: number;
 }) => {
     // Unique ID for the mask (though we use clip-path now, keeping IDs unique is good practice)
     const shapeId = `shape-${region.id}`;
@@ -211,13 +213,14 @@ export const ShapeRegion = ({
             <div
                 id={shapeId}
                 className={cn(
-                    "absolute pointer-events-auto transition-all duration-200 rounded-sm overflow-hidden group",
+                    "absolute pointer-events-auto transition-all duration-200 overflow-hidden group",
                     "ring-2 ring-transparent hover:ring-primary/20",
                     isDragOver && "ring-primary ring-offset-2",
                     isDragOver && (!photo || !photo.src) && "bg-primary/10"
                 )}
                 style={{
                     ...commonStyle,
+                    borderRadius: `${cornerRadius}px`,
                     backgroundColor: photoGapNum > 0 ? backgroundColor : 'transparent',
                     ['--tw-ring-offset-color' as any]: backgroundColor,
                 }}
