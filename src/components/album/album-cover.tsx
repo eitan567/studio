@@ -612,6 +612,7 @@ export const AlbumCover = ({
     const pageMargin = page.pageMargin ?? config?.pageMargin ?? 0;
     // Assuming config.photoGap is number. If string, parse it.
     const photoGap = page.photoGap ?? config?.photoGap ?? 0;
+    const cornerRadius = page.cornerRadius ?? config?.cornerRadius ?? 0;
     const spineWidth = page.isCover ? (page.spineWidth ?? 40) : 0;
 
     // --- Spine-aware Coordinate Calculations ---
@@ -691,7 +692,7 @@ export const AlbumCover = ({
                             useSimpleImage={useSimpleImage}
                             photoIndexOffset={0}
                             onRemovePhoto={onRemovePhoto}
-                            cornerRadius={config?.cornerRadius ?? 0}
+                            cornerRadius={cornerRadius}
                         />
                     </div>
                 </div>
@@ -727,7 +728,7 @@ export const AlbumCover = ({
                                 useSimpleImage={useSimpleImage}
                                 photoIndexOffset={0}
                                 onRemovePhoto={onRemovePhoto}
-                                cornerRadius={config?.cornerRadius ?? 0}
+                                cornerRadius={cornerRadius}
                             />
                         </div>
                     </div>
@@ -786,7 +787,7 @@ export const AlbumCover = ({
                                 useSimpleImage={useSimpleImage}
                                 photoIndexOffset={backPhotoCount}
                                 onRemovePhoto={onRemovePhoto}
-                                cornerRadius={config?.cornerRadius ?? 0}
+                                cornerRadius={cornerRadius}
                             />
                         </div>
                     </div>
