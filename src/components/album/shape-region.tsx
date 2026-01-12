@@ -18,7 +18,8 @@ export const ShapeRegion = ({
     onDrop,
     onDragOver,
     onDragLeave,
-    isDragOver = false
+    isDragOver = false,
+    onRemovePhoto,
 }: {
     region: LayoutRegion;
     photo?: Photo;
@@ -33,6 +34,7 @@ export const ShapeRegion = ({
     onDragOver?: (e: React.DragEvent) => void;
     onDragLeave?: (e: React.DragEvent) => void;
     isDragOver?: boolean;
+    onRemovePhoto?: (photoId: string) => void;
 }) => {
     // Unique ID for the mask (though we use clip-path now, keeping IDs unique is good practice)
     const shapeId = `shape-${region.id}`;
@@ -160,6 +162,7 @@ export const ShapeRegion = ({
                 photo={photo}
                 onUpdate={(pz) => onUpdatePanAndZoom?.(pz)}
                 onInteractionChange={onInteractionChange}
+                onRemove={() => onRemovePhoto?.(photo.id)}
             />
         );
     };

@@ -10,10 +10,11 @@ interface PhotoRendererProps {
   onUpdate: (panAndZoom: PhotoPanAndZoom) => void;
   onInteractionChange?: (isInteracting: boolean) => void;
   useSimpleImage?: boolean;
+  onRemove?: () => void;
 }
 
 // Using memo to prevent re-rendering of all photos when only one is being updated
-export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onInteractionChange, useSimpleImage }: PhotoRendererProps) {
+export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onInteractionChange, useSimpleImage, onRemove }: PhotoRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLDivElement>(null);
   const isInteracting = useRef(false);
@@ -246,7 +247,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 cursor-grab overflow-hidden touch-none"
+      className="absolute inset-0 cursor-grab overflow-hidden touch-none group"
       onMouseDown={onMouseDown}
     >
       <div
@@ -265,6 +266,33 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
           unoptimized
         />
       </div>
+
+      {onRemove && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-destructive text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-auto"
+          title="Remove Photo"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M3 6h18" />
+            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 });

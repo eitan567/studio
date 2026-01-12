@@ -30,6 +30,7 @@ export interface PageLayoutProps {
     templateSource?: typeof LAYOUT_TEMPLATES;
     useSimpleImage?: boolean;
     photoIndexOffset?: number;
+    onRemovePhoto?: (pageId: string, photoId: string) => void;
 }
 
 const PageLayoutComponent = ({
@@ -42,7 +43,8 @@ const PageLayoutComponent = ({
     overrideLayout,
     templateSource = LAYOUT_TEMPLATES,
     useSimpleImage,
-    photoIndexOffset = 0
+    photoIndexOffset = 0,
+    onRemovePhoto
 }: PageLayoutProps) => {
     const photos = overridePhotos || page.photos;
     const rawLayout = overrideLayout || page.layout;
@@ -169,6 +171,7 @@ const PageLayoutComponent = ({
                                 onDragOver={() => setDragOverPhotoId(photo?.id || `__empty_${actualIndex}`)}
                                 onDragLeave={() => setDragOverPhotoId(null)}
                                 isDragOver={dragOverPhotoId === (photo?.id || `__empty_${actualIndex}`)}
+                                onRemovePhoto={(photoId) => onRemovePhoto?.(page.id, photoId)}
                             />
                             {/* Overlay for Drop Target? 
                                 ShapeRegion is complex SVG. 
@@ -285,6 +288,7 @@ const PageLayoutComponent = ({
                             onUpdate={(panAndZoom) => onUpdatePhotoPanAndZoom(page.id, photo.id, panAndZoom)}
                             onInteractionChange={onInteractionChange}
                             useSimpleImage={useSimpleImage}
+                            onRemove={() => onRemovePhoto?.(page.id, photo.id)}
                         />
                     </div>
                 );

@@ -644,6 +644,39 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     });
   };
 
+  const handleRemovePhoto = (pageId: string, photoId: string) => {
+    setAlbumPages(prevPages => {
+      return prevPages.map(page => {
+        if (page.id !== pageId) return page;
+
+        // Reset the photo to an empty state
+        const newPhotos = page.photos.map(photo => {
+          if (photo.id === photoId) {
+            return {
+              id: uuidv4(),
+              src: '',
+              alt: 'Drop photo here',
+              width: 600,
+              height: 400,
+              panAndZoom: { scale: 1, x: 50, y: 50 }
+            };
+          }
+          return photo;
+        });
+
+        return {
+          ...page,
+          photos: newPhotos
+        };
+      });
+    });
+
+    toast({
+      title: "Photo Removed",
+      description: "The photo has been removed from the frame."
+    });
+  };
+
   const handleUpdateCoverLayout = (pageId: string, side: 'front' | 'back' | 'full', newLayout: string) => {
     setAlbumPages(prevPages => {
       return prevPages.map(page => {
@@ -1431,6 +1464,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
               onUpdatePhotoPanAndZoom={updatePhotoPanAndZoom}
               onDropPhoto={handleDropPhoto}
               onDownloadPage={handleDownloadPage}
+              onRemovePhoto={handleRemovePhoto}
               onUpdateCoverLayout={handleUpdateCoverLayout}
               onUpdateCoverType={handleUpdateCoverType}
               onUpdateSpineText={handleUpdateSpineText}

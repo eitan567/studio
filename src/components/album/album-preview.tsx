@@ -187,6 +187,7 @@ interface AlbumPreviewProps {
   onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
   onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
   onDownloadPage: (pageId: string) => void;
+  onRemovePhoto: (pageId: string, photoId: string) => void;
   allPhotos?: Photo[];
   customTemplates?: AdvancedTemplate[];
 }
@@ -843,6 +844,7 @@ const ScaledCoverPreview = ({
   onDropPhoto,
   onUpdatePhotoPanAndZoom,
   onInteractionChange,
+  onRemovePhoto,
 }: {
   page: AlbumPage;
   config: AlbumConfig;
@@ -850,6 +852,7 @@ const ScaledCoverPreview = ({
   onDropPhoto?: any;
   onUpdatePhotoPanAndZoom?: any;
   onInteractionChange?: (isInteracting: boolean) => void;
+  onRemovePhoto?: (pageId: string, photoId: string) => void;
 }) => {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -906,6 +909,7 @@ const ScaledCoverPreview = ({
           onDropPhoto={onDropPhoto}
           onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
           onInteractionChange={onInteractionChange}
+          onRemovePhoto={onRemovePhoto}
         />
         <div className="absolute inset-0 z-20 pointer-events-none">
           {page.titleText && (
@@ -942,7 +946,8 @@ export function AlbumPreview({
   onUpdatePhotoPanAndZoom,
   onDropPhoto,
   onDownloadPage,
-  allPhotos
+  allPhotos,
+  onRemovePhoto
 }: AlbumPreviewProps) {
   const { toast } = useToast();
   const [isInteracting, setIsInteracting] = useState(false);
@@ -1062,6 +1067,7 @@ export function AlbumPreview({
                               onDropPhoto={onDropPhoto}
                               onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
                               onInteractionChange={setIsInteracting}
+                              onRemovePhoto={onRemovePhoto}
                             />
                           ) : page.type === 'spread' ? (
                             <div className="relative h-full w-full">
@@ -1076,6 +1082,7 @@ export function AlbumPreview({
                                 onDropPhoto={onDropPhoto}
                                 onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
                                 onInteractionChange={setIsInteracting}
+                                onRemovePhoto={onRemovePhoto}
                               />
                             </div>
                           ) : (
@@ -1085,6 +1092,7 @@ export function AlbumPreview({
                               onUpdateTitleSettings={onUpdateTitleSettings}
                               onDropPhoto={onDropPhoto}
                               onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
+                              onRemovePhoto={onRemovePhoto}
                             />
                           )}
 

@@ -17,6 +17,7 @@ interface ShapePhotoFrameProps {
     onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
     useSimpleImage?: boolean;
     gap?: number; // Gap as pixels to apply as inset
+    onRemovePhoto?: (pageId: string, photoId: string) => void;
 }
 
 export const ShapePhotoFrame = ({
@@ -29,6 +30,7 @@ export const ShapePhotoFrame = ({
     onDropPhoto,
     useSimpleImage,
     gap = 0,
+    onRemovePhoto,
 }: ShapePhotoFrameProps) => {
     const [isDragOver, setIsDragOver] = useState(false);
 
@@ -137,6 +139,7 @@ export const ShapePhotoFrame = ({
                         onUpdate={(panAndZoom) => onUpdatePhotoPanAndZoom(pageId, photo.id, panAndZoom)}
                         onInteractionChange={onInteractionChange}
                         useSimpleImage={useSimpleImage}
+                        onRemove={() => onRemovePhoto?.(pageId, photo.id)}
                     />
                 </div>
             </div>

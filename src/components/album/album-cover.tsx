@@ -20,6 +20,7 @@ export interface AlbumCoverProps {
     onDropPhoto?: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
     onUpdatePhotoPanAndZoom?: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
     onInteractionChange?: (isInteracting: boolean) => void;
+    onRemovePhoto?: (pageId: string, photoId: string) => void;
 
     // Image Object Handlers
     activeImageIds?: string[];
@@ -433,6 +434,7 @@ export const AlbumCover = ({
     onDropPhoto,
     onUpdatePhotoPanAndZoom,
     onInteractionChange,
+    onRemovePhoto,
     // onUpdateTitleSettings
     useSimpleImage
 }: AlbumCoverProps) => {
@@ -673,6 +675,7 @@ export const AlbumCover = ({
                             onDropPhoto={onDropPhoto || (() => { })}
                             useSimpleImage={useSimpleImage}
                             photoIndexOffset={0}
+                            onRemovePhoto={onRemovePhoto}
                         />
                     </div>
                 </div>
@@ -707,6 +710,7 @@ export const AlbumCover = ({
                                 onDropPhoto={onDropPhoto || (() => { })}
                                 useSimpleImage={useSimpleImage}
                                 photoIndexOffset={0}
+                                onRemovePhoto={onRemovePhoto}
                             />
                         </div>
                     </div>
@@ -764,6 +768,7 @@ export const AlbumCover = ({
                                 onDropPhoto={onDropPhoto || (() => { })}
                                 useSimpleImage={useSimpleImage}
                                 photoIndexOffset={backPhotoCount}
+                                onRemovePhoto={onRemovePhoto}
                             />
                         </div>
                     </div>
