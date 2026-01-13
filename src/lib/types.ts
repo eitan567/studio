@@ -12,6 +12,7 @@ export type Photo = {
   height?: number;
   panAndZoom?: PhotoPanAndZoom;
   captureDate?: Date; // EXIF capture date for sorting
+  isUploading?: boolean; // Optimistic UI state
 };
 
 export type AlbumConfig = {

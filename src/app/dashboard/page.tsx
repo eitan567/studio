@@ -109,7 +109,7 @@ export default function DashboardPage() {
             {user?.email ? `Welcome back, ${user.email}` : 'Manage your photo collections.'}
           </p>
         </div>
-        <CreateAlbumDialog />
+        <CreateAlbumDialog onAlbumCreated={fetchAlbums} />
       </div>
 
       {isLoading ? (
@@ -120,7 +120,7 @@ export default function DashboardPage() {
       ) : (
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {/* Create New Card */}
-          <CreateAlbumDialog>
+          <CreateAlbumDialog onAlbumCreated={fetchAlbums}>
             <Card className="group flex h-full min-h-[320px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-muted-foreground/25 bg-muted/30 transition-all hover:border-primary hover:bg-primary/5">
               <div className="flex flex-col items-center text-center p-6 space-y-4 transition-transform group-hover:scale-105">
                 <div className="p-4 rounded-full bg-background shadow-sm group-hover:shadow-md transition-shadow">

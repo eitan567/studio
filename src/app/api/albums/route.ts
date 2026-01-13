@@ -63,7 +63,8 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json()
-        const { name, config, pages } = body
+        const { name, config, pages, thumbnail_url } = body
+        console.log('[POST /api/albums] Received body:', { name, config: !!config, pages: !!pages, thumbnail_url });
 
         const { data: album, error } = await supabase
             .from('albums')
@@ -72,9 +73,12 @@ export async function POST(request: NextRequest) {
                 name: name || 'Untitled Album',
                 config: config || {},
                 pages: pages || [],
+                thumbnail_url: thumbnail_url || null,
             })
             .select()
             .single()
+
+        console.log('[POST /api/albums] Created album:', album?.id, 'thumbnail_url:', album?.thumbnail_url);
 
         if (error) {
             console.error('Error creating album:', error)

@@ -30,9 +30,10 @@ interface CreateAlbumDialogProps {
     children?: React.ReactNode;
     albumToEdit?: Album;
     onAlbumUpdated?: () => void;
+    onAlbumCreated?: () => void;
 }
 
-export function CreateAlbumDialog({ children, albumToEdit, onAlbumUpdated }: CreateAlbumDialogProps) {
+export function CreateAlbumDialog({ children, albumToEdit, onAlbumUpdated, onAlbumCreated }: CreateAlbumDialogProps) {
     const [open, setOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [name, setName] = useState('');
@@ -72,9 +73,12 @@ export function CreateAlbumDialog({ children, albumToEdit, onAlbumUpdated }: Cre
 
         try {
             let thumbnailUrl = albumToEdit?.thumbnail_url;
+            console.log('[CreateAlbumDialog] Starting submit, initial thumbnailUrl:', thumbnailUrl);
+            console.log('[CreateAlbumDialog] thumbnailFile:', thumbnailFile ? thumbnailFile.name : 'none');
 
             // Upload thumbnail if selected
             if (thumbnailFile) {
+                console.log('[CreateAlbumDialog] Uploading thumbnail file...');
                 const formData = new FormData();
                 formData.append('file', thumbnailFile);
 
@@ -84,11 +88,14 @@ export function CreateAlbumDialog({ children, albumToEdit, onAlbumUpdated }: Cre
                 });
 
                 if (!uploadResponse.ok) {
+                    console.error('[CreateAlbumDialog] Thumbnail upload failed:', uploadResponse.status);
                     throw new Error('Failed to upload thumbnail');
                 }
 
                 const uploadData = await uploadResponse.json();
+                console.log('[CreateAlbumDialog] Upload response:', uploadData);
                 thumbnailUrl = uploadData.url;
+                console.log('[CreateAlbumDialog] New thumbnailUrl:', thumbnailUrl);
             }
 
             const url = albumToEdit ? `/api/albums/${albumToEdit.id}` : '/api/albums';
@@ -102,6 +109,7 @@ export function CreateAlbumDialog({ children, albumToEdit, onAlbumUpdated }: Cre
                 },
                 thumbnail_url: thumbnailUrl,
             };
+            console.log('[CreateAlbumDialog] Sending payload:', JSON.stringify(payload, null, 2));
 
             const response = await fetch(url, {
                 method,
@@ -132,7 +140,8 @@ export function CreateAlbumDialog({ children, albumToEdit, onAlbumUpdated }: Cre
                 setDescription('');
                 setThumbnailFile(null);
                 setPreviewUrl(null);
-                router.push(`/album/${data.album.id}`);
+                // Call the callback to refresh album list
+                if (onAlbumCreated) onAlbumCreated();
             }
         } catch (error) {
             console.error(error);

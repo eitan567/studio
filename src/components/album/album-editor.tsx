@@ -126,6 +126,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     thumbnail_url: albumThumbnailUrl,
     photos: savedPhotos,
     updatePhotos: savePhotos,
+    saveNow,
   } = useAlbum(albumId);
 
   const router = useRouter();
@@ -417,6 +418,17 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       updatePages(albumPages);
     }
   }, [albumPages, isInitialized]);
+
+  // Auto-set thumbnail if missing and we have photos
+  useEffect(() => {
+    if (!isAlbumLoading && !albumThumbnailUrl && allPhotos && allPhotos.length > 0) {
+      // Find first photo with actual src (not empty placeholder)
+      const firstValidPhoto = allPhotos.find(p => p.src && p.src.length > 0);
+      if (firstValidPhoto) {
+        updateThumbnail(firstValidPhoto.src);
+      }
+    }
+  }, [isAlbumLoading, albumThumbnailUrl, allPhotos, updateThumbnail]);
 
   // Auto-save config when it changes
   useEffect(() => {
@@ -1176,7 +1188,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
   // Process uploaded photo files (from folder or individual selection)
   // Photo Upload Hook
-  const { uploadPhotos, isUploading: isUploadingHook } = usePhotoUpload();
+  const { uploadPhotos, uploadPhoto, isUploading: isUploadingHook } = usePhotoUpload();
 
   // Process uploaded photo files (from folder or individual selection)
   const processUploadedFiles = async (files: FileList | null) => {
@@ -1195,36 +1207,71 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       return;
     }
 
-    setIsLoading(true);
+    // Optimistic UI: Create temporary photos immediately
+    const tempPhotos: Photo[] = imageFiles.map(file => ({
+      id: `temp-${Math.random().toString(36).substr(2, 9)}`,
+      src: URL.createObjectURL(file),
+      alt: file.name,
+      width: 800, // Placeholder dims
+      height: 600,
+      isUploading: true
+    }));
+
+    // Add temp photos to gallery immediately
+    setAllPhotos(prev => [...prev, ...tempPhotos]);
+
+    // Don't block UI with full screen loader
+    setIsLoadingPhotos(true);
     toast({
       title: 'Uploading Photos',
       description: `Uploading ${imageFiles.length} image(s)...`,
     });
 
     try {
-      const results = await uploadPhotos(imageFiles);
-      const successfulUploads = results.filter((r: { success: boolean; photo?: Photo }) => r.success && r.photo).map((r: { photo?: Photo }) => r.photo!);
-      const failedUploads = results.filter((r: { success: boolean }) => !r.success);
+      // Map files to temp IDs for replacement
+      const tasks = imageFiles.map((file, i) => ({ file, tempId: tempPhotos[i].id }));
+      const BATCH_SIZE = 3;
+      const failedUploads: any[] = [];
+      let successCount = 0;
 
-      if (successfulUploads.length > 0) {
-        setAllPhotos(prev => [...prev, ...successfulUploads]);
+      // Process in chunks
+      for (let i = 0; i < tasks.length; i += BATCH_SIZE) {
+        const chunk = tasks.slice(i, i + BATCH_SIZE);
 
+        await Promise.all(chunk.map(async ({ file, tempId }) => {
+          try {
+            const result = await uploadPhoto(file);
+
+            if (result.success && result.photo) {
+              // Success: Swap temp with real immediately
+              setAllPhotos(prev => prev.map(p =>
+                p.id === tempId ? { ...result.photo!, isUploading: false } : p
+              ));
+              successCount++;
+
+              // Check for thumbnail update (simple opportunistic check)
+              const isPlaceholder = !albumThumbnailUrl || placeholderImages.some(p => p.imageUrl === albumThumbnailUrl);
+              if (isPlaceholder && successCount === 1) {
+                updateThumbnail(result.photo.src);
+              }
+
+            } else {
+              failedUploads.push({ file: file.name, error: result.error });
+              // Remove temp on failure
+              setAllPhotos(prev => prev.filter(p => p.id !== tempId));
+            }
+          } catch (e) {
+            failedUploads.push({ file: file.name, error: e });
+            setAllPhotos(prev => prev.filter(p => p.id !== tempId));
+          }
+        }));
+      }
+
+      if (successCount > 0) {
         toast({
-          title: 'Photos Uploaded',
-          description: `${successfulUploads.length} photo(s) added to gallery.`,
+          title: 'Upload Complete',
+          description: `${successCount} photo(s) added to gallery.`,
         });
-
-        // Check if we need to set a thumbnail (First uploaded photo rule)
-        const isPlaceholder = !albumThumbnailUrl || placeholderImages.some(p => p.imageUrl === albumThumbnailUrl);
-
-        if (isPlaceholder && successfulUploads.length > 0) {
-          const firstPhoto = successfulUploads[0];
-          updateThumbnail(firstPhoto.src);
-          toast({
-            title: "Album Thumbnail Updated",
-            description: "The first uploaded photo has been set as the album thumbnail."
-          });
-        }
       }
 
       if (failedUploads.length > 0) {
@@ -1243,8 +1290,14 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         description: 'An unexpected error occurred during upload.',
         variant: 'destructive'
       });
+      // Safety cleanup
+      setAllPhotos(prev => prev.filter(p => !tempPhotos.some(tp => tp.id === p.id)));
     } finally {
-      setIsLoading(false);
+      setIsLoadingPhotos(false);
+      // Cleanup ObjectURLs (delayed slightly to ensure image swap is visible/done)
+      setTimeout(() => {
+        tempPhotos.forEach(p => URL.revokeObjectURL(p.src));
+      }, 1000);
     }
   };
 
@@ -1274,13 +1327,59 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     });
   };
 
-  // Clear all photos from gallery
-  const handleClearGallery = () => {
-    setAllPhotos([]);
-    toast({
-      title: 'Gallery Cleared',
-      description: 'All photos have been removed from the gallery.',
-    });
+  // Clear all photos from gallery and delete from server
+  const handleClearGallery = async () => {
+    if (confirm('Are you sure you want to delete ALL photos from the gallery? This will remove them from the database.')) {
+      setIsLoading(true);
+      try {
+        // Prepare payload: we need storage_path.
+        // The Photo type definition doesn't explicit have storage_path, but it might be in 'src' or hidden.
+        // Wait, 'src' is the public URL. storage_path is usually `user_id/filename`.
+        // The API I wrote expects `storage_path` in the body.
+        // Check `Photo` type again. It does NOT have storage_path.
+        // Problem: We need to reconstruct storage_path from URL or store it.
+        // Upload route returns `photo` which is the DB row, likely has storage_path.
+        // BUT `types.ts` defines Photo only with `src`.
+
+        // WORKAROUND: In `upload/route.ts`, we see path is `userID/filename`.
+        // The URL is `.../storage/v1/object/public/photos/userID/filename`.
+        // We can extract it.
+
+        // Helper to extract path
+        const getStoragePath = (url: string) => {
+          try {
+            // Example: https://.../storage/v1/object/public/photos/user_id/file.jpg
+            const parts = url.split('/photos/');
+            if (parts.length > 1) return decodeURIComponent(parts[1]);
+            return null;
+          } catch (e) { return null; }
+        };
+
+        const photosToDelete = allPhotos.map(p => ({
+          id: p.id,
+          storage_path: getStoragePath(p.src)
+        })).filter(p => p.storage_path); // Only delete those with valid paths
+
+        if (photosToDelete.length > 0) {
+          await fetch('/api/photos/batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ photos: photosToDelete })
+          });
+        }
+
+        setAllPhotos([]);
+        toast({
+          title: 'Gallery Cleared',
+          description: 'All photos have been permanently deleted.',
+        });
+      } catch (e) {
+        console.error('Failed to clear gallery', e);
+        toast({ title: 'Error', description: 'Failed to delete some photos.', variant: 'destructive' });
+      } finally {
+        setIsLoading(false);
+      }
+    }
   };
 
   // Reset album to empty state
@@ -1304,7 +1403,20 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       {/* Global Top Toolbar */}
       <div className="flex justify-between items-center px-6 py-3 border-b bg-background sticky top-0 z-50">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard')}>
+          <Button variant="ghost" size="icon" onClick={async () => {
+            // Check if we need to set thumbnail before saving
+            if (!albumThumbnailUrl && savedPhotos && savedPhotos.length > 0) {
+              const firstValidPhoto = savedPhotos.find(p => p.src && p.src.length > 0);
+              if (firstValidPhoto) {
+                updateThumbnail(firstValidPhoto.src);
+                // Small delay to ensure state update propagates if needed, 
+                // though updateThumbnail usually triggers queueSave immediately.
+                // We'll rely on queueSave from updateThumbnail + saveNow flushing it.
+              }
+            }
+            await saveNow();
+            router.push('/dashboard');
+          }}>
             <ChevronLeft className="h-5 w-5" />
           </Button>
 
@@ -1776,11 +1888,18 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                     {allPhotos.map((photo) => (
                       <div
                         key={photo.id}
-                        draggable
+                        draggable={!photo.isUploading}
                         onDragStart={(e) => {
+                          if (photo.isUploading) {
+                            e.preventDefault();
+                            return;
+                          }
                           e.dataTransfer.setData('photoId', photo.id);
                         }}
-                        className="relative break-inside-avoid mb-2 rounded-md overflow-hidden bg-muted cursor-grab active:cursor-grabbing border-2 border-transparent hover:border-primary transition-all group"
+                        className={cn(
+                          "relative break-inside-avoid mb-2 rounded-md overflow-hidden bg-muted border-2 border-transparent transition-all group",
+                          photo.isUploading ? "cursor-wait opacity-80" : "cursor-grab active:cursor-grabbing hover:border-primary"
+                        )}
                       >
                         <img
                           src={photo.src}
@@ -1788,9 +1907,18 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                           className="w-full h-auto display-block"
                         />
                         {/* Resolution display - top right corner */}
-                        <div className="absolute top-1 right-1 bg-black/60 text-white text-[9px] font-medium px-1 py-0.5 rounded z-10">
-                          {photo.width}×{photo.height}
-                        </div>
+                        {!photo.isUploading && (
+                          <div className="absolute top-1 right-1 bg-black/60 text-white text-[9px] font-medium px-1 py-0.5 rounded z-10">
+                            {photo.width}×{photo.height}
+                          </div>
+                        )}
+
+                        {/* Uploading Overlay */}
+                        {photo.isUploading && (
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20">
+                            <Loader2 className="h-6 w-6 animate-spin text-white" />
+                          </div>
+                        )}
                         {photoUsageCounts[photo.id] > 1 && (
                           <div className="absolute top-1 left-1 bg-white/90 rounded-full p-0.5 shadow-sm text-orange-500 z-10">
                             <AlertTriangle className="h-4 w-4 fill-orange-500 text-white" />
