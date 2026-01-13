@@ -1248,7 +1248,7 @@ function ScrollToTopButton({ scrollAreaRef }: { scrollAreaRef: React.RefObject<H
       variant="secondary"
       size="icon"
       className={cn(
-        "absolute bottom-6 right-8 z-49 ounded-full shadow-lg transition-all duration-300",
+        "absolute bottom-6 right-8 z-49 rounded-full shadow-lg transition-all duration-300",
         isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10 pointer-events-none"
       )}
       onClick={scrollToTop}
