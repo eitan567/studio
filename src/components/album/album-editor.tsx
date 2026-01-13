@@ -114,6 +114,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const [allPhotos, setAllPhotos] = useState<Photo[]>([]);
   const [albumPages, setAlbumPages] = useState<AlbumPage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
   const [isBookViewOpen, setIsBookViewOpen] = useState(false);
   const [isCustomLayoutEditorOpen, setIsCustomLayoutEditorOpen] = useState(false);
   const [isCoverEditorOpen, setIsCoverEditorOpen] = useState(false);
@@ -1071,7 +1072,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       });
       return;
     }
-    setIsLoading(true);
+    setIsLoadingPhotos(true);
     toast({
       title: 'Generating Dummy Photos',
       description: 'Please wait while we create 100 sample images with various aspect ratios.',
@@ -1110,11 +1111,11 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       Promise.all(dummyPhotos.map(photo => preloadImage(photo.src)))
         .then(() => {
           setAllPhotos(dummyPhotos);
-          generateInitialPages(dummyPhotos); // Use all photos
-          setIsLoading(false);
+          // Temporarily disabled: generateInitialPages(dummyPhotos); // Use all photos
+          setIsLoadingPhotos(false);
           toast({
-            title: 'Photos & Album Generated',
-            description: '100 dummy photos and a full album layout have been created.',
+            title: 'Photos Loaded',
+            description: '100 sample photos have been loaded to the gallery.',
           });
         });
     }, 1500);
@@ -1530,29 +1531,6 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                   </Form>
                 </CardContent>
               </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="font-headline text-lg flex items-center gap-2">
-                    <Wand2 className="h-5 w-5" /> Test Actions
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Button
-                    variant="outline"
-                    className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-                    onClick={generateDummyPhotos}
-                    disabled={isLoading || !randomSeed}
-                  >
-                    {isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <PlusSquare className="mr-2 h-4 w-4" />
-                    )}
-                    Load Photos
-                  </Button>
-                </CardContent>
-              </Card>
             </>
           )}
         </div>
@@ -1597,24 +1575,55 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                 <CardTitle className="font-headline text-lg">Photo Gallery</CardTitle>
                 <div className="flex items-center gap-2">
                   {/* Upload Buttons */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => folderUploadRef.current?.click()}
-                    title="Upload folder"
-                  >
-                    <FolderUp className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => photoUploadRef.current?.click()}
-                    title="Upload photos"
-                  >
-                    <Upload className="h-4 w-4" />
-                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={generateDummyPhotos}
+                          disabled={isLoadingPhotos || !randomSeed}
+                          title="Load sample photos"
+                        >
+                          {isLoadingPhotos ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Load sample photos</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => folderUploadRef.current?.click()}
+                          title="Upload folder"
+                        >
+                          <FolderUp className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Upload folder</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => photoUploadRef.current?.click()}
+                          title="Upload photos"
+                        >
+                          <Upload className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Upload photos</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -1661,7 +1670,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
               />
             </CardHeader>
             <CardContent className="flex-1 overflow-hidden p-0 relative">
-              {isLoading ? (
+              {isLoadingPhotos ? (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center animate-in fade-in duration-300">
                   <Loader2 className="h-10 w-10 mb-2 animate-spin text-primary" />
                   <p className="text-sm font-medium">Loading photos...</p>
