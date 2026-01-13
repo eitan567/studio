@@ -140,8 +140,8 @@ export function CreateAlbumDialog({ children, albumToEdit, onAlbumUpdated, onAlb
                 setDescription('');
                 setThumbnailFile(null);
                 setPreviewUrl(null);
-                // Call the callback to refresh album list
-                if (onAlbumCreated) onAlbumCreated();
+                // Navigate into the new album editor
+                router.push(`/album/${data.album.id}`);
             }
         } catch (error) {
             console.error(error);
