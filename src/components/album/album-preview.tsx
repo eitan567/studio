@@ -555,7 +555,7 @@ const PageToolbar = ({
                         className="relative h-8 w-8"
                         onClick={() => {
                           const currentLayoutId = page.isCover ? page.coverLayouts?.back : page.spreadLayouts?.left;
-                          const { baseId, rotation } = parseLayoutId(currentLayoutId || '');
+                          const { baseId, rotation } = parseLayoutId(currentLayoutId || '1-full');
                           const newRotation = getNextRotation(rotation);
                           const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
                           if (page.isCover) {
@@ -571,9 +571,9 @@ const PageToolbar = ({
                         }}
                       >
                         <RotateCw className="h-4 w-4" />
-                        {parseLayoutId(page.isCover ? page.coverLayouts?.back || '' : page.spreadLayouts?.left || '').rotation !== 0 && (
+                        {parseLayoutId(page.isCover ? page.coverLayouts?.back || '1-full' : page.spreadLayouts?.left || '1-full').rotation !== 0 && (
                           <span className="absolute -top-1 -right-1 text-[9px] bg-primary text-primary-foreground px-1 rounded">
-                            {parseLayoutId(page.isCover ? page.coverLayouts?.back || '' : page.spreadLayouts?.left || '').rotation}°
+                            {parseLayoutId(page.isCover ? page.coverLayouts?.back || '1-full' : page.spreadLayouts?.left || '1-full').rotation}°
                           </span>
                         )}
                       </Button>
@@ -606,10 +606,10 @@ const PageToolbar = ({
                         <TemplateThumbnail
                           key={template.id}
                           template={template}
-                          isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.front || '' : page.spreadLayouts?.right || '').baseId === template.id}
+                          isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.front || '1-full' : page.spreadLayouts?.right || '1-full').baseId === template.id}
                           onSelect={(templateId) => {
                             const currentLayoutId = page.isCover ? page.coverLayouts?.front : page.spreadLayouts?.right;
-                            const { rotation } = parseLayoutId(currentLayoutId || '');
+                            const { rotation } = parseLayoutId(currentLayoutId || '1-full');
                             const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
                             if (page.isCover) {
                               onUpdateCoverLayout?.(page.id, 'front', finalId);
@@ -635,7 +635,7 @@ const PageToolbar = ({
                         className="relative h-8 w-8"
                         onClick={() => {
                           const currentLayoutId = page.isCover ? page.coverLayouts?.front : page.spreadLayouts?.right;
-                          const { baseId, rotation } = parseLayoutId(currentLayoutId || '');
+                          const { baseId, rotation } = parseLayoutId(currentLayoutId || '1-full');
                           const newRotation = getNextRotation(rotation);
                           const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
                           if (page.isCover) {
@@ -651,9 +651,9 @@ const PageToolbar = ({
                         }}
                       >
                         <RotateCw className="h-4 w-4" />
-                        {parseLayoutId(page.isCover ? page.coverLayouts?.front || '' : page.spreadLayouts?.right || '').rotation !== 0 && (
+                        {parseLayoutId(page.isCover ? page.coverLayouts?.front || '1-full' : page.spreadLayouts?.right || '1-full').rotation !== 0 && (
                           <span className="absolute -top-1 -right-1 text-[9px] bg-primary text-primary-foreground px-1 rounded">
-                            {parseLayoutId(page.isCover ? page.coverLayouts?.front || '' : page.spreadLayouts?.right || '').rotation}°
+                            {parseLayoutId(page.isCover ? page.coverLayouts?.front || '1-full' : page.spreadLayouts?.right || '1-full').rotation}°
                           </span>
                         )}
                       </Button>
@@ -680,9 +680,9 @@ const PageToolbar = ({
                       <TemplateThumbnail
                         key={template.id}
                         template={template}
-                        isSelected={parseLayoutId(page.layout || '').baseId === template.id}
+                        isSelected={parseLayoutId(page.layout || '1-full').baseId === template.id}
                         onSelect={(templateId) => {
-                          const { rotation } = parseLayoutId(page.layout || '');
+                          const { rotation } = parseLayoutId(page.layout || '1-full');
                           const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
                           if (page.isCover) {
                             onUpdateCoverLayout?.(page.id, 'full', finalId);
@@ -705,7 +705,7 @@ const PageToolbar = ({
                     variant="ghost"
                     size="icon"
                     onClick={() => {
-                      const { baseId, rotation } = parseLayoutId(page.layout || '');
+                      const { baseId, rotation } = parseLayoutId(page.layout || '1-full');
                       const newRotation = getNextRotation(rotation);
                       const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
                       if (page.isCover) {
@@ -716,9 +716,9 @@ const PageToolbar = ({
                     }}
                   >
                     <RotateCw className="h-4 w-4" />
-                    {parseLayoutId(page.layout || '').rotation !== 0 && (
+                    {parseLayoutId(page.layout || '1-full').rotation !== 0 && (
                       <span className="absolute -top-1 -right-1 text-[9px] bg-primary text-primary-foreground px-1 rounded">
-                        {parseLayoutId(page.layout || '').rotation}°
+                        {parseLayoutId(page.layout || '1-full').rotation}°
                       </span>
                     )}
                   </Button>
@@ -813,9 +813,9 @@ const PageToolbar = ({
                   <TemplateThumbnail
                     key={template.id}
                     template={template}
-                    isSelected={parseLayoutId(page.layout || '').baseId === template.id}
+                    isSelected={parseLayoutId(page.layout || '1-full').baseId === template.id}
                     onSelect={(templateId) => {
-                      const { rotation } = parseLayoutId(page.layout || '');
+                      const { rotation } = parseLayoutId(page.layout || '1-full');
                       const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
                       onUpdateLayout(page.id, finalId);
                     }}
@@ -831,7 +831,7 @@ const PageToolbar = ({
                   size="icon"
                   onClick={() => {
                     console.log('[RotateButton] Clicked! Current layout:', page.layout);
-                    const { baseId, rotation } = parseLayoutId(page.layout || '');
+                    const { baseId, rotation } = parseLayoutId(page.layout || '1-full');
                     console.log('[RotateButton] Parsed:', { baseId, rotation });
                     const newRotation = getNextRotation(rotation);
                     console.log('[RotateButton] New rotation:', newRotation);
@@ -842,9 +842,9 @@ const PageToolbar = ({
                   className="relative"
                 >
                   <RotateCw className="h-4 w-4" />
-                  {parseLayoutId(page.layout || '').rotation !== 0 && (
+                  {parseLayoutId(page.layout || '1-full').rotation !== 0 && (
                     <span className="absolute -top-1 -right-1 text-[9px] bg-primary text-primary-foreground px-1 rounded">
-                      {parseLayoutId(page.layout || '').rotation}°
+                      {parseLayoutId(page.layout || '1-full').rotation}°
                     </span>
                   )}
                 </Button>
@@ -929,7 +929,8 @@ const ScaledCoverPreview = ({
   const BASE_PAGE_PX = 450;
 
   // Re-calculate logical dimensions for rendering
-  const [wStr, hStr] = config.size.split('x');
+  const sizeStr = config?.size || '800x600';
+  const [wStr, hStr] = sizeStr.split('x');
   const cfgW = Number(wStr);
   const cfgH = Number(hStr);
   const pxPerUnit = BASE_PAGE_PX / cfgH;
@@ -1100,7 +1101,8 @@ export function AlbumPreview({
                     <AspectRatio
                       ratio={(
                         () => {
-                          const [w, h] = config.size.split('x').map(Number);
+                          const sizeStr = config?.size || '800x600';
+                          const [w, h] = sizeStr.split('x').map(Number);
                           const baseRatio = w / h;
                           if (page.isCover) {
                             // Include spine width in cover ratio to match ScaledCoverPreview

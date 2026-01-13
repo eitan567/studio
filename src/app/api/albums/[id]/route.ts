@@ -75,7 +75,7 @@ export async function PUT(
         }
 
         const body = await request.json()
-        const { name, config, pages, thumbnail_url } = body
+        const { name, config, pages, thumbnail_url, photos } = body
 
         // Build update object with only provided fields
         const updateData: Record<string, unknown> = {
@@ -86,6 +86,7 @@ export async function PUT(
         if (config !== undefined) updateData.config = config
         if (pages !== undefined) updateData.pages = pages
         if (thumbnail_url !== undefined) updateData.thumbnail_url = thumbnail_url
+        if (body.photos !== undefined) updateData.photos = body.photos
 
         const { data: album, error } = await supabase
             .from('albums')

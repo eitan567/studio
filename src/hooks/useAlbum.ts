@@ -31,7 +31,7 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
 
     // Ref to track pending save timeout
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-    const pendingDataRef = useRef<{ pages?: AlbumPage[]; config?: AlbumConfig; name?: string; thumbnail_url?: string } | null>(null)
+    const pendingDataRef = useRef<{ pages?: AlbumPage[]; config?: AlbumConfig; name?: string; thumbnail_url?: string; photos?: any[] } | null>(null)
 
     // Load album
     const loadAlbum = useCallback(async (id: string) => {
@@ -75,7 +75,7 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
     }, [router])
 
     // Create new album
-    const createAlbum = useCallback(async (name: string = 'Untitled Album', config?: AlbumConfig, pages?: AlbumPage[]) => {
+    const createAlbum = useCallback(async (name: string = 'Untitled Album', config?: AlbumConfig, pages?: AlbumPage[], photos?: any[]) => {
         setIsSaving(true)
         setError(null)
 
@@ -116,7 +116,7 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
     }, [router])
 
     // Save album (debounced)
-    const saveAlbum = useCallback(async (data?: { pages?: AlbumPage[]; config?: AlbumConfig; name?: string; thumbnail_url?: string }) => {
+    const saveAlbum = useCallback(async (data?: { pages?: AlbumPage[]; config?: AlbumConfig; name?: string; thumbnail_url?: string; photos?: any[] }) => {
         if (!album) return
 
         const dataToSave = data || pendingDataRef.current || {}
@@ -148,7 +148,7 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
     }, [album])
 
     // Queue an auto-save
-    const queueSave = useCallback((data: { pages?: AlbumPage[]; config?: AlbumConfig; name?: string; thumbnail_url?: string }) => {
+    const queueSave = useCallback((data: { pages?: AlbumPage[]; config?: AlbumConfig; name?: string; thumbnail_url?: string; photos?: any[] }) => {
         if (!autoSave || !album) return
 
         setHasUnsavedChanges(true)
@@ -187,6 +187,20 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
     const updateThumbnail = useCallback((thumbnail_url: string) => {
         setAlbum(prev => prev ? { ...prev, thumbnail_url } : null)
         queueSave({ thumbnail_url })
+    }, [queueSave])
+
+    // Update photos (triggers auto-save)
+    const updatePhotos = useCallback((photosOrFn: any[] | ((prev: any[]) => any[])) => {
+        setAlbum(prev => {
+            if (!prev) return null
+            const currentPhotos = prev.photos || []
+            const newPhotos = typeof photosOrFn === 'function'
+                ? photosOrFn(currentPhotos)
+                : photosOrFn
+
+            queueSave({ photos: newPhotos })
+            return { ...prev, photos: newPhotos }
+        })
     }, [queueSave])
 
     // Delete album
@@ -268,9 +282,11 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
         updateConfig,
         updateName,
         updateThumbnail,
+        updatePhotos: updatePhotos as (photos: any[] | ((prev: any[]) => any[])) => void,
 
         // Convenience getters
         pages: album?.pages || [],
+        photos: album?.photos || [],
         config: album?.config || DEFAULT_CONFIG,
         name: album?.name || 'Untitled Album',
         thumbnail_url: album?.thumbnail_url,

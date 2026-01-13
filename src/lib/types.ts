@@ -109,6 +109,7 @@ export interface Album {
   name: string;
   config: AlbumConfig;
   pages: AlbumPage[];
+  photos?: Photo[]; // Gallery photos associated with the album
   thumbnail_url?: string;
   created_at: string;
   updated_at: string;

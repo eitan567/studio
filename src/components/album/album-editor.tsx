@@ -81,6 +81,7 @@ import { AiBackgroundGenerator } from './ai-background-generator';
 import { AlbumExporter, AlbumExporterRef } from './album-exporter';
 import { CustomLayoutEditorOverlay } from './custom-layout-editor/custom-layout-editor-overlay';
 import { useAlbum } from '@/hooks/useAlbum';
+import { usePhotoUpload } from '@/hooks/usePhotoUpload';
 
 // Parse layout ID to extract base template and rotation
 function parseLayoutId(layoutId: string): { baseId: string; rotation: number } {
@@ -123,12 +124,17 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
     updateThumbnail,
     thumbnail_url: albumThumbnailUrl,
+    photos: savedPhotos,
+    updatePhotos: savePhotos,
   } = useAlbum(albumId);
 
   const router = useRouter();
   const { signOut } = useAuth();
 
-  const [allPhotos, setAllPhotos] = useState<Photo[]>([]);
+  // Use hook's photos instead of local state
+  const allPhotos = savedPhotos;
+  const setAllPhotos = savePhotos;
+
   const [albumPages, setAlbumPages] = useState<AlbumPage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
@@ -338,19 +344,26 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     setRandomSeed(Math.random().toString(36).substring(7));
   }, []);
 
+
+
   // Load album from server or create empty album
   useEffect(() => {
     if (isAlbumLoading || isInitialized) return;
 
-    if (album && savedPages.length > 0) {
-      // Load from server
-      setAlbumPages(savedPages);
-      setPhotoGap(savedConfig.photoGap);
-      setPageMargin(savedConfig.pageMargin);
-      setCornerRadius(savedConfig.cornerRadius || 0);
-      setBackgroundColor(savedConfig.backgroundColor);
-      setBackgroundImage(savedConfig.backgroundImage);
-      form.setValue('size', savedConfig.size);
+    if (album) {
+      if (savedPages.length > 0) {
+        // Load existing pages from server
+        setAlbumPages(savedPages);
+        setPhotoGap(savedConfig.photoGap ?? 10);
+        setPageMargin(savedConfig.pageMargin ?? 10);
+        setCornerRadius(savedConfig.cornerRadius || 0);
+        setBackgroundColor(savedConfig.backgroundColor || '#ffffff');
+        setBackgroundImage(savedConfig.backgroundImage);
+        form.setValue('size', savedConfig.size);
+      } else {
+        // Existing album but empty -> Initialize with default structure
+        generateEmptyAlbum();
+      }
       setIsInitialized(true);
     } else if (isNew || (!album && !isAlbumLoading)) {
       // Initialize with empty album for new albums
@@ -1162,6 +1175,10 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   };
 
   // Process uploaded photo files (from folder or individual selection)
+  // Photo Upload Hook
+  const { uploadPhotos, isUploading: isUploadingHook } = usePhotoUpload();
+
+  // Process uploaded photo files (from folder or individual selection)
   const processUploadedFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
@@ -1181,73 +1198,53 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     setIsLoading(true);
     toast({
       title: 'Uploading Photos',
-      description: `Processing ${imageFiles.length} image(s)...`,
+      description: `Uploading ${imageFiles.length} image(s)...`,
     });
 
     try {
-      const newPhotos: Photo[] = await Promise.all(
-        imageFiles.map(file => {
-          return new Promise<Photo>((resolve, reject) => {
-            // Read as ArrayBuffer for EXIF, then convert to data URL
-            const arrayReader = new FileReader();
-            arrayReader.onload = (arrayEvent) => {
-              const arrayBuffer = arrayEvent.target?.result as ArrayBuffer;
-              const captureDate = extractExifDate(arrayBuffer);
+      const results = await uploadPhotos(imageFiles);
+      const successfulUploads = results.filter((r: { success: boolean; photo?: Photo }) => r.success && r.photo).map((r: { photo?: Photo }) => r.photo!);
+      const failedUploads = results.filter((r: { success: boolean }) => !r.success);
 
-              // Now read as data URL for display
-              const dataReader = new FileReader();
-              dataReader.onload = (dataEvent) => {
-                const dataUrl = dataEvent.target?.result as string;
-                const img = new window.Image();
-                img.onload = () => {
-                  resolve({
-                    id: uuidv4(),
-                    src: dataUrl,
-                    alt: file.name,
-                    width: img.width,
-                    height: img.height,
-                    captureDate,
-                  });
-                };
-                img.onerror = () => reject(new Error(`Failed to load image: ${file.name}`));
-                img.src = dataUrl;
-              };
-              dataReader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
-              dataReader.readAsDataURL(file);
-            };
-            arrayReader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
-            arrayReader.readAsArrayBuffer(file);
-          });
-        })
-      );
+      if (successfulUploads.length > 0) {
+        setAllPhotos(prev => [...prev, ...successfulUploads]);
 
-      setAllPhotos(prev => [...prev, ...newPhotos]);
-      setIsLoading(false);
-      toast({
-        title: 'Photos Uploaded',
-        description: `${newPhotos.length} photo(s) added to gallery.`,
-      });
-
-      // Check if we need to set a thumbnail (First uploaded photo rule)
-      // If thumbnail is empty OR matches a placeholder URL
-      const isPlaceholder = !albumThumbnailUrl || placeholderImages.some(p => p.imageUrl === albumThumbnailUrl);
-
-      if (isPlaceholder && newPhotos.length > 0) {
-        const firstPhoto = newPhotos[0];
-        updateThumbnail(firstPhoto.src);
         toast({
-          title: "Album Thumbnail Updated",
-          description: "The first uploaded photo has been set as the album thumbnail."
+          title: 'Photos Uploaded',
+          description: `${successfulUploads.length} photo(s) added to gallery.`,
+        });
+
+        // Check if we need to set a thumbnail (First uploaded photo rule)
+        const isPlaceholder = !albumThumbnailUrl || placeholderImages.some(p => p.imageUrl === albumThumbnailUrl);
+
+        if (isPlaceholder && successfulUploads.length > 0) {
+          const firstPhoto = successfulUploads[0];
+          updateThumbnail(firstPhoto.src);
+          toast({
+            title: "Album Thumbnail Updated",
+            description: "The first uploaded photo has been set as the album thumbnail."
+          });
+        }
+      }
+
+      if (failedUploads.length > 0) {
+        console.error('Failed uploads:', failedUploads);
+        toast({
+          title: 'Upload Partially Failed',
+          description: `${failedUploads.length} images failed to upload.`,
+          variant: 'destructive'
         });
       }
 
     } catch (error) {
-      setIsLoading(false);
+      console.error('Upload process error:', error);
       toast({
         title: 'Upload Failed',
-        description: 'Some images could not be processed.',
+        description: 'An unexpected error occurred during upload.',
         variant: 'destructive'
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -1299,6 +1296,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     toast({ title: "Downloading page..." });
     await exporterRef.current?.exportPage(pageId);
   };
+
+
 
   return (
     <div className="flex flex-col h-full">
@@ -1458,7 +1457,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                               type="number"
                               min="0"
                               max="50"
-                              value={photoGap}
+                              value={photoGap || 0}
                               onChange={(e) => setPhotoGap(Math.max(0, Math.min(50, Number(e.target.value) || 0)))}
                               className="w-14 h-7 text-center text-sm border rounded"
                             />
@@ -1469,7 +1468,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                           type="range"
                           min="0"
                           max="50"
-                          value={photoGap}
+                          value={photoGap || 0}
                           onChange={(e) => setPhotoGap(Number(e.target.value))}
                           className="w-full"
                         />
@@ -1482,7 +1481,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                               type="number"
                               min="0"
                               max="50"
-                              value={pageMargin}
+                              value={pageMargin || 0}
                               onChange={(e) => setPageMargin(Math.max(0, Math.min(50, Number(e.target.value) || 0)))}
                               className="w-14 h-7 text-center text-sm border rounded"
                             />
@@ -1493,7 +1492,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                           type="range"
                           min="0"
                           max="50"
-                          value={pageMargin}
+                          value={pageMargin || 0}
                           onChange={(e) => setPageMargin(Number(e.target.value))}
                           className="w-full"
                         />
@@ -1506,7 +1505,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                               type="number"
                               min="0"
                               max="20"
-                              value={cornerRadius}
+                              value={cornerRadius || 0}
                               onChange={(e) => setCornerRadius(Math.max(0, Math.min(20, Number(e.target.value) || 0)))}
                               className="w-14 h-7 text-center text-sm border rounded"
                             />
@@ -1517,7 +1516,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                           type="range"
                           min="0"
                           max="20"
-                          value={cornerRadius}
+                          value={cornerRadius || 0}
                           onChange={(e) => setCornerRadius(Number(e.target.value))}
                           className="w-full"
                         />
@@ -1527,13 +1526,13 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                         <div className="flex items-center gap-2">
                           <input
                             type="color"
-                            value={backgroundColor}
+                            value={backgroundColor || '#ffffff'}
                             onChange={(e) => handleColorChange(e.target.value)}
                             className="w-10 h-10 rounded border cursor-pointer"
                           />
                           <input
                             type="text"
-                            value={backgroundColor}
+                            value={backgroundColor || '#ffffff'}
                             onChange={(e) => setBackgroundColor(e.target.value)}
                             className="flex-1 h-8 px-2 text-sm border rounded"
                             placeholder="#ffffff"
