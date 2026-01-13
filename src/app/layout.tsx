@@ -2,8 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
-import { SiteHeader } from '@/components/site-header';
-import { SiteFooter } from '@/components/site-footer';
+import { AuthProvider } from '@/hooks/useAuth';
 
 export const metadata: Metadata = {
   title: 'PhotoBooker',
@@ -26,10 +25,12 @@ export default function RootLayout({
         />
       </head>
       <body className={cn('min-h-screen bg-background font-body antialiased')}>
-        <div className="relative flex min-h-screen flex-col">
+        <AuthProvider>
+          <div className="relative flex min-h-screen flex-col">
             {children}
-        </div>
-        <Toaster />
+          </div>
+          <Toaster />
+        </AuthProvider>
       </body>
     </html>
   );

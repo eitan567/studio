@@ -1,0 +1,280 @@
+'use client'
+
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import type { AlbumConfig, AlbumPage } from '@/lib/types'
+
+interface Album {
+    id: string
+    name: string
+    config: AlbumConfig
+    pages: AlbumPage[]
+    thumbnail_url?: string
+    created_at: string
+    updated_at: string
+}
+
+interface UseAlbumOptions {
+    autoSave?: boolean
+    autoSaveDelay?: number
+}
+
+const DEFAULT_CONFIG: AlbumConfig = {
+    size: '25x25',
+    photoGap: 4,
+    pageMargin: 10,
+    backgroundColor: '#ffffff',
+    cornerRadius: 0,
+}
+
+export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) {
+    const { autoSave = true, autoSaveDelay = 2000 } = options
+    const router = useRouter()
+
+    const [album, setAlbum] = useState<Album | null>(null)
+    const [isLoading, setIsLoading] = useState(true)
+    const [isSaving, setIsSaving] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+    const [lastSaved, setLastSaved] = useState<Date | null>(null)
+
+    // Ref to track pending save timeout
+    const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+    const pendingDataRef = useRef<{ pages?: AlbumPage[]; config?: AlbumConfig; name?: string } | null>(null)
+
+    // Load album
+    const loadAlbum = useCallback(async (id: string) => {
+        if (id === 'new') {
+            setAlbum(null)
+            setIsLoading(false)
+            return
+        }
+
+        setIsLoading(true)
+        setError(null)
+
+        try {
+            const response = await fetch(`/api/albums/${id}`)
+
+            if (!response.ok) {
+                if (response.status === 404) {
+                    setError('Album not found')
+                } else if (response.status === 401) {
+                    router.push('/login')
+                    return
+                } else {
+                    setError('Failed to load album')
+                }
+                setAlbum(null)
+                return
+            }
+
+            const data = await response.json()
+            setAlbum({
+                ...data.album,
+                config: data.album.config || DEFAULT_CONFIG,
+                pages: data.album.pages || [],
+            })
+        } catch (err) {
+            console.error('Load album error:', err)
+            setError('Failed to load album')
+        } finally {
+            setIsLoading(false)
+        }
+    }, [router])
+
+    // Create new album
+    const createAlbum = useCallback(async (name: string = 'Untitled Album', config?: AlbumConfig, pages?: AlbumPage[]) => {
+        setIsSaving(true)
+        setError(null)
+
+        try {
+            const response = await fetch('/api/albums', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name,
+                    config: config || DEFAULT_CONFIG,
+                    pages: pages || [],
+                }),
+            })
+
+            if (!response.ok) {
+                throw new Error('Failed to create album')
+            }
+
+            const data = await response.json()
+            setAlbum({
+                ...data.album,
+                config: data.album.config || DEFAULT_CONFIG,
+                pages: data.album.pages || [],
+            })
+            setLastSaved(new Date())
+
+            // Update URL to new album ID
+            router.replace(`/album/${data.album.id}`)
+
+            return data.album
+        } catch (err) {
+            console.error('Create album error:', err)
+            setError('Failed to create album')
+            throw err
+        } finally {
+            setIsSaving(false)
+        }
+    }, [router])
+
+    // Save album (debounced)
+    const saveAlbum = useCallback(async (data?: { pages?: AlbumPage[]; config?: AlbumConfig; name?: string }) => {
+        if (!album) return
+
+        const dataToSave = data || pendingDataRef.current || {}
+        pendingDataRef.current = null
+
+        setIsSaving(true)
+
+        try {
+            const response = await fetch(`/api/albums/${album.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dataToSave),
+            })
+
+            if (!response.ok) {
+                throw new Error('Failed to save album')
+            }
+
+            const result = await response.json()
+            setAlbum(prev => prev ? { ...prev, ...result.album } : null)
+            setHasUnsavedChanges(false)
+            setLastSaved(new Date())
+        } catch (err) {
+            console.error('Save album error:', err)
+            setError('Failed to save changes')
+        } finally {
+            setIsSaving(false)
+        }
+    }, [album])
+
+    // Queue an auto-save
+    const queueSave = useCallback((data: { pages?: AlbumPage[]; config?: AlbumConfig; name?: string }) => {
+        if (!autoSave || !album) return
+
+        setHasUnsavedChanges(true)
+        pendingDataRef.current = { ...pendingDataRef.current, ...data }
+
+        // Clear existing timeout
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current)
+        }
+
+        // Set new timeout
+        saveTimeoutRef.current = setTimeout(() => {
+            saveAlbum()
+        }, autoSaveDelay)
+    }, [autoSave, autoSaveDelay, album, saveAlbum])
+
+    // Update pages (triggers auto-save)
+    const updatePages = useCallback((pages: AlbumPage[]) => {
+        setAlbum(prev => prev ? { ...prev, pages } : null)
+        queueSave({ pages })
+    }, [queueSave])
+
+    // Update config (triggers auto-save)
+    const updateConfig = useCallback((config: AlbumConfig) => {
+        setAlbum(prev => prev ? { ...prev, config } : null)
+        queueSave({ config })
+    }, [queueSave])
+
+    // Update name (triggers auto-save)
+    const updateName = useCallback((name: string) => {
+        setAlbum(prev => prev ? { ...prev, name } : null)
+        queueSave({ name })
+    }, [queueSave])
+
+    // Delete album
+    const deleteAlbum = useCallback(async () => {
+        if (!album) return
+
+        try {
+            const response = await fetch(`/api/albums/${album.id}`, {
+                method: 'DELETE',
+            })
+
+            if (!response.ok) {
+                throw new Error('Failed to delete album')
+            }
+
+            router.push('/dashboard')
+        } catch (err) {
+            console.error('Delete album error:', err)
+            setError('Failed to delete album')
+        }
+    }, [album, router])
+
+    // Force save now (e.g., before leaving page)
+    const saveNow = useCallback(async () => {
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current)
+            saveTimeoutRef.current = null
+        }
+
+        if (hasUnsavedChanges || pendingDataRef.current) {
+            await saveAlbum()
+        }
+    }, [hasUnsavedChanges, saveAlbum])
+
+    // Load album on mount or ID change
+    useEffect(() => {
+        if (albumId) {
+            loadAlbum(albumId)
+        }
+    }, [albumId, loadAlbum])
+
+    // Cleanup timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current)
+            }
+        }
+    }, [])
+
+    // Warn before leaving with unsaved changes
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (hasUnsavedChanges) {
+                e.preventDefault()
+                return ''
+            }
+        }
+
+        window.addEventListener('beforeunload', handleBeforeUnload)
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+    }, [hasUnsavedChanges])
+
+    return {
+        album,
+        isLoading,
+        isSaving,
+        error,
+        hasUnsavedChanges,
+        lastSaved,
+
+        // Actions
+        loadAlbum,
+        createAlbum,
+        saveAlbum,
+        saveNow,
+        deleteAlbum,
+        updatePages,
+        updateConfig,
+        updateName,
+
+        // Convenience getters
+        pages: album?.pages || [],
+        config: album?.config || DEFAULT_CONFIG,
+        name: album?.name || 'Untitled Album',
+        isNew: albumId === 'new',
+    }
+}

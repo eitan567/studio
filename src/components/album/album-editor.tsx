@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   Cloud,
   Loader2,
@@ -69,6 +69,7 @@ import { Alert as AlertUI, AlertDescription as AlertDescriptionUI, AlertTitle as
 import { AiBackgroundGenerator } from './ai-background-generator';
 import { AlbumExporter, AlbumExporterRef } from './album-exporter';
 import { CustomLayoutEditorOverlay } from './custom-layout-editor/custom-layout-editor-overlay';
+import { useAlbum } from '@/hooks/useAlbum';
 
 // Parse layout ID to extract base template and rotation
 function parseLayoutId(layoutId: string): { baseId: string; rotation: number } {
@@ -92,6 +93,24 @@ const configSchema = z.object({
 type ConfigFormData = z.infer<typeof configSchema>;
 
 export function AlbumEditor({ albumId }: AlbumEditorProps) {
+  // Album persistence hook
+  const {
+    album,
+    isLoading: isAlbumLoading,
+    isSaving,
+    error: albumError,
+    hasUnsavedChanges,
+    lastSaved,
+    createAlbum,
+    updatePages,
+    updateConfig,
+    updateName,
+    isNew,
+    config: savedConfig,
+    pages: savedPages,
+    name: albumName,
+  } = useAlbum(albumId);
+
   const [allPhotos, setAllPhotos] = useState<Photo[]>([]);
   const [albumPages, setAlbumPages] = useState<AlbumPage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -99,6 +118,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const [isCustomLayoutEditorOpen, setIsCustomLayoutEditorOpen] = useState(false);
   const [isCoverEditorOpen, setIsCoverEditorOpen] = useState(false);
   const [customTemplates, setCustomTemplates] = useState<AdvancedTemplate[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Load custom templates from localStorage on mount
   useEffect(() => {
@@ -295,9 +315,28 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   useEffect(() => {
     setIsClient(true);
     setRandomSeed(Math.random().toString(36).substring(7));
-    // Initialize with empty album
-    generateEmptyAlbum();
   }, []);
+
+  // Load album from server or create empty album
+  useEffect(() => {
+    if (isAlbumLoading || isInitialized) return;
+
+    if (album && savedPages.length > 0) {
+      // Load from server
+      setAlbumPages(savedPages);
+      setPhotoGap(savedConfig.photoGap);
+      setPageMargin(savedConfig.pageMargin);
+      setCornerRadius(savedConfig.cornerRadius || 0);
+      setBackgroundColor(savedConfig.backgroundColor);
+      setBackgroundImage(savedConfig.backgroundImage);
+      form.setValue('size', savedConfig.size);
+      setIsInitialized(true);
+    } else if (isNew || (!album && !isAlbumLoading)) {
+      // Initialize with empty album for new albums
+      generateEmptyAlbum();
+      setIsInitialized(true);
+    }
+  }, [album, savedPages, savedConfig, isAlbumLoading, isNew, isInitialized]);
 
   const form = useForm<ConfigFormData>({
     resolver: zodResolver(configSchema),
@@ -305,6 +344,32 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       size: '20x20',
     },
   });
+
+  const watchedSize = form.watch('size');
+
+  // Auto-save pages when they change
+  useEffect(() => {
+    if (!isInitialized || isAlbumLoading) return;
+    if (albumPages.length === 0) return;
+
+    // If this is a new album, create it first
+    if (isNew) {
+      createAlbum(albumName, config, albumPages);
+      return;
+    }
+
+    // Otherwise, update pages
+    if (album) {
+      updatePages(albumPages);
+    }
+  }, [albumPages, isInitialized]);
+
+  // Auto-save config when it changes
+  useEffect(() => {
+    if (!isInitialized || isAlbumLoading || isNew || !album) return;
+    updateConfig(config);
+  }, [photoGap, pageMargin, cornerRadius, backgroundColor, backgroundImage, watchedSize]);
+
 
   const config: AlbumConfig = {
     size: form.watch('size') as '20x20',
@@ -1187,8 +1252,27 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 text-lg">
             <span className="text-muted-foreground">Editing</span>
-            <span className="font-semibold">travel-2023</span>
+            <span className="font-semibold">{albumName}</span>
             <Pencil className="h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground ml-2" />
+          </div>
+          {/* Save Status Indicator */}
+          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+            {isSaving ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Saving...</span>
+              </>
+            ) : hasUnsavedChanges ? (
+              <>
+                <Cloud className="h-3 w-3" />
+                <span>Unsaved</span>
+              </>
+            ) : lastSaved ? (
+              <>
+                <Cloud className="h-3 w-3 text-green-500" />
+                <span className="text-green-600">Saved</span>
+              </>
+            ) : null}
           </div>
         </div>
 
