@@ -21,6 +21,7 @@ export type AlbumConfig = {
   backgroundColor: string; // Background color for pages
   backgroundImage?: string; // Default background image URL for pages
   cornerRadius?: number; // Corner radius for photo frames in pixels (default 0)
+  description?: string; // Optional description
 };
 
 // New Interface for Cover Text Objects
@@ -102,3 +103,13 @@ export type AlbumPage = {
     right: string;
   };
 };
+
+export interface Album {
+  id: string;
+  name: string;
+  config: AlbumConfig;
+  pages: AlbumPage[];
+  thumbnail_url?: string;
+  created_at: string;
+  updated_at: string;
+}

@@ -1,12 +1,42 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!
 
+async function getSupabaseWithAuth() {
+    const cookieStore = await cookies()
+
+    return createServerClient(supabaseUrl, supabaseAnonKey, {
+        cookies: {
+            getAll() {
+                return cookieStore.getAll()
+            },
+            setAll(cookiesToSet) {
+                cookiesToSet.forEach(({ name, value, options }) =>
+                    cookieStore.set(name, value, options)
+                )
+            },
+        },
+    })
+}
+
 export async function POST(request: NextRequest) {
     try {
-        const supabase = createSupabaseClient(supabaseUrl, supabaseAnonKey)
+        // Create authenticated Supabase client
+        const supabase = await getSupabaseWithAuth()
+
+        // Verify user is authenticated
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+        if (authError || !user) {
+            console.error('Upload unauthorized:', authError)
+            return NextResponse.json(
+                { error: 'Unauthorized: You must be logged in to upload photos' },
+                { status: 401 }
+            )
+        }
 
         const formData = await request.formData()
         const file = formData.get('file') as File | null
@@ -18,12 +48,11 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // Generate unique filename
         const timestamp = Date.now()
         const randomId = Math.random().toString(36).substring(2, 8)
         const extension = file.name.split('.').pop()
         const filename = `${timestamp}-${randomId}.${extension}`
-        const storagePath = `uploads/${filename}`
+        const storagePath = `${user.id}/${filename}` // Path structure: user_id/filename
 
         // Upload to Supabase Storage
         const { data: storageData, error: storageError } = await supabase.storage
@@ -52,12 +81,11 @@ export async function POST(request: NextRequest) {
         const { data: photoData, error: dbError } = await supabase
             .from('photos')
             .insert({
+                user_id: user.id, // Ensure photo is linked to the user
                 filename,
                 original_name: file.name,
                 storage_path: storagePath,
                 url: publicUrl,
-                // width and height can be extracted client-side before upload
-                // capture_date can be extracted from EXIF if needed
             })
             .select()
             .single()
@@ -86,3 +114,4 @@ export async function POST(request: NextRequest) {
         )
     }
 }
+

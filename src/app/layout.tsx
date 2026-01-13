@@ -3,10 +3,11 @@ import './globals.css';
 import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/hooks/useAuth';
+import { ThemeProvider } from '@/components/theme-provider';
 
 export const metadata: Metadata = {
-  title: 'PhotoBooker',
-  description: 'Create your smart photo album.',
+  title: 'Albomit',
+  description: 'Create your smart photo album with Albomit.',
 };
 
 export default function RootLayout({
@@ -26,10 +27,17 @@ export default function RootLayout({
       </head>
       <body className={cn('min-h-screen bg-background font-body antialiased')}>
         <AuthProvider>
-          <div className="relative flex min-h-screen flex-col">
-            {children}
-          </div>
-          <Toaster />
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <div className="relative flex min-h-screen flex-col">
+              {children}
+            </div>
+            <Toaster />
+          </ThemeProvider>
         </AuthProvider>
       </body>
     </html>

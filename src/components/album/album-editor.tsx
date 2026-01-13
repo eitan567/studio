@@ -22,8 +22,19 @@ import {
   FolderUp,
   Upload,
   Eraser,
+
   RotateCcw,
+  ChevronLeft,
+  LogOut,
+  Check,
+  X,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import { Input } from '@/components/ui/input';
+import placeholderImagesData from '@/lib/placeholder-images.json';
+
+const placeholderImages = placeholderImagesData.placeholderImages;
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -109,7 +120,13 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     config: savedConfig,
     pages: savedPages,
     name: albumName,
+
+    updateThumbnail,
+    thumbnail_url: albumThumbnailUrl,
   } = useAlbum(albumId);
+
+  const router = useRouter();
+  const { signOut } = useAuth();
 
   const [allPhotos, setAllPhotos] = useState<Photo[]>([]);
   const [albumPages, setAlbumPages] = useState<AlbumPage[]>([]);
@@ -118,6 +135,9 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const [isBookViewOpen, setIsBookViewOpen] = useState(false);
   const [isCustomLayoutEditorOpen, setIsCustomLayoutEditorOpen] = useState(false);
   const [isCoverEditorOpen, setIsCoverEditorOpen] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState('');
+
   const [customTemplates, setCustomTemplates] = useState<AdvancedTemplate[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -338,6 +358,26 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       setIsInitialized(true);
     }
   }, [album, savedPages, savedConfig, isAlbumLoading, isNew, isInitialized]);
+
+  // Sync edited title when album name loads/changes
+  useEffect(() => {
+    if (albumName) {
+      setEditedTitle(albumName);
+    }
+  }, [albumName]);
+
+  const handleSaveTitle = () => {
+    if (editedTitle.trim()) {
+      updateName(editedTitle.trim());
+      setIsEditingTitle(false);
+    }
+  };
+
+  const handleCancelTitleEdit = () => {
+    setEditedTitle(albumName);
+    setIsEditingTitle(false);
+  };
+
 
   const form = useForm<ConfigFormData>({
     resolver: zodResolver(configSchema),
@@ -1187,6 +1227,20 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         title: 'Photos Uploaded',
         description: `${newPhotos.length} photo(s) added to gallery.`,
       });
+
+      // Check if we need to set a thumbnail (First uploaded photo rule)
+      // If thumbnail is empty OR matches a placeholder URL
+      const isPlaceholder = !albumThumbnailUrl || placeholderImages.some(p => p.imageUrl === albumThumbnailUrl);
+
+      if (isPlaceholder && newPhotos.length > 0) {
+        const firstPhoto = newPhotos[0];
+        updateThumbnail(firstPhoto.src);
+        toast({
+          title: "Album Thumbnail Updated",
+          description: "The first uploaded photo has been set as the album thumbnail."
+        });
+      }
+
     } catch (error) {
       setIsLoading(false);
       toast({
@@ -1251,11 +1305,43 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       {/* Global Top Toolbar */}
       <div className="flex justify-between items-center px-6 py-3 border-b bg-background sticky top-0 z-50">
         <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard')}>
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+
           <div className="flex items-center gap-2 text-lg">
-            <span className="text-muted-foreground">Editing</span>
-            <span className="font-semibold">{albumName}</span>
-            <Pencil className="h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground ml-2" />
+            <span className="text-muted-foreground hidden md:inline">Editing</span>
+
+            {isEditingTitle ? (
+              <div className="flex items-center gap-1">
+                <Input
+                  value={editedTitle}
+                  onChange={(e) => setEditedTitle(e.target.value)}
+                  className="h-8 w-48 lg:w-64"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveTitle();
+                    if (e.key === 'Escape') handleCancelTitleEdit();
+                  }}
+                />
+                <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600" onClick={handleSaveTitle}>
+                  <Check className="h-4 w-4" />
+                </Button>
+                <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600" onClick={handleCancelTitleEdit}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 group">
+                <span className="font-semibold">{albumName}</span>
+                <Pencil
+                  className="h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground opacity-50 group-hover:opacity-100 transition-opacity"
+                  onClick={() => setIsEditingTitle(true)}
+                />
+              </div>
+            )}
           </div>
+
           {/* Save Status Indicator */}
           <div className="flex items-center gap-1 text-sm text-muted-foreground">
             {isSaving ? (
@@ -1299,6 +1385,11 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           <Button variant="ghost" size="sm" className="gap-2" onClick={() => toast({ title: "Sharing Album..." })}>
             <Share2 className="h-4 w-4" />
             <span className="hidden sm:inline">Share</span>
+          </Button>
+          <div className="h-4 w-px bg-border mx-1" />
+          <Button variant="ghost" size="sm" className="gap-2 text-destructive hover:text-destructive" onClick={() => signOut().then(() => router.push('/'))}>
+            <LogOut className="h-4 w-4" />
+            <span className="hidden sm:inline">Logout</span>
           </Button>
         </div>
       </div>

@@ -2,33 +2,47 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
   :root {
-    --background: 276 42% 93%;
-    --foreground: 262 30% 25%;
+    /* Premium Light Theme - Zinc/Indigo */
+    --background: 260 20% 98%;
+    --foreground: 260 25% 15%;
+    
     --card: 0 0% 100%;
-    --card-foreground: 262 30% 25%;
+    --card-foreground: 260 25% 15%;
+    
     --popover: 0 0% 100%;
-    --popover-foreground: 262 30% 25%;
-    --primary: 262 52% 51%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 276 30% 88%;
-    --secondary-foreground: 262 30% 25%;
-    --muted: 276 30% 88%;
-    --muted-foreground: 262 20% 55%;
-    --accent: 340 82% 52%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 276 20% 83%;
-    --input: 276 20% 83%;
-    --ring: 262 52% 51%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
+    --popover-foreground: 260 25% 15%;
+    
+    /* Primary: Deep Indigo */
+    --primary: 265 85% 60%;
+    --primary-foreground: 210 40% 98%;
+    
+    /* Secondary: Soft Lavender */
+    --secondary: 265 30% 94%;
+    --secondary-foreground: 265 80% 30%;
+    
+    --muted: 260 15% 94%;
+    --muted-foreground: 260 10% 45%;
+    
+    /* Accent: Vivid Purple/Pink for highlights */
+    --accent: 265 30% 94%;
+    --accent-foreground: 265 80% 30%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 260 15% 88%;
+    --input: 260 15% 88%;
+    --ring: 265 85% 60%;
+    
+    --radius: 0.75rem;
+
+    --chart-1: 265 70% 50%;
+    --chart-2: 280 65% 55%;
+    --chart-3: 310 60% 55%;
+    --chart-4: 240 60% 60%;
+    --chart-5: 220 60% 60%;
+    
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
@@ -38,31 +52,44 @@
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
+  
   .dark {
-    --background: 262 20% 11%;
-    --foreground: 276 42% 93%;
-    --card: 262 20% 15%;
-    --card-foreground: 276 42% 93%;
-    --popover: 262 20% 15%;
-    --popover-foreground: 276 42% 93%;
-    --primary: 262 52% 51%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 262 20% 20%;
-    --secondary-foreground: 276 42% 93%;
-    --muted: 262 20% 20%;
-    --muted-foreground: 276 20% 65%;
-    --accent: 340 82% 52%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 262 20% 25%;
-    --input: 262 20% 25%;
-    --ring: 262 52% 51%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    /* Premium Dark Theme - Deep Slate/Purple */
+    --background: 260 30% 10%;
+    --foreground: 260 20% 94%;
+    
+    --card: 260 30% 14%;
+    --card-foreground: 260 20% 94%;
+    
+    --popover: 260 30% 14%;
+    --popover-foreground: 260 20% 94%;
+    
+    /* Primary: Vivid Violet */
+    --primary: 265 80% 65%;
+    --primary-foreground: 210 40% 98%;
+    
+    --secondary: 260 30% 20%;
+    --secondary-foreground: 260 20% 94%;
+    
+    --muted: 260 30% 20%;
+    --muted-foreground: 260 20% 65%;
+    
+    --accent: 260 30% 20%;
+    --accent-foreground: 260 20% 94%;
+    
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 210 40% 98%;
+    
+    --border: 260 30% 20%;
+    --input: 260 30% 20%;
+    --ring: 265 80% 65%;
+
+    --chart-1: 265 70% 50%;
+    --chart-2: 280 65% 55%;
+    --chart-3: 310 60% 55%;
+    --chart-4: 240 60% 60%;
+    --chart-5: 220 60% 60%;
+    
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -72,7 +99,6 @@
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
-}
 
 @layer base {
   * {

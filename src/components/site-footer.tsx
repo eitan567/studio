@@ -12,7 +12,7 @@ export function SiteFooter({ className }: React.HTMLAttributes<HTMLElement>) {
           </p>
         </div>
         <p className="text-center text-sm text-muted-foreground md:text-left">
-          © {new Date().getFullYear()} PhotoBooker, Inc. All rights reserved.
+          © {new Date().getFullYear()} Albomit, Inc. All rights reserved.
         </p>
       </div>
     </footer>
