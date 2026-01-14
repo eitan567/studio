@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { BookOpenText, Info, Trash2, LayoutTemplate, Download, Image as ImageIcon, Wand2, Undo, Crop, AlertTriangle, Pencil, BookOpen, Share2, FileText, FileDown, MoreHorizontal, FileImage, Plus, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, CornerDownRight, RotateCw } from 'lucide-react';
+import { BookOpenText, Info, Trash2, LayoutTemplate, Download, Image as ImageIcon, Wand2, Undo, Crop, AlertTriangle, Pencil, BookOpen, Share2, FileText, FileDown, MoreHorizontal, FileImage, Plus, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, CornerDownRight, CornerDownLeft, RotateCw, ChevronUp, ChevronDown } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
 
 import type { AlbumPage, AlbumConfig, Photo } from '@/lib/types';
@@ -1264,6 +1264,7 @@ function NavigationControls({
   pageInfo: { label: string; start: number; end: number; isCover: boolean; }[]
 }) {
   const [targetPage, setTargetPage] = useState<string>("");
+  const [stepSize, setStepSize] = useState<string>("5");
 
   const scrollToIndex = (index: number) => {
     const el = document.getElementById(`album-page-${index}`);
@@ -1289,44 +1290,120 @@ function NavigationControls({
     }
   };
 
-  return (
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-49 flex items-center gap-1 bg-background/90 backdrop-blur-sm p-1.5 rounded-full shadow-lg border">
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => scrollToIndex(0)}>
-              <ChevronsUp className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Jump to Start</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+  const activeIndexRef = useRef(0);
 
-      <div className="flex items-center gap-1 mx-1">
-        <Input
-          type="number"
-          className="w-14 h-8 px-1 text-center text-sm appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-          placeholder="#"
-          value={targetPage}
-          onChange={(e) => setTargetPage(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleJump()}
-          title="Type page number and press Enter"
-        />
-        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={handleJump} disabled={!targetPage}>
-          <CornerDownRight className="h-4 w-4" />
-        </Button>
+  // Helper to get current visible index
+  const getVisibleIndex = () => {
+    const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (!viewport) return 0;
+
+    const viewportRect = viewport.getBoundingClientRect();
+    let bestIndex = 0;
+    let minDiff = Infinity;
+
+    for (let i = 0; i < totalPages; i++) {
+      const el = document.getElementById(`album-page-${i}`);
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        // Distance of element center to viewport center
+        const dist = Math.abs((rect.top + rect.height / 2) - (viewportRect.top + viewportRect.height / 2));
+        if (dist < minDiff) {
+          minDiff = dist;
+          bestIndex = i;
+        }
+      }
+    }
+    return bestIndex;
+  };
+
+  const handleStepJump = (direction: 'up' | 'down') => {
+    const current = getVisibleIndex();
+    const step = parseInt(stepSize) || 1;
+    let next = direction === 'up' ? current - step : current + step;
+
+    // Clamp
+    if (next < 0) next = 0;
+    if (next >= totalPages) next = totalPages - 1;
+
+    scrollToIndex(next);
+  };
+
+  return (
+    <div className="absolute right-6 top-1/2 -translate-y-1/2 z-49 flex flex-col gap-4">
+      {/* Absolute Jump (Start/End/Specific) */}
+      <div className="flex flex-col items-center gap-2 bg-background/90 backdrop-blur-sm p-1.5 rounded-full shadow-lg border">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => scrollToIndex(0)}>
+                <ChevronsUp className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">Jump to Start</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <div className="flex flex-col items-center gap-1 my-1">
+          <Input
+            type="number"
+            className="w-10 h-8 px-0.5 text-center text-xs appearance-none [&::-webkit-inner-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0 border border-[#d9d8d8] shadow-none"
+            placeholder="#"
+            value={targetPage}
+            onChange={(e) => setTargetPage(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleJump()}
+            title="Type page number"
+          />
+          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={handleJump} disabled={!targetPage}>
+            <CornerDownLeft className="h-3 w-3" />
+          </Button>
+        </div>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => scrollToIndex(totalPages - 1)}>
+                <ChevronsDown className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">Jump to End</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => scrollToIndex(totalPages - 1)}>
-              <ChevronsDown className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Jump to End</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      {/* Relative Step Jump */}
+      <div className="flex flex-col items-center gap-2 bg-background/90 backdrop-blur-sm p-1.5 rounded-full shadow-lg border">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => handleStepJump('up')}>
+                <ChevronUp className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">Jump Up</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <div className="flex flex-col items-center gap-1 my-1">
+          <Input
+            type="number"
+            className="w-10 h-8 px-0.5 text-center text-xs appearance-none [&::-webkit-inner-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0 border border-[#d9d8d8] shadow-none"
+            value={stepSize}
+            onChange={(e) => setStepSize(e.target.value)}
+            title="Pages to jump"
+          />
+        </div>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => handleStepJump('down')}>
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">Jump Down</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
     </div>
   );
 }
