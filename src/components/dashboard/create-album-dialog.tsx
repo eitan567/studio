@@ -130,20 +130,25 @@ export function CreateAlbumDialog({ children, albumToEdit, onAlbumUpdated, onAlb
                 description: albumToEdit ? 'Changes saved successfully.' : 'Your new album is ready!',
             });
 
-            setOpen(false);
-
             if (albumToEdit) {
+                setOpen(false);
                 if (onAlbumUpdated) onAlbumUpdated();
                 router.refresh();
+                setIsLoading(false);
             } else {
+                // Don't close the dialog or stop loading, just navigate
+                // This prevents the "flash" of the dashboard
+                router.push(`/album/${data.album.id}`);
+
+                // Cleanup state only after navigation starts (or use useEffect to cleanup on unmount)
+                // But since we are navigating away, local state doesn't matter much
                 setName('');
                 setDescription('');
                 setThumbnailFile(null);
                 setPreviewUrl(null);
-                // Navigate into the new album editor
-                router.push(`/album/${data.album.id}`);
             }
         } catch (error) {
+            setIsLoading(false);
             console.error(error);
             toast({
                 title: 'Error',
