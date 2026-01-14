@@ -188,11 +188,35 @@ export async function DELETE(
             const { error: storageError } = await supabase.storage.from('photos').remove(pathsToDelete);
             if (storageError) console.error('[DELETE] Storage Remove Error:', storageError);
 
-            // DB
+            // DB - delete by storage_path
             const { error: dbDeleteError } = await supabase.from('photos').delete().in('storage_path', pathsToDelete);
-            if (dbDeleteError) console.error('[DELETE] DB Photo Delete Error:', dbDeleteError);
+            if (dbDeleteError) console.error('[DELETE] DB Photo Delete Error (by storage_path):', dbDeleteError);
         } else {
-            console.log('[DELETE] No files to delete.');
+            console.log('[DELETE] No files to delete from storage.');
+        }
+
+        // Also delete thumbnail from photos table by URL if it exists
+        if (album?.thumbnail_url) {
+            console.log('[DELETE] Thumbnail URL to delete from DB:', album.thumbnail_url);
+
+            // First, check if this photo exists in the DB
+            const { data: existingPhoto, error: findError } = await supabase
+                .from('photos')
+                .select('id, url, storage_path')
+                .eq('url', album.thumbnail_url)
+                .single();
+
+            console.log('[DELETE] Found photo in DB:', existingPhoto, 'Error:', findError?.message);
+
+            if (existingPhoto) {
+                const { error: thumbnailDbError, count } = await supabase
+                    .from('photos')
+                    .delete()
+                    .eq('url', album.thumbnail_url);
+                console.log('[DELETE] Deleted from photos table. Error:', thumbnailDbError?.message, 'Count:', count);
+            } else {
+                console.log('[DELETE] Thumbnail not found in photos table, nothing to delete');
+            }
         }
 
         // 4. Delete Album
