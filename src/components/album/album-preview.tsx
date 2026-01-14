@@ -963,7 +963,7 @@ const ScaledCoverPreview = ({
 
   return (
     <div ref={wrapperRef} className="w-full h-full flex items-center justify-center overflow-hidden">
-      <div style={{
+      <div className="shadow-lg" style={{
         width: logicalWidth,
         height: logicalHeight,
         transform: `scale(${scale})`,
@@ -1119,13 +1119,7 @@ export function AlbumPreview({
                     >
 
                       <Card
-                        className="h-full w-full shadow-lg"
-                        style={{
-                          backgroundColor: page.backgroundColor || config.backgroundColor,
-                          backgroundImage: (page.backgroundImage || config.backgroundImage) ? `url(${page.backgroundImage || config.backgroundImage})` : undefined,
-                          backgroundSize: 'cover',
-                          backgroundPosition: 'center',
-                        }}
+                        className="h-full w-full border-none bg-transparent shadow-none"
                       >
                         <CardContent
                           className="flex h-full w-full items-center justify-center p-0"
