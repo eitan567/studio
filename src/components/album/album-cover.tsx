@@ -646,7 +646,7 @@ export const AlbumCover = ({
                         width: isFull ? '100%' : '200%',
                         transform: isFront ? 'translateX(-50%)' : 'none',
                         backgroundColor: page.backgroundColor || config?.backgroundColor || '#fff',
-                        backgroundImage: page.backgroundImage ? `url(${page.backgroundImage})` : undefined,
+                        backgroundImage: (page.backgroundImage || config?.backgroundImage) ? `url(${page.backgroundImage || config?.backgroundImage})` : undefined,
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
                         padding: `${pageMargin}px`
@@ -707,7 +707,7 @@ export const AlbumCover = ({
                         )}
                         style={{
                             backgroundColor: page.backgroundColor || config?.backgroundColor || '#fff',
-                            backgroundImage: page.backgroundImage ? `url(${page.backgroundImage})` : undefined,
+                            backgroundImage: (page.backgroundImage || config?.backgroundImage) ? `url(${page.backgroundImage || config?.backgroundImage})` : undefined,
                             backgroundSize: 'cover',
                             backgroundPosition: 'center',
                             padding: `${pageMargin}px`
@@ -766,7 +766,7 @@ export const AlbumCover = ({
                         )}
                         style={{
                             backgroundColor: page.backgroundColor || config?.backgroundColor || '#fff',
-                            backgroundImage: page.backgroundImage ? `url(${page.backgroundImage})` : undefined,
+                            backgroundImage: (page.backgroundImage || config?.backgroundImage) ? `url(${page.backgroundImage || config?.backgroundImage})` : undefined,
                             backgroundSize: 'cover',
                             backgroundPosition: 'center',
                             padding: `${pageMargin}px`
