@@ -82,6 +82,7 @@ import { AlbumExporter, AlbumExporterRef } from './album-exporter';
 import { CustomLayoutEditorOverlay } from './custom-layout-editor/custom-layout-editor-overlay';
 import { useAlbum } from '@/hooks/useAlbum';
 import { usePhotoUpload } from '@/hooks/usePhotoUpload';
+import { ModeToggle } from '@/components/mode-toggle';
 
 // Parse layout ID to extract base template and rotation
 function parseLayoutId(layoutId: string): { baseId: string; rotation: number } {
@@ -1469,6 +1470,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          <ModeToggle />
+          <div className="h-4 w-px bg-border mx-1" />
           <Button variant="outline" className="gap-2 bg-background" onClick={() => setIsBookViewOpen(true)}>
             <BookOpen className="h-4 w-4" />
             <span className="hidden sm:inline">Book View</span>
