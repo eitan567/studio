@@ -1346,7 +1346,7 @@ function NavigationControls({
         <div className="flex flex-col items-center gap-1 my-1">
           <Input
             type="number"
-            className="w-10 h-8 px-0.5 text-center text-xs appearance-none [&::-webkit-inner-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0 border border-[#d9d8d8] shadow-none"
+            className="w-10 h-8 px-0.5 text-center text-xs appearance-none [&::-webkit-inner-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0 border border-input shadow-none"
             placeholder="#"
             value={targetPage}
             onChange={(e) => setTargetPage(e.target.value)}
@@ -1386,7 +1386,7 @@ function NavigationControls({
         <div className="flex flex-col items-center gap-1 my-1">
           <Input
             type="number"
-            className="w-10 h-8 px-0.5 text-center text-xs appearance-none [&::-webkit-inner-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0 border border-[#d9d8d8] shadow-none"
+            className="w-10 h-8 px-0.5 text-center text-xs appearance-none [&::-webkit-inner-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0 border border-input shadow-none"
             value={stepSize}
             onChange={(e) => setStepSize(e.target.value)}
             title="Pages to jump"
