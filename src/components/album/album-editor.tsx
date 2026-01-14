@@ -1054,7 +1054,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     }));
   };
 
-  const handleDropPhoto = (pageId: string, targetPhotoId: string, droppedPhotoId: string) => {
+  const handleDropPhoto = useCallback((pageId: string, targetPhotoId: string, droppedPhotoId: string) => {
     const droppedPhoto = allPhotos.find(p => p.id === droppedPhotoId);
     if (!droppedPhoto) return;
 
@@ -1083,12 +1083,6 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           width: droppedPhoto.width || 800,
           height: droppedPhoto.height || 600
         };
-
-        // If index is outside bounds, fill with placeholders?
-        // Or strictly set. Array in JS will handle sparse but it's better to be safe.
-        // If we are at index 2 but length is 0 (unlikely for Front cover, should have filled with Back cover photos?)
-        // Actually, if we are in Split mode, 'frontPhotos' rendering assumes 'backPhotos' exist.
-        // If they don't, we should fill them.
 
         // Ensure array is filled up to index
         while (newPhotos.length < index) {
@@ -1126,7 +1120,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         })
       };
     }));
-  };
+  }, [allPhotos, allowDuplicates, usedPhotoIds]);
 
   const generateDummyPhotos = () => {
     if (!randomSeed) {

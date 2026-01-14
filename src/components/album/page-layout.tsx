@@ -311,6 +311,8 @@ export const PageLayout = React.memo(PageLayoutComponent, (prev, next) => {
     if (prev.overrideLayout !== next.overrideLayout) return false;
     if (prev.page.layout !== next.page.layout) return false;
     if (prev.page.id !== next.page.id) return false;
+    // CRITICAL: Check if onDropPhoto handler changed (e.g. captured new photos)
+    if (prev.onDropPhoto !== next.onDropPhoto) return false;
 
     // Photos check (length and IDs equal?)
     const prevPhotos = prev.overridePhotos || prev.page.photos;
