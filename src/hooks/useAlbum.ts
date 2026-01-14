@@ -63,7 +63,7 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
             const data = await response.json()
             setAlbum({
                 ...data.album,
-                config: data.album.config || DEFAULT_CONFIG,
+                config: { ...DEFAULT_CONFIG, ...(data.album.config || {}) },
                 pages: data.album.pages || [],
             })
         } catch (err) {

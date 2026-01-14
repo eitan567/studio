@@ -104,7 +104,13 @@ export function CreateAlbumDialog({ children, albumToEdit, onAlbumUpdated, onAlb
             const payload = {
                 name: name || 'Untitled Album',
                 config: {
-                    ...(albumToEdit?.config || {}),
+                    ...(albumToEdit?.config || {
+                        size: '25x25',
+                        photoGap: 4,
+                        pageMargin: 10,
+                        backgroundColor: '#ffffff',
+                        cornerRadius: 0,
+                    }),
                     description,
                 },
                 thumbnail_url: thumbnailUrl,
