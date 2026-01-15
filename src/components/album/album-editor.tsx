@@ -17,12 +17,10 @@ import {
   FileImage,
   Pencil,
   Download,
-  ArrowUp,
   Layout,
   FolderUp,
   Upload,
   Eraser,
-
   RotateCcw,
   ChevronLeft,
   LogOut,
@@ -83,6 +81,7 @@ import { CustomLayoutEditorOverlay } from './custom-layout-editor/custom-layout-
 import { useAlbum } from '@/hooks/useAlbum';
 import { usePhotoUpload } from '@/hooks/usePhotoUpload';
 import { ModeToggle } from '@/components/mode-toggle';
+import { ScrollToTopButton } from './scroll-to-top-button';
 
 // Parse layout ID to extract base template and rotation
 function parseLayoutId(layoutId: string): { baseId: string; rotation: number } {
@@ -2020,46 +2019,5 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         />
       )}
     </div>
-  );
-}
-
-// Helper Component for Scroll To Top
-function ScrollToTopButton({ scrollAreaRef, className, dependency }: { scrollAreaRef: React.RefObject<HTMLDivElement | null>; className?: string; dependency?: any }) {
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
-    if (!scrollContainer) return;
-
-    const handleScroll = () => {
-      if (scrollContainer.scrollTop > 100) {
-        setIsVisible(true);
-      } else {
-        setIsVisible(false);
-      }
-    };
-
-    scrollContainer.addEventListener('scroll', handleScroll);
-    return () => scrollContainer.removeEventListener('scroll', handleScroll);
-  }, [scrollAreaRef, dependency]);
-
-  const scrollToTop = () => {
-    const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
-    scrollContainer?.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  return (
-    <Button
-      variant="secondary"
-      size="icon"
-      className={cn(
-        "absolute bottom-4 right-4 z-49rounded-full shadow-lg transition-all duration-300",
-        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10 pointer-events-none",
-        className
-      )}
-      onClick={scrollToTop}
-    >
-      <ArrowUp className="h-5 w-5" />
-    </Button>
   );
 }
