@@ -11,6 +11,7 @@ import {
     Upload,
     Eraser,
     RotateCcw,
+    ArrowUpDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,6 +35,7 @@ interface PhotoGalleryCardProps {
     handleGenerateAlbum: () => void;
     handleClearGallery: () => void;
     handleResetAlbum: () => void;
+    handleSortPhotos: () => void; // New prop
     processUploadedFiles: (files: FileList | null) => void;
     // Refs
     photoScrollRef: React.RefObject<HTMLDivElement | null>;
@@ -53,6 +55,7 @@ export function PhotoGalleryCard({
     handleGenerateAlbum,
     handleClearGallery,
     handleResetAlbum,
+    handleSortPhotos,
     processUploadedFiles,
     photoScrollRef,
     folderUploadRef,
@@ -228,6 +231,20 @@ export function PhotoGalleryCard({
                                         {/* Magnify button with Radix Tooltip - smart positioning */}
                                         <div className="absolute bottom-1 right-1 z-20">
                                             <TooltipProvider delayDuration={0}>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={handleSortPhotos}
+                                                            disabled={isLoadingPhotos || allPhotos.some(p => p.isUploading)}
+                                                        >
+                                                            <ArrowUpDown className="h-4 w-4" />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>Sort by Date</TooltipContent>
+                                                </Tooltip>
+
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
                                                         <button

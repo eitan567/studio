@@ -1182,104 +1182,116 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
   // Process uploaded photo files (from folder or individual selection)
   // Photo Upload Hook
+  // Photo Upload Hook
   const { uploadPhotos, uploadPhoto, isUploading: isUploadingHook } = usePhotoUpload();
 
+  const handleSortPhotos = useCallback(() => {
+    setAllPhotos(prev => {
+      const sorted = [...prev].sort((a, b) => {
+        const dateA = a.captureDate ? new Date(a.captureDate).getTime() : 0;
+        const dateB = b.captureDate ? new Date(b.captureDate).getTime() : 0;
+        return dateA - dateB;
+      });
+      return sorted;
+    });
+    toast({
+      title: 'Photos Sorted',
+      description: 'Gallery sorted by capture date.',
+    });
+  }, [toast]);
+
   // Process uploaded photo files (from folder or individual selection)
-  const processUploadedFiles = async (files: FileList | null) => {
+  const processUploadedFiles = useCallback(async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
-    const imageFiles = Array.from(files).filter(file =>
-      /\.(jpg|jpeg|png|gif|webp)$/i.test(file.name)
-    );
-
-    if (imageFiles.length === 0) {
-      toast({
-        title: 'No images found',
-        description: 'Please select valid image files (jpg, jpeg, png, gif, webp).',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    // Optimistic UI: Create temporary photos immediately
-    const tempPhotos: Photo[] = imageFiles.map(file => ({
+    setIsLoadingPhotos(true);
+    const newFiles = Array.from(files);
+    // Add placeholders at the END of the list immediately
+    const tempPhotos: Photo[] = newFiles.map(file => ({
       id: `temp-${Math.random().toString(36).substr(2, 9)}`,
       src: URL.createObjectURL(file),
       alt: file.name,
-      width: 800, // Placeholder dims
-      height: 600,
       isUploading: true
     }));
 
-    // Add temp photos to gallery immediately
     setAllPhotos(prev => [...prev, ...tempPhotos]);
 
-    // Scroll to bottom of gallery to show the uploading photo(s)
+    // Auto-scroll to bottom to show new uploads
     setTimeout(() => {
       const scrollContainer = photoScrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
       if (scrollContainer) {
         scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
       }
-    }, 100); // Small delay to ensure DOM is updated
+    }, 100);
 
-    // Don't block UI with full screen loader
-    setIsLoadingPhotos(true);
     toast({
       title: 'Uploading Photos',
-      description: `Uploading ${imageFiles.length} image(s)...`,
+      description: `Uploading ${newFiles.length} image(s)...`,
     });
 
-    try {
-      // Map files to temp IDs for replacement
-      const tasks = imageFiles.map((file, i) => ({ file, tempId: tempPhotos[i].id }));
-      const BATCH_SIZE = 3;
-      const failedUploads: any[] = [];
-      let successCount = 0;
+    const tasks = newFiles.map((file, index) => ({
+      file,
+      tempId: tempPhotos[index].id
+    }));
 
-      // Process in chunks
+    let successCount = 0;
+    const failedUploads: { file: string; error: any }[] = [];
+
+    // Updated BATCH_SIZE to 2 for better stability
+    const BATCH_SIZE = 2;
+
+    try {
       for (let i = 0; i < tasks.length; i += BATCH_SIZE) {
         const chunk = tasks.slice(i, i + BATCH_SIZE);
 
         await Promise.all(chunk.map(async ({ file, tempId }) => {
-          try {
-            // Add timeout wrapper to prevent infinite loading
-            const uploadWithTimeout = Promise.race([
-              uploadPhoto(file),
-              new Promise<{ success: false; error: string }>((resolve) =>
-                setTimeout(() => resolve({ success: false, error: 'Upload timeout after 60 seconds' }), 60000)
-              )
-            ]);
+          // Retry Logic: Attempt upload up to 3 times
+          let attempts = 0;
+          const maxAttempts = 3;
+          let lastResult: { success: boolean; photo?: Photo; error?: string } = { success: false, error: 'Unknown error' };
 
-            const result = await uploadWithTimeout;
+          while (attempts < maxAttempts) {
+            attempts++;
+            try {
+              // Add timeout wrapper to prevent infinite loading
+              const uploadWithTimeout = Promise.race([
+                uploadPhoto(file),
+                new Promise<{ success: false; error: string }>((resolve) =>
+                  setTimeout(() => resolve({ success: false, error: 'Upload timeout after 60 seconds' }), 60000)
+                )
+              ]);
 
-            if (result.success && result.photo) {
-              // Success: Swap temp with real immediately
-              setAllPhotos(prev => prev.map(p =>
-                p.id === tempId ? { ...result.photo!, isUploading: false } : p
-              ));
-              successCount++;
+              lastResult = await uploadWithTimeout;
+              if (lastResult.success) break;
 
-              // Check for thumbnail update (simple opportunistic check)
-              const isPlaceholder = !albumThumbnailUrl || placeholderImages.some(p => p.imageUrl === albumThumbnailUrl);
-              if (isPlaceholder && successCount === 1) {
-                updateThumbnail(result.photo.src);
-              }
+              // If failed but not timeout, wait a bit before retry
+              await new Promise(r => setTimeout(r, 1000 * attempts));
 
-            } else {
-              console.warn(`Upload failed for ${file.name}:`, result.error);
-              failedUploads.push({ file: file.name, error: result.error });
-              // Mark as error instead of removing
-              setAllPhotos(prev => prev.map(p =>
-                p.id === tempId ? { ...p, isUploading: false, error: result.error || 'Upload failed' } : p
-              ));
+            } catch (e) {
+              lastResult = { success: false, error: e instanceof Error ? e.message : String(e) };
+              await new Promise(r => setTimeout(r, 1000 * attempts));
             }
-          } catch (e) {
-            console.error(`Upload exception for ${file.name}:`, e);
-            const errorMessage = e instanceof Error ? e.message : 'Unknown error';
-            failedUploads.push({ file: file.name, error: errorMessage });
+          }
+
+          if (lastResult.success && lastResult.photo) {
+            // Success: Swap temp with real immediately
+            setAllPhotos(prev => prev.map(p =>
+              p.id === tempId ? { ...lastResult.photo!, isUploading: false } : p
+            ));
+            successCount++;
+
+            // Check for thumbnail update (simple opportunistic check)
+            const isPlaceholder = !albumThumbnailUrl || placeholderImages.some(p => p.imageUrl === albumThumbnailUrl);
+            if (isPlaceholder && successCount === 1) {
+              updateThumbnail(lastResult.photo.src);
+            }
+
+          } else {
+            console.warn(`Upload failed for ${file.name} after ${attempts} attempts:`, lastResult.error);
+            failedUploads.push({ file: file.name, error: lastResult.error });
             // Mark as error instead of removing
             setAllPhotos(prev => prev.map(p =>
-              p.id === tempId ? { ...p, isUploading: false, error: errorMessage } : p
+              p.id === tempId ? { ...p, isUploading: false, error: lastResult.error || 'Upload failed' } : p
             ));
           }
         }));
@@ -1331,7 +1343,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         tempPhotos.forEach(p => URL.revokeObjectURL(p.src));
       }, 1000);
     }
-  };
+  }, [uploadPhoto, updateThumbnail, albumThumbnailUrl, placeholderImages, toast]);
 
   // Generate album from existing photos (sorted by capture date)
   const handleGenerateAlbum = () => {
@@ -1630,6 +1642,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           handleGenerateAlbum={handleGenerateAlbum}
           handleClearGallery={handleClearGallery}
           handleResetAlbum={handleResetAlbum}
+          handleSortPhotos={handleSortPhotos}
           processUploadedFiles={processUploadedFiles}
           photoScrollRef={photoScrollRef}
           folderUploadRef={folderUploadRef}
