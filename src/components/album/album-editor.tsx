@@ -1245,8 +1245,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             // Add timeout wrapper to prevent infinite loading
             const uploadWithTimeout = Promise.race([
               uploadPhoto(file),
-              new Promise<{ success: false; error: string }>((_, reject) =>
-                setTimeout(() => reject(new Error('Upload timeout after 60 seconds')), 60000)
+              new Promise<{ success: false; error: string }>((resolve) =>
+                setTimeout(() => resolve({ success: false, error: 'Upload timeout after 60 seconds' }), 60000)
               )
             ]);
 
@@ -1306,6 +1306,19 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       setAllPhotos(prev => prev.filter(p => !tempPhotos.some(tp => tp.id === p.id)));
     } finally {
       setIsLoadingPhotos(false);
+
+      // Final safety cleanup: remove any photos still showing as uploading
+      // This catches edge cases where uploads got stuck
+      setAllPhotos(prev => prev.filter(p => {
+        const isTempPhoto = tempPhotos.some(tp => tp.id === p.id);
+        const isStillUploading = p.isUploading === true;
+        if (isTempPhoto && isStillUploading) {
+          console.warn(`Removing stuck uploading photo: ${p.id}`);
+          return false;
+        }
+        return true;
+      }));
+
       // Cleanup ObjectURLs (delayed slightly to ensure image swap is visible/done)
       setTimeout(() => {
         tempPhotos.forEach(p => URL.revokeObjectURL(p.src));
