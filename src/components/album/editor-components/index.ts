@@ -3,3 +3,4 @@
 
 export { ScrollToTopButton } from './scroll-to-top-button';
 export { AlbumConfigCard } from './album-config-card';
+export { PhotoGalleryCard } from './photo-gallery-card';
