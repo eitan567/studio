@@ -1242,7 +1242,15 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
         await Promise.all(chunk.map(async ({ file, tempId }) => {
           try {
-            const result = await uploadPhoto(file);
+            // Add timeout wrapper to prevent infinite loading
+            const uploadWithTimeout = Promise.race([
+              uploadPhoto(file),
+              new Promise<{ success: false; error: string }>((_, reject) =>
+                setTimeout(() => reject(new Error('Upload timeout after 60 seconds')), 60000)
+              )
+            ]);
+
+            const result = await uploadWithTimeout;
 
             if (result.success && result.photo) {
               // Success: Swap temp with real immediately
@@ -1258,11 +1266,13 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
               }
 
             } else {
+              console.warn(`Upload failed for ${file.name}:`, result.error);
               failedUploads.push({ file: file.name, error: result.error });
               // Remove temp on failure
               setAllPhotos(prev => prev.filter(p => p.id !== tempId));
             }
           } catch (e) {
+            console.error(`Upload exception for ${file.name}:`, e);
             failedUploads.push({ file: file.name, error: e });
             setAllPhotos(prev => prev.filter(p => p.id !== tempId));
           }
