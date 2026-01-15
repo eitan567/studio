@@ -1214,6 +1214,14 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     // Add temp photos to gallery immediately
     setAllPhotos(prev => [...prev, ...tempPhotos]);
 
+    // Scroll to bottom of gallery to show the uploading photo(s)
+    setTimeout(() => {
+      const scrollContainer = photoScrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
+      }
+    }, 100); // Small delay to ensure DOM is updated
+
     // Don't block UI with full screen loader
     setIsLoadingPhotos(true);
     toast({
