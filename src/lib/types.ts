@@ -13,6 +13,7 @@ export type Photo = {
   panAndZoom?: PhotoPanAndZoom;
   captureDate?: Date; // EXIF capture date for sorting
   isUploading?: boolean; // Optimistic UI state
+  error?: string; // Upload failed state
 };
 
 export type AlbumConfig = {

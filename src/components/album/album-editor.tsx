@@ -1268,13 +1268,19 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             } else {
               console.warn(`Upload failed for ${file.name}:`, result.error);
               failedUploads.push({ file: file.name, error: result.error });
-              // Remove temp on failure
-              setAllPhotos(prev => prev.filter(p => p.id !== tempId));
+              // Mark as error instead of removing
+              setAllPhotos(prev => prev.map(p =>
+                p.id === tempId ? { ...p, isUploading: false, error: result.error || 'Upload failed' } : p
+              ));
             }
           } catch (e) {
             console.error(`Upload exception for ${file.name}:`, e);
-            failedUploads.push({ file: file.name, error: e });
-            setAllPhotos(prev => prev.filter(p => p.id !== tempId));
+            const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+            failedUploads.push({ file: file.name, error: errorMessage });
+            // Mark as error instead of removing
+            setAllPhotos(prev => prev.map(p =>
+              p.id === tempId ? { ...p, isUploading: false, error: errorMessage } : p
+            ));
           }
         }));
       }
@@ -1290,7 +1296,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         console.error('Failed uploads:', failedUploads);
         toast({
           title: 'Upload Partially Failed',
-          description: `${failedUploads.length} images failed to upload.`,
+          description: `${failedUploads.length} images failed to upload. Check gallery for details.`,
           variant: 'destructive'
         });
       }
@@ -1302,21 +1308,22 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         description: 'An unexpected error occurred during upload.',
         variant: 'destructive'
       });
-      // Safety cleanup
-      setAllPhotos(prev => prev.filter(p => !tempPhotos.some(tp => tp.id === p.id)));
+      // Mark all remaining temp photos as failed
+      setAllPhotos(prev => prev.map(p =>
+        tempPhotos.some(tp => tp.id === p.id) ? { ...p, isUploading: false, error: 'Process error' } : p
+      ));
     } finally {
       setIsLoadingPhotos(false);
 
-      // Final safety cleanup: remove any photos still showing as uploading
-      // This catches edge cases where uploads got stuck
-      setAllPhotos(prev => prev.filter(p => {
+      // Final safety cleanup: mark any photos still showing as uploading as failed
+      setAllPhotos(prev => prev.map(p => {
         const isTempPhoto = tempPhotos.some(tp => tp.id === p.id);
         const isStillUploading = p.isUploading === true;
         if (isTempPhoto && isStillUploading) {
-          console.warn(`Removing stuck uploading photo: ${p.id}`);
-          return false;
+          console.warn(`Marking stuck uploading photo as failed: ${p.id}`);
+          return { ...p, isUploading: false, error: 'Stuck (timeout)' };
         }
-        return true;
+        return p;
       }));
 
       // Cleanup ObjectURLs (delayed slightly to ensure image swap is visible/done)

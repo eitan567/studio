@@ -210,6 +210,16 @@ export function PhotoGalleryCard({
                                                 <Loader2 className="h-6 w-6 animate-spin text-white" />
                                             </div>
                                         )}
+
+                                        {/* Error Overlay */}
+                                        {photo.error && (
+                                            <div className="absolute inset-0 bg-red-900/60 flex flex-col items-center justify-center z-20 p-2 text-center">
+                                                <AlertTriangle className="h-6 w-6 text-white mb-1" />
+                                                <span className="text-[10px] text-white font-medium leading-tight line-clamp-2">
+                                                    {photo.error}
+                                                </span>
+                                            </div>
+                                        )}
                                         {photoUsageCounts[photo.id] > 1 && (
                                             <div className="absolute top-1 left-1 bg-white/90 rounded-full p-0.5 shadow-sm text-orange-500 z-10">
                                                 <AlertTriangle className="h-4 w-4 fill-orange-500 text-white" />
