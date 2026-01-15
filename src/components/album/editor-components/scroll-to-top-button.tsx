@@ -26,6 +26,9 @@ export function ScrollToTopButton({ scrollAreaRef, className, dependency }: Scro
             }
         };
 
+        // Check scroll position immediately when dependency changes
+        handleScroll();
+
         scrollContainer.addEventListener('scroll', handleScroll);
         return () => scrollContainer.removeEventListener('scroll', handleScroll);
     }, [scrollAreaRef, dependency]);

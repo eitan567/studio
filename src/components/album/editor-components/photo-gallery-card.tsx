@@ -161,16 +161,18 @@ export function PhotoGalleryCard({
                     />
                 </CardHeader>
                 <CardContent className="flex-1 overflow-hidden p-0 relative">
-                    {isLoadingPhotos ? (
-                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center animate-in fade-in duration-300">
-                            <Loader2 className="h-10 w-10 mb-2 animate-spin text-primary" />
-                            <p className="text-sm font-medium">Loading photos...</p>
-                        </div>
-                    ) : allPhotos.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center">
-                            <ImageIcon className="h-10 w-10 mb-2 opacity-20" />
-                            <p className="text-sm">No photos loaded yet. Use "Load Photos" to start.</p>
-                        </div>
+                    {allPhotos.length === 0 ? (
+                        isLoadingPhotos ? (
+                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center animate-in fade-in duration-300">
+                                <Loader2 className="h-10 w-10 mb-2 animate-spin text-primary" />
+                                <p className="text-sm font-medium">Loading photos...</p>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center">
+                                <ImageIcon className="h-10 w-10 mb-2 opacity-20" />
+                                <p className="text-sm">No photos loaded yet. Use "Load Photos" to start.</p>
+                            </div>
+                        )
                     ) : (
                         <ScrollArea ref={photoScrollRef} className="h-full px-4 py-2">
                             <div className="columns-2 gap-2 pb-4">
