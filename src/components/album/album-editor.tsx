@@ -1204,9 +1204,23 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const processUploadedFiles = useCallback(async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
+    const imageFiles = Array.from(files).filter(file =>
+      /\.(jpg|jpeg|png|gif|webp)$/i.test(file.name)
+    );
+
+    if (imageFiles.length === 0) {
+      toast({
+        title: 'No images found',
+        description: 'Please select valid image files (jpg, jpeg, png, gif, webp).',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     setIsLoadingPhotos(true);
     const newFiles = Array.from(files);
-    // Add placeholders at the END of the list immediately
+
+    // Add placeholders at the END of the list
     const tempPhotos: Photo[] = newFiles.map(file => ({
       id: `temp-${Math.random().toString(36).substr(2, 9)}`,
       src: URL.createObjectURL(file),
@@ -1216,7 +1230,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
     setAllPhotos(prev => [...prev, ...tempPhotos]);
 
-    // Auto-scroll to bottom to show new uploads
+    // Auto-scroll logic
     setTimeout(() => {
       const scrollContainer = photoScrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
       if (scrollContainer) {
@@ -1226,7 +1240,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
     toast({
       title: 'Uploading Photos',
-      description: `Uploading ${newFiles.length} image(s)...`,
+      description: `Uploading ${imageFiles.length} image(s)...`,
     });
 
     const tasks = newFiles.map((file, index) => ({
@@ -1237,7 +1251,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     let successCount = 0;
     const failedUploads: { file: string; error: any }[] = [];
 
-    // Updated BATCH_SIZE to 2 for better stability
+    // BATCH_SIZE 2 is good for stability
     const BATCH_SIZE = 2;
 
     try {
@@ -1245,53 +1259,61 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         const chunk = tasks.slice(i, i + BATCH_SIZE);
 
         await Promise.all(chunk.map(async ({ file, tempId }) => {
-          // Retry Logic: Attempt upload up to 3 times
           let attempts = 0;
           const maxAttempts = 3;
-          let lastResult: { success: boolean; photo?: Photo; error?: string } = { success: false, error: 'Unknown error' };
+          let success = false;
+          let lastError = 'Unknown error';
 
-          while (attempts < maxAttempts) {
+          while (attempts < maxAttempts && !success) {
             attempts++;
+            // Create a dedicated AbortController for this request
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s hard timeout
+
             try {
-              // Add timeout wrapper to prevent infinite loading
-              const uploadWithTimeout = Promise.race([
-                uploadPhoto(file),
-                new Promise<{ success: false; error: string }>((resolve) =>
-                  setTimeout(() => resolve({ success: false, error: 'Upload timeout after 60 seconds' }), 60000)
-                )
-              ]);
+              // Pass signal and skipStateUpdates to avoid global state conflicts
+              // @ts-ignore - signal/skipStateUpdates added to hook recently
+              const result = await uploadPhoto(file, {
+                signal: controller.signal,
+                skipStateUpdates: true
+              });
 
-              lastResult = await uploadWithTimeout;
-              if (lastResult.success) break;
+              clearTimeout(timeoutId);
 
-              // If failed but not timeout, wait a bit before retry
-              await new Promise(r => setTimeout(r, 1000 * attempts));
+              if (result.success && result.photo) {
+                success = true;
+                // Success: Swap temp with real immediately
+                setAllPhotos(prev => prev.map(p =>
+                  p.id === tempId ? { ...result.photo!, isUploading: false } : p
+                ));
+                successCount++;
 
-            } catch (e) {
-              lastResult = { success: false, error: e instanceof Error ? e.message : String(e) };
-              await new Promise(r => setTimeout(r, 1000 * attempts));
+                // Opportunistic thumbnail update
+                const isPlaceholder = !albumThumbnailUrl || placeholderImages.some(p => p.imageUrl === albumThumbnailUrl);
+                if (isPlaceholder && successCount === 1) {
+                  updateThumbnail(result.photo.src);
+                }
+              } else {
+                throw new Error(result.error || 'Upload failed');
+              }
+
+            } catch (e: any) {
+              clearTimeout(timeoutId);
+              lastError = e.name === 'AbortError' ? 'Timeout (Network Aborted)' : (e.message || String(e));
+
+              if (attempts < maxAttempts) {
+                // Wait before retry (exponential backoff: 1s, 2s)
+                await new Promise(r => setTimeout(r, 1000 * attempts));
+              }
             }
           }
 
-          if (lastResult.success && lastResult.photo) {
-            // Success: Swap temp with real immediately
-            setAllPhotos(prev => prev.map(p =>
-              p.id === tempId ? { ...lastResult.photo!, isUploading: false } : p
-            ));
-            successCount++;
-
-            // Check for thumbnail update (simple opportunistic check)
-            const isPlaceholder = !albumThumbnailUrl || placeholderImages.some(p => p.imageUrl === albumThumbnailUrl);
-            if (isPlaceholder && successCount === 1) {
-              updateThumbnail(lastResult.photo.src);
-            }
-
-          } else {
-            console.warn(`Upload failed for ${file.name} after ${attempts} attempts:`, lastResult.error);
-            failedUploads.push({ file: file.name, error: lastResult.error });
+          if (!success) {
+            console.warn(`Final failure for ${file.name}:`, lastError);
+            failedUploads.push({ file: file.name, error: lastError });
             // Mark as error instead of removing
             setAllPhotos(prev => prev.map(p =>
-              p.id === tempId ? { ...p, isUploading: false, error: lastResult.error || 'Upload failed' } : p
+              p.id === tempId ? { ...p, isUploading: false, error: lastError } : p
             ));
           }
         }));
@@ -1305,43 +1327,41 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       }
 
       if (failedUploads.length > 0) {
-        console.error('Failed uploads:', failedUploads);
         toast({
           title: 'Upload Partially Failed',
-          description: `${failedUploads.length} images failed to upload. Check gallery for details.`,
+          description: `${failedUploads.length} images failed.`,
           variant: 'destructive'
         });
       }
 
     } catch (error) {
-      console.error('Upload process error:', error);
+      console.error('Batch process error:', error);
       toast({
-        title: 'Upload Failed',
-        description: 'An unexpected error occurred during upload.',
+        title: 'Upload Process Error',
+        description: 'Critical error during upload batch.',
         variant: 'destructive'
       });
-      // Mark all remaining temp photos as failed
+      // Safety mark all remaining
       setAllPhotos(prev => prev.map(p =>
-        tempPhotos.some(tp => tp.id === p.id) ? { ...p, isUploading: false, error: 'Process error' } : p
+        tempPhotos.some(tp => tp.id === p.id) && p.isUploading
+          ? { ...p, isUploading: false, error: 'Process Error' }
+          : p
       ));
     } finally {
       setIsLoadingPhotos(false);
 
-      // Final safety cleanup: mark any photos still showing as uploading as failed
+      // Cleanup stuck photos
       setAllPhotos(prev => prev.map(p => {
         const isTempPhoto = tempPhotos.some(tp => tp.id === p.id);
-        const isStillUploading = p.isUploading === true;
-        if (isTempPhoto && isStillUploading) {
-          console.warn(`Marking stuck uploading photo as failed: ${p.id}`);
-          return { ...p, isUploading: false, error: 'Stuck (timeout)' };
+        if (isTempPhoto && p.isUploading) {
+          return { ...p, isUploading: false, error: 'Stuck (Final Cleanup)' };
         }
         return p;
       }));
 
-      // Cleanup ObjectURLs (delayed slightly to ensure image swap is visible/done)
       setTimeout(() => {
         tempPhotos.forEach(p => URL.revokeObjectURL(p.src));
-      }, 1000);
+      }, 2000);
     }
   }, [uploadPhoto, updateThumbnail, albumThumbnailUrl, placeholderImages, toast]);
 

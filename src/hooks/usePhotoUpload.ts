@@ -36,10 +36,12 @@ export function usePhotoUpload() {
     }
 
     // Upload a single photo
-    const uploadPhoto = useCallback(async (file: File): Promise<UploadResult> => {
-        setIsUploading(true)
-        setError(null)
-        setProgress({ loaded: 0, total: file.size, percent: 0 })
+    const uploadPhoto = useCallback(async (file: File, options?: { signal?: AbortSignal, skipStateUpdates?: boolean }): Promise<UploadResult> => {
+        if (!options?.skipStateUpdates) {
+            setIsUploading(true)
+            setError(null)
+            setProgress({ loaded: 0, total: file.size, percent: 0 })
+        }
 
         try {
             // Get dimensions before upload
@@ -51,6 +53,7 @@ export function usePhotoUpload() {
             const response = await fetch('/api/photos/upload', {
                 method: 'POST',
                 body: formData,
+                signal: options?.signal,
             })
 
             const data = await response.json()
@@ -59,7 +62,9 @@ export function usePhotoUpload() {
                 throw new Error(data.error || 'Upload failed')
             }
 
-            setProgress({ loaded: file.size, total: file.size, percent: 100 })
+            if (!options?.skipStateUpdates) {
+                setProgress({ loaded: file.size, total: file.size, percent: 100 })
+            }
 
             // Convert to Photo type
             const photo: Photo = {
@@ -71,12 +76,17 @@ export function usePhotoUpload() {
             }
 
             return { success: true, photo, url: data.url }
-        } catch (err) {
+        } catch (err: any) {
             const errorMessage = err instanceof Error ? err.message : 'Upload failed'
-            setError(errorMessage)
+            // Don't set global error state if skipped, but do return it
+            if (!options?.skipStateUpdates && err.name !== 'AbortError') {
+                setError(errorMessage)
+            }
             return { success: false, error: errorMessage }
         } finally {
-            setIsUploading(false)
+            if (!options?.skipStateUpdates) {
+                setIsUploading(false)
+            }
         }
     }, [])
 
