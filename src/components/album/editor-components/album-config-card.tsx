@@ -103,8 +103,8 @@ export function AlbumConfigCard({
                                 min={0}
                                 max={50}
                                 step={1}
-                                value={[photoGap || 0]}
-                                onValueChange={(vals) => setPhotoGap(vals[0])}
+                                defaultValue={[photoGap || 0]}
+                                onValueCommit={(vals) => setPhotoGap(vals[0])}
                             />
                         </div>
                         <div className="space-y-2">
@@ -123,8 +123,8 @@ export function AlbumConfigCard({
                                 min={0}
                                 max={50}
                                 step={1}
-                                value={[pageMargin || 0]}
-                                onValueChange={(vals) => setPageMargin(vals[0])}
+                                defaultValue={[pageMargin || 0]}
+                                onValueCommit={(vals) => setPageMargin(vals[0])}
                             />
                         </div>
                         <div className="space-y-2">
@@ -143,8 +143,8 @@ export function AlbumConfigCard({
                                 min={0}
                                 max={20}
                                 step={1}
-                                value={[cornerRadius || 0]}
-                                onValueChange={(vals) => setCornerRadius(vals[0])}
+                                defaultValue={[cornerRadius || 0]}
+                                onValueCommit={(vals) => setCornerRadius(vals[0])}
                             />
                         </div>
                         <div className="space-y-2">
