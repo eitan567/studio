@@ -18,6 +18,7 @@ import {
 import type { PhotoPanAndZoom } from '@/lib/types';
 import { PhotoRenderer } from './photo-renderer';
 import { useToast } from '@/hooks/use-toast';
+import { useAlbumPreview } from './album-preview-context';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { LAYOUT_TEMPLATES, COVER_TEMPLATES } from './layout-templates';
 import { ADVANCED_TEMPLATES, AdvancedTemplate, LayoutRegion, insetPolygon } from '@/lib/advanced-layout-types';
@@ -242,33 +243,35 @@ const DraggableTitle = ({
       setIsDragging(false);
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, onUpdatePosition, containerId]);
+  }, [isDragging, onUpdatePosition]);
 
   return (
     <div
+      id={`draggable-title-${containerId}`}
+      onMouseDown={handleMouseDown}
       className={cn(
-        "absolute z-40 select-none cursor-move whitespace-nowrap",
-        isDragging && "opacity-80 ring-2 ring-primary ring-dashed rounded"
+        "absolute p-2 border border-transparent hover:border-blue-500 rounded cursor-move select-none z-50 group",
+        isDragging && "border-blue-500 bg-blue-500/10"
       )}
       style={{
         left: `${position.x}%`,
         top: `${position.y}%`,
         transform: 'translate(-50%, -50%)',
-        fontSize: `${fontSize}px`,
-        fontFamily: fontFamily,
-        color: color,
-        // Ensure pointer events are captured for dragging
-        pointerEvents: 'auto'
       }}
-      onMouseDown={handleMouseDown}
     >
-      {text}
+      <div style={{ color: color || '#000000', fontSize: `${fontSize}px`, fontFamily: fontFamily || 'Inter', whiteSpace: 'nowrap' }}>
+        {text}
+      </div>
+      <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-black/75 text-white text-[10px] px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+        Drag to move
+      </div>
     </div>
   );
 };
@@ -907,7 +910,7 @@ const PageToolbar = ({
 };
 
 // --- Scaled Cover Preview Wrapper ---
-const ScaledCoverPreview = ({
+const ScaledCoverPreview = React.memo(({
   page,
   config,
   onUpdateTitleSettings,
@@ -996,9 +999,11 @@ const ScaledCoverPreview = ({
           )}
         </div>
       </div>
+
     </div>
   );
-};
+});
+ScaledCoverPreview.displayName = 'ScaledCoverPreview';
 
 
 export function AlbumPreview({
@@ -1018,14 +1023,49 @@ export function AlbumPreview({
   onDropPhoto,
   onDownloadPage,
   allPhotos,
-  onRemovePhoto
+  onRemovePhoto,
+  customTemplates,
 }: AlbumPreviewProps) {
+  const { previewPhotoGap, previewPageMargin, previewCornerRadius } = useAlbumPreview();
   const { toast } = useToast();
   const [isInteracting, setIsInteracting] = useState(false);
   const [activePageId, setActivePageId] = useState<string | null>(null);
   const [isPageEditorOpen, setIsPageEditorOpen] = useState(false);
   const [dragOverPhotoId, setDragOverPhotoId] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  // Track visible pages using IntersectionObserver
+  const [visiblePages, setVisiblePages] = useState<Set<number>>(new Set());
+  const pageRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        setVisiblePages(prev => {
+          const next = new Set(prev);
+          entries.forEach(entry => {
+            const index = parseInt(entry.target.getAttribute('data-page-index') || '-1');
+            if (index >= 0) {
+              if (entry.isIntersecting) {
+                next.add(index);
+              } else {
+                next.delete(index);
+              }
+            }
+          });
+          return next;
+        });
+      },
+      { threshold: 0.1, rootMargin: '100px' }
+    );
+
+    // Observe all page refs
+    pageRefs.current.forEach((el, index) => {
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, [pages.length]);
 
   const handleOpenPageEditor = (pageId: string) => {
     setActivePageId(pageId);
@@ -1072,8 +1112,29 @@ export function AlbumPreview({
         <div className="space-y-8">
           {pages.map((page, index) => {
             const info = pageInfo[index];
+            const isVisible = visiblePages.has(index);
+
+            // Create effective config: visible pages get preview values, hidden pages keep actual values
+            // Optimization: Reuse the 'config' object reference for hidden pages to allow memoization to work
+            const effectiveConfig: AlbumConfig = (isVisible && (previewPhotoGap !== null || previewPageMargin !== null || previewCornerRadius !== null))
+              ? {
+                ...config,
+                photoGap: (previewPhotoGap !== null && previewPhotoGap !== undefined) ? previewPhotoGap : (config.photoGap ?? 0),
+                pageMargin: (previewPageMargin !== null && previewPageMargin !== undefined) ? previewPageMargin : (config.pageMargin ?? 0),
+                cornerRadius: (previewCornerRadius !== null && previewCornerRadius !== undefined) ? previewCornerRadius : (config.cornerRadius ?? 0),
+              }
+              : config;
+
             return (
-              <div key={page.id} id={`album-page-${index}`} className="w-full max-w-4xl mx-auto">
+              <div
+                key={page.id}
+                id={`album-page-${index}`}
+                data-page-index={index}
+                ref={(el) => {
+                  pageRefs.current.set(index, el);
+                }}
+                className="w-full max-w-4xl mx-auto"
+              >
                 <div className="w-full relative group/page">
 
                   <div className={cn("h-18", page.type === 'single' ? 'w-1/2 mx-auto' : 'w-full')}>
@@ -1128,7 +1189,7 @@ export function AlbumPreview({
                           {page.isCover ? (
                             <ScaledCoverPreview
                               page={page}
-                              config={config}
+                              config={effectiveConfig}
                               onUpdateTitleSettings={onUpdateTitleSettings}
                               onDropPhoto={onDropPhoto}
                               onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
@@ -1143,7 +1204,7 @@ export function AlbumPreview({
                               <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10 pointer-events-none"></div>
                               <ScaledCoverPreview
                                 page={page}
-                                config={config}
+                                config={effectiveConfig}
                                 onUpdateTitleSettings={onUpdateTitleSettings}
                                 onDropPhoto={onDropPhoto}
                                 onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
@@ -1154,7 +1215,7 @@ export function AlbumPreview({
                           ) : (
                             <ScaledCoverPreview
                               page={page}
-                              config={config}
+                              config={effectiveConfig}
                               onUpdateTitleSettings={onUpdateTitleSettings}
                               onDropPhoto={onDropPhoto}
                               onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}

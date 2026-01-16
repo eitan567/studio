@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import { AiBackgroundGenerator } from '../ai-background-generator';
+import { useAlbumPreview } from '../album-preview-context';
 
 interface AlbumConfigCardProps {
     form: UseFormReturn<{ size: '20x20' | '25x25' | '30x30' }>;
@@ -39,6 +40,7 @@ interface AlbumConfigCardProps {
     availableBackgrounds: string[];
     setAvailableBackgrounds: React.Dispatch<React.SetStateAction<string[]>>;
     backgroundUploadRef: React.RefObject<HTMLInputElement | null>;
+    // No preview callbacks - handled by context
 }
 
 export function AlbumConfigCard({
@@ -58,6 +60,48 @@ export function AlbumConfigCard({
     setAvailableBackgrounds,
     backgroundUploadRef,
 }: AlbumConfigCardProps) {
+    const { setPreviewPhotoGap, setPreviewPageMargin, setPreviewCornerRadius } = useAlbumPreview();
+    // Local slider states for smooth dragging UX
+    const [localPhotoGap, setLocalPhotoGap] = React.useState(photoGap);
+    const [localPageMargin, setLocalPageMargin] = React.useState(pageMargin);
+    const [localCornerRadius, setLocalCornerRadius] = React.useState(cornerRadius);
+
+    // Sync local state when parent props change (e.g., from number input)
+    React.useEffect(() => { setLocalPhotoGap(photoGap); }, [photoGap]);
+    React.useEffect(() => { setLocalPageMargin(pageMargin); }, [pageMargin]);
+    React.useEffect(() => { setLocalCornerRadius(cornerRadius); }, [cornerRadius]);
+
+    // Throttled preview callbacks using requestAnimationFrame to prevent slider lag
+    const rafRef = React.useRef<{ photoGap?: number; pageMargin?: number; cornerRadius?: number }>({});
+    const rafIdRef = React.useRef<number | null>(null);
+
+    const schedulePreviewUpdate = React.useCallback(() => {
+        if (rafIdRef.current !== null) return; // Already scheduled
+        rafIdRef.current = requestAnimationFrame(() => {
+            const pending = rafRef.current;
+            if (pending.photoGap !== undefined) setPreviewPhotoGap(pending.photoGap);
+            if (pending.pageMargin !== undefined) setPreviewPageMargin(pending.pageMargin);
+            if (pending.cornerRadius !== undefined) setPreviewCornerRadius(pending.cornerRadius);
+            rafRef.current = {};
+            rafIdRef.current = null;
+        });
+    }, [setPreviewPhotoGap, setPreviewPageMargin, setPreviewCornerRadius]);
+
+    const throttledPreviewPhotoGap = React.useCallback((v: number) => {
+        rafRef.current.photoGap = v;
+        schedulePreviewUpdate();
+    }, [schedulePreviewUpdate]);
+
+    const throttledPreviewPageMargin = React.useCallback((v: number) => {
+        rafRef.current.pageMargin = v;
+        schedulePreviewUpdate();
+    }, [schedulePreviewUpdate]);
+
+    const throttledPreviewCornerRadius = React.useCallback((v: number) => {
+        rafRef.current.cornerRadius = v;
+        schedulePreviewUpdate();
+    }, [schedulePreviewUpdate]);
+
     return (
         <Card>
             <CardHeader className="pb-3">
@@ -94,8 +138,12 @@ export function AlbumConfigCard({
                                     type="number"
                                     min={0}
                                     max={50}
-                                    value={photoGap || 0}
-                                    onChange={(e) => setPhotoGap(Math.max(0, Math.min(50, Number(e.target.value) || 0)))}
+                                    value={localPhotoGap}
+                                    onChange={(e) => {
+                                        const v = Math.max(0, Math.min(50, Number(e.target.value) || 0));
+                                        setLocalPhotoGap(v);
+                                        setPhotoGap(v);
+                                    }}
                                     className="w-16 h-7 text-xs text-center"
                                 />
                             </div>
@@ -103,8 +151,16 @@ export function AlbumConfigCard({
                                 min={0}
                                 max={50}
                                 step={1}
-                                defaultValue={[photoGap || 0]}
-                                onValueCommit={(vals) => setPhotoGap(vals[0])}
+                                value={[localPhotoGap]}
+                                onValueChange={(vals) => {
+                                    setLocalPhotoGap(vals[0]);
+                                    throttledPreviewPhotoGap(vals[0]);
+                                }}
+                                onValueCommit={(vals) => {
+                                    setLocalPhotoGap(vals[0]);
+                                    setPhotoGap(vals[0]);
+                                    setPreviewPhotoGap(null);
+                                }}
                             />
                         </div>
                         <div className="space-y-2">
@@ -114,8 +170,12 @@ export function AlbumConfigCard({
                                     type="number"
                                     min={0}
                                     max={50}
-                                    value={pageMargin || 0}
-                                    onChange={(e) => setPageMargin(Math.max(0, Math.min(50, Number(e.target.value) || 0)))}
+                                    value={localPageMargin}
+                                    onChange={(e) => {
+                                        const v = Math.max(0, Math.min(50, Number(e.target.value) || 0));
+                                        setLocalPageMargin(v);
+                                        setPageMargin(v);
+                                    }}
                                     className="w-16 h-7 text-xs text-center"
                                 />
                             </div>
@@ -123,8 +183,16 @@ export function AlbumConfigCard({
                                 min={0}
                                 max={50}
                                 step={1}
-                                defaultValue={[pageMargin || 0]}
-                                onValueCommit={(vals) => setPageMargin(vals[0])}
+                                value={[localPageMargin]}
+                                onValueChange={(vals) => {
+                                    setLocalPageMargin(vals[0]);
+                                    throttledPreviewPageMargin(vals[0]);
+                                }}
+                                onValueCommit={(vals) => {
+                                    setLocalPageMargin(vals[0]);
+                                    setPageMargin(vals[0]);
+                                    setPreviewPageMargin(null);
+                                }}
                             />
                         </div>
                         <div className="space-y-2">
@@ -134,8 +202,12 @@ export function AlbumConfigCard({
                                     type="number"
                                     min={0}
                                     max={20}
-                                    value={cornerRadius || 0}
-                                    onChange={(e) => setCornerRadius(Math.max(0, Math.min(20, Number(e.target.value) || 0)))}
+                                    value={localCornerRadius}
+                                    onChange={(e) => {
+                                        const v = Math.max(0, Math.min(20, Number(e.target.value) || 0));
+                                        setLocalCornerRadius(v);
+                                        setCornerRadius(v);
+                                    }}
                                     className="w-16 h-7 text-xs text-center"
                                 />
                             </div>
@@ -143,8 +215,16 @@ export function AlbumConfigCard({
                                 min={0}
                                 max={20}
                                 step={1}
-                                defaultValue={[cornerRadius || 0]}
-                                onValueCommit={(vals) => setCornerRadius(vals[0])}
+                                value={[localCornerRadius]}
+                                onValueChange={(vals) => {
+                                    setLocalCornerRadius(vals[0]);
+                                    throttledPreviewCornerRadius(vals[0]);
+                                }}
+                                onValueCommit={(vals) => {
+                                    setLocalCornerRadius(vals[0]);
+                                    setCornerRadius(vals[0]);
+                                    setPreviewCornerRadius(null);
+                                }}
                             />
                         </div>
                         <div className="space-y-2">
