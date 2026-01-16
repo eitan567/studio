@@ -340,13 +340,13 @@ export function PhotoGalleryCard({
                                                                         onMouseEnter={() => setActiveBubbleId(photo.id)}
                                                                         onMouseLeave={() => setActiveBubbleId(null)}
                                                                     >
-                                                                        {hasWarning ? <AlertTriangle className="h-4 w-4" /> : <Check className="h-4 w-4 stroke-[3]" />}
+                                                                        {hasWarning ? <AlertTriangle className="h-3 w-3" /> : <Check className="h-3 w-3 stroke-[3]" />}
                                                                     </div>
                                                                 </TooltipTrigger>
                                                                 <TooltipContent
                                                                     side="bottom"
                                                                     align="end"
-                                                                    sideOffset={5}
+                                                                    sideOffset={2}
                                                                     className="z-[9999] max-w-[250px] p-0 overflow-visible border-none shadow-xl"
                                                                 >
                                                                     <TooltipArrow className="fill-popover" />
