@@ -230,7 +230,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const [randomSeed, setRandomSeed] = useState('');
   const [isClient, setIsClient] = useState(false);
   const [allowDuplicates, setAllowDuplicates] = useState(true);
-  const [multiSelectMode, setMultiSelectModeLocal] = useState(true); // true = checkboxes, false = trash icons
+  const [multiSelectMode, setMultiSelectModeLocal] = useState(false); // true = checkboxes, false = trash icons
   const [photoGap, setPhotoGap] = useState(10);
   const [pageMargin, setPageMargin] = useState(10);
   const [cornerRadius, setCornerRadius] = useState(0);
