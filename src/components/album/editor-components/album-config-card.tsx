@@ -18,6 +18,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import { AiBackgroundGenerator } from '../ai-background-generator';
 
@@ -88,73 +90,61 @@ export function AlbumConfigCard({
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
                                 <label className="text-sm font-medium">Photo Gap</label>
-                                <div className="flex items-center gap-1">
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        max="50"
-                                        value={photoGap || 0}
-                                        onChange={(e) => setPhotoGap(Math.max(0, Math.min(50, Number(e.target.value) || 0)))}
-                                        className="w-14 h-7 text-center text-sm border rounded"
-                                    />
-                                    <span className="text-sm text-muted-foreground">px</span>
-                                </div>
+                                <Input
+                                    type="number"
+                                    min={0}
+                                    max={50}
+                                    value={photoGap || 0}
+                                    onChange={(e) => setPhotoGap(Math.max(0, Math.min(50, Number(e.target.value) || 0)))}
+                                    className="w-16 h-7 text-xs text-center"
+                                />
                             </div>
-                            <input
-                                type="range"
-                                min="0"
-                                max="50"
-                                value={photoGap || 0}
-                                onChange={(e) => setPhotoGap(Number(e.target.value))}
-                                className="w-full"
+                            <Slider
+                                min={0}
+                                max={50}
+                                step={1}
+                                value={[photoGap || 0]}
+                                onValueChange={(vals) => setPhotoGap(vals[0])}
                             />
                         </div>
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
                                 <label className="text-sm font-medium">Page Margin</label>
-                                <div className="flex items-center gap-1">
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        max="50"
-                                        value={pageMargin || 0}
-                                        onChange={(e) => setPageMargin(Math.max(0, Math.min(50, Number(e.target.value) || 0)))}
-                                        className="w-14 h-7 text-center text-sm border rounded"
-                                    />
-                                    <span className="text-sm text-muted-foreground">px</span>
-                                </div>
+                                <Input
+                                    type="number"
+                                    min={0}
+                                    max={50}
+                                    value={pageMargin || 0}
+                                    onChange={(e) => setPageMargin(Math.max(0, Math.min(50, Number(e.target.value) || 0)))}
+                                    className="w-16 h-7 text-xs text-center"
+                                />
                             </div>
-                            <input
-                                type="range"
-                                min="0"
-                                max="50"
-                                value={pageMargin || 0}
-                                onChange={(e) => setPageMargin(Number(e.target.value))}
-                                className="w-full"
+                            <Slider
+                                min={0}
+                                max={50}
+                                step={1}
+                                value={[pageMargin || 0]}
+                                onValueChange={(vals) => setPageMargin(vals[0])}
                             />
                         </div>
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
                                 <label className="text-sm font-medium">Corner Radius</label>
-                                <div className="flex items-center gap-1">
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        max="20"
-                                        value={cornerRadius || 0}
-                                        onChange={(e) => setCornerRadius(Math.max(0, Math.min(20, Number(e.target.value) || 0)))}
-                                        className="w-14 h-7 text-center text-sm border rounded"
-                                    />
-                                    <span className="text-sm text-muted-foreground">px</span>
-                                </div>
+                                <Input
+                                    type="number"
+                                    min={0}
+                                    max={20}
+                                    value={cornerRadius || 0}
+                                    onChange={(e) => setCornerRadius(Math.max(0, Math.min(20, Number(e.target.value) || 0)))}
+                                    className="w-16 h-7 text-xs text-center"
+                                />
                             </div>
-                            <input
-                                type="range"
-                                min="0"
-                                max="20"
-                                value={cornerRadius || 0}
-                                onChange={(e) => setCornerRadius(Number(e.target.value))}
-                                className="w-full"
+                            <Slider
+                                min={0}
+                                max={20}
+                                step={1}
+                                value={[cornerRadius || 0]}
+                                onValueChange={(vals) => setCornerRadius(vals[0])}
                             />
                         </div>
                         <div className="space-y-2">
@@ -166,11 +156,11 @@ export function AlbumConfigCard({
                                     onChange={(e) => handleColorChange(e.target.value)}
                                     className="w-10 h-10 rounded border cursor-pointer"
                                 />
-                                <input
+                                <Input
                                     type="text"
                                     value={backgroundColor || '#ffffff'}
                                     onChange={(e) => setBackgroundColor(e.target.value)}
-                                    className="flex-1 h-8 px-2 text-sm border rounded"
+                                    className="flex-1 h-8 text-sm"
                                     placeholder="#ffffff"
                                 />
                             </div>

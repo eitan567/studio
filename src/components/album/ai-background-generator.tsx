@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Sparkles, Wand2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { aiGenerateBackground } from '@/ai/ai-generate-background';
 
@@ -52,12 +53,12 @@ export function AiBackgroundGenerator({ onBackgroundGenerated }: AiBackgroundGen
                 Generate with AI
             </label>
             <div className="flex gap-2">
-                <input
+                <Input
                     type="text"
                     placeholder="Describe background..."
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
-                    className="flex-1 h-8 px-2 text-sm border rounded"
+                    className="flex-1 h-8 text-sm"
                     disabled={isGenerating}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') handleGenerate();

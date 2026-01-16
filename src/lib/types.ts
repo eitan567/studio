@@ -14,6 +14,7 @@ export type Photo = {
   captureDate?: Date; // EXIF capture date for sorting
   isUploading?: boolean; // Optimistic UI state
   error?: string; // Upload failed state
+  originalId?: string; // Reference to original gallery photo ID
 };
 
 export type AlbumConfig = {

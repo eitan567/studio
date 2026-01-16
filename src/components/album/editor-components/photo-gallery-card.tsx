@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
     Loader2,
     Sparkles,
@@ -12,11 +12,27 @@ import {
     Eraser,
     RotateCcw,
     ArrowUpDown,
+    Check,
+    Calendar,
+    Hash,
+    Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, TooltipArrow } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { Photo } from '@/lib/types';
@@ -25,8 +41,7 @@ import { ScrollToTopButton } from './scroll-to-top-button';
 interface PhotoGalleryCardProps {
     allPhotos: Photo[];
     isLoadingPhotos: boolean;
-    photoUsageCounts: Record<string, number>;
-    usedPhotoIds: Set<string>;
+    photoUsageDetails: Record<string, { count: number; pages: number[] }>; // New prop
     allowDuplicates: boolean;
     setAllowDuplicates: (value: boolean) => void;
     randomSeed: string | null;
@@ -35,19 +50,21 @@ interface PhotoGalleryCardProps {
     handleGenerateAlbum: () => void;
     handleClearGallery: () => void;
     handleResetAlbum: () => void;
-    handleSortPhotos: () => void; // New prop
+    handleSortPhotos: () => void;
     processUploadedFiles: (files: FileList | null) => void;
+    onDeletePhotos: (ids: string[]) => void; // New prop for bulk delete
     // Refs
     photoScrollRef: React.RefObject<HTMLDivElement | null>;
     folderUploadRef: React.RefObject<HTMLInputElement | null>;
     photoUploadRef: React.RefObject<HTMLInputElement | null>;
 }
 
+
+
 export function PhotoGalleryCard({
     allPhotos,
     isLoadingPhotos,
-    photoUsageCounts,
-    usedPhotoIds,
+    photoUsageDetails,
     allowDuplicates,
     setAllowDuplicates,
     randomSeed,
@@ -57,18 +74,46 @@ export function PhotoGalleryCard({
     handleResetAlbum,
     handleSortPhotos,
     processUploadedFiles,
+    onDeletePhotos,
     photoScrollRef,
     folderUploadRef,
     photoUploadRef,
 }: PhotoGalleryCardProps) {
+    const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
+    const [activeBubbleId, setActiveBubbleId] = useState<string | null>(null);
+
+    const toggleSelection = (id: string) => {
+        const newSelected = new Set(selectedPhotos);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedPhotos(newSelected);
+    };
+
+    const handleSelectAll = (checked: boolean) => {
+        if (checked) {
+            setSelectedPhotos(new Set(allPhotos.map(p => p.id)));
+        } else {
+            setSelectedPhotos(new Set());
+        }
+    };
+
+    const handleDeleteSelected = () => {
+        onDeletePhotos(Array.from(selectedPhotos));
+        setSelectedPhotos(new Set());
+    };
+    const usedCount = Object.keys(photoUsageDetails).length;
+
     return (
         <div className="xl:col-span-3 space-y-4">
             <Card className="h-[85vh] flex flex-col">
-                <CardHeader className="pb-3 border-bottom">
+                <CardHeader className="pb-3 border-b space-y-2">
                     <div className="flex items-center justify-between">
                         <CardTitle className="font-headline text-lg">Photo Gallery</CardTitle>
-                        <div className="flex items-center gap-2">
-                            {/* Upload Buttons */}
+                        <div className="flex items-center gap-1">
+                            {/* Sort Button - Now correctly placed in header */}
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
@@ -76,250 +121,340 @@ export function PhotoGalleryCard({
                                             variant="ghost"
                                             size="icon"
                                             className="h-8 w-8"
-                                            onClick={generateDummyPhotos}
-                                            disabled={isLoadingPhotos || !randomSeed}
-                                            title="Load sample photos"
+                                            onClick={handleSortPhotos}
+                                            disabled={isLoadingPhotos || allPhotos.some(p => p.isUploading)}
                                         >
-                                            {isLoadingPhotos ? (
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                            ) : (
-                                                <Sparkles className="h-4 w-4" />
-                                            )}
+                                            <ArrowUpDown className="h-4 w-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Sort by Date</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+
+                            {/* Deletion Control */}
+                            {selectedPhotos.size > 0 && (
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="destructive" size="sm" className="h-8 px-2 text-xs ml-1">
+                                            <Trash2 className="h-3 w-3 mr-1" />
+                                            Delete ({selectedPhotos.size})
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Delete {selectedPhotos.size} photos?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                This action cannot be undone. Possible album layouts using these photos will be affected.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction onClick={handleDeleteSelected} className="bg-destructive hover:bg-destructive/90">
+                                                Delete
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Secondary Toolbar */}
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Checkbox
+                                id="select-all"
+                                checked={allPhotos.length > 0 && selectedPhotos.size === allPhotos.length}
+                                onCheckedChange={handleSelectAll}
+                                disabled={allPhotos.length === 0}
+                            />
+                            <label htmlFor="select-all" className="text-xs text-muted-foreground cursor-pointer">
+                                Select All
+                            </label>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={generateDummyPhotos} disabled={isLoadingPhotos || !randomSeed}>
+                                            {isLoadingPhotos ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
                                         </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>Load sample photos</TooltipContent>
                                 </Tooltip>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8"
-                                            onClick={() => folderUploadRef.current?.click()}
-                                            title="Upload folder"
-                                        >
-                                            <FolderUp className="h-4 w-4" />
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => folderUploadRef.current?.click()}>
+                                            <FolderUp className="h-3 w-3" />
                                         </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>Upload folder</TooltipContent>
                                 </Tooltip>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8"
-                                            onClick={() => photoUploadRef.current?.click()}
-                                            title="Upload photos"
-                                        >
-                                            <Upload className="h-4 w-4" />
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => photoUploadRef.current?.click()}>
+                                            <Upload className="h-3 w-3" />
                                         </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>Upload photos</TooltipContent>
                                 </Tooltip>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleGenerateAlbum}>
+                                            <Wand2 className="h-3 w-3" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Auto-fill Album</TooltipContent>
+                                </Tooltip>
                             </TooltipProvider>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={handleGenerateAlbum}
-                                title="Generate album from photos"
-                            >
-                                <Wand2 className="h-4 w-4" />
-                            </Button>
-                            <div className="h-4 w-px bg-border" />
-                            <label htmlFor="allow-duplicates" className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                Allow Multi
-                            </label>
-                            <Checkbox
-                                id="allow-duplicates"
-                                checked={allowDuplicates}
-                                onCheckedChange={(checked) => setAllowDuplicates(!!checked)}
-                            />
+                            <div className="h-3 w-px bg-border mx-1" />
+                            <div className="flex items-center gap-1">
+                                <Checkbox id="allow-duplicates" checked={allowDuplicates} onCheckedChange={(c) => setAllowDuplicates(!!c)} />
+                                <label htmlFor="allow-duplicates" className="text-[10px] leading-none">Multi</label>
+                            </div>
                         </div>
                     </div>
-                    {/* Hidden file inputs */}
-                    <input
-                        ref={folderUploadRef}
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        className="hidden"
+
+                    <input ref={folderUploadRef} type="file" accept="image/*" multiple className="hidden"
                         {...({ webkitdirectory: "", directory: "" } as React.InputHTMLAttributes<HTMLInputElement>)}
-                        onChange={(e) => {
-                            processUploadedFiles(e.target.files);
-                            e.target.value = '';
-                        }}
-                    />
-                    <input
-                        ref={photoUploadRef}
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        className="hidden"
-                        onChange={(e) => {
-                            processUploadedFiles(e.target.files);
-                            e.target.value = '';
-                        }}
-                    />
+                        onChange={(e) => { processUploadedFiles(e.target.files); e.target.value = ''; }} />
+                    <input ref={photoUploadRef} type="file" accept="image/*" multiple className="hidden"
+                        onChange={(e) => { processUploadedFiles(e.target.files); e.target.value = ''; }} />
                 </CardHeader>
+
                 <CardContent className="flex-1 overflow-hidden p-0 relative">
                     {allPhotos.length === 0 ? (
                         isLoadingPhotos ? (
-                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center animate-in fade-in duration-300">
+                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center animate-in fade-in">
                                 <Loader2 className="h-10 w-10 mb-2 animate-spin text-primary" />
-                                <p className="text-sm font-medium">Loading photos...</p>
+                                <p className="text-sm">Loading photos...</p>
                             </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center">
                                 <ImageIcon className="h-10 w-10 mb-2 opacity-20" />
-                                <p className="text-sm">No photos loaded yet. Use "Load Photos" to start.</p>
+                                <p className="text-sm">No photos loaded.</p>
                             </div>
                         )
                     ) : (
                         <ScrollArea ref={photoScrollRef} className="h-full px-4 py-2">
-                            <div className="columns-2 gap-2 pb-4">
-                                {allPhotos.map((photo) => (
-                                    <div
-                                        key={photo.id}
-                                        draggable={!photo.isUploading}
-                                        onDragStart={(e) => {
-                                            if (photo.isUploading) {
-                                                e.preventDefault();
-                                                return;
-                                            }
-                                            e.dataTransfer.setData('photoId', photo.id);
-                                        }}
-                                        className={cn(
-                                            "relative break-inside-avoid mb-2 rounded-md overflow-hidden bg-muted border-2 border-transparent transition-all group",
-                                            photo.isUploading ? "cursor-wait opacity-80" : "cursor-grab active:cursor-grabbing hover:border-primary"
-                                        )}
-                                    >
-                                        <img
-                                            src={photo.src}
-                                            alt={photo.alt}
-                                            className="w-full h-auto display-block"
-                                        />
-                                        {/* Resolution display - top right corner */}
-                                        {!photo.isUploading && (
-                                            <div className="absolute top-1 right-1 bg-black/60 text-white text-[9px] font-medium px-1 py-0.5 rounded z-10">
-                                                {photo.width}×{photo.height}
-                                            </div>
-                                        )}
+                            <div className="columns-2 gap-2 pb-10">
+                                {allPhotos.map((photo, index) => {
+                                    const usage = photoUsageDetails?.[photo.id];
+                                    const isUsed = !!usage;
+                                    const hasWarning = usage && usage.count > 1;
 
-                                        {/* Uploading Overlay */}
-                                        {photo.isUploading && (
-                                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20">
-                                                <Loader2 className="h-6 w-6 animate-spin text-white" />
-                                            </div>
-                                        )}
+                                    return (
+                                        <div
+                                            key={photo.id}
+                                            draggable={!photo.isUploading}
+                                            onDragStart={(e) => {
+                                                if (photo.isUploading) { e.preventDefault(); return; }
+                                                e.dataTransfer.setData('photoId', photo.id);
+                                            }}
+                                            className={cn(
+                                                "relative break-inside-avoid mb-2 rounded-md overflow-hidden bg-muted border-2 transition-all group border-transparent",
+                                                photo.isUploading ? "cursor-wait opacity-80" : "cursor-grab active:cursor-grabbing hover:border-primary/50"
+                                            )}
+                                        >
+                                            <img src={photo.src} alt={photo.alt} className="w-full h-auto block" loading="lazy" />
 
-                                        {/* Error Overlay */}
-                                        {photo.error && (
-                                            <div className="absolute inset-0 bg-red-900/60 flex flex-col items-center justify-center z-20 p-2 text-center">
-                                                <AlertTriangle className="h-6 w-6 text-white mb-1" />
-                                                <span className="text-[10px] text-white font-medium leading-tight line-clamp-2">
-                                                    {photo.error}
-                                                </span>
-                                            </div>
-                                        )}
-                                        {photoUsageCounts[photo.id] > 1 && (
-                                            <div className="absolute top-1 left-1 bg-white/90 rounded-full p-0.5 shadow-sm text-orange-500 z-10">
-                                                <AlertTriangle className="h-4 w-4 fill-orange-500 text-white" />
-                                            </div>
-                                        )}
-                                        {/* Magnify button with Radix Tooltip - smart positioning */}
-                                        <div className="absolute bottom-1 right-1 z-20">
-                                            <TooltipProvider delayDuration={0}>
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={handleSortPhotos}
-                                                            disabled={isLoadingPhotos || allPhotos.some(p => p.isUploading)}
-                                                        >
-                                                            <ArrowUpDown className="h-4 w-4" />
-                                                        </Button>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent>Sort by Date</TooltipContent>
-                                                </Tooltip>
+                                            {/* Top Overlays: Index, Date (Center), Usage (Right) */}
+                                            <div className="absolute top-0 left-0 w-full p-2 flex items-center z-30 pointer-events-none">
+                                                {/* Left: Index */}
+                                                <Badge variant="secondary" className="h-5 px-2 text-[10px] bg-black/60 text-white border-0 backdrop-blur-md font-bold">
+                                                    #{index + 1}
+                                                </Badge>
 
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <button
-                                                            className="p-1 bg-black/60 text-white rounded hover:bg-black/80 transition-colors"
-                                                            onMouseDown={(e) => e.stopPropagation()}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            <svg
-                                                                xmlns="http://www.w3.org/2000/svg"
-                                                                width="14"
-                                                                height="14"
-                                                                viewBox="0 0 24 24"
-                                                                fill="none"
-                                                                stroke="currentColor"
-                                                                strokeWidth="2"
-                                                                strokeLinecap="round"
-                                                                strokeLinejoin="round"
-                                                            >
-                                                                <circle cx="11" cy="11" r="8" />
-                                                                <path d="m21 21-4.3-4.3" />
-                                                                <path d="M11 8v6" />
-                                                                <path d="M8 11h6" />
-                                                            </svg>
-                                                        </button>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent
-                                                        side="left"
-                                                        sideOffset={8}
-                                                        className="p-0.5 bg-white rounded-lg shadow-2xl border-0"
-                                                        style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}
-                                                    >
-                                                        <TooltipArrow className="fill-white" width={12} height={8} />
-                                                        <img
-                                                            src={photo.src}
-                                                            alt="Preview"
-                                                            className="block rounded"
-                                                            style={{ width: '300px', height: 'auto' }}
-                                                        />
-                                                    </TooltipContent>
-                                                </Tooltip>
-                                            </TooltipProvider>
+                                                {/* Center: Date (Always Visible) */}
+                                                <div className="flex-1 flex justify-center">
+                                                    <Badge variant="secondary" className="h-5 px-2 text-[10px] bg-black/60 text-white border-0 backdrop-blur-md flex gap-1 font-medium whitespace-nowrap">
+                                                        <Calendar className="h-3 w-3" />
+                                                        {(() => {
+                                                            if (photo.captureDate) return new Date(photo.captureDate).toLocaleDateString();
+                                                            const timestampMatch = (photo.src + photo.id).match(/(\d{13})/);
+                                                            if (timestampMatch) return new Date(parseInt(timestampMatch[1])).toLocaleDateString();
+                                                            return 'Recent';
+                                                        })()}
+                                                    </Badge>
+                                                </div>
+
+                                                {/* Right: Usage Indicator (Standard Radix) */}
+                                                <div className="pointer-events-auto relative">
+                                                    {isUsed && (
+                                                        <TooltipProvider delayDuration={0}>
+                                                            <Tooltip open={activeBubbleId === photo.id} onOpenChange={(open) => setActiveBubbleId(open ? photo.id : null)}>
+                                                                <TooltipTrigger asChild>
+                                                                    <div
+                                                                        className={cn(
+                                                                            "h-6 w-6 rounded-full flex items-center justify-center border-2 backdrop-blur-md shadow-xl transition-all cursor-help",
+                                                                            hasWarning ? "bg-destructive border-white text-white" : "bg-black/40 border-white text-white"
+                                                                        )}
+                                                                        onMouseEnter={() => setActiveBubbleId(photo.id)}
+                                                                        onMouseLeave={() => setActiveBubbleId(null)}
+                                                                    >
+                                                                        {hasWarning ? <AlertTriangle className="h-3.5 w-3.5" /> : <Check className="h-4 w-4 stroke-[3]" />}
+                                                                    </div>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent
+                                                                    side="bottom"
+                                                                    align="end"
+                                                                    sideOffset={5}
+                                                                    className="z-[9999] max-w-[250px] p-0 overflow-visible border-none shadow-xl"
+                                                                >
+                                                                    <TooltipArrow className="fill-popover" />
+
+                                                                    <div className="p-4 space-y-3">
+                                                                        <div className="flex items-center gap-3 border-b border-border pb-3">
+                                                                            <div className={cn(
+                                                                                "h-8 w-8 shrink-0 rounded-full flex items-center justify-center bg-muted",
+                                                                                hasWarning ? "text-destructive" : "text-primary"
+                                                                            )}>
+                                                                                {hasWarning ? <AlertTriangle className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+                                                                            </div>
+                                                                            <div>
+                                                                                <p className="font-semibold text-sm leading-tight">
+                                                                                    {hasWarning ? 'Multiple Uses' : 'Used in Album'}
+                                                                                </p>
+                                                                                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide mt-0.5">
+                                                                                    {hasWarning ? 'Duplicate Warning' : 'Usage Info'}
+                                                                                </p>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div className="space-y-1.5">
+                                                                            <p className="text-xs text-muted-foreground font-medium">Appears on pages:</p>
+                                                                            <div className="flex flex-wrap gap-1.5">
+                                                                                {usage.pages.map(p => (
+                                                                                    <Badge
+                                                                                        key={p}
+                                                                                        variant="secondary"
+                                                                                        className="h-5 text-[10px] px-2 font-medium"
+                                                                                    >
+                                                                                        {p === 0 ? 'Cover' : `Page ${p}`}
+                                                                                    </Badge>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Bottom Left: CUSTOM Selection Checkbox */}
+                                            <div className="absolute bottom-2 left-2 z-20 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+                                                <Checkbox
+                                                    checked={selectedPhotos.has(photo.id)}
+                                                    onCheckedChange={() => toggleSelection(photo.id)}
+                                                    style={{
+                                                        width: '20px',
+                                                        height: '20px',
+                                                        color: 'white',
+                                                        borderRadius: '5px',
+                                                        borderWidth: '1px',
+                                                        backgroundColor: '#0000002b',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
+                                                    }}
+                                                    className="border-white/60 shadow-lg data-[state=checked]:bg-[#0000002b] data-[state=checked]:text-white data-[state=checked]:border-white/80 transition-none transform-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
+                                                />
+                                            </div>
+
+                                            {/* Bottom Center: Resolution (Hover) */}
+                                            {!photo.isUploading && (
+                                                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 text-white text-[9px] font-medium px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 backdrop-blur-sm">
+                                                    {photo.width}×{photo.height}
+                                                </div>
+                                            )}
+
+                                            {/* Error State */}
+                                            {photo.error && (
+                                                <div className="absolute inset-0 bg-red-900/80 flex flex-col items-center justify-center z-30 p-2 text-center">
+                                                    <AlertTriangle className="h-8 w-8 text-white mb-2" />
+                                                    <span className="text-xs text-white font-medium">{photo.error}</span>
+                                                </div>
+                                            )}
+
+                                            {/* Preview / Magnify */}
+                                            <div className="absolute bottom-1 right-1 z-20" onClick={e => e.stopPropagation()}>
+                                                <TooltipProvider delayDuration={0}>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <button className="p-1.5 bg-black/40 hover:bg-black/70 text-white rounded-full transition-colors backdrop-blur-sm">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                    <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /><path d="M11 8v6" /><path d="M8 11h6" />
+                                                                </svg>
+                                                            </button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="left" className="p-0 border-0 bg-transparent shadow-none">
+                                                            <div className="relative bg-white p-1 rounded-lg shadow-2xl">
+                                                                <img src={photo.src} className="w-64 h-auto rounded" alt="Preview" />
+                                                            </div>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            </div>
                                         </div>
-                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                                            <span className="text-[10px] text-white font-bold bg-black/50 px-1.5 py-0.5 rounded">DRAG ME</span>
-                                        </div>
-                                    </div>
-                                ))}
+                                    )
+                                })}
                             </div>
                         </ScrollArea>
                     )}
                     <ScrollToTopButton scrollAreaRef={photoScrollRef} dependency={allPhotos.length} />
                 </CardContent>
+
                 <div className="p-3 border-t bg-muted/30 flex flex-col gap-2">
                     <div className="flex items-center justify-center gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs gap-1"
-                            onClick={handleClearGallery}
-                        >
-                            <Eraser className="h-3 w-3" />
-                            Clear Gallery
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs gap-1"
-                            onClick={handleResetAlbum}
-                        >
-                            <RotateCcw className="h-3 w-3" />
-                            Reset Album
-                        </Button>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                                    <Eraser className="h-3 w-3" />
+                                    Clear Gallery
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Clear entire gallery?</AlertDialogTitle>
+                                    <AlertDialogHeader>
+                                        <AlertDialogDescription>
+                                            This will remove all photos. This action cannot be undone.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleClearGallery}>Clear Gallery</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                                    <RotateCcw className="h-3 w-3" />
+                                    Reset Album
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Reset album layout?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This will remove all pages and photos from the album. The gallery will remain.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleResetAlbum}>Reset Album</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
                     </div>
                     <p className="text-xs text-muted-foreground text-center">
-                        {allPhotos.length} photos total • {usedPhotoIds.size} used
+                        {allPhotos.length} photos total • {usedCount} used recently
                     </p>
                 </div>
             </Card>

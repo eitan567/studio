@@ -137,6 +137,43 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const setAllPhotos = savePhotos;
 
   const [albumPages, setAlbumPages] = useState<AlbumPage[]>([]);
+
+  // Calculate photo usage details across all pages
+  const photoUsageDetails = useMemo(() => {
+    const details: Record<string, { count: number; pages: number[] }> = {};
+    albumPages.forEach((page, pageIndex) => {
+      page.photos.forEach(photo => {
+        // Use originalId if it exists, otherwise try to find the gallery photo by matching SRC
+        let galleryId = photo.originalId;
+
+        if (!galleryId && photo.src) {
+          const match = allPhotos.find(p => p.src === photo.src);
+          if (match) galleryId = match.id;
+        }
+
+        // Fallback to photo.id if still not found
+        galleryId = galleryId || photo.id;
+
+        // Skip placeholders (no actual photo content)
+        if (!photo.src || photo.src === '') return;
+
+        if (!details[galleryId]) {
+          details[galleryId] = { count: 0, pages: [] };
+        }
+        details[galleryId].count++;
+        // Keep track of which pages the photo appears on
+        if (!details[galleryId].pages.includes(pageIndex)) {
+          details[galleryId].pages.push(pageIndex);
+        }
+      });
+    });
+    return details;
+  }, [albumPages, allPhotos]);
+
+  // Derived from photoUsageDetails for easier boolean checks
+  const usedPhotoIds = useMemo(() => {
+    return new Set(Object.keys(photoUsageDetails));
+  }, [photoUsageDetails]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
   const [isBookViewOpen, setIsBookViewOpen] = useState(false);
@@ -473,7 +510,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         if (photos.length > 0) {
           const randomIndex = Math.floor(Math.random() * photos.length);
           const randomPhoto = photos[randomIndex];
-          coverPhotos.push({ ...randomPhoto, id: uuidv4(), panAndZoom: defaultPanAndZoom });
+          coverPhotos.push({ ...randomPhoto, id: uuidv4(), originalId: randomPhoto.id, panAndZoom: defaultPanAndZoom });
         }
       }
     } else {
@@ -486,7 +523,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         if (photos.length > 0) {
           const randomIndex = Math.floor(Math.random() * photos.length);
           const randomPhoto = photos[randomIndex];
-          coverPhotos.push({ ...randomPhoto, id: uuidv4(), panAndZoom: defaultPanAndZoom });
+          coverPhotos.push({ ...randomPhoto, id: uuidv4(), originalId: randomPhoto.id, panAndZoom: defaultPanAndZoom });
         }
       }
     }
@@ -543,7 +580,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       newPages.push({
         id: uuidv4(),
         type: 'single',
-        photos: firstPagePhotos.map(p => ({ ...p, panAndZoom: defaultPanAndZoom })),
+        photos: firstPagePhotos.map(p => ({ ...p, id: uuidv4(), originalId: p.id, panAndZoom: defaultPanAndZoom })),
         layout: '1-full' // Could randomize this if 'single' supports other layouts
       });
     }
@@ -594,7 +631,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             newPages.push({
               id: uuidv4(),
               type: 'spread',
-              photos: pagePhotos.map(p => ({ ...p, panAndZoom: defaultPanAndZoom })),
+              photos: pagePhotos.map(p => ({ ...p, id: uuidv4(), originalId: p.id, panAndZoom: defaultPanAndZoom })),
               layout: fallbackTemplate.id,
               spreadMode: 'full'
             });
@@ -612,7 +649,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           newPages.push({
             id: uuidv4(),
             type: 'spread',
-            photos: pagePhotos.map(p => ({ ...p, panAndZoom: defaultPanAndZoom })),
+            photos: pagePhotos.map(p => ({ ...p, id: uuidv4(), originalId: p.id, panAndZoom: defaultPanAndZoom })),
             layout: '4-grid', // Placeholder, not used in split mode
             spreadMode: 'split',
             spreadLayouts: {
@@ -627,7 +664,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           newPages.push({
             id: uuidv4(),
             type: 'spread',
-            photos: pagePhotos.map(p => ({ ...p, panAndZoom: defaultPanAndZoom })),
+            photos: pagePhotos.map(p => ({ ...p, id: uuidv4(), originalId: p.id, panAndZoom: defaultPanAndZoom })),
             layout: fallbackTemplate.id,
             spreadMode: 'full'
           });
@@ -653,7 +690,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         newPages.push({
           id: uuidv4(),
           type: 'spread',
-          photos: pagePhotos.map(p => ({ ...p, panAndZoom: defaultPanAndZoom })),
+          photos: pagePhotos.map(p => ({ ...p, id: uuidv4(), originalId: p.id, panAndZoom: defaultPanAndZoom })),
           layout: selectedTemplate.id,
           spreadMode: 'full'
         });
@@ -665,7 +702,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       newPages.push({
         id: uuidv4(),
         type: 'single',
-        photos: [{ ...lastPagePhoto, panAndZoom: defaultPanAndZoom }],
+        photos: [{ ...lastPagePhoto, id: uuidv4(), originalId: lastPagePhoto.id, panAndZoom: defaultPanAndZoom }],
         layout: '1-full'
       });
     } else if (newPages.length > 1) {
@@ -675,7 +712,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         newPages.push({
           id: uuidv4(),
           type: 'single',
-          photos: [{ ...firstPagePhoto, id: uuidv4(), panAndZoom: defaultPanAndZoom }],
+          photos: [{ ...firstPagePhoto, id: uuidv4(), originalId: firstPagePhoto.originalId || firstPagePhoto.id, panAndZoom: defaultPanAndZoom }],
           layout: '1-full'
         });
       }
@@ -684,19 +721,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     setAlbumPages(newPages);
   };
 
-  const photoUsageCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    albumPages.forEach(page => {
-      page.photos.forEach(photo => {
-        counts[photo.id] = (counts[photo.id] || 0) + 1;
-      });
-    });
-    return counts;
-  }, [albumPages]);
 
-  const usedPhotoIds = useMemo(() => {
-    return new Set(Object.keys(photoUsageCounts));
-  }, [photoUsageCounts]);
 
 
   const deletePage = (pageId: string) => {
@@ -1079,6 +1104,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         const newPhotoObj = {
           ...droppedPhoto,
           id: uuidv4(), // Generate a new ID for this specific usage instance
+          originalId: droppedPhoto.id, // Store original gallery ID for usage tracking
           panAndZoom: { scale: 1, x: 50, y: 50 },
           width: droppedPhoto.width || 800,
           height: droppedPhoto.height || 600
@@ -1111,6 +1137,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             return {
               ...droppedPhoto,
               id: targetPhotoId, // Keep the existing unique ID of the slot!
+              originalId: droppedPhoto.id, // Reference original gallery photo
               panAndZoom: { scale: 1, x: 50, y: 50 },
               width: droppedPhoto.width || 800,
               height: droppedPhoto.height || 600
@@ -1391,60 +1418,85 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     });
   };
 
-  // Clear all photos from gallery and delete from server
-  const handleClearGallery = async () => {
-    if (confirm('Are you sure you want to delete ALL photos from the gallery? This will remove them from the database.')) {
-      setIsLoading(true);
-      try {
-        // Prepare payload: we need storage_path.
-        // The Photo type definition doesn't explicit have storage_path, but it might be in 'src' or hidden.
-        // Wait, 'src' is the public URL. storage_path is usually `user_id/filename`.
-        // The API I wrote expects `storage_path` in the body.
-        // Check `Photo` type again. It does NOT have storage_path.
-        // Problem: We need to reconstruct storage_path from URL or store it.
-        // Upload route returns `photo` which is the DB row, likely has storage_path.
-        // BUT `types.ts` defines Photo only with `src`.
+  // Clear all photos from gallery and delete from server (Optimized)
+  const handleClearGallery = useCallback(async () => {
+    // 1. Optimistic Update
+    const photosToDeleteSnapshot = [...allPhotos];
+    setAllPhotos([]);
 
-        // WORKAROUND: In `upload/route.ts`, we see path is `userID/filename`.
-        // The URL is `.../storage/v1/object/public/photos/userID/filename`.
-        // We can extract it.
+    // 2. Background Deletion
+    try {
+      const getStoragePath = (url: string) => {
+        try {
+          const parts = url.split('/photos/');
+          if (parts.length > 1) return decodeURIComponent(parts[1]);
+          return null;
+        } catch (e) { return null; }
+      };
 
-        // Helper to extract path
-        const getStoragePath = (url: string) => {
-          try {
-            // Example: https://.../storage/v1/object/public/photos/user_id/file.jpg
-            const parts = url.split('/photos/');
-            if (parts.length > 1) return decodeURIComponent(parts[1]);
-            return null;
-          } catch (e) { return null; }
-        };
+      const photosToDelete = photosToDeleteSnapshot.map(p => ({
+        id: p.id,
+        storage_path: getStoragePath(p.src)
+      })).filter(p => p.storage_path);
 
-        const photosToDelete = allPhotos.map(p => ({
-          id: p.id,
-          storage_path: getStoragePath(p.src)
-        })).filter(p => p.storage_path); // Only delete those with valid paths
-
-        if (photosToDelete.length > 0) {
-          await fetch('/api/photos/batch', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ photos: photosToDelete })
-          });
-        }
-
-        setAllPhotos([]);
-        toast({
-          title: 'Gallery Cleared',
-          description: 'All photos have been permanently deleted.',
+      if (photosToDelete.length > 0) {
+        await fetch('/api/photos/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ photos: photosToDelete })
         });
-      } catch (e) {
-        console.error('Failed to clear gallery', e);
-        toast({ title: 'Error', description: 'Failed to delete some photos.', variant: 'destructive' });
-      } finally {
-        setIsLoading(false);
       }
+
+      toast({
+        title: 'Gallery Cleared',
+        description: 'All photos have been permanently deleted.',
+      });
+    } catch (e) {
+      console.error('Failed to clear gallery (server sync)', e);
+      toast({ title: 'Warning', description: 'Gallery cleared locally, but server sync may have failed.', variant: 'destructive' });
     }
-  };
+  }, [allPhotos, toast]);
+
+  const handleDeletePhotos = useCallback(async (ids: string[]) => {
+    // Optimistic
+    setAllPhotos(prev => prev.filter(p => !ids.includes(p.id)));
+
+    try {
+      const getStoragePath = (url: string) => {
+        try {
+          const parts = url.split('/photos/');
+          if (parts.length > 1) return decodeURIComponent(parts[1]);
+          return null;
+        } catch (e) { return null; }
+      };
+
+      // Note: allPhotos inside callback might be stale if we don't depend on it, 
+      // but we can trust the 'ids' passed to the function are valid.
+      // However, to find storage paths we need the photo objects.
+      const photosToDelete = allPhotos.filter(p => ids.includes(p.id)).map(p => ({
+        id: p.id,
+        storage_path: getStoragePath(p.src)
+      })).filter(p => p.storage_path);
+
+      if (photosToDelete.length > 0) {
+        await fetch('/api/photos/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ photos: photosToDelete })
+        });
+      }
+      toast({
+        title: 'Photos Deleted',
+        description: `${ids.length} photos removed from gallery.`
+      });
+
+    } catch (e) {
+      console.error("Delete failed", e);
+      toast({ title: "Error", description: "Failed to delete from server", variant: "destructive" });
+    }
+  }, [allPhotos, toast]);
+
+
 
   // Reset album to empty state
   const handleResetAlbum = () => {
@@ -1653,8 +1705,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         <PhotoGalleryCard
           allPhotos={allPhotos}
           isLoadingPhotos={isLoadingPhotos}
-          photoUsageCounts={photoUsageCounts}
-          usedPhotoIds={usedPhotoIds}
+          photoUsageDetails={photoUsageDetails}
           allowDuplicates={allowDuplicates}
           setAllowDuplicates={setAllowDuplicates}
           randomSeed={randomSeed}
@@ -1664,6 +1715,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           handleResetAlbum={handleResetAlbum}
           handleSortPhotos={handleSortPhotos}
           processUploadedFiles={processUploadedFiles}
+          onDeletePhotos={handleDeletePhotos}
           photoScrollRef={photoScrollRef}
           folderUploadRef={folderUploadRef}
           photoUploadRef={photoUploadRef}

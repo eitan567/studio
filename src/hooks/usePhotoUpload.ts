@@ -73,6 +73,7 @@ export function usePhotoUpload() {
                 alt: file.name,
                 width: dimensions.width,
                 height: dimensions.height,
+                captureDate: new Date(file.lastModified), // Use file modification date as fallback for capture date
             }
 
             return { success: true, photo, url: data.url }
