@@ -90,6 +90,12 @@ export function PhotoGalleryCard({
     const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
     const [activeBubbleId, setActiveBubbleId] = useState<string | null>(null);
 
+    const [hideUsedPhotos, setHideUsedPhotos] = useState(false);
+
+    const filteredPhotos = hideUsedPhotos
+        ? allPhotos.filter(p => !photoUsageDetails[p.id])
+        : allPhotos;
+
     const toggleSelection = (id: string) => {
         const newSelected = new Set(selectedPhotos);
         if (newSelected.has(id)) {
@@ -102,7 +108,7 @@ export function PhotoGalleryCard({
 
     const handleSelectAll = (checked: boolean) => {
         if (checked) {
-            setSelectedPhotos(new Set(allPhotos.map(p => p.id)));
+            setSelectedPhotos(new Set(filteredPhotos.map(p => p.id)));
         } else {
             setSelectedPhotos(new Set());
         }
@@ -208,9 +214,9 @@ export function PhotoGalleryCard({
                                 <>
                                     <Checkbox
                                         id="select-all"
-                                        checked={allPhotos.length > 0 && selectedPhotos.size === allPhotos.length}
+                                        checked={filteredPhotos.length > 0 && selectedPhotos.size === filteredPhotos.length}
                                         onCheckedChange={handleSelectAll}
-                                        disabled={allPhotos.length === 0}
+                                        disabled={filteredPhotos.length === 0}
                                     />
                                     <label htmlFor="select-all" className="text-xs text-muted-foreground cursor-pointer">
                                         Select All
@@ -271,6 +277,15 @@ export function PhotoGalleryCard({
                                 />
                                 <label htmlFor="multi-select-mode" className="text-[10px] leading-none">בחירה מרובה</label>
                             </div>
+                            <div className="h-3 w-px bg-border mx-1" />
+                            <div className="flex items-center gap-1">
+                                <Checkbox
+                                    id="hide-used-photos"
+                                    checked={hideUsedPhotos}
+                                    onCheckedChange={(c) => setHideUsedPhotos(!!c)}
+                                />
+                                <label htmlFor="hide-used-photos" className="text-[10px] leading-none">הסתר משובצות</label>
+                            </div>
                         </div>
                     </div>
 
@@ -297,7 +312,7 @@ export function PhotoGalleryCard({
                     ) : (
                         <ScrollArea ref={photoScrollRef} className="h-full px-4 py-2">
                             <div className="columns-2 gap-2 pb-10">
-                                {allPhotos.map((photo, index) => {
+                                {filteredPhotos.map((photo, index) => {
                                     const usage = photoUsageDetails?.[photo.id];
                                     const isUsed = !!usage;
                                     const hasWarning = usage && usage.count > 1;
