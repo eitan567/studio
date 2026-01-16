@@ -200,34 +200,33 @@ export function usePhotoGalleryManager({
     }, [uploadPhoto, updateThumbnail, albumThumbnailUrl, setAllPhotos, toast]);
 
     const handleSortPhotos = useCallback(() => {
-        setSortDirection(prev => {
-            const nextDirection = prev === 'asc' ? 'desc' : 'asc';
+        // Get current direction and toggle
+        const nextDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+        setSortDirection(nextDirection);
 
-            setAllPhotos(currentPhotos => {
-                return [...currentPhotos].sort((a, b) => {
-                    const dateA = a.captureDate ? new Date(a.captureDate).getTime() : 0;
-                    const dateB = b.captureDate ? new Date(b.captureDate).getTime() : 0;
+        setAllPhotos(currentPhotos => {
+            return [...currentPhotos].sort((a, b) => {
+                const dateA = a.captureDate ? new Date(a.captureDate).getTime() : 0;
+                const dateB = b.captureDate ? new Date(b.captureDate).getTime() : 0;
 
-                    if (!dateA && !dateB) return 0;
-                    if (!dateA) return 1; // No date -> end
-                    if (!dateB) return -1; // No date -> end
+                if (!dateA && !dateB) return 0;
+                if (!dateA) return 1; // No date -> end
+                if (!dateB) return -1; // No date -> end
 
-                    return nextDirection === 'asc'
-                        ? dateA - dateB
-                        : dateB - dateA;
-                });
+                return nextDirection === 'asc'
+                    ? dateA - dateB
+                    : dateB - dateA;
             });
-
-            toast({
-                title: "Sorted",
-                description: nextDirection === 'asc'
-                    ? "Photos sorted by date (Oldest -> Newest)"
-                    : "Photos sorted by date (Newest -> Oldest)"
-            });
-
-            return nextDirection;
         });
-    }, [setAllPhotos, toast]);
+
+        // Toast AFTER state updates, not inside setState callback
+        toast({
+            title: "Sorted",
+            description: nextDirection === 'asc'
+                ? "Photos sorted by date (Oldest -> Newest)"
+                : "Photos sorted by date (Newest -> Oldest)"
+        });
+    }, [sortDirection, setAllPhotos, toast]);
 
 
     const handleClearGallery = useCallback(async () => {
