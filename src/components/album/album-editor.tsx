@@ -269,18 +269,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     albumThumbnailUrl: albumThumbnailUrl,
   });
 
-  // Remove photos from all album pages (when deleting photos that are in use)
-  const handleRemovePhotosFromAlbum = useCallback((ids: string[]) => {
-    const idsSet = new Set(ids);
-    setAlbumPages(prev => prev.map(page => ({
-      ...page,
-      photos: page.photos.map(photo => {
-        // Check if this photo should be removed (by id or originalId)
-        const shouldRemove = idsSet.has(photo.id) || (photo.originalId && idsSet.has(photo.originalId));
-        return shouldRemove ? { ...photo, src: '' } : photo;
-      })
-    })));
-  }, []);
+
 
   // Export State
   const [isExporting, setIsExporting] = useState(false);
@@ -432,7 +421,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     handleUpdateTitleSettings,
     handleUpdatePage,
     updatePhotoPanAndZoom,
-    handleDropPhoto
+    handleDropPhoto,
+    handleRemovePhotosFromAlbum
   } = useAlbumPageEditor({
     setAlbumPages,
     allPhotos,

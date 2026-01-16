@@ -324,10 +324,17 @@ export function PhotoGalleryCard({
                                             }}
                                             className={cn(
                                                 "relative break-inside-avoid mb-2 rounded-md overflow-hidden bg-muted border-2 transition-all group border-transparent",
-                                                photo.isUploading ? "cursor-wait opacity-80" : "cursor-grab active:cursor-grabbing hover:border-primary/50"
+                                                photo.isUploading ? "select-none" : "cursor-grab active:cursor-grabbing hover:border-primary/50"
                                             )}
                                         >
-                                            <img src={photo.src} alt={photo.alt} className="w-full h-auto block" loading="lazy" />
+                                            {photo.isUploading && (
+                                                <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
+                                                    <Loader2 className="h-8 w-8 animate-spin text-white drop-shadow-md" />
+                                                </div>
+                                            )}
+                                            <div className={cn("relative transition-opacity duration-300", photo.isUploading && "opacity-60 grayscale-[0.5]")}>
+                                                <img src={photo.src} alt={photo.alt} className="w-full h-auto block" loading="lazy" />
+                                            </div>
 
                                             {/* Top Overlays: Index, Date (Center), Usage (Right) */}
                                             <div className="absolute top-0 left-0 w-full p-2 flex items-center z-30 pointer-events-none">

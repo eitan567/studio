@@ -360,6 +360,7 @@ export function useAlbumPageEditor({
                     ...droppedPhoto,
                     id: uuidv4(),
                     originalId: droppedPhoto.id,
+                    src: droppedPhoto.remoteUrl || droppedPhoto.src, // Prefer remote URL for persistence
                     panAndZoom: { scale: 1, x: 50, y: 50 },
                     width: droppedPhoto.width || 800,
                     height: droppedPhoto.height || 600
@@ -391,6 +392,7 @@ export function useAlbumPageEditor({
                             ...droppedPhoto,
                             id: targetPhotoId,
                             originalId: droppedPhoto.id,
+                            src: droppedPhoto.remoteUrl || droppedPhoto.src, // Prefer remote URL for persistence
                             panAndZoom: { scale: 1, x: 50, y: 50 },
                             width: droppedPhoto.width || 800,
                             height: droppedPhoto.height || 600
@@ -401,6 +403,37 @@ export function useAlbumPageEditor({
             };
         }));
     }, [allPhotos, allowDuplicates, usedPhotoIds, setAlbumPages, toast]);
+
+    const handleRemovePhotosFromAlbum = useCallback((photoIds: string[]) => {
+        setAlbumPages(prevPages => {
+            return prevPages.map(page => {
+                // Check if page has any of the photos to be removed
+                const hasPhotoToRemove = page.photos.some(p => photoIds.includes(p.originalId || p.id));
+
+                if (!hasPhotoToRemove) return page;
+
+                // Replace removed photos with empty slots
+                const newPhotos = page.photos.map(photo => {
+                    if (photoIds.includes(photo.originalId || photo.id)) {
+                        return {
+                            id: uuidv4(),
+                            src: '',
+                            alt: 'Drop photo here',
+                            width: 600,
+                            height: 400,
+                            panAndZoom: { scale: 1, x: 50, y: 50 }
+                        };
+                    }
+                    return photo;
+                });
+
+                return {
+                    ...page,
+                    photos: newPhotos
+                };
+            });
+        });
+    }, [setAlbumPages]);
 
     return {
         deletePage,
@@ -415,6 +448,7 @@ export function useAlbumPageEditor({
         handleUpdateTitleSettings,
         handleUpdatePage,
         updatePhotoPanAndZoom,
-        handleDropPhoto
+        handleDropPhoto,
+        handleRemovePhotosFromAlbum
     };
 }

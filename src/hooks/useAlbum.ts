@@ -120,6 +120,28 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
         if (!album) return
 
         const dataToSave = data || pendingDataRef.current || {}
+
+        // Critical: Ensure we persist the remoteUrl as src, not the local blob URL
+        if (dataToSave.photos) {
+            dataToSave.photos = dataToSave.photos.map(p => ({
+                ...p,
+                src: p.remoteUrl || p.src,
+                // We can optionally clean up remoteUrl here or keep it, but src MUST be the remote one for DB
+            }));
+        }
+
+        // Also sanitize pages if they are being saved, as they contain photo objects too
+        if (dataToSave.pages) {
+            dataToSave.pages = dataToSave.pages.map(page => ({
+                ...page,
+                photos: page.photos.map(p => ({
+                    ...p,
+                    src: p.remoteUrl || p.src
+                })),
+                // Handle nested photos in spreads if any (structure depends on spread implementation, but standard pages store flat photo lists usually)
+            }));
+        }
+
         pendingDataRef.current = null
 
         setIsSaving(true)
@@ -136,7 +158,32 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
             }
 
             const result = await response.json()
-            setAlbum(prev => prev ? { ...prev, ...result.album } : null)
+
+            // On success, we don't necessarily want to replace our local state with result state 
+            // because our local state might have blob URLs that we want to keep for performance/flicker prevention.
+            // However, to be safe and consistent, we usually merge. 
+            // For now, let's update everything EXCEPT photos if we want to preserve blobs, 
+            // OR finding matching photos and preserving their blob src if it exists.
+
+            setAlbum(prev => {
+                if (!prev) return null;
+                const updatedAlbum = { ...prev, ...result.album };
+
+                // Restore blob URLs for photos if they exist in our previous state
+                // This prevents the "flash" when the saved data (remote URL) comes back and replaces the blob
+                if (prev.photos) {
+                    updatedAlbum.photos = result.album.photos.map((newP: any) => {
+                        const oldP = prev.photos?.find(p => p.id === newP.id);
+                        if (oldP && oldP.src.startsWith('blob:')) {
+                            return { ...newP, src: oldP.src, remoteUrl: newP.src };
+                        }
+                        return newP;
+                    });
+                }
+
+                return updatedAlbum;
+            });
+
             setHasUnsavedChanges(false)
             setLastSaved(new Date())
         } catch (err) {

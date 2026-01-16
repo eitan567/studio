@@ -138,7 +138,13 @@ export function usePhotoGalleryManager({
                     const result = results.find(r => r.tempId === p.id);
                     if (result) {
                         if (result.success && result.photo) {
-                            return { ...result.photo, isUploading: false };
+                            // Success: Update ID to real ID, keep Blob URL as SRC to avoid flicker, store Real URL in remoteUrl
+                            return {
+                                ...result.photo,
+                                src: p.src, // Keep Blob URL
+                                remoteUrl: result.photo.src, // Store Real URL
+                                isUploading: false
+                            };
                         } else {
                             failedUploads.push({ file: result.fileName, error: result.error });
                             return { ...p, isUploading: false, error: result.error || 'Upload Failed' };
@@ -255,7 +261,7 @@ export function usePhotoGalleryManager({
 
             const photosToDelete = photosToDeleteSnapshot.map(p => ({
                 id: p.id,
-                storage_path: getStoragePath(p.src)
+                storage_path: getStoragePath(p.remoteUrl || p.src)
             })).filter(p => p.storage_path);
 
             if (photosToDelete.length > 0) {
@@ -291,7 +297,7 @@ export function usePhotoGalleryManager({
 
             const photosToDelete = allPhotos.filter(p => ids.includes(p.id)).map(p => ({
                 id: p.id,
-                storage_path: getStoragePath(p.src)
+                storage_path: getStoragePath(p.remoteUrl || p.src)
             })).filter(p => p.storage_path);
 
             if (photosToDelete.length > 0) {

@@ -15,6 +15,7 @@ export type Photo = {
   isUploading?: boolean; // Optimistic UI state
   error?: string; // Upload failed state
   originalId?: string; // Reference to original gallery photo ID
+  remoteUrl?: string; // Server URL (if src is a local blob for optimistic UI)
 };
 
 export type AlbumConfig = {
