@@ -65,8 +65,9 @@ export function AiBackgroundGenerator({ onBackgroundGenerated }: AiBackgroundGen
                     }}
                 />
                 <Button
-                    size="sm"
-                    variant="secondary"
+                    size="icon"
+                    variant="outline"
+                    className="h-8 w-8"
                     disabled={isGenerating || !prompt.trim()}
                     onClick={handleGenerate}
                 >
