@@ -351,37 +351,18 @@ export function PhotoGalleryCard({
                                                                 >
                                                                     <TooltipArrow className="fill-popover" />
 
-                                                                    <div className="p-4 space-y-3">
-                                                                        <div className="flex items-center gap-3 border-b border-border pb-3">
-                                                                            <div className={cn(
-                                                                                "h-8 w-8 shrink-0 rounded-full flex items-center justify-center bg-muted",
-                                                                                hasWarning ? "text-destructive" : "text-primary"
-                                                                            )}>
-                                                                                {hasWarning ? <AlertTriangle className="h-4 w-4" /> : <Check className="h-4 w-4" />}
-                                                                            </div>
-                                                                            <div>
-                                                                                <p className="font-semibold text-sm leading-tight">
-                                                                                    {hasWarning ? 'Multiple Uses' : 'Used in Album'}
-                                                                                </p>
-                                                                                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide mt-0.5">
-                                                                                    {hasWarning ? 'Duplicate Warning' : 'Usage Info'}
-                                                                                </p>
-                                                                            </div>
-                                                                        </div>
-
-                                                                        <div className="space-y-1.5">
-                                                                            <p className="text-xs text-muted-foreground font-medium">Appears on pages:</p>
-                                                                            <div className="flex flex-wrap gap-1.5">
-                                                                                {usage.pages.map(p => (
-                                                                                    <Badge
-                                                                                        key={p}
-                                                                                        variant="secondary"
-                                                                                        className="h-5 text-[10px] px-2 font-medium"
-                                                                                    >
-                                                                                        {p === 0 ? 'Cover' : `Page ${p}`}
-                                                                                    </Badge>
-                                                                                ))}
-                                                                            </div>
+                                                                    <div className="p-2 space-y-1">
+                                                                        <p className="text-[10px] text-muted-foreground font-medium">Appears on pages:</p>
+                                                                        <div className="flex flex-wrap gap-1">
+                                                                            {usage.pages.map(p => (
+                                                                                <Badge
+                                                                                    key={p}
+                                                                                    variant="secondary"
+                                                                                    className="h-4 text-[9px] px-1.5 font-medium"
+                                                                                >
+                                                                                    {p === 0 ? 'Cover' : `Page ${p}`}
+                                                                                </Badge>
+                                                                            ))}
                                                                         </div>
                                                                     </div>
                                                                 </TooltipContent>
@@ -447,12 +428,12 @@ export function PhotoGalleryCard({
                                                 )}
                                             </div>
 
-                                            {/* Bottom Center: Resolution (Hover) */}
-                                            {!photo.isUploading && (
+                                            {/* Bottom Center: Resolution (Hover) - HIDDEN */}
+                                            {/* {!photo.isUploading && (
                                                 <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 text-white text-[9px] font-medium px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 backdrop-blur-sm">
                                                     {photo.width}×{photo.height}
                                                 </div>
-                                            )}
+                                            )} */}
 
                                             {/* Error State */}
                                             {photo.error && (
@@ -467,10 +448,16 @@ export function PhotoGalleryCard({
                                             <div className="absolute bottom-2 right-2 z-20 pointer-events-none">
                                                 <Badge variant="secondary" className="h-5 px-2 text-[10px] bg-black/60 text-white border-0 backdrop-blur-md flex gap-1 font-medium whitespace-nowrap shadow-sm">
                                                     {(() => {
-                                                        if (photo.captureDate) return new Date(photo.captureDate).toLocaleDateString();
-                                                        const timestampMatch = (photo.src + photo.id).match(/(\d{13})/);
-                                                        if (timestampMatch) return new Date(parseInt(timestampMatch[1])).toLocaleDateString();
-                                                        return 'Recent';
+                                                        const date = photo.captureDate
+                                                            ? new Date(photo.captureDate)
+                                                            : (() => {
+                                                                const timestampMatch = (photo.src + photo.id).match(/(\d{13})/);
+                                                                return timestampMatch ? new Date(parseInt(timestampMatch[1])) : null;
+                                                            })();
+
+                                                        if (!date) return 'Recent';
+
+                                                        return date.toLocaleDateString('en-GB') + ' ' + date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
                                                     })()}
                                                 </Badge>
                                             </div>
