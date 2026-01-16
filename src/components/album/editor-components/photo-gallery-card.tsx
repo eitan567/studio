@@ -147,23 +147,6 @@ export function PhotoGalleryCard({
                     <div className="flex items-center justify-between">
                         <CardTitle className="font-headline text-lg">Photo Gallery</CardTitle>
                         <div className="flex items-center gap-1">
-                            {/* Sort Button - Now correctly placed in header */}
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8"
-                                            onClick={handleSortPhotos}
-                                            disabled={isLoadingPhotos || allPhotos.some(p => p.isUploading)}
-                                        >
-                                            <ArrowUpDown className="h-4 w-4" />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Sort by Date</TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
 
                             {/* Deletion Control */}
                             {selectedPhotos.size > 0 && (
@@ -209,18 +192,44 @@ export function PhotoGalleryCard({
 
                     {/* Secondary Toolbar */}
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1">
+                                <Checkbox
+                                    id="multi-select-mode"
+                                    checked={multiSelectMode}
+                                    onCheckedChange={(c) => {
+                                        setMultiSelectMode(!!c);
+                                        if (!c) setSelectedPhotos(new Set());
+                                    }}
+                                />
+                                <label htmlFor="multi-select-mode" className="text-[10px] leading-none cursor-pointer">בחירה מרובה</label>
+                            </div>
+
+                            <div className="h-3 w-px bg-border my-auto" />
+
+                            <div className="flex items-center gap-1">
+                                <Checkbox
+                                    id="hide-used-photos"
+                                    checked={hideUsedPhotos}
+                                    onCheckedChange={(c) => setHideUsedPhotos(!!c)}
+                                />
+                                <label htmlFor="hide-used-photos" className="text-[10px] leading-none cursor-pointer">הסתר משובצות</label>
+                            </div>
+
                             {multiSelectMode && (
                                 <>
-                                    <Checkbox
-                                        id="select-all"
-                                        checked={filteredPhotos.length > 0 && selectedPhotos.size === filteredPhotos.length}
-                                        onCheckedChange={handleSelectAll}
-                                        disabled={filteredPhotos.length === 0}
-                                    />
-                                    <label htmlFor="select-all" className="text-xs text-muted-foreground cursor-pointer">
-                                        Select All
-                                    </label>
+                                    <div className="h-3 w-px bg-border my-auto" />
+                                    <div className="flex items-center gap-1">
+                                        <Checkbox
+                                            id="select-all"
+                                            checked={filteredPhotos.length > 0 && selectedPhotos.size === filteredPhotos.length}
+                                            onCheckedChange={handleSelectAll}
+                                            disabled={filteredPhotos.length === 0}
+                                        />
+                                        <label htmlFor="select-all" className="text-[10px] leading-none cursor-pointer">
+                                            הכל
+                                        </label>
+                                    </div>
                                 </>
                             )}
                         </div>
@@ -259,33 +268,21 @@ export function PhotoGalleryCard({
                                     </TooltipTrigger>
                                     <TooltipContent>Auto-fill Album</TooltipContent>
                                 </Tooltip>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            onClick={handleSortPhotos}
+                                            disabled={isLoadingPhotos || allPhotos.some(p => p.isUploading)}
+                                        >
+                                            <ArrowUpDown className="h-3 w-3" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Sort by Date</TooltipContent>
+                                </Tooltip>
                             </TooltipProvider>
-                            {/* <div className="h-3 w-px bg-border mx-1" />
-                            <div className="flex items-center gap-1">
-                                <Checkbox id="allow-duplicates" checked={allowDuplicates} onCheckedChange={(c) => setAllowDuplicates(!!c)} />
-                                <label htmlFor="allow-duplicates" className="text-[10px] leading-none">Multi</label>
-                            </div> */}
-                            <div className="h-3 w-px bg-border mx-1" />
-                            <div className="flex items-center gap-1">
-                                <Checkbox
-                                    id="multi-select-mode"
-                                    checked={multiSelectMode}
-                                    onCheckedChange={(c) => {
-                                        setMultiSelectMode(!!c);
-                                        if (!c) setSelectedPhotos(new Set()); // Clear selection when switching to single mode
-                                    }}
-                                />
-                                <label htmlFor="multi-select-mode" className="text-[10px] leading-none">בחירה מרובה</label>
-                            </div>
-                            <div className="h-3 w-px bg-border mx-1" />
-                            <div className="flex items-center gap-1">
-                                <Checkbox
-                                    id="hide-used-photos"
-                                    checked={hideUsedPhotos}
-                                    onCheckedChange={(c) => setHideUsedPhotos(!!c)}
-                                />
-                                <label htmlFor="hide-used-photos" className="text-[10px] leading-none">הסתר משובצות</label>
-                            </div>
                         </div>
                     </div>
 
@@ -294,7 +291,7 @@ export function PhotoGalleryCard({
                         onChange={(e) => { processUploadedFiles(e.target.files); e.target.value = ''; }} />
                     <input ref={photoUploadRef} type="file" accept="image/*" multiple className="hidden"
                         onChange={(e) => { processUploadedFiles(e.target.files); e.target.value = ''; }} />
-                </CardHeader>
+                </CardHeader >
 
                 <CardContent className="flex-1 overflow-hidden p-0 relative">
                     {allPhotos.length === 0 ? (
@@ -563,7 +560,7 @@ export function PhotoGalleryCard({
                         {allPhotos.length} photos total • {usedCount} used recently
                     </p>
                 </div>
-            </Card>
-        </div>
+            </Card >
+        </div >
     );
 }
