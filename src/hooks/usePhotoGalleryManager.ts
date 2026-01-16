@@ -28,6 +28,9 @@ export function usePhotoGalleryManager({
     const folderUploadRef = useRef<HTMLInputElement>(null);
     const photoUploadRef = useRef<HTMLInputElement>(null);
 
+    // Track sort direction: 'asc' (oldest first) or 'desc' (newest first)
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
     const processUploadedFiles = useCallback(async (files: FileList | null) => {
         if (!files || files.length === 0) return;
 
@@ -195,16 +198,32 @@ export function usePhotoGalleryManager({
     }, [uploadPhoto, updateThumbnail, albumThumbnailUrl, setAllPhotos, toast]);
 
     const handleSortPhotos = useCallback(() => {
-        setAllPhotos(prev => [...prev].sort((a, b) => {
-            if (!a.captureDate && !b.captureDate) return 0;
-            if (!a.captureDate) return 1;
-            if (!b.captureDate) return -1;
-            // Oldest first
-            return new Date(a.captureDate).getTime() - new Date(b.captureDate).getTime();
-        }));
-        toast({
-            title: "Sorted",
-            description: "Photos sorted by date (Oldest -> Newest)"
+        setSortDirection(prev => {
+            const nextDirection = prev === 'asc' ? 'desc' : 'asc';
+
+            setAllPhotos(currentPhotos => {
+                return [...currentPhotos].sort((a, b) => {
+                    const dateA = a.captureDate ? new Date(a.captureDate).getTime() : 0;
+                    const dateB = b.captureDate ? new Date(b.captureDate).getTime() : 0;
+
+                    if (!dateA && !dateB) return 0;
+                    if (!dateA) return 1; // No date -> end
+                    if (!dateB) return -1; // No date -> end
+
+                    return nextDirection === 'asc'
+                        ? dateA - dateB
+                        : dateB - dateA;
+                });
+            });
+
+            toast({
+                title: "Sorted",
+                description: nextDirection === 'asc'
+                    ? "Photos sorted by date (Oldest -> Newest)"
+                    : "Photos sorted by date (Newest -> Oldest)"
+            });
+
+            return nextDirection;
         });
     }, [setAllPhotos, toast]);
 

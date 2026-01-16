@@ -389,10 +389,14 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
     // Sort photos by capture date (oldest first), photos without date go to end
     const sortedPhotos = [...allPhotos].sort((a, b) => {
-      if (!a.captureDate && !b.captureDate) return 0;
-      if (!a.captureDate) return 1;
-      if (!b.captureDate) return -1;
-      return a.captureDate.getTime() - b.captureDate.getTime();
+      const dateA = a.captureDate ? new Date(a.captureDate).getTime() : 0;
+      const dateB = b.captureDate ? new Date(b.captureDate).getTime() : 0;
+
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+
+      return dateA - dateB;
     });
 
     generateInitialPages(sortedPhotos);
