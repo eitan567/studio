@@ -63,6 +63,7 @@ import { useAlbum } from '@/hooks/useAlbum';
 import { usePhotoUpload } from '@/hooks/usePhotoUpload';
 import { useAlbumGeneration } from '@/hooks/use-album-generation';
 import { useAlbumPageEditor } from '@/hooks/useAlbumPageEditor';
+import { usePhotoGalleryManager } from '@/hooks/usePhotoGalleryManager';
 import { ModeToggle } from '@/components/mode-toggle';
 import { ScrollToTopButton, AlbumConfigCard, PhotoGalleryCard, AlbumEditorToolbar } from './editor-components';
 
@@ -149,7 +150,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     return new Set(Object.keys(photoUsageDetails));
   }, [photoUsageDetails]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
+
   const [isBookViewOpen, setIsBookViewOpen] = useState(false);
   const [isCustomLayoutEditorOpen, setIsCustomLayoutEditorOpen] = useState(false);
   const [isCoverEditorOpen, setIsCoverEditorOpen] = useState(false);
@@ -193,15 +194,38 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   ]);
   const backgroundUploadRef = useRef<HTMLInputElement>(null);
   const colorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Photo Upload Refs
-  const folderUploadRef = useRef<HTMLInputElement>(null);
-  const photoUploadRef = useRef<HTMLInputElement>(null);
+  // Photo Gallery Manager Hook
+  const {
+    isLoadingPhotos,
+    setIsLoadingPhotos,
+    processUploadedFiles,
+    handleSortPhotos,
+    handleClearGallery,
+    handleDeletePhotos,
+    photoScrollRef,
+    folderUploadRef,
+    photoUploadRef
+  } = usePhotoGalleryManager({
+    allPhotos,
+    setAllPhotos,
+    updateThumbnail: (url) => {
+      updatePages(albumPages.map(page =>
+        page.isCover && page.coverLayouts?.front === '1-full' && (!page.photos[0] || !page.photos[0].src)
+          ? { ...page, photos: [{ ...page.photos[0], src: url }] }
+          : page
+      ));
+      // The `updateThumbnail` from `useAlbum` updates the album's thumbnail_url in the DB.
+      // This is distinct from setting a photo on the cover page.
+      // We should call the `updateThumbnail` from `useAlbum` here as well if the first uploaded photo
+      // is meant to be the album's overall thumbnail.
+      updateThumbnail(url);
+    },
+    albumThumbnailUrl: albumThumbnailUrl, // Pass the current album thumbnail URL
+  });
 
   // Export State
   const [isExporting, setIsExporting] = useState(false);
   const exporterRef = useRef<AlbumExporterRef>(null);
-  const photoScrollRef = useRef<HTMLDivElement>(null);
 
   const handleExport = () => {
     exporterRef.current?.exportAlbum();
@@ -352,190 +376,6 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
 
   // Process uploaded photo files (from folder or individual selection)
-  // Photo Upload Hook
-  // Photo Upload Hook
-  const { uploadPhotos, uploadPhoto, isUploading: isUploadingHook } = usePhotoUpload();
-
-  const handleSortPhotos = useCallback(() => {
-    setAllPhotos(prev => {
-      const sorted = [...prev].sort((a, b) => {
-        const dateA = a.captureDate ? new Date(a.captureDate).getTime() : 0;
-        const dateB = b.captureDate ? new Date(b.captureDate).getTime() : 0;
-        return dateA - dateB;
-      });
-      return sorted;
-    });
-    toast({
-      title: 'Photos Sorted',
-      description: 'Gallery sorted by capture date.',
-    });
-  }, [toast]);
-
-  // Process uploaded photo files (from folder or individual selection)
-  const processUploadedFiles = useCallback(async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-
-    const imageFiles = Array.from(files).filter(file =>
-      /\.(jpg|jpeg|png|gif|webp)$/i.test(file.name)
-    );
-
-    if (imageFiles.length === 0) {
-      toast({
-        title: 'No images found',
-        description: 'Please select valid image files (jpg, jpeg, png, gif, webp).',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    setIsLoadingPhotos(true);
-    const newFiles = Array.from(files);
-
-    // Add placeholders at the END of the list
-    const tempPhotos: Photo[] = newFiles.map(file => ({
-      id: `temp-${Math.random().toString(36).substr(2, 9)}`,
-      src: URL.createObjectURL(file),
-      alt: file.name,
-      isUploading: true
-    }));
-
-    setAllPhotos(prev => [...prev, ...tempPhotos]);
-
-    // Auto-scroll logic
-    setTimeout(() => {
-      const scrollContainer = photoScrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollContainer) {
-        scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
-      }
-    }, 100);
-
-    toast({
-      title: 'Uploading Photos',
-      description: `Uploading ${imageFiles.length} image(s)...`,
-    });
-
-    const tasks = newFiles.map((file, index) => ({
-      file,
-      tempId: tempPhotos[index].id
-    }));
-
-    let successCount = 0;
-    const failedUploads: { file: string; error: any }[] = [];
-
-    // BATCH_SIZE 2 is good for stability
-    const BATCH_SIZE = 2;
-
-    try {
-      for (let i = 0; i < tasks.length; i += BATCH_SIZE) {
-        const chunk = tasks.slice(i, i + BATCH_SIZE);
-
-        await Promise.all(chunk.map(async ({ file, tempId }) => {
-          let attempts = 0;
-          const maxAttempts = 3;
-          let success = false;
-          let lastError = 'Unknown error';
-
-          while (attempts < maxAttempts && !success) {
-            attempts++;
-            // Create a dedicated AbortController for this request
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s hard timeout
-
-            try {
-              // Pass signal and skipStateUpdates to avoid global state conflicts
-              // @ts-ignore - signal/skipStateUpdates added to hook recently
-              const result = await uploadPhoto(file, {
-                signal: controller.signal,
-                skipStateUpdates: true
-              });
-
-              clearTimeout(timeoutId);
-
-              if (result.success && result.photo) {
-                success = true;
-                // Success: Swap temp with real immediately
-                setAllPhotos(prev => prev.map(p =>
-                  p.id === tempId ? { ...result.photo!, isUploading: false } : p
-                ));
-                successCount++;
-
-                // Opportunistic thumbnail update
-                const isPlaceholder = !albumThumbnailUrl || placeholderImages.some(p => p.imageUrl === albumThumbnailUrl);
-                if (isPlaceholder && successCount === 1) {
-                  updateThumbnail(result.photo.src);
-                }
-              } else {
-                throw new Error(result.error || 'Upload failed');
-              }
-
-            } catch (e: any) {
-              clearTimeout(timeoutId);
-              lastError = e.name === 'AbortError' ? 'Timeout (Network Aborted)' : (e.message || String(e));
-
-              if (attempts < maxAttempts) {
-                // Wait before retry (exponential backoff: 1s, 2s)
-                await new Promise(r => setTimeout(r, 1000 * attempts));
-              }
-            }
-          }
-
-          if (!success) {
-            console.warn(`Final failure for ${file.name}:`, lastError);
-            failedUploads.push({ file: file.name, error: lastError });
-            // Mark as error instead of removing
-            setAllPhotos(prev => prev.map(p =>
-              p.id === tempId ? { ...p, isUploading: false, error: lastError } : p
-            ));
-          }
-        }));
-      }
-
-      if (successCount > 0) {
-        toast({
-          title: 'Upload Complete',
-          description: `${successCount} photo(s) added to gallery.`,
-        });
-      }
-
-      if (failedUploads.length > 0) {
-        toast({
-          title: 'Upload Partially Failed',
-          description: `${failedUploads.length} images failed.`,
-          variant: 'destructive'
-        });
-      }
-
-    } catch (error) {
-      console.error('Batch process error:', error);
-      toast({
-        title: 'Upload Process Error',
-        description: 'Critical error during upload batch.',
-        variant: 'destructive'
-      });
-      // Safety mark all remaining
-      setAllPhotos(prev => prev.map(p =>
-        tempPhotos.some(tp => tp.id === p.id) && p.isUploading
-          ? { ...p, isUploading: false, error: 'Process Error' }
-          : p
-      ));
-    } finally {
-      setIsLoadingPhotos(false);
-
-      // Cleanup stuck photos
-      setAllPhotos(prev => prev.map(p => {
-        const isTempPhoto = tempPhotos.some(tp => tp.id === p.id);
-        if (isTempPhoto && p.isUploading) {
-          return { ...p, isUploading: false, error: 'Stuck (Final Cleanup)' };
-        }
-        return p;
-      }));
-
-      setTimeout(() => {
-        tempPhotos.forEach(p => URL.revokeObjectURL(p.src));
-      }, 2000);
-    }
-  }, [uploadPhoto, updateThumbnail, albumThumbnailUrl, placeholderImages, toast]);
-
   // Generate album from existing photos (sorted by capture date)
   const handleGenerateAlbum = () => {
     if (allPhotos.length === 0) {
@@ -561,88 +401,6 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       description: `Album created with ${sortedPhotos.length} photos sorted by date.`,
     });
   };
-
-  // Clear all photos from gallery and delete from server (Optimized)
-  const handleClearGallery = useCallback(async () => {
-    // 1. Optimistic Update
-    const photosToDeleteSnapshot = [...allPhotos];
-    setAllPhotos([]);
-
-    // 2. Background Deletion
-    try {
-      const getStoragePath = (url: string) => {
-        try {
-          const parts = url.split('/photos/');
-          if (parts.length > 1) return decodeURIComponent(parts[1]);
-          return null;
-        } catch (e) { return null; }
-      };
-
-      const photosToDelete = photosToDeleteSnapshot.map(p => ({
-        id: p.id,
-        storage_path: getStoragePath(p.src)
-      })).filter(p => p.storage_path);
-
-      if (photosToDelete.length > 0) {
-        await fetch('/api/photos/batch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ photos: photosToDelete })
-        });
-      }
-
-      toast({
-        title: 'Gallery Cleared',
-        description: 'All photos have been permanently deleted.',
-      });
-    } catch (e) {
-      console.error('Failed to clear gallery (server sync)', e);
-      toast({ title: 'Warning', description: 'Gallery cleared locally, but server sync may have failed.', variant: 'destructive' });
-    }
-  }, [allPhotos, toast]);
-
-  const handleDeletePhotos = useCallback(async (ids: string[]) => {
-    // Optimistic
-    setAllPhotos(prev => prev.filter(p => !ids.includes(p.id)));
-
-    try {
-      const getStoragePath = (url: string) => {
-        try {
-          const parts = url.split('/photos/');
-          if (parts.length > 1) return decodeURIComponent(parts[1]);
-          return null;
-        } catch (e) { return null; }
-      };
-
-      // Note: allPhotos inside callback might be stale if we don't depend on it, 
-      // but we can trust the 'ids' passed to the function are valid.
-      // However, to find storage paths we need the photo objects.
-      const photosToDelete = allPhotos.filter(p => ids.includes(p.id)).map(p => ({
-        id: p.id,
-        storage_path: getStoragePath(p.src)
-      })).filter(p => p.storage_path);
-
-      if (photosToDelete.length > 0) {
-        await fetch('/api/photos/batch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ photos: photosToDelete })
-        });
-      }
-      toast({
-        title: 'Photos Deleted',
-        description: `${ids.length} photos removed from gallery.`
-      });
-
-    } catch (e) {
-      console.error("Delete failed", e);
-      toast({ title: "Error", description: "Failed to delete from server", variant: "destructive" });
-    }
-  }, [allPhotos, toast]);
-
-
-
-  // Reset album to empty state
   const handleResetAlbum = () => {
     generateEmptyAlbum();
     toast({
