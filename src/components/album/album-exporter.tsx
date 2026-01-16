@@ -7,6 +7,7 @@ import { AlbumPage, AlbumConfig } from '@/lib/types';
 import { PageLayout } from './page-layout';
 import { AlbumCover, StaticCoverText, StaticCoverImage } from './album-cover';
 import { LAYOUT_TEMPLATES } from './layout-templates';
+import { ADVANCED_TEMPLATES } from '@/lib/advanced-layout-types';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
@@ -291,8 +292,8 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                     const isSplit = page.spreadMode === 'split';
                                     if (isSplit) {
                                         const leftLayoutId = page.spreadLayouts?.left || LAYOUT_TEMPLATES[0].id;
-                                        const rightLayoutId = page.spreadLayouts?.right || LAYOUT_TEMPLATES[0].id;
-                                        const leftTemplate = LAYOUT_TEMPLATES.find(t => t.id === leftLayoutId) || LAYOUT_TEMPLATES[0];
+                                        const rightLayoutId = page.spreadLayouts?.right || LAYOUT_TEMPLATES[0].id; // unused for slice, but good for consistency
+                                        const leftTemplate = LAYOUT_TEMPLATES.find(t => t.id === leftLayoutId) || ADVANCED_TEMPLATES.find(t => t.id === leftLayoutId) || LAYOUT_TEMPLATES[0];
                                         const leftPhotos = page.photos.slice(0, leftTemplate.photoCount);
                                         const rightPhotos = page.photos.slice(leftTemplate.photoCount);
 
