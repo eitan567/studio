@@ -260,11 +260,11 @@ export function PhotoGalleryCard({
                                     <TooltipContent>Auto-fill Album</TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>
-                            <div className="h-3 w-px bg-border mx-1" />
+                            {/* <div className="h-3 w-px bg-border mx-1" />
                             <div className="flex items-center gap-1">
                                 <Checkbox id="allow-duplicates" checked={allowDuplicates} onCheckedChange={(c) => setAllowDuplicates(!!c)} />
                                 <label htmlFor="allow-duplicates" className="text-[10px] leading-none">Multi</label>
-                            </div>
+                            </div> */}
                             <div className="h-3 w-px bg-border mx-1" />
                             <div className="flex items-center gap-1">
                                 <Checkbox
