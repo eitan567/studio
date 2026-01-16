@@ -25,6 +25,7 @@ export type AlbumConfig = {
   backgroundImage?: string; // Default background image URL for pages
   cornerRadius?: number; // Corner radius for photo frames in pixels (default 0)
   description?: string; // Optional description
+  multiSelectMode?: boolean; // Gallery selection mode: true = checkboxes, false = trash icons
 };
 
 // New Interface for Cover Text Objects

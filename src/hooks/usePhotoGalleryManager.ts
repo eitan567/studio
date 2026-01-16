@@ -29,7 +29,8 @@ export function usePhotoGalleryManager({
     const photoUploadRef = useRef<HTMLInputElement>(null);
 
     // Track sort direction: 'asc' (oldest first) or 'desc' (newest first)
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+    // Start as 'desc' so first click shows a change (sorts to 'asc')
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
     const processUploadedFiles = useCallback(async (files: FileList | null) => {
         if (!files || files.length === 0) return;
@@ -209,13 +210,21 @@ export function usePhotoGalleryManager({
                 const dateA = a.captureDate ? new Date(a.captureDate).getTime() : 0;
                 const dateB = b.captureDate ? new Date(b.captureDate).getTime() : 0;
 
-                if (!dateA && !dateB) return 0;
-                if (!dateA) return 1; // No date -> end
-                if (!dateB) return -1; // No date -> end
+                // Both have dates - sort by date
+                if (dateA && dateB) {
+                    const diff = nextDirection === 'asc' ? dateA - dateB : dateB - dateA;
+                    if (diff !== 0) return diff;
+                }
 
+                // One has date, one doesn't - photos with dates come first
+                if (dateA && !dateB) return -1;
+                if (!dateA && dateB) return 1;
+
+                // Neither has date (or dates are equal) - use ID as stable fallback
+                // This ensures sorting "toggles" consistently even without dates
                 return nextDirection === 'asc'
-                    ? dateA - dateB
-                    : dateB - dateA;
+                    ? a.id.localeCompare(b.id)
+                    : b.id.localeCompare(a.id);
             });
         });
 

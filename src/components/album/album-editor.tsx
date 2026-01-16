@@ -129,9 +129,10 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       // Filter out photos that are still uploading or have errors before persisting
       const photosToSave = next.filter(p => !p.isUploading && !p.error);
 
-      // Only persist if there are completed photos to save
-      if (photosToSave.length > 0) {
-        // Debounce/batch the save - use a setTimeout to avoid hammering the server
+      // Persist if there are completed photos OR if we're explicitly clearing (empty array)
+      // This ensures Clear Gallery works correctly
+      if (photosToSave.length > 0 || next.length === 0) {
+        console.log('[DEBUG] About to save photos to DB:', photosToSave.length, 'photos. Is clear?', next.length === 0);
         setTimeout(() => {
           savePhotos(photosToSave);
         }, 500);
@@ -179,6 +180,24 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const usedPhotoIds = useMemo(() => {
     return new Set(Object.keys(photoUsageDetails));
   }, [photoUsageDetails]);
+
+  // Chronological index: maps photo.id -> 1-based position sorted by capture date
+  const chronologicalIndex = useMemo(() => {
+    const sorted = [...allPhotos].sort((a, b) => {
+      const dateA = a.captureDate ? new Date(a.captureDate).getTime() : 0;
+      const dateB = b.captureDate ? new Date(b.captureDate).getTime() : 0;
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      return dateA - dateB;
+    });
+    const indexMap: Record<string, number> = {};
+    sorted.forEach((photo, i) => {
+      indexMap[photo.id] = i + 1;
+    });
+    return indexMap;
+  }, [allPhotos]);
+
   const [isLoading, setIsLoading] = useState(false);
 
   const [isBookViewOpen, setIsBookViewOpen] = useState(false);
@@ -211,6 +230,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const [randomSeed, setRandomSeed] = useState('');
   const [isClient, setIsClient] = useState(false);
   const [allowDuplicates, setAllowDuplicates] = useState(true);
+  const [multiSelectMode, setMultiSelectModeLocal] = useState(true); // true = checkboxes, false = trash icons
   const [photoGap, setPhotoGap] = useState(10);
   const [pageMargin, setPageMargin] = useState(10);
   const [cornerRadius, setCornerRadius] = useState(0);
@@ -249,6 +269,19 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     albumThumbnailUrl: albumThumbnailUrl,
   });
 
+  // Remove photos from all album pages (when deleting photos that are in use)
+  const handleRemovePhotosFromAlbum = useCallback((ids: string[]) => {
+    const idsSet = new Set(ids);
+    setAlbumPages(prev => prev.map(page => ({
+      ...page,
+      photos: page.photos.map(photo => {
+        // Check if this photo should be removed (by id or originalId)
+        const shouldRemove = idsSet.has(photo.id) || (photo.originalId && idsSet.has(photo.originalId));
+        return shouldRemove ? { ...photo, src: '' } : photo;
+      })
+    })));
+  }, []);
+
   // Export State
   const [isExporting, setIsExporting] = useState(false);
   const exporterRef = useRef<AlbumExporterRef>(null);
@@ -256,6 +289,12 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const handleExport = () => {
     exporterRef.current?.exportAlbum();
   };
+
+  // Wrapper: updates local state and saves to config
+  const setMultiSelectMode = useCallback((value: boolean) => {
+    setMultiSelectModeLocal(value);
+    updateConfig({ multiSelectMode: value });
+  }, [updateConfig]);
 
   const handleColorChange = (color: string) => {
     // Clear previous timeout
@@ -303,6 +342,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         setCornerRadius(savedConfig.cornerRadius || 0);
         setBackgroundColor(savedConfig.backgroundColor || '#ffffff');
         setBackgroundImage(savedConfig.backgroundImage);
+        setMultiSelectModeLocal(savedConfig.multiSelectMode ?? true);
         form.setValue('size', savedConfig.size);
       } else {
         // Existing album but empty -> Initialize with default structure
@@ -557,8 +597,11 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             allPhotos={allPhotos}
             isLoadingPhotos={isLoadingPhotos}
             photoUsageDetails={photoUsageDetails}
+            chronologicalIndex={chronologicalIndex}
             allowDuplicates={allowDuplicates}
             setAllowDuplicates={setAllowDuplicates}
+            multiSelectMode={multiSelectMode}
+            setMultiSelectMode={setMultiSelectMode}
             randomSeed={randomSeed}
             generateDummyPhotos={generateDummyPhotos}
             handleGenerateAlbum={handleGenerateAlbum}
@@ -567,6 +610,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             handleSortPhotos={handleSortPhotos}
             processUploadedFiles={processUploadedFiles}
             onDeletePhotos={handleDeletePhotos}
+            onRemovePhotosFromAlbum={handleRemovePhotosFromAlbum}
             photoScrollRef={photoScrollRef}
             folderUploadRef={folderUploadRef}
             photoUploadRef={photoUploadRef}

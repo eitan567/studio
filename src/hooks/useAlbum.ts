@@ -171,10 +171,14 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
         queueSave({ pages })
     }, [queueSave])
 
-    // Update config (triggers auto-save)
-    const updateConfig = useCallback((config: AlbumConfig) => {
-        setAlbum(prev => prev ? { ...prev, config } : null)
-        queueSave({ config })
+    // Update config (triggers auto-save) - accepts partial config and merges
+    const updateConfig = useCallback((partialConfig: Partial<AlbumConfig>) => {
+        setAlbum(prev => {
+            if (!prev) return null;
+            const mergedConfig = { ...prev.config, ...partialConfig };
+            queueSave({ config: mergedConfig });
+            return { ...prev, config: mergedConfig };
+        })
     }, [queueSave])
 
     // Update name (triggers auto-save)

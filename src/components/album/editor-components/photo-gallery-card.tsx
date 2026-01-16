@@ -41,9 +41,12 @@ import { ScrollToTopButton } from './scroll-to-top-button';
 interface PhotoGalleryCardProps {
     allPhotos: Photo[];
     isLoadingPhotos: boolean;
-    photoUsageDetails: Record<string, { count: number; pages: number[] }>; // New prop
+    photoUsageDetails: Record<string, { count: number; pages: number[] }>;
+    chronologicalIndex: Record<string, number>;
     allowDuplicates: boolean;
     setAllowDuplicates: (value: boolean) => void;
+    multiSelectMode: boolean; // true = checkboxes, false = trash icons
+    setMultiSelectMode: (value: boolean) => void;
     randomSeed: string | null;
     // Actions
     generateDummyPhotos: () => void;
@@ -52,7 +55,8 @@ interface PhotoGalleryCardProps {
     handleResetAlbum: () => void;
     handleSortPhotos: () => void;
     processUploadedFiles: (files: FileList | null) => void;
-    onDeletePhotos: (ids: string[]) => void; // New prop for bulk delete
+    onDeletePhotos: (ids: string[]) => void;
+    onRemovePhotosFromAlbum: (ids: string[]) => void;
     // Refs
     photoScrollRef: React.RefObject<HTMLDivElement | null>;
     folderUploadRef: React.RefObject<HTMLInputElement | null>;
@@ -65,8 +69,11 @@ export function PhotoGalleryCard({
     allPhotos,
     isLoadingPhotos,
     photoUsageDetails,
+    chronologicalIndex,
     allowDuplicates,
     setAllowDuplicates,
+    multiSelectMode,
+    setMultiSelectMode,
     randomSeed,
     generateDummyPhotos,
     handleGenerateAlbum,
@@ -75,6 +82,7 @@ export function PhotoGalleryCard({
     handleSortPhotos,
     processUploadedFiles,
     onDeletePhotos,
+    onRemovePhotosFromAlbum,
     photoScrollRef,
     folderUploadRef,
     photoUploadRef,
@@ -104,6 +112,26 @@ export function PhotoGalleryCard({
         onDeletePhotos(Array.from(selectedPhotos));
         setSelectedPhotos(new Set());
     };
+
+    const handleDeleteUnusedOnly = () => {
+        const unusedIds = Array.from(selectedPhotos).filter(id => !photoUsageDetails[id]);
+        onDeletePhotos(unusedIds);
+        setSelectedPhotos(new Set());
+    };
+
+    const handleDeleteAllAndRemoveFromAlbum = () => {
+        const usedIds = Array.from(selectedPhotos).filter(id => photoUsageDetails[id]);
+        if (usedIds.length > 0) {
+            onRemovePhotosFromAlbum(usedIds);
+        }
+        onDeletePhotos(Array.from(selectedPhotos));
+        setSelectedPhotos(new Set());
+    };
+
+    // Calculate usage stats for selected photos
+    const selectedUsedCount = Array.from(selectedPhotos).filter(id => photoUsageDetails[id]).length;
+    const selectedUnusedCount = selectedPhotos.size - selectedUsedCount;
+
     const usedCount = Object.keys(photoUsageDetails).length;
 
     return (
@@ -143,14 +171,28 @@ export function PhotoGalleryCard({
                                     <AlertDialogContent>
                                         <AlertDialogHeader>
                                             <AlertDialogTitle>Delete {selectedPhotos.size} photos?</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                This action cannot be undone. Possible album layouts using these photos will be affected.
+                                            <AlertDialogDescription asChild>
+                                                <div className="space-y-2">
+                                                    {selectedUsedCount > 0 ? (
+                                                        <>
+                                                            <p className="text-sm"><strong>{selectedUnusedCount}</strong> photos are not used in the album</p>
+                                                            <p className="text-sm text-destructive"><strong>{selectedUsedCount}</strong> photos are currently used in the album</p>
+                                                        </>
+                                                    ) : (
+                                                        <p>This action cannot be undone.</p>
+                                                    )}
+                                                </div>
                                             </AlertDialogDescription>
                                         </AlertDialogHeader>
-                                        <AlertDialogFooter>
+                                        <AlertDialogFooter className="flex-col sm:flex-row gap-2">
                                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                            <AlertDialogAction onClick={handleDeleteSelected} className="bg-destructive hover:bg-destructive/90">
-                                                Delete
+                                            {selectedUsedCount > 0 && selectedUnusedCount > 0 && (
+                                                <AlertDialogAction onClick={handleDeleteUnusedOnly} className="bg-secondary text-secondary-foreground hover:bg-secondary/80">
+                                                    Delete Only Unused ({selectedUnusedCount})
+                                                </AlertDialogAction>
+                                            )}
+                                            <AlertDialogAction onClick={selectedUsedCount > 0 ? handleDeleteAllAndRemoveFromAlbum : handleDeleteSelected} className="bg-destructive hover:bg-destructive/90">
+                                                {selectedUsedCount > 0 ? `Delete All & Remove from Album (${selectedPhotos.size})` : 'Delete'}
                                             </AlertDialogAction>
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
@@ -162,15 +204,19 @@ export function PhotoGalleryCard({
                     {/* Secondary Toolbar */}
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <Checkbox
-                                id="select-all"
-                                checked={allPhotos.length > 0 && selectedPhotos.size === allPhotos.length}
-                                onCheckedChange={handleSelectAll}
-                                disabled={allPhotos.length === 0}
-                            />
-                            <label htmlFor="select-all" className="text-xs text-muted-foreground cursor-pointer">
-                                Select All
-                            </label>
+                            {multiSelectMode && (
+                                <>
+                                    <Checkbox
+                                        id="select-all"
+                                        checked={allPhotos.length > 0 && selectedPhotos.size === allPhotos.length}
+                                        onCheckedChange={handleSelectAll}
+                                        disabled={allPhotos.length === 0}
+                                    />
+                                    <label htmlFor="select-all" className="text-xs text-muted-foreground cursor-pointer">
+                                        Select All
+                                    </label>
+                                </>
+                            )}
                         </div>
 
                         <div className="flex items-center gap-1">
@@ -212,6 +258,18 @@ export function PhotoGalleryCard({
                             <div className="flex items-center gap-1">
                                 <Checkbox id="allow-duplicates" checked={allowDuplicates} onCheckedChange={(c) => setAllowDuplicates(!!c)} />
                                 <label htmlFor="allow-duplicates" className="text-[10px] leading-none">Multi</label>
+                            </div>
+                            <div className="h-3 w-px bg-border mx-1" />
+                            <div className="flex items-center gap-1">
+                                <Checkbox
+                                    id="multi-select-mode"
+                                    checked={multiSelectMode}
+                                    onCheckedChange={(c) => {
+                                        setMultiSelectMode(!!c);
+                                        if (!c) setSelectedPhotos(new Set()); // Clear selection when switching to single mode
+                                    }}
+                                />
+                                <label htmlFor="multi-select-mode" className="text-[10px] leading-none">בחירה מרובה</label>
                             </div>
                         </div>
                     </div>
@@ -263,37 +321,26 @@ export function PhotoGalleryCard({
                                             <div className="absolute top-0 left-0 w-full p-2 flex items-center z-30 pointer-events-none">
                                                 {/* Left: Index */}
                                                 <Badge variant="secondary" className="h-5 px-2 text-[10px] bg-black/60 text-white border-0 backdrop-blur-md font-bold">
-                                                    #{index + 1}
+                                                    #{chronologicalIndex[photo.id] ?? '?'}
                                                 </Badge>
 
-                                                {/* Center: Date (Always Visible) */}
-                                                <div className="flex-1 flex justify-center">
-                                                    <Badge variant="secondary" className="h-5 px-2 text-[10px] bg-black/60 text-white border-0 backdrop-blur-md flex gap-1 font-medium whitespace-nowrap">
-                                                        <Calendar className="h-3 w-3" />
-                                                        {(() => {
-                                                            if (photo.captureDate) return new Date(photo.captureDate).toLocaleDateString();
-                                                            const timestampMatch = (photo.src + photo.id).match(/(\d{13})/);
-                                                            if (timestampMatch) return new Date(parseInt(timestampMatch[1])).toLocaleDateString();
-                                                            return 'Recent';
-                                                        })()}
-                                                    </Badge>
-                                                </div>
+
 
                                                 {/* Right: Usage Indicator (Standard Radix) */}
-                                                <div className="pointer-events-auto relative">
+                                                <div className="pointer-events-auto relative ml-auto">
                                                     {isUsed && (
                                                         <TooltipProvider delayDuration={0}>
                                                             <Tooltip open={activeBubbleId === photo.id} onOpenChange={(open) => setActiveBubbleId(open ? photo.id : null)}>
                                                                 <TooltipTrigger asChild>
                                                                     <div
                                                                         className={cn(
-                                                                            "h-6 w-6 rounded-full flex items-center justify-center border-2 backdrop-blur-md shadow-xl transition-all cursor-help",
-                                                                            hasWarning ? "bg-destructive border-white text-white" : "bg-black/40 border-white text-white"
+                                                                            "h-4 w-4 rounded-full flex items-center justify-center border-1 backdrop-blur-md shadow-xl transition-all cursor-help",
+                                                                            hasWarning ? "border-0 rounded-none bg-destructive text-red-500 bg-transparent" : "bg-black/40 border-white text-green-500"
                                                                         )}
                                                                         onMouseEnter={() => setActiveBubbleId(photo.id)}
                                                                         onMouseLeave={() => setActiveBubbleId(null)}
                                                                     >
-                                                                        {hasWarning ? <AlertTriangle className="h-3.5 w-3.5" /> : <Check className="h-4 w-4 stroke-[3]" />}
+                                                                        {hasWarning ? <AlertTriangle className="h-4 w-4" /> : <Check className="h-4 w-4 stroke-[3]" />}
                                                                     </div>
                                                                 </TooltipTrigger>
                                                                 <TooltipContent
@@ -344,24 +391,60 @@ export function PhotoGalleryCard({
                                                 </div>
                                             </div>
 
-                                            {/* Bottom Left: CUSTOM Selection Checkbox */}
+                                            {/* Bottom Left: Selection Checkbox OR Trash Icon */}
                                             <div className="absolute bottom-2 left-2 z-20 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
-                                                <Checkbox
-                                                    checked={selectedPhotos.has(photo.id)}
-                                                    onCheckedChange={() => toggleSelection(photo.id)}
-                                                    style={{
-                                                        width: '20px',
-                                                        height: '20px',
-                                                        color: 'white',
-                                                        borderRadius: '5px',
-                                                        borderWidth: '1px',
-                                                        backgroundColor: '#0000002b',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center'
-                                                    }}
-                                                    className="border-white/60 shadow-lg data-[state=checked]:bg-[#0000002b] data-[state=checked]:text-white data-[state=checked]:border-white/80 transition-none transform-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
-                                                />
+                                                {multiSelectMode ? (
+                                                    <Checkbox
+                                                        checked={selectedPhotos.has(photo.id)}
+                                                        onCheckedChange={() => toggleSelection(photo.id)}
+                                                        style={{
+                                                            width: '20px',
+                                                            height: '20px',
+                                                            color: 'white',
+                                                            borderRadius: '5px',
+                                                            borderWidth: '1px',
+                                                            backgroundColor: '#0000002b',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center'
+                                                        }}
+                                                        className="border-white/60 shadow-lg data-[state=checked]:bg-[#0000002b] data-[state=checked]:text-white data-[state=checked]:border-white/80 transition-none transform-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
+                                                    />
+                                                ) : (
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <button
+                                                                className="p-1.5 bg-black/40 hover:bg-destructive text-white rounded-full transition-colors backdrop-blur-sm"
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>Delete this photo?</AlertDialogTitle>
+                                                                <AlertDialogDescription>
+                                                                    {photoUsageDetails[photo.id]
+                                                                        ? 'This photo is used in the album. Deleting will remove it from album pages.'
+                                                                        : 'This action cannot be undone.'}
+                                                                </AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                <AlertDialogAction
+                                                                    onClick={() => {
+                                                                        if (photoUsageDetails[photo.id]) {
+                                                                            onRemovePhotosFromAlbum([photo.id]);
+                                                                        }
+                                                                        onDeletePhotos([photo.id]);
+                                                                    }}
+                                                                    className="bg-destructive hover:bg-destructive/90"
+                                                                >
+                                                                    Delete
+                                                                </AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                )}
                                             </div>
 
                                             {/* Bottom Center: Resolution (Hover) */}
@@ -380,23 +463,16 @@ export function PhotoGalleryCard({
                                             )}
 
                                             {/* Preview / Magnify */}
-                                            <div className="absolute bottom-1 right-1 z-20" onClick={e => e.stopPropagation()}>
-                                                <TooltipProvider delayDuration={0}>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <button className="p-1.5 bg-black/40 hover:bg-black/70 text-white rounded-full transition-colors backdrop-blur-sm">
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                                    <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /><path d="M11 8v6" /><path d="M8 11h6" />
-                                                                </svg>
-                                                            </button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent side="left" className="p-0 border-0 bg-transparent shadow-none">
-                                                            <div className="relative bg-white p-1 rounded-lg shadow-2xl">
-                                                                <img src={photo.src} className="w-64 h-auto rounded" alt="Preview" />
-                                                            </div>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </TooltipProvider>
+                                            {/* Date Display (moved from top) */}
+                                            <div className="absolute bottom-2 right-2 z-20 pointer-events-none">
+                                                <Badge variant="secondary" className="h-5 px-2 text-[10px] bg-black/60 text-white border-0 backdrop-blur-md flex gap-1 font-medium whitespace-nowrap shadow-sm">
+                                                    {(() => {
+                                                        if (photo.captureDate) return new Date(photo.captureDate).toLocaleDateString();
+                                                        const timestampMatch = (photo.src + photo.id).match(/(\d{13})/);
+                                                        if (timestampMatch) return new Date(parseInt(timestampMatch[1])).toLocaleDateString();
+                                                        return 'Recent';
+                                                    })()}
+                                                </Badge>
                                             </div>
                                         </div>
                                     )
@@ -419,15 +495,43 @@ export function PhotoGalleryCard({
                             <AlertDialogContent>
                                 <AlertDialogHeader>
                                     <AlertDialogTitle>Clear entire gallery?</AlertDialogTitle>
-                                    <AlertDialogHeader>
-                                        <AlertDialogDescription>
-                                            This will remove all photos. This action cannot be undone.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
+                                    <AlertDialogDescription asChild>
+                                        <div className="space-y-2">
+                                            {usedCount > 0 ? (
+                                                <>
+                                                    <p className="text-sm"><strong>{allPhotos.length - usedCount}</strong> photos are not used in the album</p>
+                                                    <p className="text-sm text-destructive"><strong>{usedCount}</strong> photos are currently used in the album</p>
+                                                </>
+                                            ) : (
+                                                <p>This will remove all {allPhotos.length} photos. This action cannot be undone.</p>
+                                            )}
+                                        </div>
+                                    </AlertDialogDescription>
                                 </AlertDialogHeader>
-                                <AlertDialogFooter>
+                                <AlertDialogFooter className="flex-col sm:flex-row gap-2">
                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={handleClearGallery}>Clear Gallery</AlertDialogAction>
+                                    {usedCount > 0 && allPhotos.length - usedCount > 0 && (
+                                        <AlertDialogAction
+                                            onClick={() => {
+                                                const unusedIds = allPhotos.filter(p => !photoUsageDetails[p.id]).map(p => p.id);
+                                                onDeletePhotos(unusedIds);
+                                            }}
+                                            className="bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                                        >
+                                            Delete Only Unused ({allPhotos.length - usedCount})
+                                        </AlertDialogAction>
+                                    )}
+                                    <AlertDialogAction
+                                        onClick={() => {
+                                            if (usedCount > 0) {
+                                                onRemovePhotosFromAlbum(allPhotos.map(p => p.id));
+                                            }
+                                            handleClearGallery();
+                                        }}
+                                        className="bg-destructive hover:bg-destructive/90"
+                                    >
+                                        {usedCount > 0 ? `Clear All & Remove from Album (${allPhotos.length})` : 'Clear Gallery'}
+                                    </AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
