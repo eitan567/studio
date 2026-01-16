@@ -107,9 +107,39 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const router = useRouter();
   const { signOut } = useAuth();
 
-  // Use hook's photos instead of local state
-  const allPhotos = savedPhotos;
-  const setAllPhotos = savePhotos;
+  // LOCAL photo state - decoupled from DB persistence
+  // This allows transient states (isUploading) without triggering DB saves
+  const [localPhotos, setLocalPhotos] = useState<Photo[]>([]);
+
+  // Initialize local photos from saved photos on load
+  useEffect(() => {
+    if (savedPhotos && savedPhotos.length > 0 && localPhotos.length === 0) {
+      setLocalPhotos(savedPhotos);
+    }
+  }, [savedPhotos]);
+
+  // Expose local photos for UI
+  const allPhotos = localPhotos;
+
+  // Wrapper: updates local state immediately, syncs to DB only for completed photos
+  const setAllPhotos = useCallback((updater: React.SetStateAction<Photo[]>) => {
+    setLocalPhotos(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+
+      // Filter out photos that are still uploading or have errors before persisting
+      const photosToSave = next.filter(p => !p.isUploading && !p.error);
+
+      // Only persist if there are completed photos to save
+      if (photosToSave.length > 0) {
+        // Debounce/batch the save - use a setTimeout to avoid hammering the server
+        setTimeout(() => {
+          savePhotos(photosToSave);
+        }, 500);
+      }
+
+      return next;
+    });
+  }, [savePhotos]);
 
   const [albumPages, setAlbumPages] = useState<AlbumPage[]>([]);
 
@@ -214,13 +244,9 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           ? { ...page, photos: [{ ...page.photos[0], src: url }] }
           : page
       ));
-      // The `updateThumbnail` from `useAlbum` updates the album's thumbnail_url in the DB.
-      // This is distinct from setting a photo on the cover page.
-      // We should call the `updateThumbnail` from `useAlbum` here as well if the first uploaded photo
-      // is meant to be the album's overall thumbnail.
       updateThumbnail(url);
     },
-    albumThumbnailUrl: albumThumbnailUrl, // Pass the current album thumbnail URL
+    albumThumbnailUrl: albumThumbnailUrl,
   });
 
   // Export State

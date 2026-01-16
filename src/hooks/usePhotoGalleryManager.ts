@@ -83,28 +83,28 @@ export function usePhotoGalleryManager({
         let successCount = 0;
         const failedUploads: { file: string; error: any }[] = [];
 
-        // BATCH_SIZE 2 is good for stability
-        const BATCH_SIZE = 2;
+        // PARALLEL BATCH PROCESSING - 3 at a time for performance
+        const BATCH_SIZE = 3;
 
         try {
             for (let i = 0; i < tasks.length; i += BATCH_SIZE) {
                 const chunk = tasks.slice(i, i + BATCH_SIZE);
 
-                await Promise.all(chunk.map(async ({ file, tempId }) => {
+                // Process chunk in parallel
+                const results = await Promise.all(chunk.map(async ({ file, tempId }) => {
                     let attempts = 0;
                     const maxAttempts = 3;
                     let success = false;
                     let lastError = 'Unknown error';
+                    let uploadedPhoto: Photo | undefined;
 
                     while (attempts < maxAttempts && !success) {
                         attempts++;
-                        // Create a dedicated AbortController for this request
                         const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s hard timeout
+                        const timeoutId = setTimeout(() => controller.abort(), 60000);
 
                         try {
-                            // Pass signal and skipStateUpdates to avoid global state conflicts
-                            // @ts-ignore - signal/skipStateUpdates added to hook recently
+                            // @ts-ignore - signal/skipStateUpdates supported
                             const result = await uploadPhoto(file, {
                                 signal: controller.signal,
                                 skipStateUpdates: true
@@ -114,41 +114,54 @@ export function usePhotoGalleryManager({
 
                             if (result.success && result.photo) {
                                 success = true;
-                                // Success: Swap temp with real immediately
-                                setAllPhotos(prev => prev.map(p =>
-                                    p.id === tempId ? { ...result.photo!, isUploading: false } : p
-                                ));
-                                successCount++;
-
-                                // Opportunistic thumbnail update
-                                const isPlaceholder = !albumThumbnailUrl || placeholderImages.some(p => p.imageUrl === albumThumbnailUrl);
-                                if (isPlaceholder && successCount === 1) {
-                                    updateThumbnail(result.photo.src);
-                                }
+                                uploadedPhoto = result.photo;
                             } else {
                                 throw new Error(result.error || 'Upload failed');
                             }
 
                         } catch (e: any) {
                             clearTimeout(timeoutId);
-                            lastError = e.name === 'AbortError' ? 'Timeout (Network Aborted)' : (e.message || String(e));
+                            lastError = e.name === 'AbortError' ? 'Timeout' : (e.message || String(e));
 
                             if (attempts < maxAttempts) {
-                                // Wait before retry (exponential backoff: 1s, 2s)
                                 await new Promise(r => setTimeout(r, 1000 * attempts));
                             }
                         }
                     }
 
-                    if (!success) {
-                        console.warn(`Final failure for ${file.name}:`, lastError);
-                        failedUploads.push({ file: file.name, error: lastError });
-                        // Mark as error instead of removing
-                        setAllPhotos(prev => prev.map(p =>
-                            p.id === tempId ? { ...p, isUploading: false, error: lastError } : p
-                        ));
-                    }
+                    return { tempId, success, photo: uploadedPhoto, error: success ? null : lastError, fileName: file.name };
                 }));
+
+                // Update state once per batch
+                setAllPhotos(prev => prev.map(p => {
+                    const result = results.find(r => r.tempId === p.id);
+                    if (result) {
+                        if (result.success && result.photo) {
+                            return { ...result.photo, isUploading: false };
+                        } else {
+                            failedUploads.push({ file: result.fileName, error: result.error });
+                            return { ...p, isUploading: false, error: result.error || 'Upload Failed' };
+                        }
+                    }
+                    return p;
+                }));
+
+                successCount += results.filter(r => r.success).length;
+
+                // Thumbnail update on first batch
+                if (i === 0) {
+                    const firstSuccess = results.find(r => r.success && r.photo);
+                    if (firstSuccess?.photo) {
+                        try {
+                            const isPlaceholder = !albumThumbnailUrl || placeholderImages.some(p => p.imageUrl === albumThumbnailUrl);
+                            if (isPlaceholder) {
+                                updateThumbnail(firstSuccess.photo.src);
+                            }
+                        } catch (e) {
+                            console.warn('Thumbnail update failed (non-critical):', e);
+                        }
+                    }
+                }
             }
 
             if (successCount > 0) {
@@ -170,30 +183,19 @@ export function usePhotoGalleryManager({
             console.error('Batch process error:', error);
             toast({
                 title: 'Upload Process Error',
-                description: 'Critical error during upload batch.',
+                description: 'Critical error during upload.',
                 variant: 'destructive'
             });
-            // Safety mark all remaining
             setAllPhotos(prev => prev.map(p =>
-                tempPhotos.some(tp => tp.id === p.id) && p.isUploading
-                    ? { ...p, isUploading: false, error: 'Process Error' }
-                    : p
+                p.isUploading ? { ...p, isUploading: false, error: 'Process Terminated' } : p
             ));
         } finally {
             setIsLoadingPhotos(false);
 
-            // Cleanup stuck photos
-            setAllPhotos(prev => prev.map(p => {
-                const isTempPhoto = tempPhotos.some(tp => tp.id === p.id);
-                if (isTempPhoto && p.isUploading) {
-                    return { ...p, isUploading: false, error: 'Stuck (Final Cleanup)' };
-                }
-                return p;
-            }));
-
+            // Final Cleanup
             setTimeout(() => {
                 tempPhotos.forEach(p => URL.revokeObjectURL(p.src));
-            }, 2000);
+            }, 5000);
         }
     }, [uploadPhoto, updateThumbnail, albumThumbnailUrl, setAllPhotos, toast]);
 
