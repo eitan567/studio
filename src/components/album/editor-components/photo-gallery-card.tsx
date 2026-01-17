@@ -480,6 +480,56 @@ export function PhotoGalleryCard({
                         </ScrollArea>
                     )}
                 </CardContent>
+
+                {/* Footer Bar with Photo Count and Action Buttons */}
+                <div className="p-3 border-t bg-muted/30 flex flex-col gap-2">
+                    <div className="flex items-center justify-center gap-2">
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                                    <Eraser className="h-3 w-3" />
+                                    Clear Gallery
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Clear entire gallery?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This will remove all photos. This action cannot be undone.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleClearGallery}>Clear Gallery</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                                    <RotateCcw className="h-3 w-3" />
+                                    Reset Album
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Reset album layout?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This will remove all pages and photos from the album. The gallery will remain.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleResetAlbum}>Reset Album</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
+                    <p className="text-xs text-muted-foreground text-center">
+                        {allPhotos.length} photos total • {usedCount} used
+                    </p>
+                </div>
             </Card>
         </div>
     );
