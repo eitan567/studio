@@ -86,7 +86,9 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos, isC
                     x: 50,
                     y: 50,
                     width: 20, // Default 20% width
+                    height: 20 / aspectRatio, // Default height preserving AR
                     aspectRatio: aspectRatio,
+                    panAndZoom: { scale: 1, x: 50, y: 50 },
                     rotation: 0,
                     opacity: 1,
                     zIndex: 40

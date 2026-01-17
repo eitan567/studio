@@ -463,6 +463,16 @@ export function PhotoGalleryCard({
                                                     </AlertDialog>
                                                 )}
                                             </div>
+
+                                            {/* Bottom Right: Date & Time */}
+                                            {photo.captureDate && (
+                                                <div className="absolute bottom-2 right-2 z-20 pointer-events-none">
+                                                    <div className="bg-black/60 backdrop-blur-md px-1.5 py-0.5 rounded text-[9px] text-white font-medium flex flex-col items-end leading-tight">
+                                                        <span>{new Date(photo.captureDate).toLocaleDateString()}</span>
+                                                        <span className="text-[8px] opacity-80">{new Date(photo.captureDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })}

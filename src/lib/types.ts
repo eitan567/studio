@@ -53,7 +53,9 @@ export interface CoverImage {
   x: number; // percentage
   y: number; // percentage
   width: number; // percentage
+  height?: number; // percentage (NEW) - If missing, implies derived from AR
   aspectRatio: number; // width / height
+  panAndZoom?: PhotoPanAndZoom; // (NEW)
   rotation: number;
   opacity: number;
   zIndex?: number;

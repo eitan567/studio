@@ -247,6 +247,10 @@ export const StaticCoverText = ({
     );
 };
 
+import { PhotoRenderer } from './photo-renderer';
+
+// ... (Spine and DraggableCoverText remain unchanged)
+
 // Draggable Image for Editor
 const DraggableCoverImage = ({
     item,
@@ -255,29 +259,41 @@ const DraggableCoverImage = ({
     onUpdatePosition,
     onUpdateSize,
     onDragEnd,
-    containerRef
+    containerRef,
+    onUpdatePanAndZoom
 }: {
     item: CoverImage;
     isSelected: boolean;
     onSelect: (e: React.MouseEvent) => void;
     onUpdatePosition: (x: number, y: number) => void;
-    onUpdateSize: (width: number) => void;
+    onUpdateSize: (width: number, height: number | undefined) => void;
     onDragEnd?: () => void;
     containerRef: React.RefObject<HTMLDivElement | null>;
+    onUpdatePanAndZoom?: (panAndZoom: PhotoPanAndZoom) => void;
 }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [isResizing, setIsResizing] = useState(false);
+    const [isCropMode, setIsCropMode] = useState(false); // New Crop Mode state
+
     const hasMovedRef = useRef(false);
     const containerRectRef = useRef<DOMRect | null>(null);
     const startResizeRef = useRef<{
         startWidth: number,
+        startHeight: number,
         centerX: number,
         centerY: number,
-        startDist: number
+        startX: number,
+        startY: number,
+        direction: 'se' | 's' | 'e'
     } | null>(null);
+
+    // Initial HEIGHT is derived if missing
+    const currentHeight = item.height ?? (item.width / item.aspectRatio);
 
     const handleMouseDown = (e: React.MouseEvent) => {
         if (e.button !== 0) return;
+        if (isCropMode) return; // Let PhotoRenderer handle interaction in Crop Mode
+
         e.stopPropagation();
 
         if (containerRef.current) {
@@ -292,7 +308,7 @@ const DraggableCoverImage = ({
         setIsDragging(true);
     };
 
-    const handleResizeStart = (e: React.MouseEvent) => {
+    const handleResizeStart = (e: React.MouseEvent, direction: 'se' | 's' | 'e') => {
         e.stopPropagation();
         e.preventDefault();
 
@@ -300,26 +316,39 @@ const DraggableCoverImage = ({
         const rect = containerRef.current.getBoundingClientRect();
         containerRectRef.current = rect;
 
-        // Calculate center of image in screen coordinates
-        const centerX = rect.left + (item.x / 100) * rect.width;
-        const centerY = rect.top + (item.y / 100) * rect.height;
-        const startDist = Math.hypot(e.clientX - centerX, e.clientY - centerY);
-
         setIsResizing(true);
         startResizeRef.current = {
             startWidth: item.width,
-            centerX,
-            centerY,
-            startDist
+            startHeight: currentHeight,
+            centerX: rect.left + (item.x / 100) * rect.width,
+            centerY: rect.top + (item.y / 100) * rect.height,
+            startX: e.clientX,
+            startY: e.clientY,
+            direction
         };
     };
 
     const handleClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (isSelected && !hasMovedRef.current && !e.ctrlKey && !e.metaKey) {
-            onSelect(e);
+            // onSelect(e); 
+            // Already selected. 
         }
     };
+
+    const handleDoubleClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (isSelected) {
+            setIsCropMode(!isCropMode);
+        }
+    };
+
+    // Close crop mode when deselected
+    useEffect(() => {
+        if (!isSelected) {
+            setIsCropMode(false);
+        }
+    }, [isSelected]);
 
     useEffect(() => {
         if (!isDragging && !isResizing) return;
@@ -335,17 +364,48 @@ const DraggableCoverImage = ({
                 let y = ((e.clientY - rect.top) / rect.height) * 100;
                 onUpdatePosition(x, y);
             } else if (isResizing && startResizeRef.current) {
-                const { centerX, centerY, startDist, startWidth } = startResizeRef.current;
-                const currentDist = Math.hypot(e.clientX - centerX, e.clientY - centerY);
+                const { startX, startY, startWidth, startHeight, direction } = startResizeRef.current;
 
-                // Scale based on distance ratio
-                // Prevent division by zero
-                if (startDist <= 0) return;
+                // Delta in pixels
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
 
-                const scale = currentDist / startDist;
-                const newWidth = Math.max(2, startWidth * scale); // Min 2% width
+                // Convert pixel delta to percentage
+                const dWidth = (dx / rect.width) * 100;
+                const dHeight = (dy / rect.height) * 100;
 
-                onUpdateSize(newWidth);
+                // Logic depends on handles.
+                // Note: The item is centered (translate -50%). 
+                // Resizing usually expects corner pin or center scale?
+                // Currently DraggableCoverImage sets center at x/y.
+                // If we resize width, we extend both sides if centered?
+                // implementation in previous code: `scale = currentDist / startDist`. (Center Scaling)
+                // Let's stick to Center Scaling for simplicity consistent with previous implementation OR
+                // implement side-based. previous was center-based. 
+
+                // Let's interpret dx/dy as "change in radius" approx?
+                // Actually, standard resize handles (SE) usually mean "drag this corner".
+                // If the origin is CENTER, then dragging corner increases size * 2 (symmetric)?
+                // Or does it move center?
+
+                // Current transform: translate(-50%, -50%). Origin IS Center.
+                // So dragging Corner SE away from Center increases Width and Height.
+
+                let newWidth = startWidth;
+                let newHeight = startHeight;
+
+                // Simple scaling factor based on X movement for Width, Y for Height
+                // Since it's symmetric (center origin):
+                // If we drag Right (+dx), Width increases by (dx * 2) / totalWidth percent
+
+                if (direction === 'e' || direction === 'se') {
+                    newWidth = Math.max(2, startWidth + (dWidth * 2));
+                }
+                if (direction === 's' || direction === 'se') {
+                    newHeight = Math.max(2, startHeight + (dHeight * 2));
+                }
+
+                onUpdateSize(newWidth, newHeight);
             }
         };
 
@@ -367,40 +427,88 @@ const DraggableCoverImage = ({
         };
     }, [isDragging, isResizing, onUpdatePosition, onUpdateSize, onDragEnd]);
 
+    // Construct "Photo" object for PhotoRenderer
+    const photoObject: Photo = {
+        id: item.id,
+        src: item.url,
+        alt: 'cover image',
+        width: 1000, // Dummy dimensions for aspect ratio calc inside renderer? 
+        // No, PhotoRenderer needs intrinsic dimensions to calc cover.
+        // We know aspect ratio. Let's assume W=1000.
+        height: 1000 / item.aspectRatio,
+        panAndZoom: item.panAndZoom
+    };
+
     return (
         <div
             className={cn(
-                "absolute cursor-move select-none",
-                isSelected ? "ring-2 ring-primary ring-dashed z-50" : "hover:ring-2 hover:ring-primary/20 z-40"
+                "absolute select-none group/item",
+                isSelected ? "z-50" : "z-40",
+                !isSelected && "hover:ring-2 hover:ring-primary/20",
+                isCropMode ? "cursor-default ring-2 ring-primary ring-offset-2" : "cursor-move",
+                isSelected && !isCropMode && "ring-2 ring-primary ring-dashed"
             )}
             style={{
                 left: `${item.x}%`,
                 top: `${item.y}%`,
                 width: `${item.width}%`,
-                aspectRatio: `${item.aspectRatio}`,
+                height: `${currentHeight}%`,
                 transform: `translate(-50%, -50%) rotate(${item.rotation}deg)`,
                 opacity: item.opacity,
                 zIndex: item.zIndex
             }}
             onMouseDown={handleMouseDown}
             onClick={handleClick}
+            onDoubleClick={handleDoubleClick}
         >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-                src={item.url}
-                alt="overlay"
-                className="w-full h-full object-contain pointer-events-none"
-                draggable={false}
-            />
-
-            {/* Resize Handles - Only visible when selected */}
-            {isSelected && (
-                <>
-                    <div
-                        className="absolute -bottom-1 -right-1 w-3 h-3 bg-white border border-primary rounded-full cursor-se-resize z-50"
-                        onMouseDown={handleResizeStart}
+            <div className="w-full h-full relative overflow-hidden pointer-events-none">
+                {/* 
+                    Wrapper div for Renderer. 
+                    If Crop Mode -> enable pointer events on Renderer.
+                    Else -> disable so we can drag the container.
+                 */}
+                <div className={cn("w-full h-full", isCropMode ? "pointer-events-auto" : "pointer-events-none")}>
+                    <PhotoRenderer
+                        photo={photoObject}
+                        onUpdate={(panAndZoom) => onUpdatePanAndZoom?.(panAndZoom)}
+                        useSimpleImage={!isCropMode && !isSelected} // Optimization?
+                        onInteractionChange={() => { }}
                     />
+                </div>
+            </div>
+
+            {/* Resize Handles - Only visible when selected AND NOT in Crop Mode (to avoid confusion?) 
+                Actually, maybe allow resizing in crop mode too? Let's hide to be clear.
+            */}
+            {isSelected && !isCropMode && (
+                <>
+                    {/* Corner SE */}
+                    <div
+                        className="absolute -bottom-1 -right-1 w-3 h-3 bg-white border border-primary rounded-full cursor-se-resize z-50 hover:bg-primary hover:scale-125 transition-transform"
+                        onMouseDown={(e) => handleResizeStart(e, 'se')}
+                    />
+                    {/* Right Edge */}
+                    <div
+                        className="absolute top-1/2 -right-1 w-1.5 h-4 -mt-2 bg-white border border-primary rounded-full cursor-e-resize z-50 hover:bg-primary transition-colors"
+                        onMouseDown={(e) => handleResizeStart(e, 'e')}
+                    />
+                    {/* Bottom Edge */}
+                    <div
+                        className="absolute -bottom-1 left-1/2 w-4 h-1.5 -ml-2 bg-white border border-primary rounded-full cursor-s-resize z-50 hover:bg-primary transition-colors"
+                        onMouseDown={(e) => handleResizeStart(e, 's')}
+                    />
+
+                    {/* Double Click Hint */}
+                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/75 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover/item:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                        Double-click to Crop
+                    </div>
                 </>
+            )}
+
+            {isCropMode && (
+                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[10px] px-2 py-1 rounded shadow-md pointer-events-none font-bold">
+                    CROP MODE
+                </div>
             )}
         </div>
     );
@@ -408,21 +516,36 @@ const DraggableCoverImage = ({
 
 // Static Image for Preview
 export const StaticCoverImage = ({ item }: { item: CoverImage }) => {
+    // If height is missing, use aspect ratio
+    const heightPercent = item.height ?? (item.width / item.aspectRatio);
+
+    const photoObject: Photo = {
+        id: item.id,
+        src: item.url,
+        alt: 'cover image',
+        width: 1000,
+        height: 1000 / item.aspectRatio,
+        panAndZoom: item.panAndZoom
+    };
+
     return (
         <div
-            className="absolute select-none pointer-events-none"
+            className="absolute select-none pointer-events-none overflow-hidden"
             style={{
                 left: `${item.x}%`,
                 top: `${item.y}%`,
                 width: `${item.width}%`,
-                aspectRatio: `${item.aspectRatio}`,
+                height: `${heightPercent}%`,
                 transform: `translate(-50%, -50%) rotate(${item.rotation}deg)`,
                 opacity: item.opacity,
                 zIndex: item.zIndex || 40
             }}
         >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={item.url} alt="overlay" className="w-full h-full object-contain" />
+            <PhotoRenderer
+                photo={photoObject}
+                onUpdate={() => { }}
+                useSimpleImage={true}
+            />
         </div>
     );
 };
@@ -441,7 +564,7 @@ export const AlbumCover = ({
     onSelectImage,
     onUpdatePage,
     onDropPhoto,
-    onUpdatePhotoPanAndZoom,
+    onUpdatePhotoPanAndZoom, // This is for PageLayout Photos
     onInteractionChange,
     onRemovePhoto,
     // onUpdateTitleSettings
@@ -537,22 +660,23 @@ export const AlbumCover = ({
         setDragPositions(prev => ({ ...prev, ...newPositions }));
     };
 
-    const handleUpdateImageSize = (triggerId: string, newWidth: number) => {
+    const handleUpdateImageSize = (triggerId: string, newWidth: number, newHeight: number | undefined) => {
         // Direct update via onUpdatePage because resize is usually "per frame" not continuous drag like moves
-        // But for smoothness we probably want local state too.
-        // For now let's just update the page directly for simplicity, or we need a resize state.
-        // Let's modify handleDragEnd to also commit size changes if we stored them?
-        // Actually, DraggableCoverImage calls onUpdateSize during drag.
-        // Let's just update the page directly but maybe throttle it?
-        // Better: Use a separate local state for "Temp Size" just like positions?
-        // For MVP: Let's direct update (React is fast enough for 60fps usually).
-        // IF choppy, implemented "temp" state.
+        // For smoothness we probably want local state too.
+        // For MVP: Direct update.
 
         const newImages = page.coverImages?.map(img =>
-            img.id === triggerId ? { ...img, width: newWidth } : img
+            img.id === triggerId ? { ...img, width: newWidth, height: newHeight } : img
         ) || [];
 
         onUpdatePage?.({ ...page, coverImages: newImages });
+    };
+
+    const handleUpdateImagePanAndZoom = (panAndZoom: PhotoPanAndZoom) => {
+        // This is tricky. Which image?
+        // PhotoRenderer calls back with panAndZoom.
+        // We need to know the ID.
+        // We can wrap this in an arrow function in the map loop.
     };
 
     const handleDragEnd = () => {
@@ -602,11 +726,41 @@ export const AlbumCover = ({
 
     const backTemplate = templateSource.find(t => t.id === backBaseId) || templateSource[0];
     const frontTemplate = templateSource.find(t => t.id === frontBaseId) || templateSource[0];
-    const backPhotoCount = backTemplate.photoCount;
 
-    // Photos
-    const backPhotos = page.photos.slice(0, backPhotoCount);
-    const frontPhotos = page.photos.slice(backPhotoCount);
+    // Check if backTemplate is undefined properly? No, default to [0] fixes it.
+
+    const backPhotoCount = backTemplate ? backTemplate.photoCount : 0;
+
+    // Photos - Validation: Ensure photos exist
+    const safePhotos = page.photos || [];
+    const backPhotos = safePhotos.slice(0, backPhotoCount);
+    const frontPhotos = safePhotos.slice(backPhotoCount);
+
+
+    // ... (unchanged)
+
+    // Helper to update specific image pan/zoom
+    const updateCoverImagePanAndZoom = (imgId: string, panAndZoom: PhotoPanAndZoom) => {
+        const newImages = page.coverImages?.map(img =>
+            img.id === imgId ? { ...img, panAndZoom } : img
+        ) || [];
+        onUpdatePage?.({ ...page, coverImages: newImages });
+    };
+
+    // --- Render Content Helper ---
+    // ...
+    // Need to find where renderImageOverlay is
+    // It is further down. I should replace this block first then look for renderImageOverlay.
+
+    // Wait, the ReplacementContent must match TargetContent exactly.
+    // I am replacing handleUpdateImageSize and subsequent logic.
+
+
+
+    // I will return empty string here to break function? No.
+    // I'm forced to replace a block.
+    // Ideally I find the block containing `handleUpdateImageSize`
+
 
     // Derived Styles
     const pageMargin = page.pageMargin ?? config?.pageMargin ?? 0;
@@ -941,18 +1095,31 @@ export const AlbumCover = ({
                             }
                             handleUpdateImagePosition(imgItem.id, globalX, globalY);
                         }}
-                        onUpdateSize={(w) => {
-                            // w is Local Percentage. Convert to Global.
+                        onUpdateSize={(w, h) => {
+                            // w, h are Local Percentages. Convert to Global.
                             let globalWidth = w;
+                            let globalHeight = h;
+
                             if (isFront) {
                                 const frontRange = 100 - frontStartPercent;
                                 globalWidth = (w / 100) * frontRange;
+                                // Height is vertical, range is 100% usually?
+                                // Local relative to page, Global relative to... full spread?
+                                // Height is consistently 100% of container HEIGHT.
+                                // So Local Height % == Global Height %.
+                                // Wait, the coordinate system:
+                                // Y is 0-100% of Canvas Height.
+                                // So Global Y == Local Y.
+                                // So Global Height == Local Height.
+                                globalHeight = h;
                             } else if (isBack) {
                                 globalWidth = (w / 100) * backEndPercent;
+                                globalHeight = h;
                             }
 
-                            handleUpdateImageSize(imgItem.id, globalWidth);
+                            handleUpdateImageSize(imgItem.id, globalWidth, globalHeight);
                         }}
+                        onUpdatePanAndZoom={(mz) => updateCoverImagePanAndZoom(imgItem.id, mz)}
                         onDragEnd={handleDragEnd}
                         containerRef={containerRef}
                     />
