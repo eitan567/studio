@@ -53,7 +53,7 @@ const PageLayoutComponent = ({
 
     // Parse rotation from layout ID
     const { baseId: layout, rotation } = parseLayoutId(rawLayout);
-    console.log('[PageLayout] Rendering with:', { rawLayout, layout, rotation, cornerRadius });
+    // console.log('[PageLayout] Rendering with:', { rawLayout, layout, rotation, cornerRadius });
 
     // Check for templates in both sources using the BASE layout ID
     // First, try to find in templateSource (which may include both grid and advanced templates)

@@ -111,15 +111,25 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   // This allows transient states (isUploading) without triggering DB saves
   const [localPhotos, setLocalPhotos] = useState<Photo[]>([]);
 
-  // Initialize local photos from saved photos on load
+  // Track initialization to prevent re-hydrating deleted photos
+  const photosInitialized = useRef(false);
+
+  // Initialize local photos from saved photos on load (ONCE)
   useEffect(() => {
-    if (savedPhotos && savedPhotos.length > 0 && localPhotos.length === 0) {
+    if (!photosInitialized.current && savedPhotos && savedPhotos.length > 0) {
       setLocalPhotos(savedPhotos);
+      photosInitialized.current = true;
+    } else if (!photosInitialized.current && savedPhotos && savedPhotos.length === 0 && !isAlbumLoading) {
+      // If loading finished and no photos, mark initialized so we don't overwrite later
+      photosInitialized.current = true;
     }
-  }, [savedPhotos]);
+  }, [savedPhotos, isAlbumLoading]);
 
   // Expose local photos for UI
   const allPhotos = localPhotos;
+
+  // Track loading state via ref to access inside callbacks without dependencies
+  const isLoadingPhotosRef = useRef(false);
 
   // Wrapper: updates local state immediately, syncs to DB only for completed photos
   const setAllPhotos = useCallback((updater: React.SetStateAction<Photo[]>) => {
@@ -130,11 +140,13 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       const photosToSave = next.filter(p => !p.isUploading && !p.error);
 
       // Persist if there are completed photos OR if we're explicitly clearing (empty array)
-      // This ensures Clear Gallery works correctly
-      if (photosToSave.length > 0 || next.length === 0) {
-        console.log('[DEBUG] About to save photos to DB:', photosToSave.length, 'photos. Is clear?', next.length === 0);
+      // BUT SKIP if strictly uploading (to avoid DB churning/sorting)
+      if ((photosToSave.length > 0 || next.length === 0) && !isLoadingPhotosRef.current) {
+        // Debounce slightly standard saves, but block completely if uploading
         setTimeout(() => {
-          savePhotos(photosToSave);
+          if (!isLoadingPhotosRef.current) {
+            savePhotos(photosToSave);
+          }
         }, 500);
       }
 
@@ -142,9 +154,70 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     });
   }, [savePhotos]);
 
+  // State for pages - Defined early for use in updateThumbnail callback
   const [albumPages, setAlbumPages] = useState<AlbumPage[]>([]);
 
-  // Calculate photo usage details across all pages
+  const { toast } = useToast();
+  // Photo Gallery Manager Hook - Moved UP to allow access to isLoadingPhotos
+  // We need to define it here because we need `isLoadingPhotos` for the effects below
+  const {
+    isLoadingPhotos,
+    setIsLoadingPhotos,
+    processUploadedFiles,
+    handleSortPhotos,
+    handleClearGallery,
+    handleDeletePhotos,
+    photoScrollRef,
+    folderUploadRef,
+    photoUploadRef
+  } = usePhotoGalleryManager({
+    allPhotos,
+    setAllPhotos,
+    updateThumbnail: (url) => {
+      updatePages(albumPages.map(page =>
+        page.isCover && page.coverLayouts?.front === '1-full' && (!page.photos[0] || !page.photos[0].src)
+          ? { ...page, photos: [{ ...page.photos[0], src: url }] }
+          : page
+      ));
+      updateThumbnail(url);
+    },
+    albumThumbnailUrl: albumThumbnailUrl,
+  });
+
+  // Sync ref with prop/state
+  useEffect(() => {
+    isLoadingPhotosRef.current = isLoadingPhotos;
+  }, [isLoadingPhotos]);
+
+  // Track previous loading state to detect transition
+  const prevLoadingRef = useRef(false);
+
+  // Delayed save after upload completes (Transition Logic)
+  useEffect(() => {
+    // Only trigger if we effectively transitioned from loading -> not loading
+    if (prevLoadingRef.current && !isLoadingPhotos) {
+      // Transition detected! Upload finished.
+      if (localPhotos.length > 0) {
+        const timer = setTimeout(() => {
+          // Double check we haven't started loading again
+          if (!isLoadingPhotosRef.current) {
+            const validPhotos = localPhotos.filter(p => !p.isUploading && !p.error);
+            if (validPhotos.length > 0) {
+              console.log('[DEBUG] Delayed save triggered after upload');
+              savePhotos(validPhotos);
+            }
+          }
+        }, 2000);
+        // Update ref immediately to prevent double-firing if dep changes
+        prevLoadingRef.current = false;
+        return () => clearTimeout(timer);
+      }
+    }
+
+    // Update ref for next render
+    prevLoadingRef.current = isLoadingPhotos;
+  }, [isLoadingPhotos, localPhotos, savePhotos]);
+
   const photoUsageDetails = useMemo(() => {
     const details: Record<string, { count: number; pages: number[] }> = {};
     albumPages.forEach((page, pageIndex) => {
@@ -226,7 +299,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       return next;
     });
   };
-  const { toast } = useToast();
+
   const [randomSeed, setRandomSeed] = useState('');
   const [isClient, setIsClient] = useState(false);
   const [allowDuplicates, setAllowDuplicates] = useState(true);
@@ -244,30 +317,6 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   ]);
   const backgroundUploadRef = useRef<HTMLInputElement>(null);
   const colorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Photo Gallery Manager Hook
-  const {
-    isLoadingPhotos,
-    setIsLoadingPhotos,
-    processUploadedFiles,
-    handleSortPhotos,
-    handleClearGallery,
-    handleDeletePhotos,
-    photoScrollRef,
-    folderUploadRef,
-    photoUploadRef
-  } = usePhotoGalleryManager({
-    allPhotos,
-    setAllPhotos,
-    updateThumbnail: (url) => {
-      updatePages(albumPages.map(page =>
-        page.isCover && page.coverLayouts?.front === '1-full' && (!page.photos[0] || !page.photos[0].src)
-          ? { ...page, photos: [{ ...page.photos[0], src: url }] }
-          : page
-      ));
-      updateThumbnail(url);
-    },
-    albumThumbnailUrl: albumThumbnailUrl,
-  });
 
 
 

@@ -200,9 +200,7 @@ export function usePhotoGalleryManager({
             setIsLoadingPhotos(false);
 
             // Final Cleanup
-            setTimeout(() => {
-                tempPhotos.forEach(p => URL.revokeObjectURL(p.src));
-            }, 5000);
+
         }
     }, [uploadPhoto, updateThumbnail, albumThumbnailUrl, setAllPhotos, toast]);
 

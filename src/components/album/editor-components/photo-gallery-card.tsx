@@ -22,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from "@/components/ui/switch";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -57,7 +58,7 @@ interface PhotoGalleryCardProps {
     processUploadedFiles: (files: FileList | null) => void;
     onDeletePhotos: (ids: string[]) => void;
     onRemovePhotosFromAlbum: (ids: string[]) => void;
-    // Refs
+    // Refs 
     photoScrollRef: React.RefObject<HTMLDivElement | null>;
     folderUploadRef: React.RefObject<HTMLInputElement | null>;
     photoUploadRef: React.RefObject<HTMLInputElement | null>;
@@ -91,6 +92,7 @@ export function PhotoGalleryCard({
     const [activeBubbleId, setActiveBubbleId] = useState<string | null>(null);
 
     const [hideUsedPhotos, setHideUsedPhotos] = useState(false);
+    const [isSingleColumn, setIsSingleColumn] = useState(false);
 
     const filteredPhotos = hideUsedPhotos
         ? allPhotos.filter(p => !photoUsageDetails[p.id])
@@ -173,16 +175,18 @@ export function PhotoGalleryCard({
                                                 </div>
                                             </AlertDialogDescription>
                                         </AlertDialogHeader>
-                                        <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                            {selectedUsedCount > 0 && selectedUnusedCount > 0 && (
-                                                <AlertDialogAction onClick={handleDeleteUnusedOnly} className="bg-secondary text-secondary-foreground hover:bg-secondary/80">
-                                                    Delete Only Unused ({selectedUnusedCount})
+                                        <AlertDialogFooter className="flex-col gap-2 sm:justify-start">
+                                            <AlertDialogCancel className="w-full sm:w-auto mt-0">Cancel</AlertDialogCancel>
+                                            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto justify-end">
+                                                {selectedUsedCount > 0 && selectedUnusedCount > 0 && (
+                                                    <AlertDialogAction onClick={handleDeleteUnusedOnly} className="bg-secondary text-secondary-foreground hover:bg-secondary/80 w-full sm:w-auto">
+                                                        Delete Only Unused ({selectedUnusedCount})
+                                                    </AlertDialogAction>
+                                                )}
+                                                <AlertDialogAction onClick={selectedUsedCount > 0 ? handleDeleteAllAndRemoveFromAlbum : handleDeleteSelected} className="bg-destructive hover:bg-destructive/90 w-full sm:w-auto">
+                                                    {selectedUsedCount > 0 ? `Delete All & Remove from Album (${selectedPhotos.size})` : 'Delete'}
                                                 </AlertDialogAction>
-                                            )}
-                                            <AlertDialogAction onClick={selectedUsedCount > 0 ? handleDeleteAllAndRemoveFromAlbum : handleDeleteSelected} className="bg-destructive hover:bg-destructive/90">
-                                                {selectedUsedCount > 0 ? `Delete All & Remove from Album (${selectedPhotos.size})` : 'Delete'}
-                                            </AlertDialogAction>
+                                            </div>
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
                                 </AlertDialog>
@@ -214,6 +218,18 @@ export function PhotoGalleryCard({
                                     onCheckedChange={(c) => setHideUsedPhotos(!!c)}
                                 />
                                 <label htmlFor="hide-used-photos" className="text-[10px] leading-none cursor-pointer">הסתר משובצות</label>
+                            </div>
+
+                            <div className="h-3 w-px bg-border my-auto" />
+
+                            <div className="flex items-center gap-1">
+                                <Switch
+                                    id="single-col-mode"
+                                    checked={isSingleColumn}
+                                    onCheckedChange={setIsSingleColumn}
+                                    className="scale-75 origin-left"
+                                />
+                                <label htmlFor="single-col-mode" className="text-[10px] leading-none cursor-pointer">תצוגה רחבה</label>
                             </div>
 
                             {multiSelectMode && (
@@ -308,7 +324,8 @@ export function PhotoGalleryCard({
                         )
                     ) : (
                         <ScrollArea ref={photoScrollRef} className="h-full px-4 py-2">
-                            <div className="columns-2 gap-2 pb-10">
+                            <ScrollToTopButton scrollAreaRef={photoScrollRef} />
+                            <div className={cn("gap-2 pb-10", isSingleColumn ? "columns-1" : "columns-2")}>
                                 {filteredPhotos.map((photo, index) => {
                                     const usage = photoUsageDetails?.[photo.id];
                                     const isUsed = !!usage;
@@ -446,128 +463,14 @@ export function PhotoGalleryCard({
                                                     </AlertDialog>
                                                 )}
                                             </div>
-
-                                            {/* Bottom Center: Resolution (Hover) - HIDDEN */}
-                                            {/* {!photo.isUploading && (
-                                                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 text-white text-[9px] font-medium px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 backdrop-blur-sm">
-                                                    {photo.width}×{photo.height}
-                                                </div>
-                                            )} */}
-
-                                            {/* Error State */}
-                                            {photo.error && (
-                                                <div className="absolute inset-0 bg-red-900/80 flex flex-col items-center justify-center z-30 p-2 text-center">
-                                                    <AlertTriangle className="h-8 w-8 text-white mb-2" />
-                                                    <span className="text-xs text-white font-medium">{photo.error}</span>
-                                                </div>
-                                            )}
-
-                                            {/* Preview / Magnify */}
-                                            {/* Date Display (moved from top) */}
-                                            <div className="absolute bottom-2 right-2 z-20 pointer-events-none">
-                                                <Badge variant="secondary" className="h-5 px-2 text-[10px] bg-black/60 text-white border-0 backdrop-blur-md flex gap-1 font-medium whitespace-nowrap shadow-sm">
-                                                    {(() => {
-                                                        const date = photo.captureDate
-                                                            ? new Date(photo.captureDate)
-                                                            : (() => {
-                                                                const timestampMatch = (photo.src + photo.id).match(/(\d{13})/);
-                                                                return timestampMatch ? new Date(parseInt(timestampMatch[1])) : null;
-                                                            })();
-
-                                                        if (!date) return 'Recent';
-
-                                                        return date.toLocaleDateString('en-GB') + ' ' + date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
-                                                    })()}
-                                                </Badge>
-                                            </div>
                                         </div>
-                                    )
+                                    );
                                 })}
                             </div>
                         </ScrollArea>
                     )}
-                    <ScrollToTopButton scrollAreaRef={photoScrollRef} dependency={allPhotos.length} />
                 </CardContent>
-
-                <div className="p-3 border-t bg-muted/30 flex flex-col gap-2">
-                    <div className="flex items-center justify-center gap-2">
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
-                                    <Eraser className="h-3 w-3" />
-                                    Clear Gallery
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Clear entire gallery?</AlertDialogTitle>
-                                    <AlertDialogDescription asChild>
-                                        <div className="space-y-2">
-                                            {usedCount > 0 ? (
-                                                <>
-                                                    <p className="text-sm"><strong>{allPhotos.length - usedCount}</strong> photos are not used in the album</p>
-                                                    <p className="text-sm text-destructive"><strong>{usedCount}</strong> photos are currently used in the album</p>
-                                                </>
-                                            ) : (
-                                                <p>This will remove all {allPhotos.length} photos. This action cannot be undone.</p>
-                                            )}
-                                        </div>
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    {usedCount > 0 && allPhotos.length - usedCount > 0 && (
-                                        <AlertDialogAction
-                                            onClick={() => {
-                                                const unusedIds = allPhotos.filter(p => !photoUsageDetails[p.id]).map(p => p.id);
-                                                onDeletePhotos(unusedIds);
-                                            }}
-                                            className="bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                                        >
-                                            Delete Only Unused ({allPhotos.length - usedCount})
-                                        </AlertDialogAction>
-                                    )}
-                                    <AlertDialogAction
-                                        onClick={() => {
-                                            if (usedCount > 0) {
-                                                onRemovePhotosFromAlbum(allPhotos.map(p => p.id));
-                                            }
-                                            handleClearGallery();
-                                        }}
-                                        className="bg-destructive hover:bg-destructive/90"
-                                    >
-                                        {usedCount > 0 ? `Clear All & Remove from Album (${allPhotos.length})` : 'Clear Gallery'}
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
-                                    <RotateCcw className="h-3 w-3" />
-                                    Reset Album
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Reset album layout?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        This will remove all pages and photos from the album. The gallery will remain.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={handleResetAlbum}>Reset Album</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    </div>
-                    <p className="text-xs text-muted-foreground text-center">
-                        {allPhotos.length} photos total • {usedCount} used recently
-                    </p>
-                </div>
-            </Card >
-        </div >
+            </Card>
+        </div>
     );
 }

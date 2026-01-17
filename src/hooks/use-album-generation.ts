@@ -163,7 +163,7 @@ export function useAlbumGeneration({
                 if (photos.length > 0) {
                     const randomIndex = Math.floor(Math.random() * photos.length);
                     const randomPhoto = photos[randomIndex];
-                    coverPhotos.push({ ...randomPhoto, id: uuidv4(), originalId: randomPhoto.id, src: randomPhoto.remoteUrl || randomPhoto.src, panAndZoom: defaultPanAndZoom });
+                    coverPhotos.push({ ...randomPhoto, id: uuidv4(), originalId: randomPhoto.id, remoteUrl: randomPhoto.remoteUrl, panAndZoom: defaultPanAndZoom });
                 }
             }
         } else {
@@ -174,7 +174,7 @@ export function useAlbumGeneration({
                 if (photos.length > 0) {
                     const randomIndex = Math.floor(Math.random() * photos.length);
                     const randomPhoto = photos[randomIndex];
-                    coverPhotos.push({ ...randomPhoto, id: uuidv4(), originalId: randomPhoto.id, src: randomPhoto.remoteUrl || randomPhoto.src, panAndZoom: defaultPanAndZoom });
+                    coverPhotos.push({ ...randomPhoto, id: uuidv4(), originalId: randomPhoto.id, remoteUrl: randomPhoto.remoteUrl, panAndZoom: defaultPanAndZoom });
                 }
             }
         }
@@ -200,7 +200,7 @@ export function useAlbumGeneration({
             newPages.push({
                 id: uuidv4(),
                 type: 'single',
-                photos: firstPagePhotos.map(p => ({ ...p, id: uuidv4(), originalId: p.id, src: p.remoteUrl || p.src, panAndZoom: defaultPanAndZoom })),
+                photos: firstPagePhotos.map(p => ({ ...p, id: uuidv4(), originalId: p.id, remoteUrl: p.remoteUrl, panAndZoom: defaultPanAndZoom })),
                 layout: '1-full'
             });
         }
@@ -232,7 +232,7 @@ export function useAlbumGeneration({
                         newPages.push({
                             id: uuidv4(),
                             type: 'spread',
-                            photos: pagePhotos.map(p => ({ ...p, id: uuidv4(), originalId: p.id, src: p.remoteUrl || p.src, panAndZoom: defaultPanAndZoom })),
+                            photos: pagePhotos.map(p => ({ ...p, id: uuidv4(), originalId: p.id, remoteUrl: p.remoteUrl, panAndZoom: defaultPanAndZoom })),
                             layout: fallbackTemplate.id,
                             spreadMode: 'full'
                         });
@@ -248,7 +248,7 @@ export function useAlbumGeneration({
                     newPages.push({
                         id: uuidv4(),
                         type: 'spread',
-                        photos: pagePhotos.map(p => ({ ...p, id: uuidv4(), originalId: p.id, src: p.remoteUrl || p.src, panAndZoom: defaultPanAndZoom })),
+                        photos: pagePhotos.map(p => ({ ...p, id: uuidv4(), originalId: p.id, remoteUrl: p.remoteUrl, panAndZoom: defaultPanAndZoom })),
                         layout: '4-grid',
                         spreadMode: 'split',
                         spreadLayouts: {
@@ -262,7 +262,7 @@ export function useAlbumGeneration({
                     newPages.push({
                         id: uuidv4(),
                         type: 'spread',
-                        photos: pagePhotos.map(p => ({ ...p, id: uuidv4(), originalId: p.id, src: p.remoteUrl || p.src, panAndZoom: defaultPanAndZoom })),
+                        photos: pagePhotos.map(p => ({ ...p, id: uuidv4(), originalId: p.id, remoteUrl: p.remoteUrl, panAndZoom: defaultPanAndZoom })),
                         layout: fallbackTemplate.id,
                         spreadMode: 'full'
                     });
@@ -284,7 +284,7 @@ export function useAlbumGeneration({
                 newPages.push({
                     id: uuidv4(),
                     type: 'spread',
-                    photos: pagePhotos.map(p => ({ ...p, id: uuidv4(), originalId: p.id, src: p.remoteUrl || p.src, panAndZoom: defaultPanAndZoom })),
+                    photos: pagePhotos.map(p => ({ ...p, id: uuidv4(), originalId: p.id, remoteUrl: p.remoteUrl, panAndZoom: defaultPanAndZoom })),
                     layout: selectedTemplate.id,
                     spreadMode: 'full'
                 });
@@ -296,7 +296,7 @@ export function useAlbumGeneration({
             newPages.push({
                 id: uuidv4(),
                 type: 'single',
-                photos: [{ ...lastPagePhoto, id: uuidv4(), originalId: lastPagePhoto.id, src: lastPagePhoto.remoteUrl || lastPagePhoto.src, panAndZoom: defaultPanAndZoom }],
+                photos: [{ ...lastPagePhoto, id: uuidv4(), originalId: lastPagePhoto.id, remoteUrl: lastPagePhoto.remoteUrl, panAndZoom: defaultPanAndZoom }],
                 layout: '1-full'
             });
         } else if (newPages.length > 1) {

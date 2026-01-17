@@ -360,7 +360,7 @@ export function useAlbumPageEditor({
                     ...droppedPhoto,
                     id: uuidv4(),
                     originalId: droppedPhoto.id,
-                    src: droppedPhoto.remoteUrl || droppedPhoto.src, // Prefer remote URL for persistence
+                    remoteUrl: droppedPhoto.remoteUrl, // Ensure this carries over explicitly if needed, or via spread
                     panAndZoom: { scale: 1, x: 50, y: 50 },
                     width: droppedPhoto.width || 800,
                     height: droppedPhoto.height || 600
@@ -392,7 +392,7 @@ export function useAlbumPageEditor({
                             ...droppedPhoto,
                             id: targetPhotoId,
                             originalId: droppedPhoto.id,
-                            src: droppedPhoto.remoteUrl || droppedPhoto.src, // Prefer remote URL for persistence
+                            remoteUrl: droppedPhoto.remoteUrl, // Ensure this carries over
                             panAndZoom: { scale: 1, x: 50, y: 50 },
                             width: droppedPhoto.width || 800,
                             height: droppedPhoto.height || 600

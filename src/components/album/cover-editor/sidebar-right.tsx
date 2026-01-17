@@ -398,11 +398,11 @@ export const SidebarRight = ({ page, onUpdatePage, activeView, onSetActiveView, 
                                     <div className="space-y-1">
                                         <div className="flex justify-between">
                                             <Label className="text-[10px] text-muted-foreground mb-1">Spine Width (px)</Label>
-                                            <span className="text-[10px] text-muted-foreground">{page.spineWidth ?? 40}px</span>
+                                            <span className="text-[10px] text-muted-foreground">{page.spineWidth ?? 20}px</span>
                                         </div>
                                         <Slider
-                                            value={[page.spineWidth ?? 40]}
-                                            min={20} max={100} step={1}
+                                            value={[page.spineWidth ?? 20]}
+                                            min={0} max={100} step={1}
                                             onValueChange={(val) => handleUpdatePageProp({ spineWidth: val[0] })}
                                             className="py-1"
                                         />
