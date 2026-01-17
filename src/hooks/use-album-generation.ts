@@ -372,10 +372,53 @@ export function useAlbumGeneration({
         }, 1500);
     }, [randomSeed, setIsLoadingPhotos, setAllPhotos, toast]);
 
+    const autoFillAlbum = useCallback((currentPages: AlbumPage[], photos: Photo[]) => {
+        let photoIndex = 0;
+        const newPages = currentPages.map(page => {
+            const newPhotos = page.photos.map(photo => {
+                // If we have photos left to assign
+                if (photoIndex < photos.length) {
+                    const nextPhoto = photos[photoIndex];
+                    photoIndex++;
+                    return {
+                        ...photo,
+                        id: uuidv4(), // New ID for the slot to ensure uniqueness
+                        originalId: nextPhoto.id,
+                        src: nextPhoto.src,
+                        alt: nextPhoto.alt,
+                        width: nextPhoto.width,
+                        height: nextPhoto.height,
+                        // Preserve existing pan/zoom or reset? Usually reset for new photo
+                        panAndZoom: { scale: 1, x: 50, y: 50 }
+                    };
+                }
+                // If ran out of photos, clear the slot
+                return {
+                    ...photo,
+                    id: uuidv4(),
+                    originalId: undefined,
+                    src: '',
+                    alt: 'Drop photo here',
+                    width: 600,
+                    height: 400,
+                    panAndZoom: { scale: 1, x: 50, y: 50 }
+                };
+            });
+
+            return {
+                ...page,
+                photos: newPhotos
+            };
+        });
+
+        setAlbumPages(newPages);
+    }, [setAlbumPages]);
+
     return {
         generateEmptyAlbum,
         extractExifDate,
         generateInitialPages,
-        generateDummyPhotos
+        generateDummyPhotos,
+        autoFillAlbum
     };
 }

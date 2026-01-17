@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
     Loader2,
     Sparkles,
@@ -52,6 +52,7 @@ interface PhotoGalleryCardProps {
     // Actions
     generateDummyPhotos: () => void;
     handleGenerateAlbum: () => void;
+    handleAutoFillAlbum: () => void;
     handleClearGallery: () => void;
     handleResetAlbum: () => void;
     handleSortPhotos: () => void;
@@ -66,7 +67,210 @@ interface PhotoGalleryCardProps {
 
 
 
-export function PhotoGalleryCard({
+const GalleryPhotoItemComponent = ({
+    photo,
+    usage,
+    index,
+    isSelected,
+    isActiveBubble,
+    multiSelectMode,
+    onToggleSelection,
+    onSetActiveBubbleId,
+    onDelete,
+    onRemoveFromAlbum
+}: {
+    photo: Photo;
+    usage?: { count: number; pages: number[] };
+    index: number | string;
+    isSelected: boolean;
+    isActiveBubble: boolean;
+    multiSelectMode: boolean;
+    onToggleSelection: (id: string) => void;
+    onSetActiveBubbleId: (id: string | null) => void;
+    onDelete: (id: string) => void;
+    onRemoveFromAlbum: (id: string) => void;
+}) => {
+    const isUsed = !!usage;
+    const hasWarning = usage && usage.count > 1;
+
+    // Callbacks for this specific item to avoid creating inline functions in render
+    const handleDragStart = useCallback((e: React.DragEvent) => {
+        if (photo.isUploading) { e.preventDefault(); return; }
+        e.dataTransfer.setData('photoId', photo.id);
+    }, [photo.id, photo.isUploading]);
+
+    // Simple handlers
+    const handleMouseEnter = useCallback(() => onSetActiveBubbleId(photo.id), [photo.id, onSetActiveBubbleId]);
+    const handleMouseLeave = useCallback(() => onSetActiveBubbleId(null), [onSetActiveBubbleId]);
+    const handleToggleSelection = useCallback(() => onToggleSelection(photo.id), [photo.id, onToggleSelection]);
+
+    // Stop propagation wrapper
+    const stopPropagation = useCallback((e: React.MouseEvent) => e.stopPropagation(), []);
+
+    // Handlers for Alert Dialog
+    const handleConfirmDelete = useCallback(() => {
+        if (isUsed) {
+            onRemoveFromAlbum(photo.id);
+        }
+        onDelete(photo.id);
+    }, [photo.id, isUsed, onRemoveFromAlbum, onDelete]);
+
+    return (
+        <div
+            draggable={!photo.isUploading}
+            onDragStart={handleDragStart}
+            className={cn(
+                "relative break-inside-avoid mb-2 rounded-md overflow-hidden bg-muted border-2 transition-all group border-transparent",
+                photo.isUploading ? "select-none" : "cursor-grab active:cursor-grabbing hover:border-primary/50"
+            )}
+        >
+            {photo.isUploading && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
+                    <Loader2 className="h-8 w-8 animate-spin text-white drop-shadow-md" />
+                </div>
+            )}
+            <div className={cn("relative transition-opacity duration-300", photo.isUploading && "opacity-60 grayscale-[0.5]")}>
+                {/* Use a simple img tag for gallery to avoid Next/Image overhead in large lists, or keep standard img if already used */}
+                <img src={photo.src} alt={photo.alt} className="w-full h-auto block" loading="lazy" />
+            </div>
+
+            {/* Top Overlays: Index, Usage (Right) */}
+            <div className="absolute top-0 left-0 w-full p-2 flex items-center z-30 pointer-events-none">
+                {/* Left: Index */}
+                <Badge variant="secondary" className="h-5 px-2 text-[10px] bg-black/60 text-white border-0 backdrop-blur-md font-bold">
+                    #{index}
+                </Badge>
+
+                {/* Right: Usage Indicator */}
+                <div className="pointer-events-auto relative ml-auto">
+                    {isUsed && (
+                        <TooltipProvider delayDuration={0}>
+                            <Tooltip open={isActiveBubble} onOpenChange={(open) => onSetActiveBubbleId(open ? photo.id : null)}>
+                                <TooltipTrigger asChild>
+                                    <div
+                                        className={cn(
+                                            "h-4 w-4 rounded-full flex items-center justify-center border-1 backdrop-blur-md shadow-xl transition-all cursor-help",
+                                            hasWarning ? "border-0 rounded-none bg-destructive text-red-500 bg-transparent" : "bg-black/40 border-white text-green-500"
+                                        )}
+                                        onMouseEnter={handleMouseEnter}
+                                        onMouseLeave={handleMouseLeave}
+                                    >
+                                        {hasWarning ? <AlertTriangle className="h-3 w-3" /> : <Check className="h-3 w-3 stroke-[3]" />}
+                                    </div>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                    side="bottom"
+                                    align="end"
+                                    sideOffset={2}
+                                    className="z-[9999] max-w-[250px] p-0 overflow-visible border-none shadow-xl"
+                                >
+                                    <TooltipArrow className="fill-popover" />
+                                    <div className="p-2 space-y-1">
+                                        <p className="text-[10px] text-muted-foreground font-medium">Appears on pages:</p>
+                                        <div className="flex flex-wrap gap-1">
+                                            {usage.pages.map(p => (
+                                                <Badge key={p} variant="secondary" className="h-4 text-[9px] px-1.5 font-medium">
+                                                    {p === 0 ? 'Cover' : `Page ${p}`}
+                                                </Badge>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    )}
+                </div>
+            </div>
+
+            {/* Bottom Left: Selection / Trash */}
+            <div className="absolute bottom-2 left-2 z-20 pointer-events-auto" onClick={stopPropagation}>
+                {multiSelectMode ? (
+                    <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={handleToggleSelection}
+                        style={{
+                            width: '20px',
+                            height: '20px',
+                            color: 'white',
+                            borderRadius: '5px',
+                            borderWidth: '1px',
+                            backgroundColor: '#0000002b',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                        className="border-white/60 shadow-lg data-[state=checked]:bg-[#0000002b] data-[state=checked]:text-white data-[state=checked]:border-white/80 transition-none transform-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
+                    />
+                ) : (
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <button className="p-1.5 bg-black/40 hover:bg-destructive text-white rounded-full transition-colors backdrop-blur-sm">
+                                <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Delete this photo?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    {isUsed
+                                        ? 'This photo is used in the album. Deleting will remove it from album pages.'
+                                        : 'This action cannot be undone.'}
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90">
+                                    Delete
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                )}
+            </div>
+
+            {/* Bottom Right: Date */}
+            {photo.captureDate && (
+                <div className="absolute bottom-2 right-2 z-20 pointer-events-none">
+                    <div className="bg-black/60 backdrop-blur-md px-1.5 py-0.5 rounded text-[9px] text-white font-medium flex flex-col items-end leading-tight">
+                        <span>{new Date(photo.captureDate).toLocaleDateString()}</span>
+                        <span className="text-[8px] opacity-80">{new Date(photo.captureDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const GalleryPhotoItem = React.memo(GalleryPhotoItemComponent, (prev, next) => {
+    // Check primitive props
+    if (prev.photo.id !== next.photo.id) return false;
+    if (prev.photo.isUploading !== next.photo.isUploading) return false;
+    // We can assume src/alt don't change often for the same ID, or check them if needed
+    // if (prev.photo.src !== next.photo.src) return false;
+
+    if (prev.index !== next.index) return false;
+    if (prev.isSelected !== next.isSelected) return false;
+    if (prev.isActiveBubble !== next.isActiveBubble) return false;
+    if (prev.multiSelectMode !== next.multiSelectMode) return false;
+
+    // Check usage object deeply-ish
+    const prevUsage = prev.usage;
+    const nextUsage = next.usage;
+
+    if (!!prevUsage !== !!nextUsage) return false; // One is undefined, one is defined
+    if (prevUsage && nextUsage) {
+        if (prevUsage.count !== nextUsage.count) return false;
+        if (prevUsage.pages.length !== nextUsage.pages.length) return false;
+        // Check page arrays (usually short)
+        for (let i = 0; i < prevUsage.pages.length; i++) {
+            if (prevUsage.pages[i] !== nextUsage.pages[i]) return false;
+        }
+    }
+
+    return true;
+});
+
+const PhotoGalleryCardComponent = ({
     allPhotos,
     isLoadingPhotos,
     photoUsageDetails,
@@ -78,6 +282,7 @@ export function PhotoGalleryCard({
     randomSeed,
     generateDummyPhotos,
     handleGenerateAlbum,
+    handleAutoFillAlbum,
     handleClearGallery,
     handleResetAlbum,
     handleSortPhotos,
@@ -87,7 +292,7 @@ export function PhotoGalleryCard({
     photoScrollRef,
     folderUploadRef,
     photoUploadRef,
-}: PhotoGalleryCardProps) {
+}: PhotoGalleryCardProps) => {
     const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
     const [activeBubbleId, setActiveBubbleId] = useState<string | null>(null);
 
@@ -282,7 +487,15 @@ export function PhotoGalleryCard({
                                             <Wand2 className="h-3 w-3" />
                                         </Button>
                                     </TooltipTrigger>
-                                    <TooltipContent>Auto-fill Album</TooltipContent>
+                                    <TooltipContent>Auto-fill Album (Regenerate)</TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleAutoFillAlbum}>
+                                            <RotateCcw className="h-3 w-3 rotate-90" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Fill Empty Slots (Keep Layout)</TooltipContent>
                                 </Tooltip>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
@@ -328,152 +541,22 @@ export function PhotoGalleryCard({
                             <div className={cn("gap-2 pb-10", isSingleColumn ? "columns-1" : "columns-2")}>
                                 {filteredPhotos.map((photo, index) => {
                                     const usage = photoUsageDetails?.[photo.id];
-                                    const isUsed = !!usage;
-                                    const hasWarning = usage && usage.count > 1;
+                                    const indexLabel = chronologicalIndex[photo.id] ?? '?';
 
                                     return (
-                                        <div
+                                        <GalleryPhotoItem
                                             key={photo.id}
-                                            draggable={!photo.isUploading}
-                                            onDragStart={(e) => {
-                                                if (photo.isUploading) { e.preventDefault(); return; }
-                                                e.dataTransfer.setData('photoId', photo.id);
-                                            }}
-                                            className={cn(
-                                                "relative break-inside-avoid mb-2 rounded-md overflow-hidden bg-muted border-2 transition-all group border-transparent",
-                                                photo.isUploading ? "select-none" : "cursor-grab active:cursor-grabbing hover:border-primary/50"
-                                            )}
-                                        >
-                                            {photo.isUploading && (
-                                                <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
-                                                    <Loader2 className="h-8 w-8 animate-spin text-white drop-shadow-md" />
-                                                </div>
-                                            )}
-                                            <div className={cn("relative transition-opacity duration-300", photo.isUploading && "opacity-60 grayscale-[0.5]")}>
-                                                <img src={photo.src} alt={photo.alt} className="w-full h-auto block" loading="lazy" />
-                                            </div>
-
-                                            {/* Top Overlays: Index, Date (Center), Usage (Right) */}
-                                            <div className="absolute top-0 left-0 w-full p-2 flex items-center z-30 pointer-events-none">
-                                                {/* Left: Index */}
-                                                <Badge variant="secondary" className="h-5 px-2 text-[10px] bg-black/60 text-white border-0 backdrop-blur-md font-bold">
-                                                    #{chronologicalIndex[photo.id] ?? '?'}
-                                                </Badge>
-
-
-
-                                                {/* Right: Usage Indicator (Standard Radix) */}
-                                                <div className="pointer-events-auto relative ml-auto">
-                                                    {isUsed && (
-                                                        <TooltipProvider delayDuration={0}>
-                                                            <Tooltip open={activeBubbleId === photo.id} onOpenChange={(open) => setActiveBubbleId(open ? photo.id : null)}>
-                                                                <TooltipTrigger asChild>
-                                                                    <div
-                                                                        className={cn(
-                                                                            "h-4 w-4 rounded-full flex items-center justify-center border-1 backdrop-blur-md shadow-xl transition-all cursor-help",
-                                                                            hasWarning ? "border-0 rounded-none bg-destructive text-red-500 bg-transparent" : "bg-black/40 border-white text-green-500"
-                                                                        )}
-                                                                        onMouseEnter={() => setActiveBubbleId(photo.id)}
-                                                                        onMouseLeave={() => setActiveBubbleId(null)}
-                                                                    >
-                                                                        {hasWarning ? <AlertTriangle className="h-3 w-3" /> : <Check className="h-3 w-3 stroke-[3]" />}
-                                                                    </div>
-                                                                </TooltipTrigger>
-                                                                <TooltipContent
-                                                                    side="bottom"
-                                                                    align="end"
-                                                                    sideOffset={2}
-                                                                    className="z-[9999] max-w-[250px] p-0 overflow-visible border-none shadow-xl"
-                                                                >
-                                                                    <TooltipArrow className="fill-popover" />
-
-                                                                    <div className="p-2 space-y-1">
-                                                                        <p className="text-[10px] text-muted-foreground font-medium">Appears on pages:</p>
-                                                                        <div className="flex flex-wrap gap-1">
-                                                                            {usage.pages.map(p => (
-                                                                                <Badge
-                                                                                    key={p}
-                                                                                    variant="secondary"
-                                                                                    className="h-4 text-[9px] px-1.5 font-medium"
-                                                                                >
-                                                                                    {p === 0 ? 'Cover' : `Page ${p}`}
-                                                                                </Badge>
-                                                                            ))}
-                                                                        </div>
-                                                                    </div>
-                                                                </TooltipContent>
-                                                            </Tooltip>
-                                                        </TooltipProvider>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Bottom Left: Selection Checkbox OR Trash Icon */}
-                                            <div className="absolute bottom-2 left-2 z-20 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
-                                                {multiSelectMode ? (
-                                                    <Checkbox
-                                                        checked={selectedPhotos.has(photo.id)}
-                                                        onCheckedChange={() => toggleSelection(photo.id)}
-                                                        style={{
-                                                            width: '20px',
-                                                            height: '20px',
-                                                            color: 'white',
-                                                            borderRadius: '5px',
-                                                            borderWidth: '1px',
-                                                            backgroundColor: '#0000002b',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center'
-                                                        }}
-                                                        className="border-white/60 shadow-lg data-[state=checked]:bg-[#0000002b] data-[state=checked]:text-white data-[state=checked]:border-white/80 transition-none transform-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
-                                                    />
-                                                ) : (
-                                                    <AlertDialog>
-                                                        <AlertDialogTrigger asChild>
-                                                            <button
-                                                                className="p-1.5 bg-black/40 hover:bg-destructive text-white rounded-full transition-colors backdrop-blur-sm"
-                                                            >
-                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                            </button>
-                                                        </AlertDialogTrigger>
-                                                        <AlertDialogContent>
-                                                            <AlertDialogHeader>
-                                                                <AlertDialogTitle>Delete this photo?</AlertDialogTitle>
-                                                                <AlertDialogDescription>
-                                                                    {photoUsageDetails[photo.id]
-                                                                        ? 'This photo is used in the album. Deleting will remove it from album pages.'
-                                                                        : 'This action cannot be undone.'}
-                                                                </AlertDialogDescription>
-                                                            </AlertDialogHeader>
-                                                            <AlertDialogFooter>
-                                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                <AlertDialogAction
-                                                                    onClick={() => {
-                                                                        if (photoUsageDetails[photo.id]) {
-                                                                            onRemovePhotosFromAlbum([photo.id]);
-                                                                        }
-                                                                        onDeletePhotos([photo.id]);
-                                                                    }}
-                                                                    className="bg-destructive hover:bg-destructive/90"
-                                                                >
-                                                                    Delete
-                                                                </AlertDialogAction>
-                                                            </AlertDialogFooter>
-                                                        </AlertDialogContent>
-                                                    </AlertDialog>
-                                                )}
-                                            </div>
-
-                                            {/* Bottom Right: Date & Time */}
-                                            {photo.captureDate && (
-                                                <div className="absolute bottom-2 right-2 z-20 pointer-events-none">
-                                                    <div className="bg-black/60 backdrop-blur-md px-1.5 py-0.5 rounded text-[9px] text-white font-medium flex flex-col items-end leading-tight">
-                                                        <span>{new Date(photo.captureDate).toLocaleDateString()}</span>
-                                                        <span className="text-[8px] opacity-80">{new Date(photo.captureDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
+                                            photo={photo}
+                                            usage={usage}
+                                            index={indexLabel}
+                                            isSelected={selectedPhotos.has(photo.id)}
+                                            isActiveBubble={activeBubbleId === photo.id}
+                                            multiSelectMode={multiSelectMode}
+                                            onToggleSelection={toggleSelection}
+                                            onSetActiveBubbleId={setActiveBubbleId}
+                                            onDelete={(id) => onDeletePhotos([id])}
+                                            onRemoveFromAlbum={(id) => onRemovePhotosFromAlbum([id])}
+                                        />
                                     );
                                 })}
                             </div>
@@ -534,3 +617,5 @@ export function PhotoGalleryCard({
         </div>
     );
 }
+
+export const PhotoGalleryCard = React.memo(PhotoGalleryCardComponent);

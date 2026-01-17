@@ -2,6 +2,26 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+    // --- Coming Soon Barrier Logic ---
+    const isComingSoonPage = request.nextUrl.pathname === '/coming-soon';
+    const isVerifyApi = request.nextUrl.pathname === '/api/verify-site-access';
+    const hasAccessCookie = request.cookies.has('site_access_granted');
+
+    // Allow access to coming soon page and verification API
+    if (isComingSoonPage || isVerifyApi) {
+        // If user has access cookie and tries to go to coming soon, redirect to home
+        if (hasAccessCookie && isComingSoonPage) {
+            return NextResponse.redirect(new URL('/', request.url));
+        }
+        return NextResponse.next();
+    }
+
+    // If no access cookie, redirect to coming soon
+    if (!hasAccessCookie) {
+        return NextResponse.redirect(new URL('/coming-soon', request.url));
+    }
+    // ---------------------------------
+
     let supabaseResponse = NextResponse.next({
         request,
     })

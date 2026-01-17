@@ -220,14 +220,22 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
   const photoUsageDetails = useMemo(() => {
     const details: Record<string, { count: number; pages: number[] }> = {};
+
+    // Pre-compute a map of src -> photoId for faster lookup
+    // This reduces the complexity from O(Pages * PhotosOnPage * AllPhotos) to O(Pages * PhotosOnPage)
+    // which is massive for large galleries (e.g. 1000+ photos).
+    const srcToIdMap = new Map<string, string>();
+    allPhotos.forEach(p => {
+      if (p.src) srcToIdMap.set(p.src, p.id);
+    });
+
     albumPages.forEach((page, pageIndex) => {
       page.photos.forEach(photo => {
         // Use originalId if it exists, otherwise try to find the gallery photo by matching SRC
         let galleryId = photo.originalId;
 
         if (!galleryId && photo.src) {
-          const match = allPhotos.find(p => p.src === photo.src);
-          if (match) galleryId = match.id;
+          galleryId = srcToIdMap.get(photo.src);
         }
 
         // Fallback to photo.id if still not found
@@ -350,7 +358,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     generateEmptyAlbum,
     extractExifDate,
     generateInitialPages,
-    generateDummyPhotos
+    generateDummyPhotos,
+    autoFillAlbum
   } = useAlbumGeneration({
     setAlbumPages,
     setAllPhotos,
@@ -443,17 +452,14 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   }, [photoGap, pageMargin, cornerRadius, backgroundColor, backgroundImage, watchedSize]);
 
 
-  const config: AlbumConfig = {
-    size: form.watch('size') as '20x20',
+  const config: AlbumConfig = useMemo(() => ({
+    size: watchedSize as '20x20',
     photoGap,
     pageMargin,
     backgroundColor,
     backgroundImage,
     cornerRadius,
-  };
-
-
-
+  }), [watchedSize, photoGap, pageMargin, backgroundColor, backgroundImage, cornerRadius]);
 
 
   // Page Manipulation Hook
@@ -482,7 +488,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
   // Process uploaded photo files (from folder or individual selection)
   // Generate album from existing photos (sorted by capture date)
-  const handleGenerateAlbum = () => {
+  const handleGenerateAlbum = useCallback(() => {
     if (allPhotos.length === 0) {
       toast({
         title: 'No photos',
@@ -509,19 +515,50 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       title: 'Album Generated',
       description: `Album created with ${sortedPhotos.length} photos sorted by date.`,
     });
-  };
-  const handleResetAlbum = () => {
+  }, [allPhotos, generateInitialPages, toast]);
+
+  const handleAutoFillAlbum = useCallback(() => {
+    if (allPhotos.length === 0) {
+      toast({
+        title: 'No photos',
+        description: 'Please upload photos first.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    // Sort photos by capture date (oldest first), photos without date go to end
+    const sortedPhotos = [...allPhotos].sort((a, b) => {
+      const dateA = a.captureDate ? new Date(a.captureDate).getTime() : 0;
+      const dateB = b.captureDate ? new Date(b.captureDate).getTime() : 0;
+
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+
+      return dateA - dateB;
+    });
+
+    autoFillAlbum(albumPages, sortedPhotos);
+    toast({
+      title: 'Album Filled',
+      description: `Album pages filled with ${sortedPhotos.length} photos from gallery.`,
+    });
+  }, [allPhotos, albumPages, autoFillAlbum, toast]);
+
+  const handleResetAlbum = useCallback(() => {
     generateEmptyAlbum();
     toast({
       title: 'Album Reset',
       description: 'Album has been reset to empty state.',
     });
-  };
+  }, [generateEmptyAlbum, toast]);
 
-  const handleDownloadPage = async (pageId: string) => {
+  const handleDownloadPage = useCallback(async (pageId: string) => {
     toast({ title: "Downloading page..." });
     await exporterRef.current?.exportPage(pageId);
-  };
+  }, [toast]);
+
 
 
 
@@ -644,6 +681,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             randomSeed={randomSeed}
             generateDummyPhotos={generateDummyPhotos}
             handleGenerateAlbum={handleGenerateAlbum}
+            handleAutoFillAlbum={handleAutoFillAlbum}
             handleClearGallery={handleClearGallery}
             handleResetAlbum={handleResetAlbum}
             handleSortPhotos={handleSortPhotos}

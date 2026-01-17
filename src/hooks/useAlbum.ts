@@ -33,6 +33,19 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     const pendingDataRef = useRef<{ pages?: AlbumPage[]; config?: AlbumConfig; name?: string; thumbnail_url?: string; photos?: any[] } | null>(null)
 
+    // Refs to track latest state without triggering re-renders in callbacks
+    const albumRef = useRef<Album | null>(null);
+    const autoSaveRef = useRef(autoSave);
+
+    // Update refs when state changes
+    useEffect(() => {
+        albumRef.current = album;
+    }, [album]);
+
+    useEffect(() => {
+        autoSaveRef.current = autoSave;
+    }, [autoSave]);
+
     // Load album
     const loadAlbum = useCallback(async (id: string) => {
         if (id === 'new') {
@@ -117,7 +130,8 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
 
     // Save album (debounced)
     const saveAlbum = useCallback(async (data?: { pages?: AlbumPage[]; config?: AlbumConfig; name?: string; thumbnail_url?: string; photos?: any[] }) => {
-        if (!album) return
+        const currentAlbum = albumRef.current;
+        if (!currentAlbum) return
 
         const dataToSave = data || pendingDataRef.current || {}
 
@@ -126,11 +140,10 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
             dataToSave.photos = dataToSave.photos.map(p => ({
                 ...p,
                 src: p.remoteUrl || p.src,
-                // We can optionally clean up remoteUrl here or keep it, but src MUST be the remote one for DB
             }));
         }
 
-        // Also sanitize pages if they are being saved, as they contain photo objects too
+        // Also sanitize pages if they are being saved
         if (dataToSave.pages) {
             dataToSave.pages = dataToSave.pages.map(page => ({
                 ...page,
@@ -138,7 +151,6 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
                     ...p,
                     src: p.remoteUrl || p.src
                 })),
-                // Handle nested photos in spreads if any (structure depends on spread implementation, but standard pages store flat photo lists usually)
             }));
         }
 
@@ -147,7 +159,7 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
         setIsSaving(true)
 
         try {
-            const response = await fetch(`/api/albums/${album.id}`, {
+            const response = await fetch(`/api/albums/${currentAlbum.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(dataToSave),
@@ -159,18 +171,11 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
 
             const result = await response.json()
 
-            // On success, we don't necessarily want to replace our local state with result state 
-            // because our local state might have blob URLs that we want to keep for performance/flicker prevention.
-            // However, to be safe and consistent, we usually merge. 
-            // For now, let's update everything EXCEPT photos if we want to preserve blobs, 
-            // OR finding matching photos and preserving their blob src if it exists.
-
             setAlbum(prev => {
                 if (!prev) return null;
                 const updatedAlbum = { ...prev, ...result.album };
 
                 // Restore blob URLs for photos if they exist in our previous state
-                // This prevents the "flash" when the saved data (remote URL) comes back and replaces the blob
                 if (prev.photos) {
                     updatedAlbum.photos = result.album.photos.map((newP: any) => {
                         const oldP = prev.photos?.find(p => p.id === newP.id);
@@ -192,11 +197,12 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
         } finally {
             setIsSaving(false)
         }
-    }, [album])
+    }, []); // removed album dep
 
     // Queue an auto-save
     const queueSave = useCallback((data: { pages?: AlbumPage[]; config?: AlbumConfig; name?: string; thumbnail_url?: string; photos?: any[] }) => {
-        if (!autoSave || !album) return
+        // use refs
+        if (!autoSaveRef.current || !albumRef.current) return
 
         setHasUnsavedChanges(true)
         pendingDataRef.current = { ...pendingDataRef.current, ...data }
@@ -209,8 +215,8 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
         // Set new timeout
         saveTimeoutRef.current = setTimeout(() => {
             saveAlbum()
-        }, autoSaveDelay)
-    }, [autoSave, autoSaveDelay, album, saveAlbum])
+        }, autoSaveDelay) // autoSaveDelay is primitive number
+    }, [autoSaveDelay, saveAlbum])
 
     // Update pages (triggers auto-save)
     const updatePages = useCallback((pages: AlbumPage[]) => {

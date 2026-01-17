@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
 import { AlbumPage, Photo, PhotoPanAndZoom } from '@/lib/types';
@@ -30,6 +30,17 @@ export function useAlbumPageEditor({
     usedPhotoIds,
 }: UseAlbumPageEditorProps) {
     const { toast } = useToast();
+
+    // Use refs to keep latest values without breaking callback memoization
+    const allPhotosRef = useRef(allPhotos);
+    const allowDuplicatesRef = useRef(allowDuplicates);
+    const usedPhotoIdsRef = useRef(usedPhotoIds);
+
+    useEffect(() => {
+        allPhotosRef.current = allPhotos;
+        allowDuplicatesRef.current = allowDuplicates;
+        usedPhotoIdsRef.current = usedPhotoIds;
+    }, [allPhotos, allowDuplicates, usedPhotoIds]);
 
     const deletePage = useCallback((pageId: string) => {
         setAlbumPages(prev => prev.filter(p => p.id !== pageId));
@@ -336,10 +347,10 @@ export function useAlbumPageEditor({
     }, [setAlbumPages]);
 
     const handleDropPhoto = useCallback((pageId: string, targetPhotoId: string, droppedPhotoId: string) => {
-        const droppedPhoto = allPhotos.find(p => p.id === droppedPhotoId);
+        const droppedPhoto = allPhotosRef.current.find(p => p.id === droppedPhotoId);
         if (!droppedPhoto) return;
 
-        if (!allowDuplicates && usedPhotoIds.has(droppedPhotoId)) {
+        if (!allowDuplicatesRef.current && usedPhotoIdsRef.current.has(droppedPhotoId)) {
             toast({
                 title: "Photo already in album",
                 description: "Duplicate photos are not allowed with current settings.",
@@ -402,7 +413,7 @@ export function useAlbumPageEditor({
                 })
             };
         }));
-    }, [allPhotos, allowDuplicates, usedPhotoIds, setAlbumPages, toast]);
+    }, [setAlbumPages, toast]);
 
     const handleRemovePhotosFromAlbum = useCallback((photoIds: string[]) => {
         setAlbumPages(prevPages => {
