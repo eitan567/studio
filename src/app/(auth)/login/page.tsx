@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
 
 import {
   Card,
@@ -10,6 +11,15 @@ import {
 } from '@/components/ui/card';
 import { UserAuthForm } from '@/components/user-auth-form';
 import { Logo } from '@/components/icons';
+import { Loader2 } from 'lucide-react';
+
+function LoginFormFallback() {
+  return (
+    <div className="flex items-center justify-center p-8">
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
 
 export default function LoginPage() {
   return (
@@ -25,7 +35,9 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <UserAuthForm mode="login" />
+          <Suspense fallback={<LoginFormFallback />}>
+            <UserAuthForm mode="login" />
+          </Suspense>
         </CardContent>
         <CardFooter className="text-sm text-muted-foreground">
           <p>
