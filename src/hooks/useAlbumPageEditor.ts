@@ -346,7 +346,127 @@ export function useAlbumPageEditor({
         }));
     }, [setAlbumPages]);
 
-    const handleDropPhoto = useCallback((pageId: string, targetPhotoId: string, droppedPhotoId: string) => {
+    const handleDropPhoto = useCallback((pageId: string, targetPhotoId: string, droppedPhotoId: string, sourceInfo?: { pageId: string; photoId: string }) => {
+        // Handle album-to-album swap (CTRL+drag between frames)
+        if (sourceInfo) {
+            // Skip if trying to swap with itself
+            if (sourceInfo.photoId === targetPhotoId) return;
+
+            setAlbumPages(prevPages => {
+                // Find source and target photos
+                let sourcePhoto: Photo | undefined;
+                let targetPhoto: Photo | undefined;
+
+                for (const page of prevPages) {
+                    if (page.id === sourceInfo.pageId) {
+                        sourcePhoto = page.photos.find(p => p.id === sourceInfo.photoId);
+                    }
+                    if (page.id === pageId) {
+                        targetPhoto = page.photos.find(p => p.id === targetPhotoId);
+                    }
+                }
+
+                if (!sourcePhoto) return prevPages;
+
+                // Check if swapping within the same page (SPLIT mode case)
+                const isSamePage = sourceInfo.pageId === pageId;
+
+                // Perform the swap
+                return prevPages.map(page => {
+                    // Same page swap - handle both source and target in one pass
+                    if (isSamePage && page.id === pageId) {
+                        return {
+                            ...page,
+                            photos: page.photos.map(p => {
+                                // Replace source photo slot with target content
+                                if (p.id === sourceInfo.photoId) {
+                                    if (targetPhoto && targetPhoto.src) {
+                                        return {
+                                            ...targetPhoto,
+                                            id: sourceInfo.photoId,
+                                            panAndZoom: { scale: 1, x: 50, y: 50 }
+                                        };
+                                    } else {
+                                        return {
+                                            id: sourceInfo.photoId,
+                                            src: '',
+                                            alt: 'Drop photo here',
+                                            width: 600,
+                                            height: 400,
+                                            panAndZoom: { scale: 1, x: 50, y: 50 }
+                                        };
+                                    }
+                                }
+                                // Replace target photo slot with source content
+                                if (p.id === targetPhotoId) {
+                                    return {
+                                        ...sourcePhoto,
+                                        id: targetPhotoId,
+                                        panAndZoom: { scale: 1, x: 50, y: 50 }
+                                    } as Photo;
+                                }
+                                return p;
+                            })
+                        };
+                    }
+
+                    // Different pages - update source page
+                    if (!isSamePage && page.id === sourceInfo.pageId) {
+                        return {
+                            ...page,
+                            photos: page.photos.map(p => {
+                                if (p.id === sourceInfo.photoId) {
+                                    if (targetPhoto && targetPhoto.src) {
+                                        return {
+                                            ...targetPhoto,
+                                            id: sourceInfo.photoId,
+                                            panAndZoom: { scale: 1, x: 50, y: 50 }
+                                        };
+                                    } else {
+                                        return {
+                                            id: sourceInfo.photoId,
+                                            src: '',
+                                            alt: 'Drop photo here',
+                                            width: 600,
+                                            height: 400,
+                                            panAndZoom: { scale: 1, x: 50, y: 50 }
+                                        };
+                                    }
+                                }
+                                return p;
+                            })
+                        };
+                    }
+
+                    // Different pages - update target page
+                    if (!isSamePage && page.id === pageId) {
+                        return {
+                            ...page,
+                            photos: page.photos.map(p => {
+                                if (p.id === targetPhotoId) {
+                                    return {
+                                        ...sourcePhoto,
+                                        id: targetPhotoId,
+                                        panAndZoom: { scale: 1, x: 50, y: 50 }
+                                    } as Photo;
+                                }
+                                return p;
+                            })
+                        };
+                    }
+
+                    return page;
+                });
+            });
+
+            toast({
+                title: "Photos Swapped",
+                description: "Photos have been swapped between frames."
+            });
+            return;
+        }
+
+        // Regular gallery drop (existing logic)
         const droppedPhoto = allPhotosRef.current.find(p => p.id === droppedPhotoId);
         if (!droppedPhoto) return;
 
@@ -371,7 +491,7 @@ export function useAlbumPageEditor({
                     ...droppedPhoto,
                     id: uuidv4(),
                     originalId: droppedPhoto.id,
-                    remoteUrl: droppedPhoto.remoteUrl, // Ensure this carries over explicitly if needed, or via spread
+                    remoteUrl: droppedPhoto.remoteUrl,
                     panAndZoom: { scale: 1, x: 50, y: 50 },
                     width: droppedPhoto.width || 800,
                     height: droppedPhoto.height || 600
@@ -403,7 +523,7 @@ export function useAlbumPageEditor({
                             ...droppedPhoto,
                             id: targetPhotoId,
                             originalId: droppedPhoto.id,
-                            remoteUrl: droppedPhoto.remoteUrl, // Ensure this carries over
+                            remoteUrl: droppedPhoto.remoteUrl,
                             panAndZoom: { scale: 1, x: 50, y: 50 },
                             width: droppedPhoto.width || 800,
                             height: droppedPhoto.height || 600

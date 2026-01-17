@@ -24,7 +24,7 @@ export interface PageLayoutProps {
     photoGap?: number | string;
     onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
     onInteractionChange: (isInteracting: boolean) => void;
-    onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
+    onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string, sourceInfo?: { pageId: string; photoId: string }) => void;
     overridePhotos?: Photo[];
     overrideLayout?: string;
     templateSource?: typeof LAYOUT_TEMPLATES;
@@ -281,9 +281,22 @@ const PageLayoutComponent = ({
                         onDrop={(e) => {
                             e.preventDefault();
                             setDragOverPhotoId(null);
-                            const droppedPhotoId = e.dataTransfer.getData('photoId');
-                            if (droppedPhotoId && droppedPhotoId !== photo.id) {
-                                onDropPhoto(page.id, photo.id, droppedPhotoId);
+
+                            // Check if this is an album-to-album swap (CTRL+drag from another frame)
+                            const albumPhotoId = e.dataTransfer.getData('albumPhotoId');
+                            const sourcePageId = e.dataTransfer.getData('sourcePageId');
+
+                            if (albumPhotoId && sourcePageId) {
+                                // Album-to-album swap
+                                if (albumPhotoId !== photo.id) {
+                                    onDropPhoto(page.id, photo.id, albumPhotoId, { pageId: sourcePageId, photoId: albumPhotoId });
+                                }
+                            } else {
+                                // Regular gallery drop
+                                const droppedPhotoId = e.dataTransfer.getData('photoId');
+                                if (droppedPhotoId && droppedPhotoId !== photo.id) {
+                                    onDropPhoto(page.id, photo.id, droppedPhotoId);
+                                }
                             }
                         }}
                     >
@@ -293,6 +306,8 @@ const PageLayoutComponent = ({
                             onInteractionChange={onInteractionChange}
                             useSimpleImage={useSimpleImage}
                             onRemove={() => onRemovePhoto?.(page.id, photo.id)}
+                            pageId={page.id}
+                            photoId={photo.id}
                         />
                     </div>
                 );

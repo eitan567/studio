@@ -44,6 +44,7 @@ interface PhotoGalleryCardProps {
     isLoadingPhotos: boolean;
     photoUsageDetails: Record<string, { count: number; pages: number[] }>;
     chronologicalIndex: Record<string, number>;
+    emptySlots: number; // Number of empty slots remaining in album
     allowDuplicates: boolean;
     setAllowDuplicates: (value: boolean) => void;
     multiSelectMode: boolean; // true = checkboxes, false = trash icons
@@ -275,6 +276,7 @@ const PhotoGalleryCardComponent = ({
     isLoadingPhotos,
     photoUsageDetails,
     chronologicalIndex,
+    emptySlots,
     allowDuplicates,
     setAllowDuplicates,
     multiSelectMode,
@@ -610,7 +612,7 @@ const PhotoGalleryCardComponent = ({
                         </AlertDialog>
                     </div>
                     <p className="text-xs text-muted-foreground text-center">
-                        {allPhotos.length} photos total • {usedCount} used
+                        {allPhotos.length} photos total • {usedCount} used{emptySlots > 0 && ` • ${emptySlots} empty`}
                     </p>
                 </div>
             </Card>

@@ -11,15 +11,46 @@ interface PhotoRendererProps {
   onInteractionChange?: (isInteracting: boolean) => void;
   useSimpleImage?: boolean;
   onRemove?: () => void;
+  // For CTRL+drag swapping between frames
+  pageId?: string;
+  photoId?: string;
 }
 
 // Using memo to prevent re-rendering of all photos when only one is being updated
-export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onInteractionChange, useSimpleImage, onRemove }: PhotoRendererProps) {
+export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onInteractionChange, useSimpleImage, onRemove, pageId, photoId }: PhotoRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLDivElement>(null);
   const isInteracting = useRef(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [isCtrlPressed, setIsCtrlPressed] = useState(false);
+
+  // Track CTRL key state for drag-swap feature
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey) setIsCtrlPressed(true);
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (!e.ctrlKey) setIsCtrlPressed(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
+  // Handle drag start for CTRL+drag swap
+  const handleDragStart = (e: React.DragEvent) => {
+    if (!isCtrlPressed || !pageId || !photoId) {
+      e.preventDefault();
+      return;
+    }
+    e.dataTransfer.setData('albumPhotoId', photoId);
+    e.dataTransfer.setData('sourcePageId', pageId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
 
   // CRITICAL: Always create a LOCAL COPY of the panAndZoom state to avoid mutating props
   const currentValues = useRef<PhotoPanAndZoom>({
@@ -247,8 +278,10 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 cursor-grab overflow-hidden touch-none group"
-      onMouseDown={onMouseDown}
+      className={`absolute inset-0 overflow-hidden touch-none group ${isCtrlPressed && pageId ? 'cursor-move' : 'cursor-grab'}`}
+      draggable={isCtrlPressed && !!pageId}
+      onDragStart={handleDragStart}
+      onMouseDown={isCtrlPressed ? undefined : onMouseDown}
     >
       <div
         ref={imageRef}

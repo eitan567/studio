@@ -14,7 +14,7 @@ interface ShapePhotoFrameProps {
     photoIndex: number;
     onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
     onInteractionChange: (isInteracting: boolean) => void;
-    onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
+    onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string, sourceInfo?: { pageId: string; photoId: string }) => void;
     useSimpleImage?: boolean;
     gap?: number; // Gap as pixels to apply as inset
     onRemovePhoto?: (pageId: string, photoId: string) => void;

@@ -12,7 +12,7 @@ export interface AdvancedPageLayoutProps {
     photoGap?: number;
     onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
     onInteractionChange: (isInteracting: boolean) => void;
-    onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
+    onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string, sourceInfo?: { pageId: string; photoId: string }) => void;
     overridePhotos?: Photo[];
     useSimpleImage?: boolean;
     className?: string;

@@ -279,6 +279,13 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     return indexMap;
   }, [allPhotos]);
 
+  // Calculate empty slots in album (photos with empty src)
+  const emptySlots = useMemo(() => {
+    return albumPages.reduce((total, page) => {
+      return total + page.photos.filter(p => !p.src || p.src === '').length;
+    }, 0);
+  }, [albumPages]);
+
   const [isLoading, setIsLoading] = useState(false);
 
   const [isBookViewOpen, setIsBookViewOpen] = useState(false);
@@ -674,6 +681,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             isLoadingPhotos={isLoadingPhotos}
             photoUsageDetails={photoUsageDetails}
             chronologicalIndex={chronologicalIndex}
+            emptySlots={emptySlots}
             allowDuplicates={allowDuplicates}
             setAllowDuplicates={setAllowDuplicates}
             multiSelectMode={multiSelectMode}

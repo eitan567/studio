@@ -186,7 +186,7 @@ interface AlbumPreviewProps {
   onUpdateSpineSettings?: (pageId: string, settings: { width?: number; color?: string; textColor?: string; fontSize?: number; fontFamily?: string }) => void;
   onUpdateTitleSettings?: (pageId: string, settings: { text?: string; color?: string; fontSize?: number; fontFamily?: string; position?: { x: number; y: number } }) => void;
   onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
-  onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
+  onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string, sourceInfo?: { pageId: string; photoId: string }) => void;
   onDownloadPage: (pageId: string) => void;
   onRemovePhoto: (pageId: string, photoId: string) => void;
   allPhotos?: Photo[];

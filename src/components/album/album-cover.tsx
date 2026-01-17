@@ -26,7 +26,7 @@ export interface AlbumCoverProps {
     activeTextIds?: string[];
     onSelectText?: (id: string | string[] | null, isMulti?: boolean) => void;
     onUpdatePage?: (page: AlbumPage) => void;
-    onDropPhoto?: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
+    onDropPhoto?: (pageId: string, targetPhotoId: string, droppedPhotoId: string, sourceInfo?: { pageId: string; photoId: string }) => void;
     onUpdatePhotoPanAndZoom?: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
     onInteractionChange?: (isInteracting: boolean) => void;
     onRemovePhoto?: (pageId: string, photoId: string) => void;

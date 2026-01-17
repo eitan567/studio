@@ -13,7 +13,7 @@ interface CoverCanvasProps {
     activeImageIds?: string[];
     onSelectImage?: (target: string | string[] | null, isMulti?: boolean) => void;
     onUpdatePage: (page: AlbumPage) => void;
-    onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string) => void;
+    onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string, sourceInfo?: { pageId: string; photoId: string }) => void;
     onUpdatePhotoPanAndZoom?: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
     config?: AlbumConfig;
     isCover?: boolean; // Determines if this is a cover page (affects canvas dimensions)
