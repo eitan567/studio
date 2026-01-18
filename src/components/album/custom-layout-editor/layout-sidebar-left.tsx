@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Layout, Sparkles, Loader2 } from 'lucide-react';
-import { ADVANCED_TEMPLATES, AdvancedTemplate, LayoutRegion } from '@/lib/advanced-layout-types';
+import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
+import { AdvancedTemplate, LayoutRegion } from '@/lib/advanced-layout-types';
 import { aiGenerateLayout } from '@/ai/ai-generate-layout';
 import { cn } from '@/lib/utils';
 
@@ -134,6 +135,7 @@ export const LayoutSidebarLeft = ({
     customTemplates = [],
     onAddTemplate
 }: LayoutSidebarLeftProps) => {
+    const { advancedTemplates } = useTemplates();
     const [aiPrompt, setAiPrompt] = useState('');
     const [photoCount, setPhotoCount] = useState(4);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -237,7 +239,7 @@ export const LayoutSidebarLeft = ({
                                                 ? "border-primary ring-2 ring-primary/20"
                                                 : "border-muted-foreground/20"
                                         )}
-                                        title={`${template.name} (${template.photoCount} photos)`}
+                                        title={`${template.name} (${getPhotoCount(template)} photos)`}
                                     >
                                         <TemplatePreview
                                             template={template}
@@ -258,7 +260,7 @@ export const LayoutSidebarLeft = ({
                             Template Gallery
                         </Label>
                         <div className="grid grid-cols-2 gap-2">
-                            {ADVANCED_TEMPLATES.map((template) => (
+                            {advancedTemplates.map((template) => (
                                 <button
                                     key={template.id}
                                     onClick={() => onSelectAdvancedTemplate(template)}
@@ -290,7 +292,7 @@ export const LayoutSidebarLeft = ({
                 <div className="p-4 border-t bg-muted/20">
                     <p className="text-xs text-muted-foreground text-center">
                         {selectedAdvancedTemplate
-                            ? `${selectedAdvancedTemplate.name} • ${selectedAdvancedTemplate.photoCount} photos`
+                            ? `${selectedAdvancedTemplate.name} • ${getPhotoCount(selectedAdvancedTemplate)} photos`
                             : 'Select a template'}
                     </p>
                 </div>

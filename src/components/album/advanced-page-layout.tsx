@@ -3,7 +3,7 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { AlbumPage, Photo, PhotoPanAndZoom } from '@/lib/types';
-import { AdvancedTemplate, ADVANCED_TEMPLATES } from '@/lib/advanced-layout-types';
+import { ADVANCED_TEMPLATES, AdvancedTemplate } from '@/hooks/useTemplates';
 import { ShapePhotoFrame } from './shape-photo-frame';
 
 export interface AdvancedPageLayoutProps {

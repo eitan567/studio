@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { AlbumPage, Photo, PhotoPanAndZoom } from '@/lib/types';
-import { LAYOUT_TEMPLATES } from './layout-templates';
+import { useTemplates, GridTemplate } from '@/hooks/useTemplates';
 import { PhotoRenderer } from './photo-renderer';
 import { EmptyPhotoSlot } from './empty-photo-slot';
-import { ADVANCED_TEMPLATES } from '@/lib/advanced-layout-types';
 import { ShapeRegion } from './shape-region';
 import { rotateGridTemplate, rotateAdvancedTemplate, RotationAngle } from '@/lib/template-rotation';
 import { SuggestionFan } from './suggestion-fan';
@@ -28,7 +27,7 @@ export interface PageLayoutProps {
     onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string, sourceInfo?: { pageId: string; photoId: string }) => void;
     overridePhotos?: Photo[];
     overrideLayout?: string;
-    templateSource?: typeof LAYOUT_TEMPLATES;
+    templateSource?: GridTemplate[];
     useSimpleImage?: boolean;
     photoIndexOffset?: number;
     onRemovePhoto?: (pageId: string, photoId: string) => void;
@@ -48,7 +47,7 @@ const PageLayoutComponent = ({
     onDropPhoto,
     overridePhotos,
     overrideLayout,
-    templateSource = LAYOUT_TEMPLATES,
+    templateSource,
     useSimpleImage,
     photoIndexOffset = 0,
     onRemovePhoto,
@@ -57,6 +56,9 @@ const PageLayoutComponent = ({
     allPhotos = [],
     previousPagePhotos = []
 }: PageLayoutProps) => {
+    const { gridTemplates, advancedTemplates } = useTemplates();
+    const effectiveTemplateSource = templateSource || gridTemplates;
+
     const photos = overridePhotos || page.photos;
     const rawLayout = overrideLayout || page.layout;
 
@@ -66,16 +68,16 @@ const PageLayoutComponent = ({
 
     // Check for templates in both sources using the BASE layout ID
     // First, try to find in templateSource (which may include both grid and advanced templates)
-    const foundTemplate = templateSource.find(t => t.id === layout);
+    const foundTemplate = effectiveTemplateSource.find(t => t.id === layout);
 
     // Determine if it's a grid template (has 'grid' property) or advanced template (has 'regions' property)
     const isGridTemplate = foundTemplate && 'grid' in foundTemplate;
     const isAdvancedTemplate = foundTemplate && 'regions' in foundTemplate;
 
-    // If not found in templateSource, also check ADVANCED_TEMPLATES directly
+    // If not found in templateSource, also check advancedTemplates directly
     let advancedTemplate = isAdvancedTemplate
         ? foundTemplate as any // Found in templateSource as advanced
-        : (!foundTemplate ? ADVANCED_TEMPLATES.find(t => t.id === layout) : null);
+        : (!foundTemplate ? advancedTemplates.find(t => t.id === layout) : null);
 
     // Apply rotation to advanced template if needed
     if (advancedTemplate && rotation !== 0) {
@@ -83,7 +85,7 @@ const PageLayoutComponent = ({
     }
 
     // Grid template for legacy grid rendering
-    let template = isGridTemplate ? foundTemplate : (!advancedTemplate ? templateSource[0] : null);
+    let template = isGridTemplate ? foundTemplate : (!advancedTemplate ? effectiveTemplateSource[0] : null);
 
     // Apply rotation to grid template if needed
     if (template && 'grid' in template && rotation !== 0) {

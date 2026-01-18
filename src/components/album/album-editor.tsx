@@ -46,8 +46,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LAYOUT_TEMPLATES, COVER_TEMPLATES } from './layout-templates';
-import { ADVANCED_TEMPLATES, AdvancedTemplate } from '@/lib/advanced-layout-types';
+import { LAYOUT_TEMPLATES, COVER_TEMPLATES, ADVANCED_TEMPLATES } from '@/hooks/useTemplates';
+import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, TooltipArrow } from '@/components/ui/tooltip';

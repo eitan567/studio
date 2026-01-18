@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { SpineColorPicker } from '../spine-color-picker';
 import { AiBackgroundGenerator } from '../ai-background-generator';
-import { COVER_TEMPLATES, LAYOUT_TEMPLATES } from '../layout-templates';
+import { useTemplates } from '@/hooks/useTemplates';
 import { cn } from '@/lib/utils';
 
 // Helper for fonts
@@ -36,6 +36,7 @@ interface SidebarRightProps {
 }
 
 export const SidebarRight = ({ page, onUpdatePage, activeView, onSetActiveView, isCover = true }: SidebarRightProps) => {
+    const { gridTemplates, coverTemplates, defaultGridTemplate, defaultCoverTemplate } = useTemplates();
 
     const [availableBackgrounds, setAvailableBackgrounds] = useState<string[]>([
         'https://picsum.photos/seed/bg1/800/600',
@@ -294,7 +295,7 @@ export const SidebarRight = ({ page, onUpdatePage, activeView, onSetActiveView, 
                                     <Layout className="w-3.5 h-3.5" /> {isCover ? 'Cover Layout' : 'Page Layout'}
                                 </Label>
                                 <div className="grid grid-cols-3 gap-2">
-                                    {(isCover ? COVER_TEMPLATES : LAYOUT_TEMPLATES).map(t => {
+                                    {(isCover ? coverTemplates : gridTemplates).map(t => {
                                         let isActive = false;
                                         if (isCover) {
                                             if (page.coverType === 'full') {
@@ -329,14 +330,14 @@ export const SidebarRight = ({ page, onUpdatePage, activeView, onSetActiveView, 
                                                             onUpdatePage({ ...page, layout: t.id });
                                                         } else {
                                                             const target = activeView === 'back' ? 'back' : 'front';
-                                                            const currentLayouts = page.coverLayouts || { front: COVER_TEMPLATES[0].id, back: COVER_TEMPLATES[0].id };
+                                                            const currentLayouts = page.coverLayouts || { front: defaultCoverTemplate.id, back: defaultCoverTemplate.id };
                                                             onUpdatePage({ ...page, coverLayouts: { ...currentLayouts, [target]: t.id } });
                                                         }
                                                     } else {
                                                         // Regular Page Logic
                                                         if (page.spreadMode === 'split') {
                                                             const target = activeView === 'back' ? 'left' : 'right';
-                                                            const currentLayouts = page.spreadLayouts || { left: LAYOUT_TEMPLATES[0].id, right: LAYOUT_TEMPLATES[0].id };
+                                                            const currentLayouts = page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id };
 
                                                             // IMPORTANT: Use the same logic as album-editor to prevent photo shifting
                                                             // We cannot just update the ID if the count changes, we might need to pad/slice the photo array.

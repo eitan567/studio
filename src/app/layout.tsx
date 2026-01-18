@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/hooks/useAuth';
 import { ThemeProvider } from '@/components/theme-provider';
+import { TemplatePreloader } from '@/components/template-preloader';
 
 export const metadata: Metadata = {
   title: 'Albomit',
@@ -37,6 +38,7 @@ export default function RootLayout({
               {children}
             </div>
             <Toaster />
+            <TemplatePreloader />
           </ThemeProvider>
         </AuthProvider>
       </body>

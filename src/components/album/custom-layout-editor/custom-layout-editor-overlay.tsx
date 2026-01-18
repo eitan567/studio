@@ -6,7 +6,7 @@ import { LayoutCanvas } from './layout-canvas';
 import { Button } from '@/components/ui/button';
 import { Check, X, Layout } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
-import { LAYOUT_TEMPLATES } from '../layout-templates';
+import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
 import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 
 interface CustomLayoutEditorOverlayProps {
@@ -17,10 +17,12 @@ interface CustomLayoutEditorOverlayProps {
 }
 
 export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, onAddTemplate }: CustomLayoutEditorOverlayProps) => {
+    const { findGridTemplate, defaultGridTemplate } = useTemplates();
+
     // Create a dummy page with empty or sample photo slots
     const createDummyPage = (layoutId: string, useDummy: boolean = false): AlbumPage => {
-        const template = LAYOUT_TEMPLATES.find(t => t.id === layoutId) || LAYOUT_TEMPLATES[0];
-        const totalPhotos = template.photoCount * 2; // For both pages of spread
+        const template = findGridTemplate(layoutId) || defaultGridTemplate;
+        const totalPhotos = getPhotoCount(template) * 2; // For both pages of spread
 
         const photos = Array(totalPhotos).fill(null).map((_, index) => {
             if (useDummy) {
@@ -73,7 +75,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const handleSelectAdvancedTemplate = (template: AdvancedTemplate) => {
         setSelectedAdvancedTemplate(template);
         // Create a dummy page with the right number of photos for this template
-        const photos = Array(template.photoCount).fill(null).map((_, index) => {
+        const photos = Array(getPhotoCount(template)).fill(null).map((_, index) => {
             if (useDummyPhotos) {
                 const seed = `adv-${template.id}-${index}`;
                 return {

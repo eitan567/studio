@@ -47,6 +47,20 @@ export const LAYOUT_TEMPLATES = [
       'col-start-7 col-end-13 row-start-8 row-end-13',
     ],
   },
+  // 6 Photos - Mosaic Grid
+  {
+    id: '6-mosaic-grid',
+    name: 'Mosaic Grid',
+    photoCount: 6,
+    grid: [
+      'col-start-1 col-end-9 row-start-1 row-end-9',   // Large Top-Left
+      'col-start-9 col-end-13 row-start-1 row-end-5',  // Small Top-Right
+      'col-start-9 col-end-13 row-start-5 row-end-9',  // Small Mid-Right
+      'col-start-1 col-end-5 row-start-9 row-end-13',  // Small Bottom-Left
+      'col-start-5 col-end-9 row-start-9 row-end-13',  // Small Bottom-Mid
+      'col-start-9 col-end-13 row-start-9 row-end-13', // Small Bottom-Right
+    ],
+  },
 ];
 
 // For now, cover templates share the same layouts, but this allows for future custom cover-only layouts

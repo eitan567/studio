@@ -3,7 +3,7 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { LAYOUT_TEMPLATES } from '../layout-templates';
+import { useTemplates } from '@/hooks/useTemplates';
 import { cn } from '@/lib/utils';
 import { Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -37,6 +37,8 @@ export const LayoutSidebarRight = ({
     useDummyPhotos,
     onUseDummyPhotosChange
 }: LayoutSidebarRightProps) => {
+    const { gridTemplates } = useTemplates();
+
     return (
         <div className="w-72 border-l bg-background flex flex-col shrink-0 overflow-hidden">
             {/* Header */}
@@ -84,7 +86,7 @@ export const LayoutSidebarRight = ({
                         Layout Template
                     </Label>
                     <div className="grid grid-cols-3 gap-2">
-                        {LAYOUT_TEMPLATES.map((template) => (
+                        {gridTemplates.map((template) => (
                             <button
                                 key={template.id}
                                 onClick={() => onSelectLayout(template.id)}

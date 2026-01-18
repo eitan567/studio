@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { AlbumPage, Photo, AlbumConfig } from '@/lib/types';
-import { LAYOUT_TEMPLATES, COVER_TEMPLATES } from '@/components/album/layout-templates';
+import { getPhotoCount, useTemplates } from '@/hooks/useTemplates';
 import { useToast } from '@/hooks/use-toast';
 
 interface UseAlbumGenerationProps {
@@ -17,6 +17,7 @@ export function useAlbumGeneration({
     setIsLoadingPhotos,
     randomSeed
 }: UseAlbumGenerationProps) {
+    const { gridTemplates, coverTemplates } = useTemplates();
     const { toast } = useToast();
 
     const generateEmptyAlbum = useCallback(() => {
@@ -153,11 +154,11 @@ export function useAlbumGeneration({
         let coverPhotos: Photo[] = [];
 
         if (randomCoverType === 'split') {
-            const frontTemplate = COVER_TEMPLATES[Math.floor(Math.random() * COVER_TEMPLATES.length)];
-            const backTemplate = COVER_TEMPLATES[Math.floor(Math.random() * COVER_TEMPLATES.length)];
+            const frontTemplate = coverTemplates[Math.floor(Math.random() * coverTemplates.length)];
+            const backTemplate = coverTemplates[Math.floor(Math.random() * coverTemplates.length)];
 
             coverLayoutShim = { front: frontTemplate.id, back: backTemplate.id };
-            const totalCoverPhotos = frontTemplate.photoCount + backTemplate.photoCount;
+            const totalCoverPhotos = getPhotoCount(frontTemplate) + getPhotoCount(backTemplate);
 
             for (let i = 0; i < totalCoverPhotos; i++) {
                 if (photos.length > 0) {
@@ -167,10 +168,10 @@ export function useAlbumGeneration({
                 }
             }
         } else {
-            const fullTemplate = COVER_TEMPLATES[Math.floor(Math.random() * COVER_TEMPLATES.length)];
+            const fullTemplate = coverTemplates[Math.floor(Math.random() * coverTemplates.length)];
             fullCoverLayout = fullTemplate.id;
 
-            for (let i = 0; i < fullTemplate.photoCount; i++) {
+            for (let i = 0; i < getPhotoCount(fullTemplate); i++) {
                 if (photos.length > 0) {
                     const randomIndex = Math.floor(Math.random() * photos.length);
                     const randomPhoto = photos[randomIndex];
@@ -216,19 +217,19 @@ export function useAlbumGeneration({
             const isSplit = Math.random() > 0.5;
 
             if (isSplit) {
-                let leftTemplate = LAYOUT_TEMPLATES[Math.floor(Math.random() * LAYOUT_TEMPLATES.length)];
-                let rightTemplate = LAYOUT_TEMPLATES[Math.floor(Math.random() * LAYOUT_TEMPLATES.length)];
-                const totalNeeded = leftTemplate.photoCount + rightTemplate.photoCount;
+                let leftTemplate = gridTemplates[Math.floor(Math.random() * gridTemplates.length)];
+                let rightTemplate = gridTemplates[Math.floor(Math.random() * gridTemplates.length)];
+                const totalNeeded = getPhotoCount(leftTemplate) + getPhotoCount(rightTemplate);
 
                 if (photosPool.length < totalNeeded) {
                     if (photosPool.length >= 2) {
-                        leftTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === 1) || LAYOUT_TEMPLATES[0];
-                        rightTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === 1) || LAYOUT_TEMPLATES[0];
+                        leftTemplate = gridTemplates.find(t => getPhotoCount(t) === 1) || gridTemplates[0];
+                        rightTemplate = gridTemplates.find(t => getPhotoCount(t) === 1) || gridTemplates[0];
                     } else {
-                        leftTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === 1) || LAYOUT_TEMPLATES[0];
-                        rightTemplate = LAYOUT_TEMPLATES[0];
-                        const fallbackTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === photosPool.length) || LAYOUT_TEMPLATES.find(t => t.photoCount === 1) || LAYOUT_TEMPLATES[0];
-                        const pagePhotos = photosPool.splice(0, fallbackTemplate.photoCount);
+                        leftTemplate = gridTemplates.find(t => getPhotoCount(t) === 1) || gridTemplates[0];
+                        rightTemplate = gridTemplates[0];
+                        const fallbackTemplate = gridTemplates.find(t => getPhotoCount(t) === photosPool.length) || gridTemplates.find(t => getPhotoCount(t) === 1) || gridTemplates[0];
+                        const pagePhotos = photosPool.splice(0, getPhotoCount(fallbackTemplate));
                         newPages.push({
                             id: uuidv4(),
                             type: 'spread',
@@ -240,8 +241,8 @@ export function useAlbumGeneration({
                     }
                 }
 
-                const leftPhotosCount = leftTemplate.photoCount;
-                const rightPhotosCount = rightTemplate.photoCount;
+                const leftPhotosCount = getPhotoCount(leftTemplate);
+                const rightPhotosCount = getPhotoCount(rightTemplate);
 
                 if (photosPool.length >= leftPhotosCount + rightPhotosCount) {
                     const pagePhotos = photosPool.splice(0, leftPhotosCount + rightPhotosCount);
@@ -257,8 +258,8 @@ export function useAlbumGeneration({
                         }
                     });
                 } else {
-                    const fallbackTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === 1) || LAYOUT_TEMPLATES[0];
-                    const pagePhotos = photosPool.splice(0, Math.min(photosPool.length, fallbackTemplate.photoCount));
+                    const fallbackTemplate = gridTemplates.find(t => getPhotoCount(t) === 1) || gridTemplates[0];
+                    const pagePhotos = photosPool.splice(0, Math.min(photosPool.length, getPhotoCount(fallbackTemplate)));
                     newPages.push({
                         id: uuidv4(),
                         type: 'spread',
@@ -269,17 +270,17 @@ export function useAlbumGeneration({
                 }
 
             } else {
-                let selectedTemplate = LAYOUT_TEMPLATES[Math.floor(Math.random() * LAYOUT_TEMPLATES.length)];
-                if (photosPool.length < selectedTemplate.photoCount) {
-                    const exactFit = LAYOUT_TEMPLATES.find(t => t.photoCount === photosPool.length);
+                let selectedTemplate = gridTemplates[Math.floor(Math.random() * gridTemplates.length)];
+                if (photosPool.length < getPhotoCount(selectedTemplate)) {
+                    const exactFit = gridTemplates.find(t => getPhotoCount(t) === photosPool.length);
                     if (exactFit) {
                         selectedTemplate = exactFit;
                     } else {
-                        selectedTemplate = LAYOUT_TEMPLATES.find(t => t.photoCount === 1)!;
+                        selectedTemplate = gridTemplates.find(t => getPhotoCount(t) === 1)!;
                     }
                 }
 
-                const pagePhotos = photosPool.splice(0, selectedTemplate.photoCount);
+                const pagePhotos = photosPool.splice(0, getPhotoCount(selectedTemplate));
 
                 newPages.push({
                     id: uuidv4(),
@@ -312,7 +313,7 @@ export function useAlbumGeneration({
         }
 
         setAlbumPages(newPages);
-    }, [setAlbumPages]);
+    }, [setAlbumPages, gridTemplates, coverTemplates]);
 
     const generateDummyPhotos = useCallback(() => {
         if (!randomSeed) {

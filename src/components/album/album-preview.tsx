@@ -20,8 +20,8 @@ import { PhotoRenderer } from './photo-renderer';
 import { useToast } from '@/hooks/use-toast';
 import { useAlbumPreview } from './album-preview-context';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { LAYOUT_TEMPLATES, COVER_TEMPLATES } from './layout-templates';
-import { ADVANCED_TEMPLATES, AdvancedTemplate, LayoutRegion, insetPolygon } from '@/lib/advanced-layout-types';
+import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
+import { AdvancedTemplate, LayoutRegion, insetPolygon } from '@/lib/advanced-layout-types';
 import { ShapeRegion } from './shape-region';
 import { PageLayout } from './page-layout';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -112,7 +112,7 @@ const renderAdvancedTemplatePreview = (template: AdvancedTemplate) => {
 
 
 // Template Thumbnail - simple static preview for selection
-type TemplateWithGrid = { id: string; name: string; photoCount: number; grid: string[] };
+type TemplateWithGrid = { id: string; name: string; photoCount?: number; grid: string[] };
 type TemplateUnion = TemplateWithGrid | AdvancedTemplate;
 
 // Parse layout ID to extract base template and rotation (same as in page-layout.tsx)
@@ -450,6 +450,14 @@ const PageToolbar = ({
   onUpdatePage?: (page: AlbumPage) => void;
   toast: any;
 }) => {
+  const {
+    gridTemplates,
+    coverTemplates,
+    advancedTemplates,
+    defaultGridTemplate
+  } = useTemplates();
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showSpineSettings, setShowSpineSettings] = useState(false);
   const isCoverOrSpread = page.isCover || page.type === 'spread';
   const isSplit = page.isCover ? (page.coverType === 'split' || !page.coverType) : (page.spreadMode === 'split');
   const isFull = !isSplit;
@@ -524,7 +532,7 @@ const PageToolbar = ({
                       <TooltipContent>{page.isCover ? "Back Cover Layout" : "Page 1 Layout"}</TooltipContent>
                     </Tooltip>
                     <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
-                      {(page.isCover ? [...COVER_TEMPLATES, ...ADVANCED_TEMPLATES] : [...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES]).map(template => (
+                      {(page.isCover ? [...coverTemplates, ...advancedTemplates] : [...gridTemplates, ...advancedTemplates]).map(template => (
                         <TemplateThumbnail
                           key={template.id}
                           template={template}
@@ -540,7 +548,7 @@ const PageToolbar = ({
                               if (onUpdateSpreadLayout) {
                                 onUpdateSpreadLayout(page.id, 'left', finalId);
                               } else {
-                                const currentLayouts = page.spreadLayouts || { left: LAYOUT_TEMPLATES[0].id, right: LAYOUT_TEMPLATES[0].id };
+                                const currentLayouts = page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id };
                                 onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, left: finalId } });
                               }
                             }
@@ -567,7 +575,7 @@ const PageToolbar = ({
                             if (onUpdateSpreadLayout) {
                               onUpdateSpreadLayout(page.id, 'left', newLayout);
                             } else {
-                              const currentLayouts = page.spreadLayouts || { left: LAYOUT_TEMPLATES[0].id, right: LAYOUT_TEMPLATES[0].id };
+                              const currentLayouts = page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id };
                               onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, left: newLayout } });
                             }
                           }
@@ -603,8 +611,8 @@ const PageToolbar = ({
                       {/* For Cover: Combine Cover Templates + Advanced Templates */}
                       {/* For Pages: Combine Layout Templates + Advanced Templates */}
                       {(page.isCover
-                        ? [...COVER_TEMPLATES, ...ADVANCED_TEMPLATES]
-                        : [...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES]
+                        ? [...coverTemplates, ...advancedTemplates]
+                        : [...gridTemplates, ...advancedTemplates]
                       ).map(template => (
                         <TemplateThumbnail
                           key={template.id}
@@ -620,7 +628,7 @@ const PageToolbar = ({
                               if (onUpdateSpreadLayout) {
                                 onUpdateSpreadLayout(page.id, 'right', finalId);
                               } else {
-                                const currentLayouts = page.spreadLayouts || { left: LAYOUT_TEMPLATES[0].id, right: LAYOUT_TEMPLATES[0].id };
+                                const currentLayouts = page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id };
                                 onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, right: finalId } });
                               }
                             }
@@ -647,7 +655,7 @@ const PageToolbar = ({
                             if (onUpdateSpreadLayout) {
                               onUpdateSpreadLayout(page.id, 'right', newLayout);
                             } else {
-                              const currentLayouts = page.spreadLayouts || { left: LAYOUT_TEMPLATES[0].id, right: LAYOUT_TEMPLATES[0].id };
+                              const currentLayouts = page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id };
                               onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, right: newLayout } });
                             }
                           }
@@ -679,7 +687,7 @@ const PageToolbar = ({
                     <TooltipContent>Spread Layout</TooltipContent>
                   </Tooltip>
                   <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
-                    {(page.isCover ? [...COVER_TEMPLATES, ...ADVANCED_TEMPLATES] : [...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES]).map(template => (
+                    {(page.isCover ? [...coverTemplates, ...advancedTemplates] : [...gridTemplates, ...advancedTemplates]).map(template => (
                       <TemplateThumbnail
                         key={template.id}
                         template={template}
@@ -812,7 +820,7 @@ const PageToolbar = ({
                 <TooltipContent>Page Layout</TooltipContent>
               </Tooltip>
               <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
-                {[...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES].map(template => (
+                {[...gridTemplates, ...advancedTemplates].map(template => (
                   <TemplateThumbnail
                     key={template.id}
                     template={template}

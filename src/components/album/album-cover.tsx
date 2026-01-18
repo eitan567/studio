@@ -2,8 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { AlbumPage, CoverText, CoverImage, AlbumConfig, Photo, PhotoPanAndZoom } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { PageLayout } from './page-layout';
-import { COVER_TEMPLATES, LAYOUT_TEMPLATES } from './layout-templates';
-import { ADVANCED_TEMPLATES } from '@/lib/advanced-layout-types';
+import { useTemplates } from '@/hooks/useTemplates';
 
 // Helper to parse layout ID and extract base ID (without rotation suffix)
 function parseLayoutId(layoutId: string): { baseId: string; rotation: number } {
@@ -576,6 +575,13 @@ export const AlbumCover = ({
     allPhotos = [],
     previousPagePhotos = []
 }: AlbumCoverProps) => {
+    const {
+        gridTemplates,
+        coverTemplates,
+        advancedTemplates,
+        defaultGridTemplate,
+        defaultCoverTemplate
+    } = useTemplates();
     const containerRef = useRef<HTMLDivElement>(null);
     // Optimization: Local state for drag positions to avoid global re-renders
     const [dragPositions, setDragPositions] = useState<Record<string, { x: number, y: number }>>({});
@@ -717,14 +723,14 @@ export const AlbumCover = ({
 
     // Layout Data
     const backLayoutId = page.isCover
-        ? (page.coverLayouts?.back || COVER_TEMPLATES[0].id)
-        : (page.spreadLayouts?.left || LAYOUT_TEMPLATES[0].id);
+        ? (page.coverLayouts?.back || defaultCoverTemplate.id)
+        : (page.spreadLayouts?.left || defaultGridTemplate.id);
 
     const frontLayoutId = page.isCover
-        ? (page.coverLayouts?.front || COVER_TEMPLATES[0].id)
-        : (page.spreadLayouts?.right || LAYOUT_TEMPLATES[0].id);
+        ? (page.coverLayouts?.front || defaultCoverTemplate.id)
+        : (page.spreadLayouts?.right || defaultGridTemplate.id);
 
-    const templateSource = page.isCover ? [...COVER_TEMPLATES, ...ADVANCED_TEMPLATES] : [...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES];
+    const templateSource = page.isCover ? [...coverTemplates, ...advancedTemplates] : [...gridTemplates, ...advancedTemplates];
 
     // Parse layout IDs to get base IDs for template lookup (removes rotation suffix)
     const { baseId: backBaseId } = parseLayoutId(backLayoutId);
@@ -844,8 +850,8 @@ export const AlbumCover = ({
                             page={page}
                             photoGap={photoGap}
                             overridePhotos={page.photos}
-                            overrideLayout={page.layout || (page.isCover ? COVER_TEMPLATES[0].id : LAYOUT_TEMPLATES[0].id)}
-                            templateSource={page.isCover ? [...COVER_TEMPLATES, ...ADVANCED_TEMPLATES] as any : [...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES] as any}
+                            overrideLayout={page.layout || (page.isCover ? defaultCoverTemplate.id : defaultGridTemplate.id)}
+                            templateSource={page.isCover ? [...coverTemplates, ...advancedTemplates] as any : [...gridTemplates, ...advancedTemplates] as any}
                             onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
                             onInteractionChange={onInteractionChange || (() => { })}
                             onDropPhoto={onDropPhoto || (() => { })}
@@ -883,8 +889,8 @@ export const AlbumCover = ({
                                 // Use backPhotos (first chunk) for Back Cover OR Left Page
                                 overridePhotos={backPhotos}
                                 // Use Left Layout for regular pages, Back Layout for covers
-                                overrideLayout={page.isCover ? backLayoutId : (page.spreadLayouts?.left || LAYOUT_TEMPLATES[0].id)}
-                                templateSource={page.isCover ? [...COVER_TEMPLATES, ...ADVANCED_TEMPLATES] as any : [...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES] as any}
+                                overrideLayout={page.isCover ? backLayoutId : (page.spreadLayouts?.left || defaultGridTemplate.id)}
+                                templateSource={page.isCover ? [...coverTemplates, ...advancedTemplates] as any : [...gridTemplates, ...advancedTemplates] as any}
                                 onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
                                 onInteractionChange={() => { }}
                                 onDropPhoto={onDropPhoto || (() => { })}
@@ -945,8 +951,8 @@ export const AlbumCover = ({
                                 // Use frontPhotos (second chunk) for Front Cover OR Right Page
                                 overridePhotos={frontPhotos}
                                 // Use Right Layout for regular pages, Front Layout for covers
-                                overrideLayout={page.isCover ? frontLayoutId : (page.spreadLayouts?.right || LAYOUT_TEMPLATES[0].id)}
-                                templateSource={page.isCover ? [...COVER_TEMPLATES, ...ADVANCED_TEMPLATES] as any : [...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES] as any}
+                                overrideLayout={page.isCover ? frontLayoutId : (page.spreadLayouts?.right || defaultGridTemplate.id)}
+                                templateSource={page.isCover ? [...coverTemplates, ...advancedTemplates] as any : [...gridTemplates, ...advancedTemplates] as any}
                                 onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
                                 onInteractionChange={() => { }}
                                 onDropPhoto={onDropPhoto || (() => { })}

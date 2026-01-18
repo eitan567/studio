@@ -1,8 +1,8 @@
-import React, { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { AlbumPage, AlbumConfig, PhotoPanAndZoom, Photo } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { PageLayout } from '../page-layout';
-import { LAYOUT_TEMPLATES } from '../layout-templates';
+import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
 import { AdvancedTemplate, LayoutRegion, regionToClipPath } from '@/lib/advanced-layout-types';
 import { PhotoRenderer } from '../photo-renderer';
 import { Image as ImageIcon, Plus } from 'lucide-react';
@@ -16,6 +16,7 @@ interface LayoutCanvasProps {
 }
 
 export const LayoutCanvas = ({ page, config, onUpdatePage, advancedTemplate }: LayoutCanvasProps) => {
+    const { findGridTemplate, defaultGridTemplate } = useTemplates();
     const wrapperRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
 
@@ -77,7 +78,7 @@ export const LayoutCanvas = ({ page, config, onUpdatePage, advancedTemplate }: L
     const gapValue = `${photoGap}px`;
 
     // Get layout template
-    const template = LAYOUT_TEMPLATES.find(t => t.id === page.layout) || LAYOUT_TEMPLATES[0];
+    const template = findGridTemplate(page.layout) || defaultGridTemplate;
 
     // Dummy handlers for PageLayout
     const handleUpdatePhotoPanAndZoom = (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => {
@@ -211,7 +212,7 @@ export const LayoutCanvas = ({ page, config, onUpdatePage, advancedTemplate }: L
                                 onInteractionChange={handleInteractionChange}
                                 onDropPhoto={handleDropPhoto}
                                 overrideLayout={page.spreadLayouts?.right || page.layout}
-                                photoIndexOffset={template.photoCount}
+                                photoIndexOffset={getPhotoCount(template)}
                             />
                         </div>
                     </div>

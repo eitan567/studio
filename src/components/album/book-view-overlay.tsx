@@ -3,7 +3,7 @@ import { X, ChevronLeft, ChevronRight, BookOpen, ChevronsLeft, ChevronsRight, Co
 import { AlbumPage, AlbumConfig } from '@/lib/types';
 import { AlbumCover } from './album-cover';
 import { PhotoRenderer } from './photo-renderer';
-import { LAYOUT_TEMPLATES } from './layout-templates';
+import { LAYOUT_TEMPLATES } from '@/hooks/useTemplates';
 import { cn } from '@/lib/utils';
 
 interface BookViewOverlayProps {

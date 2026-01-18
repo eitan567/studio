@@ -2,8 +2,7 @@ import { useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
 import { AlbumPage, Photo, PhotoPanAndZoom } from '@/lib/types';
-import { LAYOUT_TEMPLATES, COVER_TEMPLATES } from '@/components/album/layout-templates';
-import { ADVANCED_TEMPLATES } from '@/lib/advanced-layout-types';
+import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
 
 // Helper to parse layout ID
 function parseLayoutId(layoutId: string): { baseId: string; rotation: number } {
@@ -29,6 +28,7 @@ export function useAlbumPageEditor({
     allowDuplicates,
     usedPhotoIds,
 }: UseAlbumPageEditorProps) {
+    const { findTemplate, findCoverTemplate, defaultGridTemplate, defaultCoverTemplate } = useTemplates();
     const { toast } = useToast();
 
     // Use refs to keep latest values without breaking callback memoization
@@ -83,10 +83,10 @@ export function useAlbumPageEditor({
                 if (page.id !== pageId) return page;
 
                 const { baseId } = parseLayoutId(newLayoutId);
-                const newTemplate = LAYOUT_TEMPLATES.find(t => t.id === baseId) || ADVANCED_TEMPLATES.find(t => t.id === baseId);
+                const newTemplate = findTemplate(baseId);
                 if (!newTemplate) return page;
 
-                const newPhotoCount = newTemplate.photoCount;
+                const newPhotoCount = getPhotoCount(newTemplate);
                 const currentPhotos = [...page.photos];
                 const defaultPanAndZoom = { scale: 1, x: 50, y: 50 };
 
@@ -150,8 +150,8 @@ export function useAlbumPageEditor({
 
                 if (side === 'full') {
                     const { baseId: baseLayoutId } = parseLayoutId(newLayout);
-                    const template = COVER_TEMPLATES.find(t => t.id === baseLayoutId) || ADVANCED_TEMPLATES.find(t => t.id === baseLayoutId) || COVER_TEMPLATES[0];
-                    const requiredPhotos = template.photoCount;
+                    const template = findCoverTemplate(baseLayoutId) || defaultCoverTemplate;
+                    const requiredPhotos = getPhotoCount(template);
                     let currentPhotos = [...page.photos];
 
                     if (currentPhotos.length < requiredPhotos) {
@@ -182,11 +182,11 @@ export function useAlbumPageEditor({
 
                 const { baseId: frontBaseId } = parseLayoutId(frontLayout);
                 const { baseId: backBaseId } = parseLayoutId(backLayout);
-                const frontTemplate = COVER_TEMPLATES.find(t => t.id === frontBaseId) || COVER_TEMPLATES[0];
-                const backTemplate = COVER_TEMPLATES.find(t => t.id === backBaseId) || COVER_TEMPLATES[0];
+                const frontTemplate = findCoverTemplate(frontBaseId) || defaultCoverTemplate;
+                const backTemplate = findCoverTemplate(backBaseId) || defaultCoverTemplate;
 
-                const requiredBackPhotos = backTemplate.photoCount;
-                const requiredFrontPhotos = frontTemplate.photoCount;
+                const requiredBackPhotos = getPhotoCount(backTemplate);
+                const requiredFrontPhotos = getPhotoCount(frontTemplate);
                 const totalRequired = requiredBackPhotos + requiredFrontPhotos;
 
                 let currentPhotos = [...page.photos];
@@ -221,23 +221,23 @@ export function useAlbumPageEditor({
             return prevPages.map(page => {
                 if (page.id !== pageId || page.isCover) return page;
 
-                const currentLeftLayout = page.spreadLayouts?.left || LAYOUT_TEMPLATES[0].id;
-                const currentRightLayout = page.spreadLayouts?.right || LAYOUT_TEMPLATES[0].id;
+                const currentLeftLayout = page.spreadLayouts?.left || defaultGridTemplate.id;
+                const currentRightLayout = page.spreadLayouts?.right || defaultGridTemplate.id;
 
                 const leftLayout = side === 'left' ? newLayout : currentLeftLayout;
                 const rightLayout = side === 'right' ? newLayout : currentRightLayout;
 
                 const { baseId: leftBaseId } = parseLayoutId(leftLayout);
                 const { baseId: rightBaseId } = parseLayoutId(rightLayout);
-                const leftTemplate = LAYOUT_TEMPLATES.find(t => t.id === leftBaseId) || ADVANCED_TEMPLATES.find(t => t.id === leftBaseId) || LAYOUT_TEMPLATES[0];
-                const rightTemplate = LAYOUT_TEMPLATES.find(t => t.id === rightBaseId) || ADVANCED_TEMPLATES.find(t => t.id === rightBaseId) || LAYOUT_TEMPLATES[0];
+                const leftTemplate = findTemplate(leftBaseId) || defaultGridTemplate;
+                const rightTemplate = findTemplate(rightBaseId) || defaultGridTemplate;
 
                 const { baseId: oldLeftBaseId } = parseLayoutId(currentLeftLayout);
-                const oldLeftTemplate = LAYOUT_TEMPLATES.find(t => t.id === oldLeftBaseId) || ADVANCED_TEMPLATES.find(t => t.id === oldLeftBaseId) || LAYOUT_TEMPLATES[0];
-                const oldLeftCount = oldLeftTemplate.photoCount;
+                const oldLeftTemplate = findTemplate(oldLeftBaseId) || defaultGridTemplate;
+                const oldLeftCount = getPhotoCount(oldLeftTemplate);
 
-                const newLeftCount = leftTemplate.photoCount;
-                const newRightCount = rightTemplate.photoCount;
+                const newLeftCount = getPhotoCount(leftTemplate);
+                const newRightCount = getPhotoCount(rightTemplate);
 
                 let currentPhotos = [...page.photos];
 
