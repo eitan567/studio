@@ -967,7 +967,7 @@ const ScaledCoverPreview = React.memo(({
 
       const scaleX = availW / logicalWidth;
       const scaleY = availH / logicalHeight;
-      const fitScale = Math.min(scaleX, scaleY);
+      const fitScale = Math.min(scaleX, scaleY) * 0.9;
       setScale(fitScale);
     };
     measure();
@@ -977,29 +977,81 @@ const ScaledCoverPreview = React.memo(({
   }, [logicalWidth, logicalHeight]);
 
   return (
-    <div ref={wrapperRef} className="w-full h-full flex items-center justify-center overflow-hidden">
-      <div className="shadow-lg" style={{
-        width: logicalWidth,
-        height: logicalHeight,
-        transform: `scale(${scale})`,
-        transformOrigin: 'center center', // Scale from center
-        flexShrink: 0,
-        position: 'relative' // Ensure relative positioning for children
-      }}>
-        <AlbumCover
-          page={page}
-          config={config}
-          mode="preview"
-          activeView="full"
-          onUpdateTitleSettings={onUpdateTitleSettings}
-          onDropPhoto={onDropPhoto}
-          onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
-          onInteractionChange={onInteractionChange}
-          onRemovePhoto={onRemovePhoto}
-          allPhotos={allPhotos}
-          previousPagePhotos={previousPagePhotos}
+    <div ref={wrapperRef} className="w-full h-full flex items-center justify-center p-4">
+      {/* HARDCOVER BOOK CONTAINER */}
+      <div
+        className="relative flex items-center justify-center transition-transform duration-500 will-change-transform"
+        style={{
+          width: logicalWidth,
+          height: logicalHeight,
+          transform: `scale(${scale})`,
+          transformOrigin: 'center center',
+          flexShrink: 0,
+        }}
+      >
+        {/* LAYER 1: THE PHYSICAL HARD COVER */}
+        <div className="absolute inset-0 bg-[#F4F4F4] rounded-[5px] shadow-2xl border border-gray-200/80 z-0">
+          <div className="absolute inset-0 bg-gradient-to-r from-gray-50 via-transparent to-gray-50 opacity-40 rounded-[5px]" />
+
+          {/* SPINE DEPTH EFFECT (Bottom Center) */}
+          {!page.isCover && page.type === 'spread' && (
+            <div className="absolute bottom-[-2px] left-1/2 -translate-x-1/2 w-[40px] h-[10px] opacity-50 z-60 pointer-events-none">
+              <div className="w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-black/45 via-black/25 to-transparent rounded-b-xs" />
+            </div>
+          )}
+        </div>
+
+        {/* LAYER 2: INTERMEDIATE PAPER STACK */}
+        <div
+          className="absolute z-0 bg-white border-x border-gray-100 shadow-md"
+          style={{
+            width: '98%',
+            height: '94.5%',
+            top: '50.7%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)'
+          }}
         />
-        <div className="absolute inset-0 z-20 pointer-events-none">
+
+        {/* LAYER 3: TOP MAIN PAGES CONTAINER */}
+        <div className="relative w-[97%] h-[95%] shadow-lg z-10 overflow-hidden rounded-sm bg-white">
+
+          {/* Full Content - AlbumCover renders the complete spread/cover */}
+          <div className="absolute inset-0">
+            <AlbumCover
+              page={page}
+              config={config}
+              mode="preview"
+              activeView="full"
+              onUpdateTitleSettings={onUpdateTitleSettings}
+              onDropPhoto={onDropPhoto}
+              onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
+              onInteractionChange={onInteractionChange}
+              onRemovePhoto={onRemovePhoto}
+              allPhotos={allPhotos}
+              previousPagePhotos={previousPagePhotos}
+            />
+          </div>
+
+          {/* Spine Shadows Overlay - for spreads only */}
+          {!page.isCover && page.type === 'spread' && (
+            <>
+              {/* Inner Spine Shadow (Left Page - approaching center) */}
+              <div className="absolute top-0 bottom-0 left-[calc(50%-20px)] w-[20px] bg-gradient-to-l from-black/[0.04] to-transparent pointer-events-none z-30" />
+
+              {/* Center Spine Binding */}
+              <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[1px] bg-gray-300/40 z-20">
+                <div className="absolute inset-y-0 -left-8 -right-8 bg-gradient-to-r from-transparent via-black/[0.15] to-transparent pointer-events-none mix-blend-multiply" />
+              </div>
+
+              {/* Inner Spine Shadow (Right Page - leaving center) */}
+              <div className="absolute top-0 bottom-0 left-1/2 w-[20px] bg-gradient-to-r from-black/[0.04] to-transparent pointer-events-none z-30" />
+            </>
+          )}
+        </div>
+
+        {/* Title Overlay */}
+        <div className="absolute inset-0 z-40 pointer-events-none">
           {page.titleText && (
             <DraggableTitle
               text={page.titleText}
@@ -1013,7 +1065,6 @@ const ScaledCoverPreview = React.memo(({
           )}
         </div>
       </div>
-
     </div>
   );
 });
@@ -1217,10 +1268,6 @@ export function AlbumPreview({
                             />
                           ) : page.type === 'spread' ? (
                             <div className="relative h-full w-full">
-                              {/* Spine simulation */}
-                              <div className="absolute inset-y-0 left-1/2 -ml-px w-px bg-border z-10 pointer-events-none"></div>
-                              <div className="absolute inset-y-0 left-1/2 w-4 -ml-2 bg-gradient-to-r from-transparent to-black/10 z-10 pointer-events-none"></div>
-                              <div className="absolute inset-y-0 right-1/2 w-4 -mr-2 bg-gradient-to-l from-transparent to-black/10 z-10 pointer-events-none"></div>
                               <ScaledCoverPreview
                                 page={page}
                                 config={effectiveConfig}
