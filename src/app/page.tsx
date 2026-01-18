@@ -59,7 +59,7 @@ export default function LandingPage() {
                   <div className="inline-block rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
                     Reimagining Photo Albums
                   </div>
-                  <h1 className="font-headline text-5xl font-extrabold tracking-tight sm:text-6xl xl:text-7xl/none bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
+                  <h1 className="heading-display bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70" style={{ fontSize: 'clamp(3rem, 2rem + 4vw, 5rem)' }}>
                     Albomit
                   </h1>
                   <p className="max-w-[600px] text-xl text-muted-foreground md:text-2xl leading-relaxed">
@@ -98,7 +98,7 @@ export default function LandingPage() {
         <section id="features" className="w-full py-24 bg-muted/30">
           <div className="container px-4 md:px-6">
             <div className="flex flex-col items-center justify-center space-y-4 text-center mb-16">
-              <h2 className="font-headline text-3xl font-bold tracking-tighter sm:text-5xl">
+              <h2 className="heading-lg">
                 Why albomit?
               </h2>
               <p className="max-w-[800px] text-muted-foreground md:text-xl/relaxed">
@@ -115,7 +115,7 @@ export default function LandingPage() {
                     <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
                       {feature.icon}
                     </div>
-                    <CardTitle className="font-headline text-2xl">
+                    <CardTitle className="heading">
                       {feature.title}
                     </CardTitle>
                   </CardHeader>
@@ -135,7 +135,7 @@ export default function LandingPage() {
           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
           <div className="container relative z-10 grid items-center justify-center gap-6 px-4 text-center md:px-6">
             <div className="space-y-4">
-              <h2 className="font-headline text-4xl font-bold tracking-tighter md:text-5xl">
+              <h2 className="heading-lg">
                 Your Story Awaits
               </h2>
               <p className="mx-auto max-w-[600px] text-primary-foreground/80 md:text-xl/relaxed">

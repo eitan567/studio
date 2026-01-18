@@ -54,7 +54,7 @@ export default function ComingSoonPage() {
                     <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                         <Lock className="h-6 w-6 text-primary" />
                     </div>
-                    <CardTitle className="font-headline text-3xl font-bold">Coming Soon</CardTitle>
+                    <CardTitle className="heading-lg">Coming Soon</CardTitle>
                     <CardDescription className="text-lg">
                         We are building something amazing. <br />
                         Please enter your access code to view the site.

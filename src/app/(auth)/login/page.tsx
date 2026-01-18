@@ -23,13 +23,22 @@ function LoginFormFallback() {
 
 export default function LoginPage() {
   return (
-    <div className="flex h-screen w-screen flex-col items-center justify-center">
+    <div
+      className="flex h-screen w-screen flex-col items-center justify-center bg-muted/30 dark:bg-muted/10"
+      style={{
+        backgroundImage: `
+          linear-gradient(to right, hsl(var(--foreground) / 0.04) 1px, transparent 1px),
+          linear-gradient(to bottom, hsl(var(--foreground) / 0.04) 1px, transparent 1px)
+        `,
+        backgroundSize: '20px 20px'
+      }}
+    >
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <div className="mb-4 flex justify-center">
             <Logo className="h-10 w-10 text-primary" />
           </div>
-          <CardTitle className="font-headline text-2xl">Welcome Back!</CardTitle>
+          <CardTitle className="heading">Welcome Back!</CardTitle>
           <CardDescription>
             Enter your email to sign in to your account
           </CardDescription>

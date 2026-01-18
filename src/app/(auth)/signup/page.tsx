@@ -23,13 +23,22 @@ function SignupFormFallback() {
 
 export default function SignupPage() {
   return (
-    <div className="flex h-screen w-screen flex-col items-center justify-center">
+    <div
+      className="flex h-screen w-screen flex-col items-center justify-center bg-muted/30 dark:bg-muted/10"
+      style={{
+        backgroundImage: `
+          linear-gradient(to right, hsl(var(--foreground) / 0.04) 1px, transparent 1px),
+          linear-gradient(to bottom, hsl(var(--foreground) / 0.04) 1px, transparent 1px)
+        `,
+        backgroundSize: '20px 20px'
+      }}
+    >
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <div className="mb-4 flex justify-center">
             <Logo className="h-10 w-10 text-primary" />
           </div>
-          <CardTitle className="font-headline text-2xl">Create an Account</CardTitle>
+          <CardTitle className="heading">Create an Account</CardTitle>
           <CardDescription>
             Enter your details below to create your account
           </CardDescription>

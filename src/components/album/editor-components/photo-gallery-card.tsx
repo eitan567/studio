@@ -354,7 +354,7 @@ const PhotoGalleryCardComponent = ({
             <Card className="h-[85vh] flex flex-col">
                 <CardHeader className="pb-3 border-b space-y-2">
                     <div className="flex items-center justify-between">
-                        <CardTitle className="font-headline text-lg">Photo Gallery</CardTitle>
+                        <CardTitle className="heading-sm">Photo Gallery</CardTitle>
                         <div className="flex items-center gap-1">
 
                             {/* Deletion Control */}

@@ -98,7 +98,7 @@ export function AlbumEditorToolbar({
                         </div>
                     ) : (
                         <div className="flex items-center gap-2 group">
-                            <span className="font-semibold">{albumName}</span>
+                            <span className="heading-sm">{albumName}</span>
                             <Pencil
                                 className="h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground opacity-50 group-hover:opacity-100 transition-opacity"
                                 onClick={() => setIsEditingTitle(true)}

@@ -105,7 +105,7 @@ export function AlbumConfigCard({
     return (
         <Card>
             <CardHeader className="pb-3">
-                <CardTitle className="font-headline text-lg">Album Config</CardTitle>
+                <CardTitle className="heading-sm">Album Config</CardTitle>
             </CardHeader>
             <CardContent>
                 <Form {...form}>
