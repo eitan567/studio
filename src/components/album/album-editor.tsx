@@ -107,6 +107,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const router = useRouter();
   const { signOut } = useAuth();
 
+
+
   // LOCAL photo state - decoupled from DB persistence
   // This allows transient states (isUploading) without triggering DB saves
   const [localPhotos, setLocalPhotos] = useState<Photo[]>([]);
@@ -646,11 +648,15 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
           {/* Main Content: Album Preview */}
           <div className="xl:col-span-7">
-            {isLoading ? (
+            {isLoading || isAlbumLoading ? (
               <div className="flex flex-col items-center justify-center h-[85vh] text-muted-foreground p-6 text-center animate-in fade-in duration-300 bg-muted/30 border-2 border-dashed rounded-lg">
                 <Loader2 className="h-12 w-12 mb-4 animate-spin text-primary" />
-                <h3 className="text-lg font-semibold mb-2">Generating Album Layout...</h3>
-                <p className="text-sm">Please wait while we prepare your pages.</p>
+                <h3 className="text-lg font-semibold mb-2">
+                  {isAlbumLoading ? "Loading Album..." : "Generating Album Layout..."}
+                </h3>
+                <p className="text-sm">
+                  {isAlbumLoading ? "Please wait while we fetch your data." : "Please wait while we prepare your pages."}
+                </p>
               </div>
             ) : (
               <AlbumPreview
@@ -678,7 +684,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
           <PhotoGalleryCard
             allPhotos={sortedPhotos}
-            isLoadingPhotos={isLoadingPhotos}
+            isLoadingPhotos={isLoadingPhotos || isAlbumLoading}
             photoUsageDetails={photoUsageDetails}
             chronologicalIndex={chronologicalIndex}
             emptySlots={emptySlots}
