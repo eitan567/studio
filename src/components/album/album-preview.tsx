@@ -995,7 +995,7 @@ const ScaledCoverPreview = React.memo(({
 
           {/* SPINE DEPTH EFFECT (Bottom Center) */}
           {!page.isCover && page.type === 'spread' && (
-            <div className="absolute bottom-[-2px] left-1/2 -translate-x-1/2 w-[40px] h-[10px] opacity-50 z-60 pointer-events-none">
+            <div className="absolute bottom-[-2px] left-1/2 -translate-x-1/2 w-[40px] h-[12px] opacity-50 z-60 pointer-events-none">
               <div className="w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-black/45 via-black/25 to-transparent rounded-b-xs" />
             </div>
           )}
@@ -1007,14 +1007,14 @@ const ScaledCoverPreview = React.memo(({
           style={{
             width: '98%',
             height: '94.5%',
-            top: '50.7%',
+            top: '50.4%',
             left: '50%',
             transform: 'translate(-50%, -50%)'
           }}
         />
 
         {/* LAYER 3: TOP MAIN PAGES CONTAINER */}
-        <div className="relative w-[97%] h-[95%] shadow-lg z-10 overflow-hidden rounded-sm bg-white">
+        <div className="relative w-[97%] h-[95%] shadow-lg z-10 overflow-hidden bg-white">
 
           {/* Full Content - AlbumCover renders the complete spread/cover */}
           <div className="absolute inset-0">
