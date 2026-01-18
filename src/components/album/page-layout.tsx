@@ -33,6 +33,8 @@ export interface PageLayoutProps {
     photoIndexOffset?: number;
     onRemovePhoto?: (pageId: string, photoId: string) => void;
     cornerRadius?: number;
+    // Background color for gap strokes (from album config)
+    backgroundColor?: string;
     // For suggestion fan feature
     allPhotos?: Photo[];
     previousPagePhotos?: Photo[];
@@ -51,6 +53,7 @@ const PageLayoutComponent = ({
     photoIndexOffset = 0,
     onRemovePhoto,
     cornerRadius = 0,
+    backgroundColor: configBackgroundColor,
     allPhotos = [],
     previousPagePhotos = []
 }: PageLayoutProps) => {
@@ -219,7 +222,7 @@ const PageLayoutComponent = ({
                             region={region}
                             photo={photo}
                             photoGap={gapValueNum}
-                            backgroundColor={page.backgroundColor || '#ffffff'}
+                            backgroundColor={page.backgroundColor || configBackgroundColor || '#ffffff'}
                             containerWidth={W}
                             containerHeight={H}
                             onUpdatePanAndZoom={(panAndZoom: PhotoPanAndZoom) => {

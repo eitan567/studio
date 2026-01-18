@@ -853,6 +853,7 @@ export const AlbumCover = ({
                             photoIndexOffset={0}
                             onRemovePhoto={onRemovePhoto}
                             cornerRadius={cornerRadius}
+                            backgroundColor={config?.backgroundColor}
                             allPhotos={allPhotos}
                             previousPagePhotos={previousPagePhotos}
                         />
@@ -891,6 +892,7 @@ export const AlbumCover = ({
                                 photoIndexOffset={0}
                                 onRemovePhoto={onRemovePhoto}
                                 cornerRadius={cornerRadius}
+                                backgroundColor={config?.backgroundColor}
                                 allPhotos={allPhotos}
                                 previousPagePhotos={previousPagePhotos}
                             />
@@ -952,6 +954,7 @@ export const AlbumCover = ({
                                 photoIndexOffset={backPhotoCount}
                                 onRemovePhoto={onRemovePhoto}
                                 cornerRadius={cornerRadius}
+                                backgroundColor={config?.backgroundColor}
                                 allPhotos={allPhotos}
                                 previousPagePhotos={previousPagePhotos}
                             />
