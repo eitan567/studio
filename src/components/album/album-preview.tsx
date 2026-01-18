@@ -918,6 +918,8 @@ const ScaledCoverPreview = React.memo(({
   onUpdatePhotoPanAndZoom,
   onInteractionChange,
   onRemovePhoto,
+  allPhotos = [],
+  previousPagePhotos = [],
 }: {
   page: AlbumPage;
   config: AlbumConfig;
@@ -926,6 +928,8 @@ const ScaledCoverPreview = React.memo(({
   onUpdatePhotoPanAndZoom?: any;
   onInteractionChange?: (isInteracting: boolean) => void;
   onRemovePhoto?: (pageId: string, photoId: string) => void;
+  allPhotos?: Photo[];
+  previousPagePhotos?: Photo[];
 }) => {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -984,6 +988,8 @@ const ScaledCoverPreview = React.memo(({
           onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
           onInteractionChange={onInteractionChange}
           onRemovePhoto={onRemovePhoto}
+          allPhotos={allPhotos}
+          previousPagePhotos={previousPagePhotos}
         />
         <div className="absolute inset-0 z-20 pointer-events-none">
           {page.titleText && (
@@ -1114,6 +1120,9 @@ export function AlbumPreview({
             const info = pageInfo[index];
             const isVisible = visiblePages.has(index);
 
+            // Calculate previousPagePhotos for suggestion fan
+            const previousPagePhotos = index > 0 ? (pages[index - 1]?.photos || []) : [];
+
             // Create effective config: visible pages get preview values, hidden pages keep actual values
             // Optimization: Reuse the 'config' object reference for hidden pages to allow memoization to work
             const effectiveConfig: AlbumConfig = (isVisible && (previewPhotoGap !== null || previewPageMargin !== null || previewCornerRadius !== null))
@@ -1195,6 +1204,8 @@ export function AlbumPreview({
                               onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
                               onInteractionChange={setIsInteracting}
                               onRemovePhoto={onRemovePhoto}
+                              allPhotos={allPhotos}
+                              previousPagePhotos={previousPagePhotos}
                             />
                           ) : page.type === 'spread' ? (
                             <div className="relative h-full w-full">
@@ -1210,6 +1221,8 @@ export function AlbumPreview({
                                 onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
                                 onInteractionChange={setIsInteracting}
                                 onRemovePhoto={onRemovePhoto}
+                                allPhotos={allPhotos}
+                                previousPagePhotos={previousPagePhotos}
                               />
                             </div>
                           ) : (
@@ -1220,6 +1233,8 @@ export function AlbumPreview({
                               onDropPhoto={onDropPhoto}
                               onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
                               onRemovePhoto={onRemovePhoto}
+                              allPhotos={allPhotos}
+                              previousPagePhotos={previousPagePhotos}
                             />
                           )}
 

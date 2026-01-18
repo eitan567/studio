@@ -11,13 +11,14 @@ interface PhotoRendererProps {
   onInteractionChange?: (isInteracting: boolean) => void;
   useSimpleImage?: boolean;
   onRemove?: () => void;
+  onReplace?: (e: React.MouseEvent, anchorElement?: HTMLElement) => void;
   // For CTRL+drag swapping between frames
   pageId?: string;
   photoId?: string;
 }
 
 // Using memo to prevent re-rendering of all photos when only one is being updated
-export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onInteractionChange, useSimpleImage, onRemove, pageId, photoId }: PhotoRendererProps) {
+export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onInteractionChange, useSimpleImage, onRemove, onReplace, pageId, photoId }: PhotoRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLDivElement>(null);
   const isInteracting = useRef(false);
@@ -325,6 +326,37 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
             <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
             <line x1="10" x2="10" y1="11" y2="17" />
             <line x1="14" x2="14" y1="11" y2="17" />
+          </svg>
+        </button>
+      )}
+
+      {onReplace && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onReplace(e, containerRef.current || undefined);
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          className="absolute top-2 left-2 p-1.5 bg-black/50 text-white/70 rounded-sm hover:text-primary opacity-0 group-hover:opacity-100 transition-all z-[200] pointer-events-auto"
+          title="Replace Photo"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+            <path d="M21 3v5h-5" />
+            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+            <path d="M8 16H3v5" />
           </svg>
         </button>
       )}

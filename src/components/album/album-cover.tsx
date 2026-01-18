@@ -38,6 +38,10 @@ export interface AlbumCoverProps {
     // For Preview-specific legacy support or extra overlays
     onUpdateTitleSettings?: (pageId: string, settings: any) => void;
     useSimpleImage?: boolean;
+
+    // For suggestion fan feature
+    allPhotos?: Photo[];
+    previousPagePhotos?: Photo[];
 }
 
 // --- Internal Helper Components ---
@@ -568,7 +572,9 @@ export const AlbumCover = ({
     onInteractionChange,
     onRemovePhoto,
     // onUpdateTitleSettings
-    useSimpleImage
+    useSimpleImage,
+    allPhotos = [],
+    previousPagePhotos = []
 }: AlbumCoverProps) => {
     const containerRef = useRef<HTMLDivElement>(null);
     // Optimization: Local state for drag positions to avoid global re-renders
@@ -847,6 +853,8 @@ export const AlbumCover = ({
                             photoIndexOffset={0}
                             onRemovePhoto={onRemovePhoto}
                             cornerRadius={cornerRadius}
+                            allPhotos={allPhotos}
+                            previousPagePhotos={previousPagePhotos}
                         />
                     </div>
                 </div>
@@ -883,6 +891,8 @@ export const AlbumCover = ({
                                 photoIndexOffset={0}
                                 onRemovePhoto={onRemovePhoto}
                                 cornerRadius={cornerRadius}
+                                allPhotos={allPhotos}
+                                previousPagePhotos={previousPagePhotos}
                             />
                         </div>
                     </div>
@@ -942,6 +952,8 @@ export const AlbumCover = ({
                                 photoIndexOffset={backPhotoCount}
                                 onRemovePhoto={onRemovePhoto}
                                 cornerRadius={cornerRadius}
+                                allPhotos={allPhotos}
+                                previousPagePhotos={previousPagePhotos}
                             />
                         </div>
                     </div>

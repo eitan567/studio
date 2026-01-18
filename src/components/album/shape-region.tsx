@@ -20,6 +20,7 @@ export const ShapeRegion = ({
     onDragLeave,
     isDragOver = false,
     onRemovePhoto,
+    onReplace,
     cornerRadius = 0,
 }: {
     region: LayoutRegion;
@@ -36,8 +37,10 @@ export const ShapeRegion = ({
     onDragLeave?: (e: React.DragEvent) => void;
     isDragOver?: boolean;
     onRemovePhoto?: (photoId: string) => void;
+    onReplace?: (e: React.MouseEvent, anchorElement?: HTMLElement) => void;
     cornerRadius?: number;
 }) => {
+    const rootRef = React.useRef<HTMLDivElement>(null);
     // Unique ID for the mask (though we use clip-path now, keeping IDs unique is good practice)
     const shapeId = `shape-${region.id}`;
 
@@ -165,9 +168,44 @@ export const ShapeRegion = ({
                 onUpdate={(pz) => onUpdatePanAndZoom?.(pz)}
                 onInteractionChange={onInteractionChange}
                 onRemove={() => onRemovePhoto?.(photo.id)}
+                // We ALWAYS render the replace button externally in ShapeRegion to prevent clipping.
+                // So we do NOT pass onReplace to PhotoRenderer here.
+                onReplace={undefined}
             />
         );
     };
+
+    // Shared Replace Button logic - Always render if photo exists
+    const replaceButton = photo && photo.src && onReplace && (
+        <button
+            type="button"
+            onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onReplace(e, rootRef.current || undefined);
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="absolute top-2 left-2 p-1.5 bg-black/50 text-white/70 rounded-sm hover:text-primary opacity-0 group-hover:opacity-100 transition-all z-[200] pointer-events-auto"
+            title="Replace Photo"
+        >
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            >
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                <path d="M21 3v5h-5" />
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                <path d="M8 16H3v5" />
+            </svg>
+        </button>
+    );
 
     // Local clip-path calculation using the adjusted container's relative coordinates
     const clipPathStyle = isCircle ? 'circle(closest-side)' : (
@@ -207,28 +245,44 @@ export const ShapeRegion = ({
         if (photoId) onDrop(photoId);
     };
 
-    // CLEAN RECT PATH: 1:1 Parity with Grid Slots
+    // CLEAN RECT PATH: 1:1 Parity with Grid Slots, but with wrapper for Replace Button
     if (isRect) {
         return (
             <div
+                ref={rootRef}
                 id={shapeId}
                 className={cn(
-                    "absolute pointer-events-auto transition-all duration-200 overflow-hidden group",
-                    "ring-2 ring-transparent hover:ring-primary/20",
-                    isDragOver && "ring-primary ring-offset-2",
-                    isDragOver && (!photo || !photo.src) && "bg-primary/10"
+                    "absolute pointer-events-auto transition-all duration-200 group",
+                    (!photo || !photo.src) && "cursor-pointer"
                 )}
-                style={{
-                    ...commonStyle,
-                    borderRadius: `${cornerRadius}px`,
-                    backgroundColor: photoGapNum > 0 ? backgroundColor : 'transparent',
-                    ['--tw-ring-offset-color' as any]: backgroundColor,
+                style={commonStyle}
+                onClick={(e) => {
+                    if ((!photo || !photo.src) && onReplace) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onReplace(e, rootRef.current || undefined);
+                    }
                 }}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
             >
-                {renderContent()}
+                <div
+                    className={cn(
+                        "absolute inset-0 overflow-hidden transition-all duration-200",
+                        "ring-2 ring-transparent hover:ring-primary/20",
+                        isDragOver && "ring-primary ring-offset-2",
+                        isDragOver && (!photo || !photo.src) && "bg-primary/10"
+                    )}
+                    style={{
+                        borderRadius: `${cornerRadius}px`,
+                        backgroundColor: photoGapNum > 0 ? backgroundColor : 'transparent',
+                        ['--tw-ring-offset-color' as any]: backgroundColor,
+                    }}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                >
+                    {renderContent()}
+                </div>
+                {replaceButton}
             </div>
         );
     }
@@ -236,9 +290,20 @@ export const ShapeRegion = ({
     // ADVANCED PATH: SVG/Clip-Path for Circles and Polygons
     return (
         <div
+            ref={rootRef}
             id={shapeId}
-            className="absolute pointer-events-auto transition-all duration-200 group"
+            className={cn(
+                "absolute pointer-events-auto transition-all duration-200 group",
+                (!photo || !photo.src) && "cursor-pointer"
+            )}
             style={commonStyle}
+            onClick={(e) => {
+                if ((!photo || !photo.src) && onReplace) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onReplace(e, rootRef.current || undefined);
+                }
+            }}
         >
             <div
                 className={cn(
@@ -336,6 +401,9 @@ export const ShapeRegion = ({
                     )}
                 </g>
             </svg>
+
+            {/* Replace Button (Outside of clip-path for visibility) */}
+            {replaceButton}
         </div>
     );
 };

@@ -7,6 +7,7 @@ import { EmptyPhotoSlot } from './empty-photo-slot';
 import { ADVANCED_TEMPLATES } from '@/lib/advanced-layout-types';
 import { ShapeRegion } from './shape-region';
 import { rotateGridTemplate, rotateAdvancedTemplate, RotationAngle } from '@/lib/template-rotation';
+import { SuggestionFan } from './suggestion-fan';
 
 // Parse layout ID to extract base template and rotation
 function parseLayoutId(layoutId: string): { baseId: string; rotation: RotationAngle } {
@@ -32,6 +33,9 @@ export interface PageLayoutProps {
     photoIndexOffset?: number;
     onRemovePhoto?: (pageId: string, photoId: string) => void;
     cornerRadius?: number;
+    // For suggestion fan feature
+    allPhotos?: Photo[];
+    previousPagePhotos?: Photo[];
 }
 
 const PageLayoutComponent = ({
@@ -46,7 +50,9 @@ const PageLayoutComponent = ({
     useSimpleImage,
     photoIndexOffset = 0,
     onRemovePhoto,
-    cornerRadius = 0
+    cornerRadius = 0,
+    allPhotos = [],
+    previousPagePhotos = []
 }: PageLayoutProps) => {
     const photos = overridePhotos || page.photos;
     const rawLayout = overrideLayout || page.layout;
@@ -88,6 +94,87 @@ const PageLayoutComponent = ({
     const containerRef = React.useRef<HTMLDivElement>(null);
     const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
+    // Suggestion fan state
+    const [suggestionAnchor, setSuggestionAnchor] = useState<{ rect: DOMRect; slotIndex: number } | null>(null);
+
+    // Calculate suggestions based on highest photo index on current/previous page
+    const getSuggestions = (): Photo[] => {
+        if (allPhotos.length === 0) return [];
+
+        // Find photos with src (non-empty) on current page
+        const currentPagePhotos = photos.filter(p => p.src);
+
+        // Use current page photos, or fallback to previous page
+        const referencePhotos = currentPagePhotos.length > 0 ? currentPagePhotos : previousPagePhotos.filter(p => p.src);
+
+        if (referencePhotos.length === 0) {
+            // No reference, return first 4 unused photos
+            const usedIds = new Set(photos.filter(p => p.src).map(p => p.originalId || p.id));
+            return allPhotos.filter(p => !usedIds.has(p.id)).slice(0, 4);
+        }
+
+        // Find highest index in allPhotos that matches any reference photo's originalId
+        let highestIndex = -1;
+        referencePhotos.forEach(refPhoto => {
+            const originalId = refPhoto.originalId || refPhoto.id;
+            const idx = allPhotos.findIndex(p => p.id === originalId);
+            if (idx > highestIndex) highestIndex = idx;
+        });
+
+        // Get 4 photos BEFORE the highest index and 4 photos AFTER
+        const beforePhotos: Photo[] = [];
+        const afterPhotos: Photo[] = [];
+
+        // 4 photos after (higher index)
+        for (let i = 1; i <= 4 && highestIndex + i < allPhotos.length; i++) {
+            afterPhotos.push(allPhotos[highestIndex + i]);
+        }
+
+        // 4 photos before (lower index)
+        for (let i = 1; i <= 4 && highestIndex - i >= 0; i++) {
+            beforePhotos.unshift(allPhotos[highestIndex - i]);
+        }
+
+        // Return: first the "after" photos, then the "before" photos
+        return [...afterPhotos, ...beforePhotos];
+    };
+
+    const handleEmptySlotClick = (e: React.MouseEvent, slotIndex: number, anchorElement?: HTMLElement) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const target = anchorElement || (e.currentTarget as HTMLElement);
+        const domRect = target.getBoundingClientRect();
+        // Explicitly copy properties because DOMRect properties are not enumerable in some contexts
+        const rect = {
+            top: domRect.top,
+            left: domRect.left,
+            width: domRect.width,
+            height: domRect.height,
+            bottom: domRect.bottom,
+            right: domRect.right,
+            x: domRect.x,
+            y: domRect.y
+        } as DOMRect; // Cast to satisfy type, though it's compatible structural type
+
+        setSuggestionAnchor({ rect, slotIndex });
+    };
+
+    const handleSuggestionSelect = (photo: Photo, slotIndex: number) => {
+        // Calculate array index from slotIndex (which is actualIndex)
+        const arrayIndex = slotIndex - (photoIndexOffset || 0);
+        const targetPhoto = photos[arrayIndex];
+
+        if (targetPhoto && targetPhoto.src) {
+            // Replace existing photo
+            onDropPhoto(page.id, targetPhoto.id, photo.id);
+        } else {
+            // Insert into empty slot
+            onDropPhoto(page.id, `__INSERT_AT__${slotIndex}`, photo.id);
+        }
+        setSuggestionAnchor(null);
+    };
+
     // Measure container for Advanced Templates (needed for pixel-perfect SVG gaps)
     React.useEffect(() => {
         if (!containerRef.current) return;
@@ -127,192 +214,158 @@ const PageLayoutComponent = ({
                     const actualIndex = index + photoIndexOffset;
 
                     return (
-                        <div
+                        <ShapeRegion
                             key={region.id || index}
-                            className="absolute inset-0 pointer-events-none" // Child (ShapeRegion) will use pointer-events-auto with clip-path
-                        // Actually ShapeRegion is div absolute. We just render it.
-                        // But we need Drag & Drop wrappers?
-                        // ShapeRegion currently has 'PhotoRenderer'.
-                        // It does NOT have Drag & Drop logic integrated fully?
-                        // In LayoutCanvas it was just for Editing (Pan/Zoom).
-                        // Here in PageLayout we need DROP capability.
-                        >
-                            {/* 
-                              WAIT: ShapeRegion in editor (LayoutCanvas) didn't handle Drop.
-                              PageLayout needs onDrop.
-                              We need to wrap ShapeRegion or pass onDrop to it?
-                              ShapeRegion renders PhotoRenderer.
-                              PhotoRenderer renders Image.
-                              We need the 'Drop Target' logic.
-                              
-                              Recap: ShapeRegion takes `photo` prop.
-                              It renders `PhotoRenderer` inside `foreignObject`.
-                              We can wrap the ShapeRegion in a div that handles Drop?
-                              But ShapeRegion is absolute positioned by `left/top/width/height`.
-                              If we wrap strictly, we match that geometry.
-                           */}
-                            <ShapeRegion
-                                region={region}
-                                photo={photo}
-                                photoGap={gapValueNum}
-                                backgroundColor={page.backgroundColor || '#ffffff'} // Use page bg for gap strokes
-                                containerWidth={W}
-                                containerHeight={H}
-                                onUpdatePanAndZoom={(panAndZoom: PhotoPanAndZoom) => {
-                                    if (photo?.id) {
-                                        onUpdatePhotoPanAndZoom(page.id, photo.id, panAndZoom);
-                                    }
-                                }}
-                                onInteractionChange={onInteractionChange}
-                                onDrop={(droppedPhotoId) => {
-                                    // For empty slots, use INSERT_AT format; for existing photos, use photo.id
-                                    const targetId = photo?.id || `__INSERT_AT__${actualIndex}`;
-                                    onDropPhoto(page.id, targetId, droppedPhotoId);
-                                    setDragOverPhotoId(null);
-                                }}
-                                onDragOver={() => setDragOverPhotoId(photo?.id || `__empty_${actualIndex}`)}
-                                onDragLeave={() => setDragOverPhotoId(null)}
-                                isDragOver={dragOverPhotoId === (photo?.id || `__empty_${actualIndex}`)}
-                                onRemovePhoto={(photoId) => onRemovePhoto?.(page.id, photoId)}
-                                cornerRadius={cornerRadius}
-                            />
-                            {/* Overlay for Drop Target? 
-                                ShapeRegion is complex SVG. 
-                                Checking intersection for Drop on a polygon is hard.
-                                But 'pointer-events' on the SVG mask should handle mouse over?
-                                
-                                Issue: PageLayout implements onDrop.
-                                ShapeRegion component currently doesn't accept onDrop.
-                                I should render a 'DropZone' ON TOP of ShapeRegion?
-                                Or adding onDrop to ShapeRegion?
-                                
-                                For now, I will modify ShapeRegion later to support Drop?
-                                Or assuming user will drag onto the visual 'image' which catches events?
-                                
-                                In existing Grid layout:
-                                div onDrop={...} contains PhotoRenderer.
-                                
-                                The ShapeRegion renders the `div style={{ left... }}`.
-                                I can attach onDrop to the ShapeRegion container?
-                                ShapeRegion component doesn't expose `...props` to the root div.
-                                
-                                I should update ShapeRegion to accept `className` or events?
-                                
-                                Temporarily: Advanced Templates might not support Drag-Drop Reorder easily without update.
-                                But let's get them Rendering first.
-                            */}
-                        </div>
+                            region={region}
+                            photo={photo}
+                            photoGap={gapValueNum}
+                            backgroundColor={page.backgroundColor || '#ffffff'}
+                            containerWidth={W}
+                            containerHeight={H}
+                            onUpdatePanAndZoom={(panAndZoom: PhotoPanAndZoom) => {
+                                if (photo?.id) {
+                                    onUpdatePhotoPanAndZoom(page.id, photo.id, panAndZoom);
+                                }
+                            }}
+                            onInteractionChange={onInteractionChange}
+                            onDrop={(droppedPhotoId) => {
+                                const targetId = photo?.id || `__INSERT_AT__${actualIndex}`;
+                                onDropPhoto(page.id, targetId, droppedPhotoId);
+                                setDragOverPhotoId(null);
+                            }}
+                            onDragOver={() => setDragOverPhotoId(photo?.id || `__empty_${actualIndex}`)}
+                            onDragLeave={() => setDragOverPhotoId(null)}
+                            isDragOver={dragOverPhotoId === (photo?.id || `__empty_${actualIndex}`)}
+                            onRemovePhoto={(photoId) => onRemovePhoto?.(page.id, photoId)}
+                            onReplace={(e, anchor) => handleEmptySlotClick(e, actualIndex, anchor)}
+                            cornerRadius={cornerRadius}
+                        />
                     );
                 })}
-                {/* 
-                   Correction: The Map above renders ShapeRegions. 
-                   They are absolute.
-                   We need to handle the 'Empty Slot' case. 
-                   ShapeRegion handles empty photo internally (Renders placeholder).
-                   But does it handle DROP?
-                   ShapeRegion internal placeholder has no onDrop.
-                   
-                   I MUST add `onDrop` support to ShapeRegion.
-                   
-                   For this step, I will Render them. 
-                   I will note that Drop might be missing.
-                */}
+
+                {/* Suggestion Fan Portal - Must be in BOTH template paths! */}
+                {suggestionAnchor && (
+                    <SuggestionFan
+                        key={`fan-${suggestionAnchor.slotIndex}`}
+                        suggestions={getSuggestions()}
+                        onSelect={(photo) => handleSuggestionSelect(photo, suggestionAnchor.slotIndex)}
+                        onClose={() => setSuggestionAnchor(null)}
+                        anchorRect={suggestionAnchor.rect}
+                    />
+                )}
             </div>
         );
     }
 
     // --- Render Grid Template (Legacy) ---
     return (
-        <div
-            ref={containerRef}
-            className={cn("grid grid-cols-12 grid-rows-12 h-full w-full")}
-            style={{ gap: gapValueStr }}
-        >
-            {template && template.grid.map((gridClass, index) => {
-                const photo = photos[index];
-                const actualIndex = index + photoIndexOffset;
-                const emptySlotId = `__empty_${actualIndex}`;
+        <>
+            <div
+                ref={containerRef}
+                className={cn("grid grid-cols-12 grid-rows-12 h-full w-full")}
+                style={{ gap: gapValueStr }}
+            >
+                {template && template.grid.map((gridClass, index) => {
+                    const photo = photos[index];
+                    const actualIndex = index + photoIndexOffset;
+                    const emptySlotId = `__empty_${actualIndex}`;
 
-                /* Allow dropping on empty slots too */
-                if (!photo) {
+                    /* Allow dropping on empty slots too - check for missing photo OR empty src */
+                    if (!photo || !photo.src) {
+                        return (
+                            <div
+                                key={index}
+                                className={cn(gridClass, "cursor-pointer")}
+                                onClick={(e) => handleEmptySlotClick(e, actualIndex)}
+                            >
+                                <EmptyPhotoSlot
+                                    className={cn(
+                                        dragOverPhotoId === emptySlotId && "ring-2 ring-primary ring-offset-2 bg-primary/10"
+                                    )}
+                                    style={{ borderRadius: `${cornerRadius}px` }}
+                                    onDragOver={(e) => {
+                                        e.preventDefault();
+                                        setDragOverPhotoId(emptySlotId);
+                                    }}
+                                    onDragLeave={() => setDragOverPhotoId(null)}
+                                    onDrop={(e) => {
+                                        e.preventDefault();
+                                        setDragOverPhotoId(null);
+                                        const droppedPhotoId = e.dataTransfer.getData('photoId');
+                                        if (droppedPhotoId) {
+                                            // Use special ID format to indicate insertion at index
+                                            onDropPhoto(page.id, `__INSERT_AT__${actualIndex}`, droppedPhotoId);
+                                        }
+                                    }}
+                                />
+                            </div>
+                        );
+                    }
+
                     return (
                         <div
-                            key={index}
-                            className={gridClass}
-                        >
-                            <EmptyPhotoSlot
-                                className={cn(
-                                    dragOverPhotoId === emptySlotId && "ring-2 ring-primary ring-offset-2 bg-primary/10"
-                                )}
-                                style={{ borderRadius: `${cornerRadius}px` }}
-                                onDragOver={(e) => {
-                                    e.preventDefault();
-                                    setDragOverPhotoId(emptySlotId);
-                                }}
-                                onDragLeave={() => setDragOverPhotoId(null)}
-                                onDrop={(e) => {
-                                    e.preventDefault();
-                                    setDragOverPhotoId(null);
-                                    const droppedPhotoId = e.dataTransfer.getData('photoId');
-                                    if (droppedPhotoId) {
-                                        // Use special ID format to indicate insertion at index
-                                        onDropPhoto(page.id, `__INSERT_AT__${actualIndex}`, droppedPhotoId);
+                            key={photo.id}
+                            className={cn(
+                                "relative overflow-hidden transition-all duration-200 group ring-2 ring-transparent hover:ring-primary/20",
+                                gridClass,
+                                dragOverPhotoId === photo.id && "ring-2 ring-primary ring-offset-2"
+                            )}
+                            style={{ borderRadius: `${cornerRadius}px` }}
+                            onDragOver={(e) => {
+                                e.preventDefault();
+                                setDragOverPhotoId(photo.id);
+                            }}
+                            onDragLeave={() => setDragOverPhotoId(null)}
+                            onDrop={(e) => {
+                                e.preventDefault();
+                                setDragOverPhotoId(null);
+
+                                // Check if this is an album-to-album swap (CTRL+drag from another frame)
+                                const albumPhotoId = e.dataTransfer.getData('albumPhotoId');
+                                const sourcePageId = e.dataTransfer.getData('sourcePageId');
+
+                                if (albumPhotoId && sourcePageId) {
+                                    // Album-to-album swap
+                                    if (albumPhotoId !== photo.id) {
+                                        onDropPhoto(page.id, photo.id, albumPhotoId, { pageId: sourcePageId, photoId: albumPhotoId });
                                     }
-                                }}
+                                } else {
+                                    // Regular gallery drop
+                                    const droppedPhotoId = e.dataTransfer.getData('photoId');
+                                    if (droppedPhotoId && droppedPhotoId !== photo.id) {
+                                        onDropPhoto(page.id, photo.id, droppedPhotoId);
+                                    }
+                                }
+                            }}
+                        >
+                            <PhotoRenderer
+                                photo={photo}
+                                onUpdate={(panAndZoom) => onUpdatePhotoPanAndZoom(page.id, photo.id, panAndZoom)}
+                                onInteractionChange={onInteractionChange}
+                                useSimpleImage={useSimpleImage}
+                                onRemove={() => onRemovePhoto?.(page.id, photo.id)}
+                                onReplace={(e, anchor) => handleEmptySlotClick(e, actualIndex, anchor)}
+                                pageId={page.id}
+                                photoId={photo.id}
                             />
                         </div>
                     );
-                }
+                })}
+            </div>
 
-                return (
-                    <div
-                        key={photo.id}
-                        className={cn(
-                            "relative overflow-hidden transition-all duration-200 group ring-2 ring-transparent hover:ring-primary/20",
-                            gridClass,
-                            dragOverPhotoId === photo.id && "ring-2 ring-primary ring-offset-2"
-                        )}
-                        style={{ borderRadius: `${cornerRadius}px` }}
-                        onDragOver={(e) => {
-                            e.preventDefault();
-                            setDragOverPhotoId(photo.id);
-                        }}
-                        onDragLeave={() => setDragOverPhotoId(null)}
-                        onDrop={(e) => {
-                            e.preventDefault();
-                            setDragOverPhotoId(null);
-
-                            // Check if this is an album-to-album swap (CTRL+drag from another frame)
-                            const albumPhotoId = e.dataTransfer.getData('albumPhotoId');
-                            const sourcePageId = e.dataTransfer.getData('sourcePageId');
-
-                            if (albumPhotoId && sourcePageId) {
-                                // Album-to-album swap
-                                if (albumPhotoId !== photo.id) {
-                                    onDropPhoto(page.id, photo.id, albumPhotoId, { pageId: sourcePageId, photoId: albumPhotoId });
-                                }
-                            } else {
-                                // Regular gallery drop
-                                const droppedPhotoId = e.dataTransfer.getData('photoId');
-                                if (droppedPhotoId && droppedPhotoId !== photo.id) {
-                                    onDropPhoto(page.id, photo.id, droppedPhotoId);
-                                }
-                            }
-                        }}
-                    >
-                        <PhotoRenderer
-                            photo={photo}
-                            onUpdate={(panAndZoom) => onUpdatePhotoPanAndZoom(page.id, photo.id, panAndZoom)}
-                            onInteractionChange={onInteractionChange}
-                            useSimpleImage={useSimpleImage}
-                            onRemove={() => onRemovePhoto?.(page.id, photo.id)}
-                            pageId={page.id}
-                            photoId={photo.id}
-                        />
-                    </div>
-                );
-            })}
-        </div>
+            {/* Suggestion Fan Portal */}
+            {
+                suggestionAnchor && (
+                    <SuggestionFan
+                        key={`fan-${suggestionAnchor.slotIndex}`}
+                        suggestions={getSuggestions()}
+                        onSelect={(photo) => handleSuggestionSelect(photo, suggestionAnchor.slotIndex)}
+                        onClose={() => setSuggestionAnchor(null)}
+                        anchorRect={suggestionAnchor.rect}
+                    />
+                )
+            }
+        </>
     );
 };
 
