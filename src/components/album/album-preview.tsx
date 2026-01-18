@@ -1173,8 +1173,12 @@ export function AlbumPreview({
 
   return (
     <div className="w-full relative">
-      <ScrollArea ref={scrollAreaRef} className="h-[85vh] w-full" style={{ overflowY: isInteracting ? 'hidden' : 'auto' }}>
-        <div className="space-y-8">
+      <ScrollArea
+        ref={scrollAreaRef}
+        className="h-[85vh] w-full"
+        style={{ overflowY: isInteracting ? 'hidden' : 'auto' }}
+      >
+        <div className="space-y-8 py-6">
           {pages.map((page, index) => {
             const info = pageInfo[index];
             const isVisible = visiblePages.has(index);

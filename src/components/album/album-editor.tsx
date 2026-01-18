@@ -622,7 +622,16 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           }}
         />
 
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 p-6 flex-1 overflow-hidden">
+        <div
+          className="grid grid-cols-1 xl:grid-cols-12 gap-6 p-6 flex-1 overflow-hidden bg-muted/30 dark:bg-muted/10"
+          style={{
+            backgroundImage: `
+              linear-gradient(to right, hsl(var(--foreground) / 0.04) 1px, transparent 1px),
+              linear-gradient(to bottom, hsl(var(--foreground) / 0.04) 1px, transparent 1px)
+            `,
+            backgroundSize: '20px 20px'
+          }}
+        >
           {/* Left Sidebar: Config & Tools */}
           <div className="xl:col-span-2 space-y-6">
             {isClient && (
