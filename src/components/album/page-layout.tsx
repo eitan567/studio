@@ -233,16 +233,31 @@ const PageLayoutComponent = ({
                                 }
                             }}
                             onInteractionChange={onInteractionChange}
-                            onDrop={(droppedPhotoId) => {
-                                const targetId = photo?.id || `__INSERT_AT__${actualIndex}`;
-                                onDropPhoto(page.id, targetId, droppedPhotoId);
+                            onDrop={(e) => {
                                 setDragOverPhotoId(null);
+                                const albumPhotoId = e.dataTransfer.getData('albumPhotoId');
+                                const sourcePageId = e.dataTransfer.getData('sourcePageId');
+
+                                if (albumPhotoId && sourcePageId) {
+                                    // Album Swap - only allowed if target has a photo
+                                    if (photo?.id && albumPhotoId !== photo.id) {
+                                        onDropPhoto(page.id, photo.id, albumPhotoId, { pageId: sourcePageId, photoId: albumPhotoId });
+                                    }
+                                } else {
+                                    // Gallery Drop
+                                    const droppedPhotoId = e.dataTransfer.getData('photoId');
+                                    const targetId = photo?.id || `__INSERT_AT__${actualIndex}`;
+                                    if (droppedPhotoId) {
+                                        onDropPhoto(page.id, targetId, droppedPhotoId);
+                                    }
+                                }
                             }}
                             onDragOver={() => setDragOverPhotoId(photo?.id || `__empty_${actualIndex}`)}
                             onDragLeave={() => setDragOverPhotoId(null)}
                             isDragOver={dragOverPhotoId === (photo?.id || `__empty_${actualIndex}`)}
                             onRemovePhoto={(photoId) => onRemovePhoto?.(page.id, photoId)}
                             onReplace={(e, anchor) => handleEmptySlotClick(e, actualIndex, anchor)}
+                            pageId={page.id}
                             cornerRadius={cornerRadius}
                         />
                     );

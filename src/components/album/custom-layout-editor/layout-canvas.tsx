@@ -126,6 +126,7 @@ export const LayoutCanvas = ({ page, config, onUpdatePage, advancedTemplate }: L
                                     }
                                 }}
                                 onInteractionChange={handleInteractionChange}
+                                pageId={page.id}
                             />
                         );
                     })}

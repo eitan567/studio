@@ -21,6 +21,7 @@ export const ShapeRegion = ({
     isDragOver = false,
     onRemovePhoto,
     onReplace,
+    pageId,
     cornerRadius = 0,
 }: {
     region: LayoutRegion;
@@ -32,12 +33,13 @@ export const ShapeRegion = ({
     onUpdatePanAndZoom?: (panAndZoom: any) => void;
     onInteractionChange?: (isInteracting: boolean) => void;
     isPreview?: boolean;
-    onDrop?: (photoId: string) => void;
+    onDrop?: (e: React.DragEvent) => void;
     onDragOver?: (e: React.DragEvent) => void;
     onDragLeave?: (e: React.DragEvent) => void;
     isDragOver?: boolean;
     onRemovePhoto?: (photoId: string) => void;
     onReplace?: (e: React.MouseEvent, anchorElement?: HTMLElement) => void;
+    pageId?: string;
     cornerRadius?: number;
 }) => {
     const rootRef = React.useRef<HTMLDivElement>(null);
@@ -171,6 +173,8 @@ export const ShapeRegion = ({
                 // We ALWAYS render the replace button externally in ShapeRegion to prevent clipping.
                 // So we do NOT pass onReplace to PhotoRenderer here.
                 onReplace={undefined}
+                pageId={pageId}
+                photoId={photo.id}
             />
         );
     };
@@ -241,8 +245,7 @@ export const ShapeRegion = ({
         if (isPreview || !onDrop) return;
         e.preventDefault();
         e.stopPropagation();
-        const photoId = e.dataTransfer.getData('photoId');
-        if (photoId) onDrop(photoId);
+        onDrop(e);
     };
 
     // CLEAN RECT PATH: 1:1 Parity with Grid Slots, but with wrapper for Replace Button
