@@ -197,12 +197,24 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
     requestAnimationFrame(applyTransform);
   };
 
+  // Store values at the start of interaction to check for changes
+  const initialValues = useRef<PhotoPanAndZoom | null>(null);
+
   const handleGlobalMouseUp = () => {
     if (!isInteracting.current) return;
     isInteracting.current = false;
     if (containerRef.current) containerRef.current.style.cursor = 'grab';
     onInteractionChange?.(false);
-    commitChanges();
+
+    // Only commit if values actually changed
+    if (initialValues.current) {
+      const { scale, x, y } = currentValues.current;
+      const init = initialValues.current;
+      if (scale !== init.scale || x !== init.x || y !== init.y) {
+        commitChanges();
+      }
+    }
+    initialValues.current = null;
 
     window.removeEventListener('mousemove', handleGlobalMouseMove);
     window.removeEventListener('mouseup', handleGlobalMouseUp);
@@ -212,6 +224,9 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
     e.preventDefault();
     e.stopPropagation();
     isInteracting.current = true;
+    // Capture initial values
+    initialValues.current = { ...currentValues.current };
+
     dragStart.current = { x: e.clientX, y: e.clientY };
     if (containerRef.current) containerRef.current.style.cursor = 'grabbing';
     onInteractionChange?.(true);

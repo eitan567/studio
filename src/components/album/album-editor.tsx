@@ -169,7 +169,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     handleDeletePhotos,
     photoScrollRef,
     folderUploadRef,
-    photoUploadRef
+    photoUploadRef,
+    sortedPhotos
   } = usePhotoGalleryManager({
     allPhotos,
     setAllPhotos,
@@ -343,11 +344,10 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     exporterRef.current?.exportAlbum();
   };
 
-  // Wrapper: updates local state and saves to config
+  // Wrapper: updates local state only (no config persistence)
   const setMultiSelectMode = useCallback((value: boolean) => {
     setMultiSelectModeLocal(value);
-    updateConfig({ multiSelectMode: value });
-  }, [updateConfig]);
+  }, []);
 
   const handleColorChange = (color: string) => {
     // Clear previous timeout
@@ -677,7 +677,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           </div>
 
           <PhotoGalleryCard
-            allPhotos={allPhotos}
+            allPhotos={sortedPhotos}
             isLoadingPhotos={isLoadingPhotos}
             photoUsageDetails={photoUsageDetails}
             chronologicalIndex={chronologicalIndex}

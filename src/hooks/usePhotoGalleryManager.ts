@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Photo } from '@/lib/types';
 import { usePhotoUpload } from '@/hooks/usePhotoUpload';
@@ -209,37 +209,36 @@ export function usePhotoGalleryManager({
         const nextDirection = sortDirection === 'asc' ? 'desc' : 'asc';
         setSortDirection(nextDirection);
 
-        setAllPhotos(currentPhotos => {
-            return [...currentPhotos].sort((a, b) => {
-                const dateA = a.captureDate ? new Date(a.captureDate).getTime() : 0;
-                const dateB = b.captureDate ? new Date(b.captureDate).getTime() : 0;
-
-                // Both have dates - sort by date
-                if (dateA && dateB) {
-                    const diff = nextDirection === 'asc' ? dateA - dateB : dateB - dateA;
-                    if (diff !== 0) return diff;
-                }
-
-                // One has date, one doesn't - photos with dates come first
-                if (dateA && !dateB) return -1;
-                if (!dateA && dateB) return 1;
-
-                // Neither has date (or dates are equal) - use ID as stable fallback
-                // This ensures sorting "toggles" consistently even without dates
-                return nextDirection === 'asc'
-                    ? a.id.localeCompare(b.id)
-                    : b.id.localeCompare(a.id);
-            });
-        });
-
-        // Toast AFTER state updates, not inside setState callback
+        // Toast AFTER state updates
         toast({
             title: "Sorted",
             description: nextDirection === 'asc'
                 ? "Photos sorted by date (Oldest -> Newest)"
                 : "Photos sorted by date (Newest -> Oldest)"
         });
-    }, [sortDirection, setAllPhotos, toast]);
+    }, [sortDirection, toast]);
+
+    const sortedPhotos = useMemo(() => {
+        return [...allPhotos].sort((a, b) => {
+            const dateA = a.captureDate ? new Date(a.captureDate).getTime() : 0;
+            const dateB = b.captureDate ? new Date(b.captureDate).getTime() : 0;
+
+            // Both have dates - sort by date
+            if (dateA && dateB) {
+                const diff = sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+                if (diff !== 0) return diff;
+            }
+
+            // One has date, one doesn't - photos with dates come first
+            if (dateA && !dateB) return -1;
+            if (!dateA && dateB) return 1;
+
+            // Neither has date (or dates are equal) - use ID as stable fallback
+            return sortDirection === 'asc'
+                ? a.id.localeCompare(b.id)
+                : b.id.localeCompare(a.id);
+        });
+    }, [allPhotos, sortDirection]);
 
 
     const handleClearGallery = useCallback(async () => {
@@ -331,6 +330,7 @@ export function usePhotoGalleryManager({
         handleDeletePhotos,
         photoScrollRef,
         folderUploadRef,
-        photoUploadRef
+        photoUploadRef,
+        sortedPhotos
     };
 }
