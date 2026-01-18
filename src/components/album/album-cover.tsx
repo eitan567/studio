@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { AlbumPage, CoverText, CoverImage, AlbumConfig, Photo, PhotoPanAndZoom } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { PageLayout } from './page-layout';
-import { useTemplates } from '@/hooks/useTemplates';
+import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
 
 // Helper to parse layout ID and extract base ID (without rotation suffix)
 function parseLayoutId(layoutId: string): { baseId: string; rotation: number } {
@@ -741,7 +741,7 @@ export const AlbumCover = ({
 
     // Check if backTemplate is undefined properly? No, default to [0] fixes it.
 
-    const backPhotoCount = backTemplate ? backTemplate.photoCount : 0;
+    const backPhotoCount = backTemplate ? getPhotoCount(backTemplate) : 0;
 
     // Photos - Validation: Ensure photos exist
     const safePhotos = page.photos || [];
