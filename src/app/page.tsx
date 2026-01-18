@@ -14,7 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { placeholderImages } from '@/lib/placeholder-images.json';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
 
@@ -40,7 +40,7 @@ const features = [
 ];
 
 export default function LandingPage() {
-  const heroImage = placeholderImages.find((img) => img.id === 'hero');
+  const heroImage = PlaceHolderImages.find((img) => img.id === 'hero');
 
   return (
     <div className="flex min-h-screen flex-col font-sans">
