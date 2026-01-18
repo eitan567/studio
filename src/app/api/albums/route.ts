@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
         const { data: albums, error } = await supabase
             .from('albums')
-            .select('id, name, thumbnail_url, created_at, updated_at')
+            .select('id, name, thumbnail_url, created_at, updated_at, pages, photos')
             .eq('user_id', user.id)
             .order('updated_at', { ascending: false })
 

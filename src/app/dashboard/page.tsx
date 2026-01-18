@@ -191,13 +191,35 @@ export default function DashboardPage() {
                           </div>
                         )}
                       </div>
-                      <CardContent className="p-5 space-y-1">
+                      <CardContent className="p-5 space-y-2">
                         <CardTitle className="heading-sm line-clamp-1 group-hover:text-primary transition-colors">
                           {album.name}
                         </CardTitle>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span>{album.pages?.length || 0} pages</span>
+                          <span>•</span>
+                          <span>{album.photos?.length || 0} photos</span>
+                        </div>
                         <CardDescription className="flex items-center text-xs">
-                          <span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-2"></span>
-                          Last updated {formatDate(album.updated_at)}
+                          {(() => {
+                            // Calculate if album is complete (all slots filled)
+                            const totalSlots = (album.pages || []).reduce((acc, page) => {
+                              const layout = page.layout || '1';
+                              const slots = parseInt(layout) || 1;
+                              return acc + (page.type === 'spread' ? slots * 2 : slots);
+                            }, 0);
+                            const filledSlots = (album.pages || []).reduce((acc, page) => {
+                              return acc + (page.photos?.filter(p => p.src)?.length || 0);
+                            }, 0);
+                            const isComplete = totalSlots > 0 && filledSlots >= totalSlots;
+
+                            return (
+                              <>
+                                <span className={`inline-block w-2 h-2 rounded-full mr-2 ${isComplete ? 'bg-green-500' : 'bg-amber-500'}`}></span>
+                                {isComplete ? 'Complete' : `${filledSlots}/${totalSlots} slots filled`}
+                              </>
+                            );
+                          })()}
                         </CardDescription>
                       </CardContent>
                     </Card>
