@@ -1178,7 +1178,7 @@ export function AlbumPreview({
         className="h-[85vh] w-full"
         style={{ overflowY: isInteracting ? 'hidden' : 'auto' }}
       >
-        <div className="space-y-8 py-6">
+        <div className="space-y-8 pb-4">
           {pages.map((page, index) => {
             const info = pageInfo[index];
             const isVisible = visiblePages.has(index);
@@ -1205,11 +1205,11 @@ export function AlbumPreview({
                 ref={(el) => {
                   pageRefs.current.set(index, el);
                 }}
-                className="w-full max-w-4xl mx-auto"
+                className="w-full max-w-6xl mx-auto"
               >
                 <div className="w-full relative group/page">
 
-                  <div className={cn("h-18", page.type === 'single' ? 'w-1/2 mx-auto' : 'w-full')}>
+                  <div className={cn("h-18 px-6", page.type === 'single' ? 'w-1/2 mx-auto' : 'w-full')}>
                     <PageToolbar
                       page={page}
                       pageNumber={index} // Keep for internal logic if needed, but display comes from label
@@ -1464,7 +1464,7 @@ function NavigationControls({
   };
 
   return (
-    <div className="absolute right-6 top-1/2 -translate-y-1/2 z-49 flex flex-col gap-4">
+    <div className="absolute -right-8 top-1/2 -translate-y-1/2 translate-x-1/2 z-49 flex flex-col gap-4 w-8">
       {/* Absolute Jump (Start/End/Specific) */}
       <div className="flex flex-col items-center gap-2 bg-background/90 backdrop-blur-sm p-1.5 rounded-full shadow-lg border">
         <TooltipProvider>
@@ -1481,7 +1481,7 @@ function NavigationControls({
         <div className="flex flex-col items-center gap-1 my-1">
           <Input
             type="number"
-            className="w-10 h-8 px-0.5 text-center text-xs appearance-none [&::-webkit-inner-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0 border border-input shadow-none"
+            className="w-full h-8 px-0.5 text-center text-xs appearance-none [&::-webkit-inner-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0 border border-input shadow-none"
             placeholder="#"
             value={targetPage}
             onChange={(e) => setTargetPage(e.target.value)}
@@ -1521,7 +1521,7 @@ function NavigationControls({
         <div className="flex flex-col items-center gap-1 my-1">
           <Input
             type="number"
-            className="w-10 h-8 px-0.5 text-center text-xs appearance-none [&::-webkit-inner-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0 border border-input shadow-none"
+            className="w-full h-8 px-0.5 text-center text-xs appearance-none [&::-webkit-inner-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0 border border-input shadow-none"
             value={stepSize}
             onChange={(e) => setStepSize(e.target.value)}
             title="Pages to jump"

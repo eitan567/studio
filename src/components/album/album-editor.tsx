@@ -656,7 +656,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           </div>
 
           {/* Main Content: Album Preview */}
-          <div className="xl:col-span-7">
+          <div className="xl:col-span-7 px-8">
             {isLoading || isAlbumLoading ? (
               <div className="flex flex-col items-center justify-center h-[85vh] text-muted-foreground p-6 text-center animate-in fade-in duration-300 bg-muted/30 border-2 border-dashed rounded-lg">
                 <Loader2 className="h-12 w-12 mb-4 animate-spin text-primary" />
