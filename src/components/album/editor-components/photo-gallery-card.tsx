@@ -356,6 +356,63 @@ const PhotoGalleryCardComponent = ({
                     <div className="flex items-center justify-between">
                         <CardTitle className="heading-sm">Photo Gallery</CardTitle>
                         <div className="flex items-center gap-1">
+                            {/* Icon Buttons */}
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={generateDummyPhotos} disabled={isLoadingPhotos || !randomSeed}>
+                                            {isLoadingPhotos ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Load sample photos</TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => folderUploadRef.current?.click()}>
+                                            <FolderUp className="h-3 w-3" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Upload folder</TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => photoUploadRef.current?.click()}>
+                                            <Upload className="h-3 w-3" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Upload photos</TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleGenerateAlbum}>
+                                            <Wand2 className="h-3 w-3" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Auto-fill Album (Regenerate)</TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleAutoFillAlbum}>
+                                            <RotateCcw className="h-3 w-3 rotate-90" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Fill Empty Slots (Keep Layout)</TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            onClick={handleSortPhotos}
+                                            disabled={isLoadingPhotos || allPhotos.some(p => p.isUploading)}
+                                        >
+                                            <ArrowUpDown className="h-3 w-3" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Sort by Date</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
 
                             {/* Deletion Control */}
                             {selectedPhotos.size > 0 && (
@@ -457,64 +514,7 @@ const PhotoGalleryCardComponent = ({
                             )}
                         </div>
 
-                        <div className="flex items-center gap-1">
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={generateDummyPhotos} disabled={isLoadingPhotos || !randomSeed}>
-                                            {isLoadingPhotos ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Load sample photos</TooltipContent>
-                                </Tooltip>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => folderUploadRef.current?.click()}>
-                                            <FolderUp className="h-3 w-3" />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Upload folder</TooltipContent>
-                                </Tooltip>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => photoUploadRef.current?.click()}>
-                                            <Upload className="h-3 w-3" />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Upload photos</TooltipContent>
-                                </Tooltip>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleGenerateAlbum}>
-                                            <Wand2 className="h-3 w-3" />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Auto-fill Album (Regenerate)</TooltipContent>
-                                </Tooltip>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleAutoFillAlbum}>
-                                            <RotateCcw className="h-3 w-3 rotate-90" />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Fill Empty Slots (Keep Layout)</TooltipContent>
-                                </Tooltip>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7"
-                                            onClick={handleSortPhotos}
-                                            disabled={isLoadingPhotos || allPhotos.some(p => p.isUploading)}
-                                        >
-                                            <ArrowUpDown className="h-3 w-3" />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Sort by Date</TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                        </div>
+
                     </div>
 
                     <input ref={folderUploadRef} type="file" accept="image/*" multiple className="hidden"
