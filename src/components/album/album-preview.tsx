@@ -715,6 +715,7 @@ const PageToolbar = ({
                   <Button
                     variant="ghost"
                     size="icon"
+                    className="relative"
                     onClick={() => {
                       const { baseId, rotation } = parseLayoutId(page.layout || '1-full');
                       const newRotation = getNextRotation(rotation);
