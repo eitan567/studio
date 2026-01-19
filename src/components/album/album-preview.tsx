@@ -738,6 +738,67 @@ const PageToolbar = ({
               </Tooltip>
             )}
 
+            {/* Quick Template Selection Buttons by Photo Count (1-6) - FULL mode only */}
+            {isFull && !page.isCover && (
+              <>
+                <div className="h-4 w-px bg-border mx-1" />
+                <div className="flex items-center gap-0.5">
+                  {[1, 2, 3, 4, 5, 6].map((photoCount) => {
+                    const allTemplatesForPage = [...gridTemplates, ...advancedTemplates];
+                    const templatesWithCount = allTemplatesForPage.filter(t => getPhotoCount(t) === photoCount);
+                    const hasTemplates = templatesWithCount.length > 0;
+
+                    // Get current template to check if it matches this count
+                    const { baseId } = parseLayoutId(page.layout || '1-full');
+                    const currentTemplate = allTemplatesForPage.find(t => t.id === baseId);
+                    const currentCount = currentTemplate ? getPhotoCount(currentTemplate) : 0;
+                    const isActive = currentCount === photoCount;
+
+                    // Find current index within templates of this count
+                    const currentIndex = templatesWithCount.findIndex(t => t.id === baseId);
+
+                    return (
+                      <Tooltip key={photoCount}>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant={isActive ? "default" : "outline"}
+                            size="icon"
+                            className={cn(
+                              "h-7 w-7 text-xs font-bold",
+                              !hasTemplates && "opacity-30 cursor-not-allowed"
+                            )}
+                            disabled={!hasTemplates}
+                            onClick={() => {
+                              if (!hasTemplates) return;
+
+                              // Cycle to next template with this count
+                              let nextIndex = 0;
+                              if (isActive && templatesWithCount.length > 1) {
+                                nextIndex = (currentIndex + 1) % templatesWithCount.length;
+                              }
+
+                              const nextTemplate = templatesWithCount[nextIndex];
+                              const { rotation } = parseLayoutId(page.layout || '1-full');
+                              const finalId = rotation === 0 ? nextTemplate.id : `${nextTemplate.id}_r${rotation}`;
+                              onUpdateLayout(page.id, finalId);
+                            }}
+                          >
+                            {photoCount}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {hasTemplates
+                            ? `${photoCount} photo${photoCount > 1 ? 's' : ''} (${templatesWithCount.length} templates)`
+                            : `No ${photoCount}-photo templates`
+                          }
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
             <div className="h-4 w-px bg-border mx-2" />
             <Tooltip>
               <TooltipTrigger asChild>
