@@ -583,7 +583,7 @@ const PageToolbar = ({
                       >
                         <RotateCw className="h-4 w-4" />
                         {parseLayoutId(page.isCover ? page.coverLayouts?.back || '1-full' : page.spreadLayouts?.left || '1-full').rotation !== 0 && (
-                          <span className="absolute -top-1 -right-1 text-[9px] bg-primary text-primary-foreground px-1 rounded">
+                          <span className="absolute -top-2 -right-2 text-[9px] bg-primary text-primary-foreground px-1 rounded">
                             {parseLayoutId(page.isCover ? page.coverLayouts?.back || '1-full' : page.spreadLayouts?.left || '1-full').rotation}°
                           </span>
                         )}
@@ -663,7 +663,7 @@ const PageToolbar = ({
                       >
                         <RotateCw className="h-4 w-4" />
                         {parseLayoutId(page.isCover ? page.coverLayouts?.front || '1-full' : page.spreadLayouts?.right || '1-full').rotation !== 0 && (
-                          <span className="absolute -top-1 -right-1 text-[9px] bg-primary text-primary-foreground px-1 rounded">
+                          <span className="absolute -top-2 -right-2 text-[9px] bg-primary text-primary-foreground px-1 rounded">
                             {parseLayoutId(page.isCover ? page.coverLayouts?.front || '1-full' : page.spreadLayouts?.right || '1-full').rotation}°
                           </span>
                         )}
@@ -729,7 +729,7 @@ const PageToolbar = ({
                   >
                     <RotateCw className="h-4 w-4" />
                     {parseLayoutId(page.layout || '1-full').rotation !== 0 && (
-                      <span className="absolute -top-1 -right-1 text-[9px] bg-primary text-primary-foreground px-1 rounded">
+                      <span className="absolute -top-2 -right-2 text-[9px] bg-primary text-primary-foreground px-1 rounded">
                         {parseLayoutId(page.layout || '1-full').rotation}°
                       </span>
                     )}
@@ -765,7 +765,7 @@ const PageToolbar = ({
                             variant={isActive ? "default" : "outline"}
                             size="icon"
                             className={cn(
-                              "h-7 w-7 text-xs font-bold",
+                              "h-7 w-7 text-xs font-bold shadow-sm",
                               !hasTemplates && "opacity-30 cursor-not-allowed"
                             )}
                             disabled={!hasTemplates}
@@ -916,7 +916,7 @@ const PageToolbar = ({
                 >
                   <RotateCw className="h-4 w-4" />
                   {parseLayoutId(page.layout || '1-full').rotation !== 0 && (
-                    <span className="absolute -top-1 -right-1 text-[9px] bg-primary text-primary-foreground px-1 rounded">
+                    <span className="absolute -top-2 -right-2 text-[9px] bg-primary text-primary-foreground px-1 rounded">
                       {parseLayoutId(page.layout || '1-full').rotation}°
                     </span>
                   )}
