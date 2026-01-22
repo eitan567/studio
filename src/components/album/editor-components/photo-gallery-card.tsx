@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import {
     Loader2,
     Sparkles,
@@ -42,6 +42,7 @@ import { ScrollToTopButton } from './scroll-to-top-button';
 interface PhotoGalleryCardProps {
     allPhotos: Photo[];
     isLoadingPhotos: boolean;
+    isResizing?: boolean;
     photoUsageDetails: Record<string, { count: number; pages: number[] }>;
     chronologicalIndex: Record<string, number>;
     emptySlots: number; // Number of empty slots remaining in album
@@ -78,7 +79,8 @@ const GalleryPhotoItemComponent = ({
     onToggleSelection,
     onSetActiveBubbleId,
     onDelete,
-    onRemoveFromAlbum
+    onRemoveFromAlbum,
+    style
 }: {
     photo: Photo;
     usage?: { count: number; pages: number[] };
@@ -90,11 +92,11 @@ const GalleryPhotoItemComponent = ({
     onSetActiveBubbleId: (id: string | null) => void;
     onDelete: (id: string) => void;
     onRemoveFromAlbum: (id: string) => void;
+    style?: React.CSSProperties;
 }) => {
     const isUsed = !!usage;
     const hasWarning = usage && usage.count > 1;
 
-    // Callbacks for this specific item to avoid creating inline functions in render
     // Callbacks for this specific item to avoid creating inline functions in render
     const handleDragStart = useCallback((e: React.DragEvent) => {
         // photo.isUploading check REMOVED to allow optimistic dragging
@@ -121,13 +123,14 @@ const GalleryPhotoItemComponent = ({
         <div
             draggable={true}
             onDragStart={handleDragStart}
+            style={style}
             className={cn(
                 "relative rounded-md overflow-hidden bg-muted border-2 transition-all group border-transparent cursor-grab active:cursor-grabbing hover:border-primary/50",
             )}
         >
-            <div className="relative transition-opacity duration-300">
-                {/* Use a simple img tag for gallery to avoid Next/Image overhead in large lists, or keep standard img if already used */}
-                <img src={photo.src} alt={photo.alt} className="w-full h-auto block" loading="lazy" />
+            <div className="relative h-full w-full transition-opacity duration-300">
+                {/* Use object-cover to ensure the justified container is filled perfectly */}
+                <img src={photo.src} alt={photo.alt} className="w-full h-full object-cover block" loading="lazy" />
             </div>
 
             {/* Top Overlays: Index, Usage (Right) */}
@@ -289,6 +292,7 @@ const PhotoGalleryCardComponent = ({
     photoScrollRef,
     folderUploadRef,
     photoUploadRef,
+    isResizing = false
 }: PhotoGalleryCardProps) => {
     const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
     const [activeBubbleId, setActiveBubbleId] = useState<string | null>(null);
@@ -296,9 +300,73 @@ const PhotoGalleryCardComponent = ({
     const [hideUsedPhotos, setHideUsedPhotos] = useState(false);
     const [isSingleColumn, setIsSingleColumn] = useState(false);
 
-    const filteredPhotos = hideUsedPhotos
+    // Track container width for justified layout
+    const [containerWidth, setContainerWidth] = useState(300); // Default to a reasonable width
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!containerRef.current) return;
+        let frameId: number;
+        const observer = new ResizeObserver((entries) => {
+            if (entries[0]) {
+                // Use requestAnimationFrame to throttle updates to the next screen refresh
+                cancelAnimationFrame(frameId);
+                frameId = requestAnimationFrame(() => {
+                    setContainerWidth(entries[0].contentRect.width);
+                });
+            }
+        });
+        observer.observe(containerRef.current);
+        return () => {
+            observer.disconnect();
+            cancelAnimationFrame(frameId);
+        };
+    }, []);
+
+    const isClient = typeof window !== 'undefined';
+
+    // Filtered photos
+    const filteredPhotos = useMemo(() => hideUsedPhotos
         ? allPhotos.filter(p => !photoUsageDetails[p.id])
-        : allPhotos;
+        : allPhotos, [allPhotos, hideUsedPhotos, photoUsageDetails]);
+
+    // Justified Layout Calculation
+    const justifiedRows = useMemo(() => {
+        const effectiveWidth = containerWidth > 0 ? containerWidth : 350;
+        if (isSingleColumn || isResizing) return [];
+
+        const targetRowHeight = 140;
+        const gap = 2; // tight gap
+        const padding = 32; // px-4 on scroll area
+        const usableWidth = effectiveWidth - padding;
+
+        const rows: { photos: Photo[]; height: number; isLast?: boolean }[] = [];
+        let currentRow: Photo[] = [];
+        let currentRowWidth = 0;
+
+        for (const photo of filteredPhotos) {
+            const ar = (photo.width && photo.height) ? photo.width / photo.height : 1.5;
+            const scaledWidth = targetRowHeight * ar;
+
+            if (currentRowWidth + scaledWidth > usableWidth && currentRow.length > 0) {
+                // Row is full, calculate justified height
+                const totalAR = currentRow.reduce((acc, p) => acc + ((p.width && p.height) ? p.width / p.height : 1.5), 0);
+                const rowHeight = (usableWidth - (currentRow.length - 1) * gap) / totalAR;
+                rows.push({ photos: currentRow, height: rowHeight });
+                currentRow = [];
+                currentRowWidth = 0;
+            }
+
+            currentRow.push(photo);
+            currentRowWidth += scaledWidth + gap;
+        }
+
+        if (currentRow.length > 0) {
+            rows.push({ photos: currentRow, height: targetRowHeight, isLast: true });
+        }
+
+        return rows;
+    }, [filteredPhotos, containerWidth, isSingleColumn, isResizing]);
 
     const toggleSelection = (id: string) => {
         const newSelected = new Set(selectedPhotos);
@@ -345,9 +413,9 @@ const PhotoGalleryCardComponent = ({
     const usedCount = Object.keys(photoUsageDetails).length;
 
     return (
-        <div className="xl:col-span-3 space-y-4">
+        <div className="h-full space-y-4">
             <Card
-                className="h-[85vh] flex flex-col"
+                className="h-full flex flex-col"
                 onDragOver={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -523,8 +591,6 @@ const PhotoGalleryCardComponent = ({
                                 </>
                             )}
                         </div>
-
-
                     </div>
 
                     <input ref={folderUploadRef} type="file" accept="image/*" multiple className="hidden"
@@ -534,7 +600,7 @@ const PhotoGalleryCardComponent = ({
                         onChange={(e) => { processUploadedFiles(e.target.files); e.target.value = ''; }} />
                 </CardHeader >
 
-                <CardContent className="flex-1 overflow-hidden p-0 relative">
+                <CardContent ref={containerRef} className="flex-1 overflow-hidden p-0 relative">
                     {allPhotos.length === 0 ? (
                         isLoadingPhotos ? (
                             <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center animate-in fade-in">
@@ -567,7 +633,21 @@ const PhotoGalleryCardComponent = ({
                         <ScrollArea ref={photoScrollRef} className="h-full px-4 py-2">
                             <ScrollToTopButton scrollAreaRef={photoScrollRef} />
 
-                            {isSingleColumn ? (
+                            {isResizing ? (
+                                <div className="flex flex-col items-center justify-center pt-20 opacity-50 space-y-4">
+                                    <div className="flex flex-col items-center gap-2 animate-pulse">
+                                        <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                                            <Wand2 className="h-6 w-6 text-primary" />
+                                        </div>
+                                        <p className="text-xs font-medium text-muted-foreground">מעדכן פריסה...</p>
+                                    </div>
+                                    <div className="grid grid-cols-4 gap-2 w-full px-4">
+                                        {[...Array(12)].map((_, i) => (
+                                            <div key={i} className="aspect-square bg-muted rounded-md" />
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : isSingleColumn ? (
                                 <div className="flex flex-col gap-2 pb-10">
                                     {filteredPhotos.map((photo) => (
                                         <GalleryPhotoItem
@@ -586,43 +666,36 @@ const PhotoGalleryCardComponent = ({
                                     ))}
                                 </div>
                             ) : (
-                                <div className="flex flex-row gap-2 pb-10">
-                                    {/* Left Column (Even Indexes: 0, 2, 4...) */}
-                                    <div className="flex-1 flex flex-col gap-2">
-                                        {filteredPhotos.filter((_, i) => i % 2 === 0).map((photo) => (
-                                            <GalleryPhotoItem
-                                                key={photo.id}
-                                                photo={photo}
-                                                usage={photoUsageDetails?.[photo.id]}
-                                                index={chronologicalIndex[photo.id] ?? '?'}
-                                                isSelected={selectedPhotos.has(photo.id)}
-                                                isActiveBubble={activeBubbleId === photo.id}
-                                                multiSelectMode={multiSelectMode}
-                                                onToggleSelection={toggleSelection}
-                                                onSetActiveBubbleId={setActiveBubbleId}
-                                                onDelete={(id) => onDeletePhotos([id])}
-                                                onRemoveFromAlbum={(id) => onRemovePhotosFromAlbum([id])}
-                                            />
-                                        ))}
-                                    </div>
-                                    {/* Right Column (Odd Indexes: 1, 3, 5...) */}
-                                    <div className="flex-1 flex flex-col gap-2">
-                                        {filteredPhotos.filter((_, i) => i % 2 !== 0).map((photo) => (
-                                            <GalleryPhotoItem
-                                                key={photo.id}
-                                                photo={photo}
-                                                usage={photoUsageDetails?.[photo.id]}
-                                                index={chronologicalIndex[photo.id] ?? '?'}
-                                                isSelected={selectedPhotos.has(photo.id)}
-                                                isActiveBubble={activeBubbleId === photo.id}
-                                                multiSelectMode={multiSelectMode}
-                                                onToggleSelection={toggleSelection}
-                                                onSetActiveBubbleId={setActiveBubbleId}
-                                                onDelete={(id) => onDeletePhotos([id])}
-                                                onRemoveFromAlbum={(id) => onRemovePhotosFromAlbum([id])}
-                                            />
-                                        ))}
-                                    </div>
+                                <div className="flex flex-col gap-[2px] pb-10">
+                                    {justifiedRows.map((row, rowIndex) => (
+                                        <div key={rowIndex} className="flex flex-row gap-[2px]" style={{ height: `${row.height}px` }}>
+                                            {row.photos.map((photo) => {
+                                                const ar = (photo.width && photo.height) ? photo.width / photo.height : 1.5;
+                                                return (
+                                                    <GalleryPhotoItem
+                                                        key={photo.id}
+                                                        photo={photo}
+                                                        usage={photoUsageDetails?.[photo.id]}
+                                                        index={chronologicalIndex[photo.id] ?? '?'}
+                                                        isSelected={selectedPhotos.has(photo.id)}
+                                                        isActiveBubble={activeBubbleId === photo.id}
+                                                        multiSelectMode={multiSelectMode}
+                                                        onToggleSelection={toggleSelection}
+                                                        onSetActiveBubbleId={setActiveBubbleId}
+                                                        onDelete={(id) => onDeletePhotos([id])}
+                                                        onRemoveFromAlbum={(id) => onRemovePhotosFromAlbum([id])}
+                                                        style={{
+                                                            height: '100%',
+                                                            flexGrow: ar,
+                                                            flexShrink: 0,
+                                                            flexBasis: 0,
+                                                            width: row.isLast ? `${row.height * ar}px` : 'auto'
+                                                        }}
+                                                    />
+                                                );
+                                            })}
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </ScrollArea>

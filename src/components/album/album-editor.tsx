@@ -363,6 +363,43 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const [isClient, setIsClient] = useState(false);
   // allowDuplicates moved up
   const [multiSelectMode, setMultiSelectModeLocal] = useState(false); // true = checkboxes, false = trash icons
+  const [galleryWidth, setGalleryWidth] = useState(350);
+  const [isResizingGallery, setIsResizingGallery] = useState(false);
+  const isResizingRef = useRef(false);
+  const galleryRef = useRef<HTMLDivElement>(null);
+
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    isResizingRef.current = true;
+    setIsResizingGallery(true);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', stopResizing);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    isResizingRef.current = false;
+    setIsResizingGallery(false);
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', stopResizing);
+    document.body.style.cursor = 'default';
+    document.body.style.userSelect = 'auto';
+
+    // Sync final width back to state on release - this triggers the expensive layout
+    if (galleryRef.current) {
+      setGalleryWidth(galleryRef.current.offsetWidth);
+    }
+  }, []);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isResizingRef.current || !galleryRef.current) return;
+    const newWidth = window.innerWidth - e.clientX;
+    if (newWidth > 200 && newWidth < 800) {
+      // Direct DOM update for performance - NO re-renders during drag
+      galleryRef.current.style.width = `${newWidth}px`;
+    }
+  }, []);
+
   const [photoGap, setPhotoGap] = useState(2);
   const [pageMargin, setPageMargin] = useState(0);
   const [cornerRadius, setCornerRadius] = useState(0);
@@ -678,7 +715,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         />
 
         <div
-          className="grid grid-cols-1 xl:grid-cols-12 gap-6 p-6 flex-1 overflow-hidden bg-muted/30 dark:bg-muted/10"
+          className="flex h-[85vh] p-6 flex-1 overflow-hidden bg-muted/30 dark:bg-muted/10 items-stretch"
           style={{
             backgroundImage: `
               linear-gradient(to right, hsl(var(--foreground) / 0.04) 1px, transparent 1px),
@@ -688,7 +725,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           }}
         >
           {/* Left Sidebar: Config & Tools */}
-          <div className="xl:col-span-2 space-y-6">
+          <div className="w-[300px] shrink-0 space-y-6 overflow-y-auto pr-2">
             {isClient && isInitialized ? (
               <AlbumConfigCard
                 form={form}
@@ -716,9 +753,9 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           </div>
 
           {/* Main Content: Album Preview */}
-          <div className="xl:col-span-7 pr-8">
+          <div className="flex-1 min-w-0 pr-6">
             {isLoading || isAlbumLoading || !isInitialized ? (
-              <div className="flex flex-col items-center justify-center h-[85vh] text-muted-foreground p-6 text-center animate-in fade-in duration-300 bg-muted/30 border-2 border-dashed rounded-lg">
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center animate-in fade-in duration-300 bg-muted/30 border-2 border-dashed rounded-lg">
                 <Loader2 className="h-12 w-12 mb-4 animate-spin text-primary" />
                 <h3 className="text-lg font-semibold mb-2">
                   {isAlbumLoading ? "Loading Album..." : "Generating Album Layout..."}
@@ -754,30 +791,56 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
             )}
           </div>
 
-          <PhotoGalleryCard
-            allPhotos={sortedPhotos}
-            isLoadingPhotos={isLoadingPhotos || isAlbumLoading}
-            photoUsageDetails={photoUsageDetails}
-            chronologicalIndex={chronologicalIndex}
-            emptySlots={emptySlots}
-            allowDuplicates={allowDuplicates}
-            setAllowDuplicates={setAllowDuplicates}
-            multiSelectMode={multiSelectMode}
-            setMultiSelectMode={setMultiSelectMode}
-            randomSeed={randomSeed}
-            generateDummyPhotos={generateDummyPhotos}
-            handleGenerateAlbum={handleGenerateAlbum}
-            handleAutoFillAlbum={handleAutoFillAlbum}
-            handleClearGallery={handleClearGallery}
-            handleResetAlbum={handleResetAlbum}
-            handleSortPhotos={handleSortPhotos}
-            processUploadedFiles={processUploadedFiles}
-            onDeletePhotos={handleDeletePhotos}
-            onRemovePhotosFromAlbum={handleRemovePhotosFromAlbum}
-            photoScrollRef={photoScrollRef}
-            folderUploadRef={folderUploadRef}
-            photoUploadRef={photoUploadRef}
-          />
+          {/* Resizer Handle */}
+          <div
+            onMouseDown={startResizing}
+            className="w-2 shrink-0 bg-transparent cursor-col-resize group relative self-stretch z-10"
+            title="Drag to resize gallery"
+          >
+            {/* Permanent solid primary line - matching your design */}
+            <div className="absolute inset-y-0 left-2 -translate-x-1/2 w-[6px] bg-primary h-full" />
+
+            {/* Permanent primary pill - matching your design */}
+            <div className="absolute top-1/2 left-2 -translate-x-1/2 -translate-y-1/2 w-5 h-12 rounded-full bg-primary shadow-md flex items-center justify-center opacity-100 group-active:scale-95 transition-all pointer-events-none">
+              <div className="flex gap-[2px]">
+                <div className="w-[1.5px] h-4 bg-primary-foreground/60" />
+                <div className="w-[1.5px] h-4 bg-primary-foreground/60" />
+              </div>
+            </div>
+          </div>
+
+          {/* Right Panel: Photo Gallery (Resizable) */}
+          <div
+            ref={galleryRef}
+            style={{ width: `${galleryWidth}px` }}
+            className="shrink-0 min-w-[356px] max-w-[525px]"
+          >
+            <PhotoGalleryCard
+              allPhotos={sortedPhotos}
+              isLoadingPhotos={isLoadingPhotos || isAlbumLoading}
+              isResizing={isResizingGallery}
+              photoUsageDetails={photoUsageDetails}
+              chronologicalIndex={chronologicalIndex}
+              emptySlots={emptySlots}
+              allowDuplicates={allowDuplicates}
+              setAllowDuplicates={setAllowDuplicates}
+              multiSelectMode={multiSelectMode}
+              setMultiSelectMode={setMultiSelectMode}
+              randomSeed={randomSeed}
+              generateDummyPhotos={generateDummyPhotos}
+              handleGenerateAlbum={handleGenerateAlbum}
+              handleAutoFillAlbum={handleAutoFillAlbum}
+              handleClearGallery={handleClearGallery}
+              handleResetAlbum={handleResetAlbum}
+              handleSortPhotos={handleSortPhotos}
+              processUploadedFiles={processUploadedFiles}
+              onDeletePhotos={handleDeletePhotos}
+              onRemovePhotosFromAlbum={handleRemovePhotosFromAlbum}
+              photoScrollRef={photoScrollRef}
+              folderUploadRef={folderUploadRef}
+              photoUploadRef={photoUploadRef}
+            />
+          </div>
         </div >
         {isBookViewOpen && (
           <BookViewOverlay

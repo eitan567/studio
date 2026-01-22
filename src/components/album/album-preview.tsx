@@ -1576,7 +1576,7 @@ export function AlbumPreview({
                 ref={(el) => {
                   pageRefs.current.set(index, el);
                 }}
-                className="w-full max-w-6xl mx-auto"
+                className="w-full max-w-full mx-auto"
               >
                 <div className="w-full relative group/page">
 
@@ -1842,7 +1842,7 @@ function NavigationControls({
   };
 
   return (
-    <div className="absolute -right-6 top-1/2 -translate-y-1/2 translate-x-1/2 z-49 flex flex-col gap-4 w-8">
+    <div className="absolute right-10 top-1/2 -translate-y-1/2 translate-x-1/2 z-49 flex flex-col gap-4 w-8">
       {/* Absolute Jump (Start/End/Specific) */}
       <div className="flex flex-col items-center gap-2 bg-background/90 backdrop-blur-sm p-1.5 rounded-full shadow-lg border">
         <TooltipProvider>
