@@ -7,6 +7,7 @@ import { AlbumPage, AlbumConfig } from '@/lib/types';
 import { PageLayout } from './page-layout';
 import { AlbumCover, StaticCoverText, StaticCoverImage } from './album-cover';
 import { LAYOUT_TEMPLATES, ADVANCED_TEMPLATES, getPhotoCount } from '@/hooks/useTemplates';
+import { useSettings } from '@/hooks/use-settings';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
@@ -34,11 +35,41 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
     onExportComplete,
     onExportError
 }, ref) => {
+    const { settings } = useSettings();
     const containerRef = React.useRef<HTMLDivElement>(null);
 
     useImperativeHandle(ref, () => ({
         exportAlbum: async () => {
             try {
+                // Check for duplicates if enabled
+                if (settings.exportWarnDuplicates) {
+                    const seenPhotoIds = new Set<string>();
+                    let hasDuplicates = false;
+
+                    for (const page of pages) {
+                        if (page.isCover) continue; // Skip cover
+                        for (const photo of page.photos) {
+                            // Check using originalId (gallery ID) or src as fallback
+                            const photoId = photo.originalId || photo.src;
+                            if (!photoId || photoId === '') continue; // Skip placeholders/empty
+
+                            if (seenPhotoIds.has(photoId)) {
+                                hasDuplicates = true;
+                                break;
+                            }
+                            seenPhotoIds.add(photoId);
+                        }
+                        if (hasDuplicates) break;
+                    }
+
+                    if (hasDuplicates) {
+                        const proceed = window.confirm(
+                            "Warning: Your album contains duplicate photos (excluding the cover). Do you want to continue with the export?"
+                        );
+                        if (!proceed) return;
+                    }
+                }
+
                 if (!containerRef.current) return;
                 onExportStart?.();
 

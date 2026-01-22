@@ -33,6 +33,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
   SelectContent,
@@ -64,6 +65,7 @@ import { usePhotoUpload } from '@/hooks/usePhotoUpload';
 import { useAlbumGeneration } from '@/hooks/use-album-generation';
 import { useAlbumPageEditor } from '@/hooks/useAlbumPageEditor';
 import { usePhotoGalleryManager } from '@/hooks/usePhotoGalleryManager';
+import { useSettings } from '@/hooks/use-settings';
 import { ModeToggle } from '@/components/mode-toggle';
 import { ScrollToTopButton, AlbumConfigCard, PhotoGalleryCard, AlbumEditorToolbar } from './editor-components';
 
@@ -80,6 +82,7 @@ const configSchema = z.object({
 type ConfigFormData = z.infer<typeof configSchema>;
 
 export function AlbumEditor({ albumId }: AlbumEditorProps) {
+  const { settings, liveSettings, isLoaded: isSettingsLoaded } = useSettings();
   // Album persistence hook
   const {
     album,
@@ -322,8 +325,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const [isClient, setIsClient] = useState(false);
   const [allowDuplicates, setAllowDuplicates] = useState(true);
   const [multiSelectMode, setMultiSelectModeLocal] = useState(false); // true = checkboxes, false = trash icons
-  const [photoGap, setPhotoGap] = useState(10);
-  const [pageMargin, setPageMargin] = useState(10);
+  const [photoGap, setPhotoGap] = useState(2);
+  const [pageMargin, setPageMargin] = useState(0);
   const [cornerRadius, setCornerRadius] = useState(0);
   // Preview values - Handled by AlbumPreviewContext
   const [backgroundColor, setBackgroundColor] = useState('#ffffff');
@@ -373,7 +376,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     setAlbumPages,
     setAllPhotos,
     setIsLoadingPhotos,
-    randomSeed
+    randomSeed,
+    settings: liveSettings
   });
 
   // Load album from server or create empty album
@@ -387,19 +391,28 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
   // Load album from server or create empty album
   useEffect(() => {
-    if (isAlbumLoading || isInitialized) return;
+    if (isAlbumLoading || isInitialized || !isSettingsLoaded) return;
+
+    console.log('[AlbumEditor] Initializing with settings:', {
+      photoGap: settings.defaultPhotoGap,
+      pageMargin: settings.defaultPageMargin,
+      spineOpacity: settings.defaultSpineOpacity,
+      spineWidth: settings.defaultSpineWidth
+    });
 
     if (album) {
+      // Apply saved config immediately, regardless of whether pages exist
+      setPhotoGap(savedConfig.photoGap ?? settings.defaultPhotoGap);
+      setPageMargin(savedConfig.pageMargin ?? settings.defaultPageMargin);
+      setCornerRadius(savedConfig.cornerRadius || 0);
+      setBackgroundColor(savedConfig.backgroundColor || '#ffffff');
+      setBackgroundImage(savedConfig.backgroundImage);
+      setMultiSelectModeLocal(savedConfig.multiSelectMode ?? true);
+      form.setValue('size', savedConfig.size);
+
       if (savedPages.length > 0) {
         // Load existing pages from server
         setAlbumPages(savedPages);
-        setPhotoGap(savedConfig.photoGap ?? 10);
-        setPageMargin(savedConfig.pageMargin ?? 10);
-        setCornerRadius(savedConfig.cornerRadius || 0);
-        setBackgroundColor(savedConfig.backgroundColor || '#ffffff');
-        setBackgroundImage(savedConfig.backgroundImage);
-        setMultiSelectModeLocal(savedConfig.multiSelectMode ?? true);
-        form.setValue('size', savedConfig.size);
       } else {
         // Existing album but empty -> Initialize with default structure
         generateEmptyAlbum();
@@ -408,9 +421,15 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     } else if (isNew || (!album && !isAlbumLoading)) {
       // Initialize with empty album for new albums
       generateEmptyAlbum();
+
+      // Also initialize local config states from user settings
+      setPhotoGap(liveSettings.defaultPhotoGap);
+      setPageMargin(liveSettings.defaultPageMargin);
+      setCornerRadius(liveSettings.defaultCornerRadius);
+      setBackgroundColor(liveSettings.defaultBackgroundColor);
       setIsInitialized(true);
     }
-  }, [album, savedPages, savedConfig, isAlbumLoading, isNew, isInitialized]);
+  }, [album, savedPages, savedConfig, isAlbumLoading, isNew, isInitialized, isSettingsLoaded, generateEmptyAlbum, liveSettings]);
 
   const handleSaveTitle = (newTitle: string) => {
     updateName(newTitle);
@@ -425,6 +444,15 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   });
 
   const watchedSize = form.watch('size');
+
+  // Sync form defaults with settings once loaded for NEW projects
+  useEffect(() => {
+    if (isSettingsLoaded && isNew && !isInitialized) {
+      form.reset({
+        size: settings.defaultAlbumSize,
+      });
+    }
+  }, [isSettingsLoaded, isNew, isInitialized, settings.defaultAlbumSize, form]);
 
   // Auto-save pages when they change
   useEffect(() => {
@@ -634,7 +662,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         >
           {/* Left Sidebar: Config & Tools */}
           <div className="xl:col-span-2 space-y-6">
-            {isClient && (
+            {isClient && isInitialized ? (
               <AlbumConfigCard
                 form={form}
                 photoGap={photoGap}
@@ -652,12 +680,17 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                 setAvailableBackgrounds={setAvailableBackgrounds}
                 backgroundUploadRef={backgroundUploadRef}
               />
+            ) : (
+              <div className="space-y-4">
+                <Skeleton className="h-[300px] w-full rounded-xl" />
+                <Skeleton className="h-[100px] w-full rounded-xl" />
+              </div>
             )}
           </div>
 
           {/* Main Content: Album Preview */}
           <div className="xl:col-span-7 pr-8">
-            {isLoading || isAlbumLoading ? (
+            {isLoading || isAlbumLoading || !isInitialized ? (
               <div className="flex flex-col items-center justify-center h-[85vh] text-muted-foreground p-6 text-center animate-in fade-in duration-300 bg-muted/30 border-2 border-dashed rounded-lg">
                 <Loader2 className="h-12 w-12 mb-4 animate-spin text-primary" />
                 <h3 className="text-lg font-semibold mb-2">
@@ -687,6 +720,9 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
                 onUpdateSpreadLayout={handleUpdateSpreadLayout}
                 allPhotos={allPhotos}
                 customTemplates={customTemplates}
+                defaultViewMode={settings.defaultEditorViewMode}
+                visibleTemplateCategories={settings.visibleTemplateCategories}
+                allowedTemplateIds={settings.allowedTemplateIds}
               />
             )}
           </div>

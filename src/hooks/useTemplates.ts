@@ -15,6 +15,7 @@ import {
     GridTemplate
 } from '@/lib/templates-cache';
 import { AdvancedTemplate } from '@/lib/advanced-layout-types';
+import { useSettings } from '@/hooks/use-settings';
 
 // Re-export types for convenience
 export type { GridTemplate, AdvancedTemplate };
@@ -33,9 +34,24 @@ export function useTemplates() {
         });
     }, []);
 
-    const gridTemplates = useMemo(() => getGridTemplatesSync(), [trigger]);
-    const advancedTemplates = useMemo(() => getAdvancedTemplatesSync(), [trigger]);
-    const coverTemplates = useMemo(() => getCoverTemplatesSync(), [trigger]);
+    const { settings } = useSettings();
+
+    const gridTemplates = useMemo(() => {
+        const raw = getGridTemplatesSync();
+        return settings?.visibleTemplateCategories?.includes('grid') ? raw : [];
+    }, [trigger, settings?.visibleTemplateCategories]);
+
+    // Raw templates for lookups (unfiltered so existing albums still work)
+    const rawAdvancedTemplates = useMemo(() => getAdvancedTemplatesSync(), [trigger]);
+
+    const advancedTemplates = useMemo(() => {
+        return settings?.visibleTemplateCategories?.includes('advanced') ? rawAdvancedTemplates : [];
+    }, [rawAdvancedTemplates, settings?.visibleTemplateCategories]);
+
+    const coverTemplates = useMemo(() => {
+        const raw = getCoverTemplatesSync();
+        return settings?.visibleTemplateCategories?.includes('cover') ? raw : [];
+    }, [trigger, settings?.visibleTemplateCategories]);
 
     // Combined templates for dropdowns
     const allTemplates = useMemo(() => [
@@ -52,34 +68,39 @@ export function useTemplates() {
         gridTemplates,
         advancedTemplates,
         coverTemplates,
+        rawGridTemplates: getGridTemplatesSync(),
+        rawAdvancedTemplates: getAdvancedTemplatesSync(),
+        rawCoverTemplates: getCoverTemplatesSync(),
         allTemplates,
         allCoverTemplates,
 
-        // Utility functions
+        // Utility functions (should use RAW templates to support existing albums even if setting is off)
         findTemplate: (id: string) => {
             const baseId = id.replace(/-r\d+$/, ''); // Remove rotation suffix
             return gridTemplates.find(t => t.id === baseId)
-                || advancedTemplates.find(t => t.id === baseId);
+                || rawAdvancedTemplates.find(t => t.id === baseId);
         },
 
         findGridTemplate: (id: string) => {
             const baseId = id.replace(/-r\d+$/, '');
-            return gridTemplates.find(t => t.id === baseId) || gridTemplates[0];
+            return gridTemplates.find(t => t.id === baseId)
+                || getGridTemplatesSync().find(t => t.id === baseId)
+                || getGridTemplatesSync()[0];
         },
 
         findAdvancedTemplate: (id: string) => {
             const baseId = id.replace(/-r\d+$/, '');
-            return advancedTemplates.find(t => t.id === baseId);
+            return rawAdvancedTemplates.find(t => t.id === baseId);
         },
 
         findCoverTemplate: (id: string) => {
             const baseId = id.replace(/-r\d+$/, '');
             return coverTemplates.find(t => t.id === baseId)
-                || advancedTemplates.find(t => t.id === baseId);
+                || rawAdvancedTemplates.find(t => t.id === baseId);
         },
 
-        defaultGridTemplate: gridTemplates[0],
-        defaultCoverTemplate: coverTemplates[0],
+        defaultGridTemplate: gridTemplates[0] || getGridTemplatesSync()[0],
+        defaultCoverTemplate: coverTemplates[0] || getCoverTemplatesSync()[0],
     };
 }
 

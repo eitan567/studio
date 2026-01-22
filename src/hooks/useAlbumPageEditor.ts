@@ -299,13 +299,14 @@ export function useAlbumPageEditor({
         }));
     }, [setAlbumPages]);
 
-    const handleUpdateSpineSettings = useCallback((pageId: string, settings: { width?: number; color?: string; textColor?: string; fontSize?: number; fontFamily?: string }) => {
+    const handleUpdateSpineSettings = useCallback((pageId: string, settings: { width?: number; color?: string; opacity?: number; textColor?: string; fontSize?: number; fontFamily?: string }) => {
         setAlbumPages(prevPages => prevPages.map(page => {
             if (page.id !== pageId) return page;
             return {
                 ...page,
                 spineWidth: settings.width ?? page.spineWidth,
                 spineColor: settings.color ?? page.spineColor,
+                spineOpacity: settings.opacity ?? page.spineOpacity,
                 spineTextColor: settings.textColor ?? page.spineTextColor,
                 spineFontSize: settings.fontSize ?? page.spineFontSize,
                 spineFontFamily: settings.fontFamily ?? page.spineFontFamily

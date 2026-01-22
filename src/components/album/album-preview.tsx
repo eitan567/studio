@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { BookOpenText, Info, Trash2, LayoutTemplate, Download, Image as ImageIcon, Wand2, Undo, Crop, AlertTriangle, Pencil, BookOpen, Share2, FileText, FileDown, MoreHorizontal, FileImage, Plus, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, CornerDownRight, CornerDownLeft, RotateCw, ChevronUp, ChevronDown } from 'lucide-react';
+import { BookOpenText, Info, Trash2, LayoutTemplate, Download, Image as ImageIcon, Wand2, Undo, Crop, AlertTriangle, Pencil, BookOpen, Share2, FileText, FileDown, MoreHorizontal, FileImage, Plus, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, CornerDownRight, CornerDownLeft, RotateCw, ChevronUp, ChevronDown, Settings2 } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
 
 import type { AlbumPage, AlbumConfig, Photo } from '@/lib/types';
@@ -183,7 +183,7 @@ interface AlbumPreviewProps {
 
   onUpdatePage?: (page: AlbumPage) => void; // New generic update prop
   onUpdateSpineText?: (pageId: string, text: string) => void;
-  onUpdateSpineSettings?: (pageId: string, settings: { width?: number; color?: string; textColor?: string; fontSize?: number; fontFamily?: string }) => void;
+  onUpdateSpineSettings?: (pageId: string, settings: { width?: number; color?: string; opacity?: number; textColor?: string; fontSize?: number; fontFamily?: string }) => void;
   onUpdateTitleSettings?: (pageId: string, settings: { text?: string; color?: string; fontSize?: number; fontFamily?: string; position?: { x: number; y: number } }) => void;
   onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
   onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string, sourceInfo?: { pageId: string; photoId: string }) => void;
@@ -191,6 +191,9 @@ interface AlbumPreviewProps {
   onRemovePhoto: (pageId: string, photoId: string) => void;
   allPhotos?: Photo[];
   customTemplates?: AdvancedTemplate[];
+  defaultViewMode?: 'full' | 'split';
+  visibleTemplateCategories?: string[]; // Added
+  allowedTemplateIds?: string[];      // Added
 }
 
 import { CoverEditorOverlay } from './cover-editor/cover-editor-overlay';
@@ -431,7 +434,11 @@ const PageToolbar = ({
   onOpenCoverEditor, // New prop
   onDownloadPage,
   onUpdatePage,
-  toast
+  toast,
+  viewMode,
+  onToggleViewMode,
+  visibleTemplateCategories,
+  allowedTemplateIds,
 }: {
   page: AlbumPage;
   pageNumber: number;
@@ -443,12 +450,16 @@ const PageToolbar = ({
   onUpdateCoverLayout?: (id: string, side: 'front' | 'back' | 'full', layout: string) => void;
   onUpdateCoverType?: (id: string, type: 'split' | 'full') => void;
   onUpdateSpineText?: (id: string, text: string) => void;
-  onUpdateSpineSettings?: (id: string, settings: { width?: number; color?: string; textColor?: string; fontSize?: number; fontFamily?: string }) => void;
+  onUpdateSpineSettings?: (id: string, settings: { width?: number; color?: string; opacity?: number; textColor?: string; fontSize?: number; fontFamily?: string }) => void;
   onUpdateTitleSettings?: (id: string, settings: { text?: string; color?: string; fontSize?: number; fontFamily?: string; position?: { x: number; y: number } }) => void;
   onOpenCoverEditor?: (pageId: string) => void;
   onDownloadPage?: (pageId: string) => void;
   onUpdatePage?: (page: AlbumPage) => void;
   toast: any;
+  viewMode?: 'full' | 'split';
+  onToggleViewMode?: () => void;
+  visibleTemplateCategories?: string[]; // Added
+  allowedTemplateIds?: string[];      // Added
 }) => {
   const {
     gridTemplates,
@@ -456,6 +467,24 @@ const PageToolbar = ({
     advancedTemplates,
     defaultGridTemplate
   } = useTemplates();
+
+  // FILTER TEMPLATES
+  const filterTemplates = (templates: TemplateUnion[], category: 'grid' | 'cover' | 'advanced') => {
+    // 1. Category Check
+    if (visibleTemplateCategories && !visibleTemplateCategories.includes(category)) {
+      return [];
+    }
+    // 2. ID Check (if provided and not empty)
+    if (allowedTemplateIds && allowedTemplateIds.length > 0) {
+      return templates.filter(t => allowedTemplateIds.includes(t.id));
+    }
+    return templates;
+  };
+
+  const filteredGridTemplates = filterTemplates(gridTemplates, 'grid') as TemplateWithGrid[];
+  const filteredCoverTemplates = filterTemplates(coverTemplates, 'cover') as TemplateWithGrid[];
+  const filteredAdvancedTemplates = filterTemplates(advancedTemplates, 'advanced') as AdvancedTemplate[];
+
   const [isDeleting, setIsDeleting] = useState(false);
   const [showSpineSettings, setShowSpineSettings] = useState(false);
   const isCoverOrSpread = page.isCover || page.type === 'spread';
@@ -513,6 +542,21 @@ const PageToolbar = ({
             </div>
 
             <div className="h-4 w-px bg-border mx-2" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(viewMode === 'split' ? "text-primary bg-primary/10" : "text-muted-foreground")}
+                  onClick={onToggleViewMode}
+                >
+                  <BookOpen className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Switch to {viewMode === 'full' ? 'Split' : 'Full'} Editor View</TooltipContent>
+            </Tooltip>
+
+            <div className="h-4 w-px bg-border mx-2" />
 
             {/* Layout Dropdowns */}
             <div className="flex items-center gap-2">
@@ -531,8 +575,12 @@ const PageToolbar = ({
                       </TooltipTrigger>
                       <TooltipContent>{page.isCover ? "Back Cover Layout" : "Page 1 Layout"}</TooltipContent>
                     </Tooltip>
-                    <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
-                      {(page.isCover ? [...coverTemplates, ...advancedTemplates] : [...gridTemplates, ...advancedTemplates]).map(template => (
+
+                    <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-96 overflow-y-auto">
+                      {(page.isCover
+                        ? [...filteredCoverTemplates, ...filteredAdvancedTemplates]
+                        : [...filteredGridTemplates, ...filteredAdvancedTemplates]
+                      ).map(template => (
                         <TemplateThumbnail
                           key={template.id}
                           template={template}
@@ -607,12 +655,14 @@ const PageToolbar = ({
                       </TooltipTrigger>
                       <TooltipContent>{page.isCover ? "Front Cover Layout" : "Page 2 Layout"}</TooltipContent>
                     </Tooltip>
-                    <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
-                      {/* For Cover: Combine Cover Templates + Advanced Templates */}
-                      {/* For Pages: Combine Layout Templates + Advanced Templates */}
+
+                    {/* For Cover: Combine Cover Templates + Advanced Templates */}
+                    {/* For Pages: Combine Layout Templates + Advanced Templates */}
+                    {/* For Pages: Combine Layout Templates + Advanced Templates */}
+                    <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-96 overflow-y-auto">
                       {(page.isCover
-                        ? [...coverTemplates, ...advancedTemplates]
-                        : [...gridTemplates, ...advancedTemplates]
+                        ? [...filteredCoverTemplates, ...filteredAdvancedTemplates]
+                        : [...filteredGridTemplates, ...filteredAdvancedTemplates]
                       ).map(template => (
                         <TemplateThumbnail
                           key={template.id}
@@ -686,8 +736,8 @@ const PageToolbar = ({
                     </TooltipTrigger>
                     <TooltipContent>Spread Layout</TooltipContent>
                   </Tooltip>
-                  <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
-                    {(page.isCover ? [...coverTemplates, ...advancedTemplates] : [...gridTemplates, ...advancedTemplates]).map(template => (
+                  <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-96 overflow-y-auto">
+                    {(page.isCover ? [...filteredCoverTemplates, ...filteredAdvancedTemplates] : [...filteredGridTemplates, ...filteredAdvancedTemplates]).map(template => (
                       <TemplateThumbnail
                         key={template.id}
                         template={template}
@@ -745,7 +795,7 @@ const PageToolbar = ({
                 <div className="h-4 w-px bg-border mx-1" />
                 <div className="flex items-center gap-0.5">
                   {[1, 2, 3, 4, 5, 6].map((photoCount) => {
-                    const allTemplatesForPage = [...gridTemplates, ...advancedTemplates];
+                    const allTemplatesForPage = [...filteredGridTemplates, ...filteredAdvancedTemplates];
                     const templatesWithCount = allTemplatesForPage.filter(t => getPhotoCount(t) === photoCount);
                     const hasTemplates = templatesWithCount.length > 0;
 
@@ -803,6 +853,20 @@ const PageToolbar = ({
             <div className="h-4 w-px bg-border mx-2" />
             <Tooltip>
               <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(showSpineSettings && "text-primary bg-primary/10")}
+                  onClick={() => setShowSpineSettings(!showSpineSettings)}
+                >
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Show Spine & Title Settings</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon" onClick={() => onDownloadPage?.(page.id)}><Download className="h-5 w-5" /></Button>
               </TooltipTrigger>
               <TooltipContent>Download {page.isCover ? "Cover" : "Spread"}</TooltipContent>
@@ -858,8 +922,155 @@ const PageToolbar = ({
               </>
             )}
           </div>
-        </TooltipProvider>
-      </div>
+
+          {/* Conditional Spine & Title Settings Area */}
+          {
+            showSpineSettings && (
+              <div className="mt-2 p-3 bg-background border rounded-lg shadow-xl space-y-4 animate-in slide-in-from-top-2 duration-200 w-full">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* 1. Spine Settings (if cover) */}
+                  {page.isCover && (
+                    <div className="space-y-3 p-3 bg-muted/30 rounded-md border border-border/50">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-1.5 h-4 bg-primary rounded-full" />
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Spine Structure</h4>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        {/* Spine Width */}
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between items-center">
+                            <Label className="text-[10px] font-medium uppercase text-muted-foreground">Width</Label>
+                            <span className="text-[10px] font-bold font-mono">{page.spineWidth ?? 40}px</span>
+                          </div>
+                          <Slider
+                            value={[page.spineWidth ?? 40]}
+                            min={0}
+                            max={100}
+                            step={1}
+                            onValueChange={(val) => onUpdateSpineSettings?.(page.id, { width: val[0] })}
+                          />
+                        </div>
+
+                        {/* Spine Opacity */}
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between items-center">
+                            <Label className="text-[10px] font-medium uppercase text-muted-foreground">Opacity</Label>
+                            <span className="text-[10px] font-bold font-mono">{Math.round((page.spineOpacity ?? 1) * 100)}%</span>
+                          </div>
+                          <Slider
+                            value={[page.spineOpacity ?? 1]}
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            onValueChange={(val) => onUpdateSpineSettings?.(page.id, { opacity: val[0] })}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        {/* Spine Background Color */}
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-medium uppercase text-muted-foreground">Background</Label>
+                          <div className="flex items-center gap-2">
+                            <SpineColorPicker
+                              value={page.spineColor || '#ffffff'}
+                              onChange={(color) => onUpdateSpineSettings?.(page.id, { color })}
+                            />
+                            <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[80px]">
+                              {page.spineColor || '#FFFFFF'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Spine Text Toggle/Input could go here if needed */}
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-medium uppercase text-muted-foreground">Spine Text</Label>
+                          <Input
+                            value={page.spineText || ''}
+                            onChange={(e) => onUpdateSpineText?.(page.id, e.target.value)}
+                            placeholder="Album Title..."
+                            className="h-7 text-[10px] px-2"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 2. Page Title Settings */}
+                  <div className="space-y-3 p-3 bg-muted/30 rounded-md border border-border/50 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-1.5 h-4 bg-orange-500 rounded-full" />
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Title Properties</h4>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Title Text */}
+                      <div className="space-y-1.5 col-span-2">
+                        <Label className="text-[10px] font-medium uppercase text-muted-foreground">Display Title</Label>
+                        <Input
+                          value={page.titleText || ''}
+                          onChange={(e) => onUpdateTitleSettings?.(page.id, { text: e.target.value })}
+                          placeholder="Front Cover Title..."
+                          className="h-7 text-xs px-2"
+                        />
+                      </div>
+
+                      {/* Font Size */}
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-center">
+                          <Label className="text-[10px] font-medium uppercase text-muted-foreground">Size</Label>
+                          <span className="text-[10px] font-bold font-mono">{page.titleFontSize ?? 24}px</span>
+                        </div>
+                        <Slider
+                          value={[page.titleFontSize ?? 24]}
+                          min={8}
+                          max={120}
+                          step={1}
+                          onValueChange={(val) => onUpdateTitleSettings?.(page.id, { fontSize: val[0] })}
+                        />
+                      </div>
+
+                      {/* Title Color */}
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-medium uppercase text-muted-foreground">Color</Label>
+                        <div className="flex items-center gap-2">
+                          <SpineColorPicker
+                            value={page.titleColor || '#000000'}
+                            onChange={(color) => onUpdateTitleSettings?.(page.id, { color })}
+                            disableAlpha={true}
+                          />
+                          <span className="text-[10px] text-muted-foreground font-mono truncate">
+                            {page.titleColor || '#000000'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Font Family Selection */}
+                      <div className="space-y-1.5 col-span-2">
+                        <Label className="text-[10px] font-medium uppercase text-muted-foreground">Font Family</Label>
+                        <div className="flex flex-wrap gap-1">
+                          {AVAILABLE_FONTS.slice(0, 8).map(font => (
+                            <Button
+                              key={font}
+                              variant={page.titleFontFamily === font ? "default" : "outline"}
+                              size="sm"
+                              className="h-6 px-2 text-[10px]"
+                              onClick={() => onUpdateTitleSettings?.(page.id, { fontFamily: font })}
+                            >
+                              {font}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          }
+        </TooltipProvider >
+      </div >
     );
   }
 
@@ -926,6 +1137,19 @@ const PageToolbar = ({
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(showSpineSettings && "text-primary bg-primary/10")}
+                  onClick={() => setShowSpineSettings(!showSpineSettings)}
+                >
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Show Title Settings</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon" onClick={() => onDownloadPage?.(page.id)}><Download className="h-5 w-5" /></Button>
               </TooltipTrigger>
               <TooltipContent>Download Page</TooltipContent>
@@ -973,6 +1197,79 @@ const PageToolbar = ({
               <TooltipContent>{canDelete ? "Delete Page" : "Cannot delete first/last page"}</TooltipContent>
             </Tooltip>
           </div>
+
+          {/* Conditional Title Settings Area for Single Pages */}
+          {showSpineSettings && (
+            <div className="mt-2 p-3 bg-background border rounded-lg shadow-xl space-y-4 animate-in slide-in-from-top-2 duration-200 w-full">
+              <div className="space-y-3 p-3 bg-muted/30 rounded-md border border-border/50 max-w-lg mx-auto">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-1.5 h-4 bg-orange-500 rounded-full" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Title Properties</h4>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Title Text */}
+                  <div className="space-y-1.5 col-span-2">
+                    <Label className="text-[10px] font-medium uppercase text-muted-foreground">Display Title</Label>
+                    <Input
+                      value={page.titleText || ''}
+                      onChange={(e) => onUpdateTitleSettings?.(page.id, { text: e.target.value })}
+                      placeholder="Page Title..."
+                      className="h-7 text-xs px-2"
+                    />
+                  </div>
+
+                  {/* Font Size */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <Label className="text-[10px] font-medium uppercase text-muted-foreground">Size</Label>
+                      <span className="text-[10px] font-bold font-mono">{page.titleFontSize ?? 24}px</span>
+                    </div>
+                    <Slider
+                      value={[page.titleFontSize ?? 24]}
+                      min={8}
+                      max={120}
+                      step={1}
+                      onValueChange={(val) => onUpdateTitleSettings?.(page.id, { fontSize: val[0] })}
+                    />
+                  </div>
+
+                  {/* Title Color */}
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-medium uppercase text-muted-foreground">Color</Label>
+                    <div className="flex items-center gap-2">
+                      <SpineColorPicker
+                        value={page.titleColor || '#000000'}
+                        onChange={(color) => onUpdateTitleSettings?.(page.id, { color })}
+                        disableAlpha={true}
+                      />
+                      <span className="text-[10px] text-muted-foreground font-mono truncate">
+                        {page.titleColor || '#000000'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Font Family Selection */}
+                  <div className="space-y-1.5 col-span-2">
+                    <Label className="text-[10px] font-medium uppercase text-muted-foreground">Font Family</Label>
+                    <div className="flex flex-wrap gap-1">
+                      {AVAILABLE_FONTS.slice(0, 8).map(font => (
+                        <Button
+                          key={font}
+                          variant={page.titleFontFamily === font ? "default" : "outline"}
+                          size="sm"
+                          className="h-6 px-2 text-[10px]"
+                          onClick={() => onUpdateTitleSettings?.(page.id, { fontFamily: font })}
+                        >
+                          {font}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </TooltipProvider>
     </div>
@@ -990,6 +1287,7 @@ const ScaledCoverPreview = React.memo(({
   onRemovePhoto,
   allPhotos = [],
   previousPagePhotos = [],
+  activeView = 'full',
 }: {
   page: AlbumPage;
   config: AlbumConfig;
@@ -1000,6 +1298,7 @@ const ScaledCoverPreview = React.memo(({
   onRemovePhoto?: (pageId: string, photoId: string) => void;
   allPhotos?: Photo[];
   previousPagePhotos?: Photo[];
+  activeView?: 'front' | 'back' | 'full';
 }) => {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -1014,7 +1313,7 @@ const ScaledCoverPreview = React.memo(({
   const singlePageLogicalW = cfgW * pxPerUnit;
   // Use same logic as cover-canvas to ensure consistent "logical" size vs editor
   // Spine is 0 for regular pages
-  const spineWidth = page.isCover ? (page.spineWidth ?? 40) : 0;
+  const spineWidth = page.isCover ? (page.spineWidth !== undefined ? page.spineWidth : 40) : 0;
   const isDouble = page.isCover || page.type === 'spread';
   const logicalWidth = isDouble ? (singlePageLogicalW * 2) + spineWidth : singlePageLogicalW;
   const logicalHeight = BASE_PAGE_PX;
@@ -1079,12 +1378,13 @@ const ScaledCoverPreview = React.memo(({
         <div className="relative w-[97%] h-[95%] shadow-lg z-10 overflow-hidden bg-white">
 
           {/* Full Content - AlbumCover renders the complete spread/cover */}
-          <div className="absolute inset-0">
+          {/* Increased z-index to 50 to ensure it sits ABOVE the center spine/shadows (z-30) AND title overlay (z-40) */}
+          <div className="absolute inset-0 z-50">
             <AlbumCover
               page={page}
               config={config}
-              mode="preview"
-              activeView="full"
+              mode="editor"
+              activeView={activeView}
               onUpdateTitleSettings={onUpdateTitleSettings}
               onDropPhoto={onDropPhoto}
               onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
@@ -1113,7 +1413,7 @@ const ScaledCoverPreview = React.memo(({
         </div>
 
         {/* Title Overlay */}
-        <div className="absolute inset-0 z-40 pointer-events-none">
+        <div className="absolute inset-0 z-60 pointer-events-none">
           {page.titleText && (
             <DraggableTitle
               text={page.titleText}
@@ -1152,7 +1452,13 @@ export function AlbumPreview({
   allPhotos,
   onRemovePhoto,
   customTemplates,
+  defaultViewMode = 'full',
+  visibleTemplateCategories,
+  allowedTemplateIds,
 }: AlbumPreviewProps) {
+  // Initialize viewMode with defaultViewMode, but allow manual overrides without resetting
+  // when the prop changes (unless we want strict control, which we don't here).
+  const [viewMode, setViewMode] = useState<'full' | 'split'>(defaultViewMode);
   const { previewPhotoGap, previewPageMargin, previewCornerRadius } = useAlbumPreview();
   const { toast } = useToast();
   const [isInteracting, setIsInteracting] = useState(false);
@@ -1248,9 +1554,12 @@ export function AlbumPreview({
             // Calculate previousPagePhotos for suggestion fan
             const previousPagePhotos = index > 0 ? (pages[index - 1]?.photos || []) : [];
 
-            // Create effective config: visible pages get preview values, hidden pages keep actual values
-            // Optimization: Reuse the 'config' object reference for hidden pages to allow memoization to work
-            const effectiveConfig: AlbumConfig = (isVisible && (previewPhotoGap !== null || previewPageMargin !== null || previewCornerRadius !== null))
+            // Create effective config for live preview
+            // We apply the preview values to ALL pages to ensure consistency and reliability.
+            // Performance impact is minimal as this only happens during active slider dragging.
+            const hasPreviewOverrides = previewPhotoGap !== null || previewPageMargin !== null || previewCornerRadius !== null;
+
+            const effectiveConfig: AlbumConfig = hasPreviewOverrides
               ? {
                 ...config,
                 photoGap: (previewPhotoGap !== null && previewPhotoGap !== undefined) ? previewPhotoGap : (config.photoGap ?? 0),
@@ -1288,6 +1597,10 @@ export function AlbumPreview({
                       onOpenCoverEditor={handleOpenPageEditor}
                       onDownloadPage={onDownloadPage}
                       onUpdatePage={onUpdatePage}
+                      viewMode={viewMode}
+                      onToggleViewMode={() => setViewMode(prev => prev === 'full' ? 'split' : 'full')}
+                      visibleTemplateCategories={visibleTemplateCategories}
+                      allowedTemplateIds={allowedTemplateIds}
                       toast={toast}
                     />
                   </div>
@@ -1304,7 +1617,7 @@ export function AlbumPreview({
                             const BASE_PAGE_PX = 450;
                             const pxPerUnit = BASE_PAGE_PX / h;
                             const singlePageW = w * pxPerUnit;
-                            const spineWidth = page.spineWidth ?? 40;
+                            const spineWidth = page.spineWidth !== undefined ? page.spineWidth : 40;
                             const coverWidth = (singlePageW * 2) + spineWidth;
                             return coverWidth / BASE_PAGE_PX;
                           }
@@ -1331,6 +1644,7 @@ export function AlbumPreview({
                               onRemovePhoto={onRemovePhoto}
                               allPhotos={allPhotos}
                               previousPagePhotos={previousPagePhotos}
+                              activeView={viewMode === 'split' ? 'front' : 'full'}
                             />
                           ) : page.type === 'spread' ? (
                             <div className="relative h-full w-full">
@@ -1344,6 +1658,7 @@ export function AlbumPreview({
                                 onRemovePhoto={onRemovePhoto}
                                 allPhotos={allPhotos}
                                 previousPagePhotos={previousPagePhotos}
+                                activeView={viewMode === 'split' ? 'front' : 'full'}
                               />
                             </div>
                           ) : (
@@ -1356,6 +1671,7 @@ export function AlbumPreview({
                               onRemovePhoto={onRemovePhoto}
                               allPhotos={allPhotos}
                               previousPagePhotos={previousPagePhotos}
+                              activeView={viewMode === 'split' ? 'front' : 'full'}
                             />
                           )}
 

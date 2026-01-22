@@ -185,11 +185,11 @@ export const ShapeRegion = ({
             type="button"
             onClick={(e) => {
                 e.preventDefault();
-                e.stopPropagation();
+                e.stopPropagation(); // Stop propagation to prevent selecting the region underneath
                 onReplace(e, rootRef.current || undefined);
             }}
             onMouseDown={(e) => e.stopPropagation()}
-            className="absolute top-2 left-2 p-1.5 bg-black/50 text-white/70 rounded-sm hover:text-primary opacity-0 group-hover:opacity-100 transition-all z-[200] pointer-events-auto"
+            className="absolute top-2 left-2 p-1.5 bg-black/50 text-white/70 rounded-md hover:bg-black/70 hover:text-primary opacity-0 group-hover:opacity-100 transition-all z-[200] pointer-events-auto shadow-sm backdrop-blur-[2px]"
             title="Replace Photo"
         >
             <svg
@@ -207,6 +207,39 @@ export const ShapeRegion = ({
                 <path d="M21 3v5h-5" />
                 <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
                 <path d="M8 16H3v5" />
+            </svg>
+        </button>
+    );
+
+    // Shared Remove Button logic - Explicitly moved OUTSIDE the clipped container
+    const removeButton = photo && photo.src && onRemovePhoto && (
+        <button
+            type="button"
+            onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onRemovePhoto(photo.id);
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="absolute top-2 right-2 p-1.5 bg-black/50 text-white/70 rounded-md hover:bg-destructive hover:text-white opacity-0 group-hover:opacity-100 transition-all z-[200] pointer-events-auto shadow-sm backdrop-blur-[2px]"
+            title="Remove Photo"
+        >
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            >
+                <path d="M3 6h18" />
+                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                <line x1="10" x2="10" y1="11" y2="17" />
+                <line x1="14" x2="14" y1="11" y2="17" />
             </svg>
         </button>
     );
@@ -260,6 +293,7 @@ export const ShapeRegion = ({
                 )}
                 style={commonStyle}
                 onClick={(e) => {
+                    // Handle click on empty slot
                     if ((!photo || !photo.src) && onReplace) {
                         e.preventDefault();
                         e.stopPropagation();
@@ -286,6 +320,7 @@ export const ShapeRegion = ({
                     {renderContent()}
                 </div>
                 {replaceButton}
+                {removeButton}
             </div>
         );
     }
@@ -405,8 +440,9 @@ export const ShapeRegion = ({
                 </g>
             </svg>
 
-            {/* Replace Button (Outside of clip-path for visibility) */}
+            {/* Replace & Remove Buttons (Outside of clip-path for visibility) */}
             {replaceButton}
+            {removeButton}
         </div>
     );
 };

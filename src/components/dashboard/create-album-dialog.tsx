@@ -17,13 +17,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, Loader2, Settings2, Pencil, BookImage } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import {
-    Accordion,
-    AccordionContent,
-    AccordionItem,
-    AccordionTrigger,
-} from "@/components/ui/accordion"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Album } from '@/lib/types';
+import { useSettings } from '@/hooks/use-settings';
 
 
 interface CreateAlbumDialogProps {
@@ -40,23 +36,41 @@ export function CreateAlbumDialog({ children, albumToEdit, onAlbumUpdated, onAlb
     const [description, setDescription] = useState('');
     const router = useRouter();
     const { toast } = useToast();
+    const { settings, liveSettings, refreshSettings } = useSettings();
+    const [isSettingsRefreshing, setIsSettingsRefreshing] = useState(false);
 
     const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
     // Pre-fill form if editing
     useEffect(() => {
-        if (open && albumToEdit) {
-            setName(albumToEdit.name);
-            setDescription(albumToEdit.config?.description || '');
-            setPreviewUrl(albumToEdit.thumbnail_url || null);
-        } else if (open && !albumToEdit) {
-            setName('');
-            setDescription('');
-            setThumbnailFile(null);
-            setPreviewUrl(null);
+        if (open) {
+            // Ensure we have the latest settings when opening the dialog
+            // We use a local loading state to prevent submitting with stale data
+            const syncSettings = async () => {
+                setIsSettingsRefreshing(true);
+                try {
+                    await refreshSettings();
+                } catch (error) {
+                    console.error("Failed to refresh settings:", error);
+                } finally {
+                    setIsSettingsRefreshing(false);
+                }
+            };
+            syncSettings();
+
+            if (albumToEdit) {
+                setName(albumToEdit.name);
+                setDescription(albumToEdit.config?.description || '');
+                setPreviewUrl(albumToEdit.thumbnail_url || null);
+            } else {
+                setName('');
+                setDescription('');
+                setThumbnailFile(null);
+                setPreviewUrl(null);
+            }
         }
-    }, [open, albumToEdit]);
+    }, [open, albumToEdit, refreshSettings]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -98,6 +112,13 @@ export function CreateAlbumDialog({ children, albumToEdit, onAlbumUpdated, onAlb
                 console.log('[CreateAlbumDialog] New thumbnailUrl:', thumbnailUrl);
             }
 
+            console.log('[CreateAlbumDialog] CREATING ALBUM. Verified Cache Values (liveSettings):', {
+                defaultAlbumSize: liveSettings.defaultAlbumSize,
+                defaultPhotoGap: liveSettings.defaultPhotoGap,
+                defaultPageMargin: liveSettings.defaultPageMargin,
+                defaultCornerRadius: liveSettings.defaultCornerRadius
+            });
+
             const url = albumToEdit ? `/api/albums/${albumToEdit.id}` : '/api/albums';
             const method = albumToEdit ? 'PUT' : 'POST';
 
@@ -105,11 +126,11 @@ export function CreateAlbumDialog({ children, albumToEdit, onAlbumUpdated, onAlb
                 name: name || 'Untitled Album',
                 config: {
                     ...(albumToEdit?.config || {
-                        size: '25x25',
-                        photoGap: 4,
-                        pageMargin: 10,
-                        backgroundColor: '#ffffff',
-                        cornerRadius: 0,
+                        size: liveSettings.defaultAlbumSize,
+                        photoGap: liveSettings.defaultPhotoGap,
+                        pageMargin: liveSettings.defaultPageMargin,
+                        backgroundColor: liveSettings.defaultBackgroundColor,
+                        cornerRadius: liveSettings.defaultCornerRadius,
                     }),
                     description,
                 },
@@ -247,9 +268,9 @@ export function CreateAlbumDialog({ children, albumToEdit, onAlbumUpdated, onAlb
                         <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={isLoading}>
-                            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {albumToEdit ? 'Save Changes' : 'Create Album'}
+                        <Button type="submit" disabled={isLoading || isSettingsRefreshing}>
+                            {(isLoading || isSettingsRefreshing) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {albumToEdit ? 'Save Changes' : (isSettingsRefreshing ? 'Syncing...' : 'Create Album')}
                         </Button>
                     </DialogFooter>
                 </form>

@@ -5,6 +5,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/hooks/useAuth';
 import { ThemeProvider } from '@/components/theme-provider';
 import { TemplatePreloader } from '@/components/template-preloader';
+import { SettingsProvider } from '@/components/settings-provider';
 
 export const metadata: Metadata = {
   title: 'Albomit',
@@ -34,11 +35,13 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <div className="relative flex min-h-screen flex-col">
-              {children}
-            </div>
-            <Toaster />
-            <TemplatePreloader />
+            <SettingsProvider>
+              <div className="relative flex min-h-screen flex-col">
+                {children}
+              </div>
+              <Toaster />
+              <TemplatePreloader />
+            </SettingsProvider>
           </ThemeProvider>
         </AuthProvider>
       </body>

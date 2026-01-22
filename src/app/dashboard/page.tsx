@@ -9,9 +9,11 @@ import {
   Loader2,
   BookImage,
   Pencil,
+  Settings,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { SettingsDialog } from '@/components/settings-dialog';
 import { CreateAlbumDialog } from '@/components/dashboard/create-album-dialog';
 import {
   Card,
@@ -42,6 +44,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [navigatingId, setNavigatingId] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
@@ -128,7 +131,17 @@ export default function DashboardPage() {
                 {user?.email ? `Welcome back, ${user.email}` : 'Manage your photo collections.'}
               </p>
             </div>
-            <CreateAlbumDialog onAlbumCreated={fetchAlbums} />
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="icon"
+                title="Settings"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <Settings className="h-5 w-5" />
+              </Button>
+              <CreateAlbumDialog onAlbumCreated={fetchAlbums} />
+            </div>
           </div>
 
           {isLoading ? (
@@ -276,6 +289,10 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+      {/* Settings Modal - Only render when open to avoid background hook execution loops */}
+      {settingsOpen && (
+        <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      )}
     </>
   );
 }

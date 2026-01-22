@@ -1,26 +1,37 @@
-import { useCallback } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { AlbumPage, Photo, AlbumConfig } from '@/lib/types';
 import { getPhotoCount, useTemplates } from '@/hooks/useTemplates';
 import { useToast } from '@/hooks/use-toast';
+import { UserSettings } from '@/hooks/use-settings';
 
 interface UseAlbumGenerationProps {
     setAlbumPages: (pages: AlbumPage[]) => void;
     setAllPhotos: (photos: Photo[]) => void;
     setIsLoadingPhotos: (isLoading: boolean) => void;
     randomSeed: string;
+    settings: UserSettings;
 }
 
 export function useAlbumGeneration({
     setAlbumPages,
     setAllPhotos,
     setIsLoadingPhotos,
-    randomSeed
+    randomSeed,
+    settings
 }: UseAlbumGenerationProps) {
-    const { gridTemplates, coverTemplates } = useTemplates();
+    const { gridTemplates, coverTemplates, rawGridTemplates, rawCoverTemplates } = useTemplates();
     const { toast } = useToast();
 
+    // Use settings directly from props
     const generateEmptyAlbum = useCallback(() => {
+        console.log('[generateEmptyAlbum] Using settings from prop:', {
+            spineWidth: settings.defaultSpineWidth,
+            spineOpacity: settings.defaultSpineOpacity,
+            photoGap: settings.defaultPhotoGap,
+            pageMargin: settings.defaultPageMargin
+        });
+
         const emptyPhoto = (id?: string) => ({
             id: id || uuidv4(),
             src: '',
@@ -30,21 +41,29 @@ export function useAlbumGeneration({
             panAndZoom: { scale: 1, x: 50, y: 50 }
         });
 
+        // Determine default cover type
+        const defaultCoverType: 'full' | 'split' = settings.autoFillLayoutMode === 'split' ? 'split' : 'full';
+
         const newPages: AlbumPage[] = [
             // Cover page
             {
                 id: 'cover',
                 type: 'spread',
                 photos: [emptyPhoto()],
-                layout: '1-full',
+                layout: defaultCoverType === 'full' ? '1-full' : 'cover',
                 isCover: true,
                 coverLayouts: { front: '1-full', back: '1-full' },
-                coverType: 'full',
-                spineText: '',
-                spineWidth: 20,
-                spineColor: '#ffffff',
-                spineTextColor: '#000000',
-                spineFontFamily: 'Tahoma'
+                coverType: defaultCoverType,
+                spineText: settings.defaultSpineText,
+                spineWidth: settings.defaultSpineWidth,
+                spineColor: settings.defaultSpineColor,
+                spineOpacity: settings.defaultSpineOpacity,
+                spineTextColor: settings.defaultSpineTextColor,
+                spineFontFamily: settings.defaultSpineFontFamily,
+                spineFontSize: settings.defaultSpineFontSize,
+                spineFontWeight: settings.defaultSpineFontWeight,
+                spineFontStyle: settings.defaultSpineFontStyle,
+                spineTextAlign: settings.defaultSpineTextAlign
             },
             // First single page (right side)
             {
@@ -59,7 +78,7 @@ export function useAlbumGeneration({
                 type: 'spread',
                 photos: [emptyPhoto(), emptyPhoto()],
                 layout: '2-horizontal',
-                spreadMode: 'split',
+                spreadMode: defaultCoverType,
                 spreadLayouts: { left: '1-full', right: '1-full' }
             },
             // Last single page (left side)
@@ -145,17 +164,32 @@ export function useAlbumGeneration({
         const newPages: AlbumPage[] = [];
         const defaultPanAndZoom = { scale: 1, x: 50, y: 50 };
 
-        // --- 1. Randomize Cover Configuration ---
-        const coverTypes: ('full' | 'split')[] = ['full', 'split'];
-        const randomCoverType = coverTypes[Math.floor(Math.random() * coverTypes.length)];
+        // --- 1. Randomize Cover Configuration (respecting settings) ---
+        let randomCoverType: 'full' | 'split' = 'full';
+
+        if (settings.autoFillLayoutMode === 'auto') {
+            const coverTypes: ('full' | 'split')[] = ['full', 'split'];
+            randomCoverType = coverTypes[Math.floor(Math.random() * coverTypes.length)];
+        } else {
+            randomCoverType = settings.autoFillLayoutMode;
+        }
 
         let coverLayoutShim = { front: '4-mosaic-1', back: '4-mosaic-1' };
         let fullCoverLayout = '1-full';
         let coverPhotos: Photo[] = [];
 
+        // Filter templates based on max photos setting
+        const maxPhotos = settings.autoFillMaxPhotosPerPage;
+        const validCoverTemplates = maxPhotos > 0
+            ? coverTemplates.filter(t => getPhotoCount(t) <= maxPhotos)
+            : coverTemplates;
+
+        // Fallback if no templates match filter - use raw templates to ensure we ALWAYs have something
+        const availableCoverTemplates = validCoverTemplates.length > 0 ? validCoverTemplates : rawCoverTemplates;
+
         if (randomCoverType === 'split') {
-            const frontTemplate = coverTemplates[Math.floor(Math.random() * coverTemplates.length)];
-            const backTemplate = coverTemplates[Math.floor(Math.random() * coverTemplates.length)];
+            const frontTemplate = availableCoverTemplates[Math.floor(Math.random() * availableCoverTemplates.length)];
+            const backTemplate = availableCoverTemplates[Math.floor(Math.random() * availableCoverTemplates.length)];
 
             coverLayoutShim = { front: frontTemplate.id, back: backTemplate.id };
             const totalCoverPhotos = getPhotoCount(frontTemplate) + getPhotoCount(backTemplate);
@@ -168,7 +202,7 @@ export function useAlbumGeneration({
                 }
             }
         } else {
-            const fullTemplate = coverTemplates[Math.floor(Math.random() * coverTemplates.length)];
+            const fullTemplate = availableCoverTemplates[Math.floor(Math.random() * availableCoverTemplates.length)];
             fullCoverLayout = fullTemplate.id;
 
             for (let i = 0; i < getPhotoCount(fullTemplate); i++) {
@@ -188,11 +222,16 @@ export function useAlbumGeneration({
             isCover: true,
             coverLayouts: coverLayoutShim,
             coverType: randomCoverType,
-            spineText: '',
-            spineWidth: 20,
-            spineColor: '#ffffff',
-            spineTextColor: '#000000',
-            spineFontFamily: 'Tahoma'
+            spineText: settings.defaultSpineText,
+            spineWidth: settings.defaultSpineWidth,
+            spineColor: settings.defaultSpineColor,
+            spineOpacity: settings.defaultSpineOpacity,
+            spineTextColor: settings.defaultSpineTextColor,
+            spineFontFamily: settings.defaultSpineFontFamily,
+            spineFontSize: settings.defaultSpineFontSize,
+            spineFontWeight: settings.defaultSpineFontWeight,
+            spineFontStyle: settings.defaultSpineFontStyle,
+            spineTextAlign: settings.defaultSpineTextAlign
         });
 
         // --- 2. Randomize Inner Pages ---
@@ -213,29 +252,51 @@ export function useAlbumGeneration({
         }
 
         // --- 4. Inner Spreads ---
+
+        // Filter grid templates based on max photos
+        const validGridTemplates = maxPhotos > 0
+            ? gridTemplates.filter(t => getPhotoCount(t) <= maxPhotos)
+            : gridTemplates;
+        // Ensure at least one template exists (fallback to default/all if strict filtering leaves none)
+        const availableGridTemplates = validGridTemplates.length > 0 ? validGridTemplates : rawGridTemplates;
+
         while (photosPool.length > 0) {
-            const isSplit = Math.random() > 0.5;
+            let isSplit = false;
+            if (settings.autoFillLayoutMode === 'auto') {
+                isSplit = Math.random() > 0.5;
+            } else {
+                isSplit = settings.autoFillLayoutMode === 'split';
+            }
 
             if (isSplit) {
-                let leftTemplate = gridTemplates[Math.floor(Math.random() * gridTemplates.length)];
-                let rightTemplate = gridTemplates[Math.floor(Math.random() * gridTemplates.length)];
+                let leftTemplate = availableGridTemplates[Math.floor(Math.random() * availableGridTemplates.length)];
+                let rightTemplate = availableGridTemplates[Math.floor(Math.random() * availableGridTemplates.length)];
+
+                // Smart matching logic could go here (comparing aspect ratios)
+
                 const totalNeeded = getPhotoCount(leftTemplate) + getPhotoCount(rightTemplate);
 
                 if (photosPool.length < totalNeeded) {
                     if (photosPool.length >= 2) {
-                        leftTemplate = gridTemplates.find(t => getPhotoCount(t) === 1) || gridTemplates[0];
-                        rightTemplate = gridTemplates.find(t => getPhotoCount(t) === 1) || gridTemplates[0];
+                        leftTemplate = availableGridTemplates.find(t => getPhotoCount(t) === 1) || availableGridTemplates[0];
+                        rightTemplate = availableGridTemplates.find(t => getPhotoCount(t) === 1) || availableGridTemplates[0];
                     } else {
-                        leftTemplate = gridTemplates.find(t => getPhotoCount(t) === 1) || gridTemplates[0];
-                        rightTemplate = gridTemplates[0];
-                        const fallbackTemplate = gridTemplates.find(t => getPhotoCount(t) === photosPool.length) || gridTemplates.find(t => getPhotoCount(t) === 1) || gridTemplates[0];
-                        const pagePhotos = photosPool.splice(0, getPhotoCount(fallbackTemplate));
+                        // Fallback to single page or spread with 1 photo if we only have 1 left
+                        leftTemplate = availableGridTemplates.find(t => getPhotoCount(t) === 1) || availableGridTemplates[0];
+                        rightTemplate = availableGridTemplates[0]; // Empty or default
+
+                        // Actually, if only 1 photo left, we might just want a full spread or single page?
+                        // But logic here was "try to make a split spread". 
+                        // Let's use a simpler fallback: just make a spread with whatever fits
+                        const fallbackTemplate = availableGridTemplates.find(t => getPhotoCount(t) === photosPool.length) || availableGridTemplates[0];
+                        const pagePhotos = photosPool.splice(0, Math.min(photosPool.length, getPhotoCount(fallbackTemplate)));
+
                         newPages.push({
                             id: uuidv4(),
                             type: 'spread',
                             photos: pagePhotos.map(p => ({ ...p, id: uuidv4(), originalId: p.id, remoteUrl: p.remoteUrl, panAndZoom: defaultPanAndZoom })),
                             layout: fallbackTemplate.id,
-                            spreadMode: 'full'
+                            spreadMode: 'full' // Fallback to full if we can't make a nice split
                         });
                         continue;
                     }
@@ -250,7 +311,7 @@ export function useAlbumGeneration({
                         id: uuidv4(),
                         type: 'spread',
                         photos: pagePhotos.map(p => ({ ...p, id: uuidv4(), originalId: p.id, remoteUrl: p.remoteUrl, panAndZoom: defaultPanAndZoom })),
-                        layout: '4-grid',
+                        layout: '4-grid', // This is just a placeholder/container layout name? Or does it matter? Usually for split spreads the layout prop on the page itself is less used than spreadLayouts
                         spreadMode: 'split',
                         spreadLayouts: {
                             left: leftTemplate.id,
@@ -258,7 +319,8 @@ export function useAlbumGeneration({
                         }
                     });
                 } else {
-                    const fallbackTemplate = gridTemplates.find(t => getPhotoCount(t) === 1) || gridTemplates[0];
+                    // Not enough photos for selected split templates
+                    const fallbackTemplate = availableGridTemplates.find(t => getPhotoCount(t) === 1) || availableGridTemplates[0];
                     const pagePhotos = photosPool.splice(0, Math.min(photosPool.length, getPhotoCount(fallbackTemplate)));
                     newPages.push({
                         id: uuidv4(),
@@ -270,17 +332,21 @@ export function useAlbumGeneration({
                 }
 
             } else {
-                let selectedTemplate = gridTemplates[Math.floor(Math.random() * gridTemplates.length)];
+                // Full Spread
+                let selectedTemplate = availableGridTemplates[Math.floor(Math.random() * availableGridTemplates.length)];
+
+                // Try to find exact fit if we are running low on photos
                 if (photosPool.length < getPhotoCount(selectedTemplate)) {
-                    const exactFit = gridTemplates.find(t => getPhotoCount(t) === photosPool.length);
+                    const exactFit = availableGridTemplates.find(t => getPhotoCount(t) === photosPool.length);
                     if (exactFit) {
                         selectedTemplate = exactFit;
                     } else {
-                        selectedTemplate = gridTemplates.find(t => getPhotoCount(t) === 1)!;
+                        // If no exact fit, find smallest
+                        selectedTemplate = availableGridTemplates.find(t => getPhotoCount(t) === 1) || availableGridTemplates[0];
                     }
                 }
 
-                const pagePhotos = photosPool.splice(0, getPhotoCount(selectedTemplate));
+                const pagePhotos = photosPool.splice(0, Math.min(photosPool.length, getPhotoCount(selectedTemplate)));
 
                 newPages.push({
                     id: uuidv4(),
@@ -313,7 +379,7 @@ export function useAlbumGeneration({
         }
 
         setAlbumPages(newPages);
-    }, [setAlbumPages, gridTemplates, coverTemplates]);
+    }, [setAlbumPages, gridTemplates, coverTemplates, settings, rawGridTemplates, rawCoverTemplates]);
 
     const generateDummyPhotos = useCallback(() => {
         if (!randomSeed) {
@@ -413,7 +479,7 @@ export function useAlbumGeneration({
         });
 
         setAlbumPages(newPages);
-    }, [setAlbumPages]);
+    }, [setAlbumPages, settings]);
 
     return {
         generateEmptyAlbum,

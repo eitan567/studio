@@ -11,9 +11,9 @@ interface UseAlbumOptions {
 }
 
 const DEFAULT_CONFIG: AlbumConfig = {
-    size: '25x25',
-    photoGap: 4,
-    pageMargin: 10,
+    size: '20x20',
+    photoGap: 2,
+    pageMargin: 0,
     backgroundColor: '#ffffff',
     cornerRadius: 0,
 }

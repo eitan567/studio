@@ -19,9 +19,17 @@ import {
     Settings2,
     PlusSquare
 } from 'lucide-react';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { SpineColorPicker } from '../spine-color-picker';
 import { AiBackgroundGenerator } from '../ai-background-generator';
 import { useTemplates } from '@/hooks/useTemplates';
+import { useSettings } from '@/hooks/use-settings';
 import { cn } from '@/lib/utils';
 
 // Helper for fonts
@@ -37,6 +45,7 @@ interface SidebarRightProps {
 
 export const SidebarRight = ({ page, onUpdatePage, activeView, onSetActiveView, isCover = true }: SidebarRightProps) => {
     const { gridTemplates, coverTemplates, defaultGridTemplate, defaultCoverTemplate } = useTemplates();
+    const { settings } = useSettings();
 
     const [availableBackgrounds, setAvailableBackgrounds] = useState<string[]>([
         'https://picsum.photos/seed/bg1/800/600',
@@ -431,26 +440,51 @@ export const SidebarRight = ({ page, onUpdatePage, activeView, onSetActiveView, 
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="space-y-1.5">
                                                 <Label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Typeface</Label>
-                                                <select
-                                                    className="w-full h-9 px-2 text-sm border rounded-md bg-background shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                                                    value={page.spineFontFamily || 'Tahoma'}
-                                                    onChange={(e) => handleUpdatePageProp({ spineFontFamily: e.target.value })}
+                                                <Select
+                                                    value={page.spineFontFamily || settings.defaultSpineFontFamily || 'Inter'}
+                                                    onValueChange={(val) => handleUpdatePageProp({ spineFontFamily: val })}
                                                 >
-                                                    {AVAILABLE_FONTS.map(f => <option key={f} value={f}>{f}</option>)}
-                                                </select>
+                                                    <SelectTrigger className="w-full h-9 px-2 text-sm bg-background shadow-sm">
+                                                        <SelectValue placeholder="Select font" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {AVAILABLE_FONTS.map(f => (
+                                                            <SelectItem key={f} value={f}>
+                                                                <span style={{ fontFamily: f }}>{f}</span>
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
                                             </div>
                                             <div className="space-y-1.5">
                                                 <Label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Size</Label>
                                                 <div className="relative">
                                                     <Input
                                                         type="number"
-                                                        value={page.spineFontSize || 12}
+                                                        value={page.spineFontSize || settings.defaultSpineFontSize}
                                                         onChange={(e) => handleUpdatePageProp({ spineFontSize: Number(e.target.value) })}
                                                         className="h-9 pr-6 bg-background shadow-sm"
                                                     />
                                                     <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">px</span>
                                                 </div>
                                             </div>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <div className="flex justify-between items-center px-0.5">
+                                                <Label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Opacity</Label>
+                                                <span className="text-[10px] font-mono text-muted-foreground">
+                                                    {Math.round((page.spineOpacity !== undefined ? page.spineOpacity : settings.defaultSpineOpacity) * 100)}%
+                                                </span>
+                                            </div>
+                                            <Slider
+                                                value={[page.spineOpacity !== undefined ? page.spineOpacity : settings.defaultSpineOpacity]}
+                                                min={0}
+                                                max={1}
+                                                step={0.01}
+                                                onValueChange={(vals) => handleUpdatePageProp({ spineOpacity: vals[0] })}
+                                                className="py-2"
+                                            />
                                         </div>
 
                                         <div className="space-y-1.5">

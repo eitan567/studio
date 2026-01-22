@@ -75,6 +75,7 @@ export type AlbumPage = {
   spineText?: string;
   spineWidth?: number;
   spineColor?: string;
+  spineOpacity?: number;
   spineTextColor?: string;
   spineFontSize?: number;
   spineFontFamily?: string;

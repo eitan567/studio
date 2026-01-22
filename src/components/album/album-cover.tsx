@@ -3,6 +3,7 @@ import { AlbumPage, CoverText, CoverImage, AlbumConfig, Photo, PhotoPanAndZoom }
 import { cn } from '@/lib/utils';
 import { PageLayout } from './page-layout';
 import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
+import { useSettings } from '@/hooks/use-settings'; // Added useSettings import
 
 // Helper to parse layout ID and extract base ID (without rotation suffix)
 function parseLayoutId(layoutId: string): { baseId: string; rotation: number } {
@@ -50,17 +51,19 @@ export const Spine = ({
     width,
     color,
     textColor,
-    fontSize = 12,
+    fontSize,
     fontFamily,
     fontWeight,
     fontStyle,
-    textAlign = 'center',
+    opacity,
+    textAlign,
     rotated = false,
     styleOverride
 }: {
     text?: string;
     width?: number;
     color?: string;
+    opacity?: number;
     textColor?: string;
     fontSize?: number;
     fontFamily?: string;
@@ -70,9 +73,21 @@ export const Spine = ({
     rotated?: boolean;
     styleOverride?: React.CSSProperties
 }) => {
+    const { settings } = useSettings();
+
+    // Resolve values or fall back to settings
+    const resolvedWidth = width !== undefined ? width : settings.defaultSpineWidth;
+    const resolvedOpacity = opacity !== undefined ? opacity : settings.defaultSpineOpacity;
+    const resolvedFontSize = fontSize !== undefined ? fontSize : settings.defaultSpineFontSize;
+    const resolvedFontFamily = fontFamily || settings.defaultSpineFontFamily;
+    const resolvedTextColor = textColor || settings.defaultSpineTextColor;
+    const resolvedFontWeight = fontWeight || settings.defaultSpineFontWeight;
+    const resolvedFontStyle = fontStyle || settings.defaultSpineFontStyle;
+    const resolvedTextAlign = textAlign || settings.defaultSpineTextAlign;
+
     // Alignment logic
     const getContainerAlignment = (): string => {
-        switch (textAlign) {
+        switch (resolvedTextAlign) {
             case 'left': return 'justify-start';
             case 'right': return 'justify-end';
             default: return 'justify-center';
@@ -84,12 +99,13 @@ export const Spine = ({
             className={cn(
                 "relative h-full flex flex-col items-center overflow-hidden z-20",
                 getContainerAlignment(),
-                (!width && width !== 0) || width > 0 ? "border-x border-dashed border-border/50" : "border-none"
+                (!resolvedWidth && resolvedWidth !== 0) || resolvedWidth > 0 ? "border-x border-dashed border-border/50" : "border-none"
             )}
             style={{
-                width: width ? `${width}px` : undefined,
-                backgroundColor: color,
-                padding: textAlign === 'left' || textAlign === 'right' ? '10px 0' : '0',
+                width: `${resolvedWidth}px`,
+                backgroundColor: color || settings.defaultSpineColor,
+                opacity: resolvedOpacity,
+                padding: resolvedTextAlign === 'left' || resolvedTextAlign === 'right' ? '10px 0' : '0',
                 ...styleOverride
             }}
         >
@@ -99,14 +115,14 @@ export const Spine = ({
                     writingMode: 'vertical-rl',
                     textOrientation: 'mixed',
                     transform: rotated ? 'rotate(180deg)' : 'none',
-                    fontSize: `${fontSize}px`,
-                    fontFamily: fontFamily || 'Tahoma',
-                    color: textColor,
-                    fontWeight: fontWeight === 'bold' ? 'bold' : 'normal',
-                    fontStyle: fontStyle === 'italic' ? 'italic' : 'normal'
+                    fontSize: `${resolvedFontSize}px`,
+                    fontFamily: resolvedFontFamily,
+                    color: resolvedTextColor,
+                    fontWeight: resolvedFontWeight === 'bold' ? 'bold' : 'normal',
+                    fontStyle: resolvedFontStyle === 'italic' ? 'italic' : 'normal'
                 }}
             >
-                {text || (width === 0 ? '' : 'SPINE')}
+                {text || (resolvedWidth === 0 ? '' : 'SPINE')}
             </span>
         </div>
     );
@@ -723,12 +739,12 @@ export const AlbumCover = ({
 
     // Layout Data
     const backLayoutId = page.isCover
-        ? (page.coverLayouts?.back || defaultCoverTemplate.id)
-        : (page.spreadLayouts?.left || defaultGridTemplate.id);
+        ? (page.coverLayouts?.back || defaultCoverTemplate?.id || '1-full')
+        : (page.spreadLayouts?.left || defaultGridTemplate?.id || '1-full');
 
     const frontLayoutId = page.isCover
-        ? (page.coverLayouts?.front || defaultCoverTemplate.id)
-        : (page.spreadLayouts?.right || defaultGridTemplate.id);
+        ? (page.coverLayouts?.front || defaultCoverTemplate?.id || '1-full')
+        : (page.spreadLayouts?.right || defaultGridTemplate?.id || '1-full');
 
     const templateSource = page.isCover ? [...coverTemplates, ...advancedTemplates] : [...gridTemplates, ...advancedTemplates];
 
@@ -736,8 +752,8 @@ export const AlbumCover = ({
     const { baseId: backBaseId } = parseLayoutId(backLayoutId);
     const { baseId: frontBaseId } = parseLayoutId(frontLayoutId);
 
-    const backTemplate = templateSource.find(t => t.id === backBaseId) || templateSource[0];
-    const frontTemplate = templateSource.find(t => t.id === frontBaseId) || templateSource[0];
+    const backTemplate = templateSource.find(t => t.id === backBaseId) || templateSource[0] || defaultCoverTemplate || defaultGridTemplate;
+    const frontTemplate = templateSource.find(t => t.id === frontBaseId) || templateSource[0] || defaultCoverTemplate || defaultGridTemplate;
 
     // Check if backTemplate is undefined properly? No, default to [0] fixes it.
 
@@ -779,7 +795,7 @@ export const AlbumCover = ({
     // Assuming config.photoGap is number. If string, parse it.
     const photoGap = page.photoGap ?? config?.photoGap ?? 0;
     const cornerRadius = page.cornerRadius ?? config?.cornerRadius ?? 0;
-    const spineWidth = page.isCover ? (page.spineWidth ?? 40) : 0;
+    const spineWidth = page.spineWidth !== undefined ? page.spineWidth : 40;
 
     // --- Spine-aware Coordinate Calculations ---
     // For full view with spine, calculate the actual percentage boundaries
@@ -819,30 +835,33 @@ export const AlbumCover = ({
                     }}
                 >
                     {/* Spine Visual Guide (Overlay) */}
-                    <div
-                        className={cn(
-                            "absolute top-0 bottom-0 left-1/2 z-10 pointer-events-none flex flex-col items-center overflow-hidden",
-                            spineWidth > 0 ? "" : "hidden"
-                        )}
-                        style={{
-                            marginLeft: `-${spineWidth / 2}px`,
-                            width: `${spineWidth}px`,
-                        }}
-                    >
-                        <Spine
-                            text={page.spineText}
-                            width={spineWidth}
-                            color={page.spineColor}
-                            textColor={page.spineTextColor}
-                            fontSize={page.spineFontSize}
-                            fontFamily={page.spineFontFamily}
-                            fontWeight={page.spineFontWeight}
-                            fontStyle={page.spineFontStyle}
-                            textAlign={page.spineTextAlign}
-                            rotated={page.spineTextRotated}
-                            styleOverride={{ height: '100%', width: '100%', border: 'none' }}
-                        />
-                    </div>
+                    {page.isCover && (
+                        <div
+                            className={cn(
+                                "absolute top-0 bottom-0 left-1/2 z-10 pointer-events-none flex flex-col items-center overflow-hidden",
+                                spineWidth > 0 ? "" : "hidden"
+                            )}
+                            style={{
+                                marginLeft: `-${spineWidth / 2}px`,
+                                width: `${spineWidth}px`,
+                            }}
+                        >
+                            <Spine
+                                text={page.spineText}
+                                width={spineWidth}
+                                color={page.spineColor}
+                                opacity={page.spineOpacity}
+                                textColor={page.spineTextColor}
+                                fontSize={page.spineFontSize}
+                                fontFamily={page.spineFontFamily}
+                                fontWeight={page.spineFontWeight}
+                                fontStyle={page.spineFontStyle}
+                                textAlign={page.spineTextAlign}
+                                rotated={page.spineTextRotated}
+                                styleOverride={{ height: '100%', width: '100%', border: 'none' }}
+                            />
+                        </div>
+                    )}
 
                     {/* Spread Content */}
                     <div className="h-full w-full relative z-0">
@@ -892,7 +911,7 @@ export const AlbumCover = ({
                                 overrideLayout={page.isCover ? backLayoutId : (page.spreadLayouts?.left || defaultGridTemplate.id)}
                                 templateSource={page.isCover ? [...coverTemplates, ...advancedTemplates] as any : [...gridTemplates, ...advancedTemplates] as any}
                                 onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
-                                onInteractionChange={() => { }}
+                                onInteractionChange={onInteractionChange || (() => { })}
                                 onDropPhoto={onDropPhoto || (() => { })}
                                 useSimpleImage={useSimpleImage}
                                 photoIndexOffset={0}
@@ -918,6 +937,7 @@ export const AlbumCover = ({
                                 text={page.spineText}
                                 width={spineWidth}
                                 color={page.spineColor}
+                                opacity={page.spineOpacity}
                                 textColor={page.spineTextColor}
                                 fontSize={page.spineFontSize}
                                 fontFamily={page.spineFontFamily}
@@ -954,7 +974,7 @@ export const AlbumCover = ({
                                 overrideLayout={page.isCover ? frontLayoutId : (page.spreadLayouts?.right || defaultGridTemplate.id)}
                                 templateSource={page.isCover ? [...coverTemplates, ...advancedTemplates] as any : [...gridTemplates, ...advancedTemplates] as any}
                                 onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
-                                onInteractionChange={() => { }}
+                                onInteractionChange={onInteractionChange || (() => { })}
                                 onDropPhoto={onDropPhoto || (() => { })}
                                 useSimpleImage={useSimpleImage}
                                 photoIndexOffset={backPhotoCount}
@@ -1006,7 +1026,7 @@ export const AlbumCover = ({
             // Font Scaling (Responsive cqw)
             // 'cqw' requires the container to have 'container-type: inline-size'.
             const referenceWidth = isFull ? 3200 : 1600;
-            const fontSizeCss = `${(textItem.style.fontSize / referenceWidth) * 100}cqw`;
+            const fontSizeCss = `${(textItem.style.fontSize / referenceWidth) * 100} cqw`;
 
             const isSelected = activeTextIds.includes(textItem.id);
 

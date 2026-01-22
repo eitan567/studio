@@ -41,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const signOut = useCallback(async () => {
         await supabaseSignOut()
         setUser(null)
+        localStorage.removeItem('album_studio_user_settings') // Clear settings cache
     }, [])
 
     return (
