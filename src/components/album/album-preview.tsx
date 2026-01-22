@@ -850,20 +850,86 @@ const PageToolbar = ({
               </>
             )}
 
-            <div className="h-4 w-px bg-border mx-2" />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn(showSpineSettings && "text-primary bg-primary/10")}
-                  onClick={() => setShowSpineSettings(!showSpineSettings)}
-                >
-                  <Settings2 className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Show Spine & Title Settings</TooltipContent>
-            </Tooltip>
+            {page.isCover && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn("hover:text-primary transition-colors")}
+                  >
+                    <Settings2 className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-[380px] p-0 border-none shadow-none bg-transparent">
+                  <div className="bg-background/95 backdrop-blur-sm p-4 rounded-xl border shadow-xl animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-1.5 h-4 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]" />
+                      <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground/80">Spine Structure</h4>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Row 1: Width & Opacity */}
+                      <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center px-0.5">
+                            <Label className="text-[10px] font-semibold uppercase text-muted-foreground/70">Width</Label>
+                            <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-foreground">{page.spineWidth ?? 40}px</span>
+                          </div>
+                          <Slider
+                            value={[page.spineWidth ?? 40]}
+                            min={0}
+                            max={100}
+                            step={1}
+                            onValueChange={(val) => onUpdateSpineSettings?.(page.id, { width: val[0] })}
+                            className="py-2"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center px-0.5">
+                            <Label className="text-[10px] font-semibold uppercase text-muted-foreground/70">Opacity</Label>
+                            <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-foreground">{Math.round((page.spineOpacity ?? 1) * 100)}%</span>
+                          </div>
+                          <Slider
+                            value={[page.spineOpacity ?? 1]}
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            onValueChange={(val) => onUpdateSpineSettings?.(page.id, { opacity: val[0] })}
+                            className="py-2"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Row 2: Background & Text */}
+                      <div className="grid grid-cols-2 gap-6 pt-2 border-t border-border/40">
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-semibold uppercase text-muted-foreground/70 px-0.5">Background</Label>
+                          <div className="flex items-center gap-3 bg-muted/30 p-1.5 rounded-lg border border-transparent hover:border-border transition-colors">
+                            <SpineColorPicker
+                              value={page.spineColor || '#ffffff'}
+                              onChange={(color) => onUpdateSpineSettings?.(page.id, { color })}
+                            />
+                            <span className="text-[10px] font-mono text-foreground font-medium uppercase tracking-tighter">
+                              {page.spineColor || '#FFFFFF'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-semibold uppercase text-muted-foreground/70 px-0.5">Spine Text</Label>
+                          <Input
+                            value={page.spineText || ''}
+                            onChange={(e) => onUpdateSpineText?.(page.id, e.target.value)}
+                            placeholder="My Album..."
+                            className="h-8 text-xs px-3 bg-muted/30 border-transparent focus-visible:bg-background transition-all"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
 
             <Tooltip>
               <TooltipTrigger asChild>
@@ -923,152 +989,6 @@ const PageToolbar = ({
             )}
           </div>
 
-          {/* Conditional Spine & Title Settings Area */}
-          {
-            showSpineSettings && (
-              <div className="mt-2 p-3 bg-background border rounded-lg shadow-xl space-y-4 animate-in slide-in-from-top-2 duration-200 w-full">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* 1. Spine Settings (if cover) */}
-                  {page.isCover && (
-                    <div className="space-y-3 p-3 bg-muted/30 rounded-md border border-border/50">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="w-1.5 h-4 bg-primary rounded-full" />
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Spine Structure</h4>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        {/* Spine Width */}
-                        <div className="space-y-1.5">
-                          <div className="flex justify-between items-center">
-                            <Label className="text-[10px] font-medium uppercase text-muted-foreground">Width</Label>
-                            <span className="text-[10px] font-bold font-mono">{page.spineWidth ?? 40}px</span>
-                          </div>
-                          <Slider
-                            value={[page.spineWidth ?? 40]}
-                            min={0}
-                            max={100}
-                            step={1}
-                            onValueChange={(val) => onUpdateSpineSettings?.(page.id, { width: val[0] })}
-                          />
-                        </div>
-
-                        {/* Spine Opacity */}
-                        <div className="space-y-1.5">
-                          <div className="flex justify-between items-center">
-                            <Label className="text-[10px] font-medium uppercase text-muted-foreground">Opacity</Label>
-                            <span className="text-[10px] font-bold font-mono">{Math.round((page.spineOpacity ?? 1) * 100)}%</span>
-                          </div>
-                          <Slider
-                            value={[page.spineOpacity ?? 1]}
-                            min={0}
-                            max={1}
-                            step={0.01}
-                            onValueChange={(val) => onUpdateSpineSettings?.(page.id, { opacity: val[0] })}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        {/* Spine Background Color */}
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] font-medium uppercase text-muted-foreground">Background</Label>
-                          <div className="flex items-center gap-2">
-                            <SpineColorPicker
-                              value={page.spineColor || '#ffffff'}
-                              onChange={(color) => onUpdateSpineSettings?.(page.id, { color })}
-                            />
-                            <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[80px]">
-                              {page.spineColor || '#FFFFFF'}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Spine Text Toggle/Input could go here if needed */}
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] font-medium uppercase text-muted-foreground">Spine Text</Label>
-                          <Input
-                            value={page.spineText || ''}
-                            onChange={(e) => onUpdateSpineText?.(page.id, e.target.value)}
-                            placeholder="Album Title..."
-                            className="h-7 text-[10px] px-2"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 2. Page Title Settings */}
-                  <div className="space-y-3 p-3 bg-muted/30 rounded-md border border-border/50 flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-1.5 h-4 bg-orange-500 rounded-full" />
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Title Properties</h4>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      {/* Title Text */}
-                      <div className="space-y-1.5 col-span-2">
-                        <Label className="text-[10px] font-medium uppercase text-muted-foreground">Display Title</Label>
-                        <Input
-                          value={page.titleText || ''}
-                          onChange={(e) => onUpdateTitleSettings?.(page.id, { text: e.target.value })}
-                          placeholder="Front Cover Title..."
-                          className="h-7 text-xs px-2"
-                        />
-                      </div>
-
-                      {/* Font Size */}
-                      <div className="space-y-1.5">
-                        <div className="flex justify-between items-center">
-                          <Label className="text-[10px] font-medium uppercase text-muted-foreground">Size</Label>
-                          <span className="text-[10px] font-bold font-mono">{page.titleFontSize ?? 24}px</span>
-                        </div>
-                        <Slider
-                          value={[page.titleFontSize ?? 24]}
-                          min={8}
-                          max={120}
-                          step={1}
-                          onValueChange={(val) => onUpdateTitleSettings?.(page.id, { fontSize: val[0] })}
-                        />
-                      </div>
-
-                      {/* Title Color */}
-                      <div className="space-y-1.5">
-                        <Label className="text-[10px] font-medium uppercase text-muted-foreground">Color</Label>
-                        <div className="flex items-center gap-2">
-                          <SpineColorPicker
-                            value={page.titleColor || '#000000'}
-                            onChange={(color) => onUpdateTitleSettings?.(page.id, { color })}
-                            disableAlpha={true}
-                          />
-                          <span className="text-[10px] text-muted-foreground font-mono truncate">
-                            {page.titleColor || '#000000'}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Font Family Selection */}
-                      <div className="space-y-1.5 col-span-2">
-                        <Label className="text-[10px] font-medium uppercase text-muted-foreground">Font Family</Label>
-                        <div className="flex flex-wrap gap-1">
-                          {AVAILABLE_FONTS.slice(0, 8).map(font => (
-                            <Button
-                              key={font}
-                              variant={page.titleFontFamily === font ? "default" : "outline"}
-                              size="sm"
-                              className="h-6 px-2 text-[10px]"
-                              onClick={() => onUpdateTitleSettings?.(page.id, { fontFamily: font })}
-                            >
-                              {font}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )
-          }
         </TooltipProvider >
       </div >
     );
@@ -1135,19 +1055,21 @@ const PageToolbar = ({
               </TooltipTrigger>
               <TooltipContent>Rotate Layout 90°</TooltipContent>
             </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn(showSpineSettings && "text-primary bg-primary/10")}
-                  onClick={() => setShowSpineSettings(!showSpineSettings)}
-                >
-                  <Settings2 className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Show Title Settings</TooltipContent>
-            </Tooltip>
+            {page.isCover && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(showSpineSettings && "text-primary bg-primary/10")}
+                    onClick={() => setShowSpineSettings(!showSpineSettings)}
+                  >
+                    <Settings2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Show Title Settings</TooltipContent>
+              </Tooltip>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon" onClick={() => onDownloadPage?.(page.id)}><Download className="h-5 w-5" /></Button>
