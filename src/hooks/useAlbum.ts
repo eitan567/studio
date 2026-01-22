@@ -23,6 +23,7 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
     const router = useRouter()
 
     const [album, setAlbum] = useState<Album | null>(null)
+    const [internalIsUploading, setInternalIsUploading] = useState(false)
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -311,7 +312,7 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
     // Warn before leaving with unsaved changes
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-            if (hasUnsavedChanges) {
+            if (hasUnsavedChanges || internalIsUploading) {
                 e.preventDefault()
                 return ''
             }
@@ -319,7 +320,7 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
 
         window.addEventListener('beforeunload', handleBeforeUnload)
         return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-    }, [hasUnsavedChanges])
+    }, [hasUnsavedChanges, internalIsUploading])
 
     return {
         album,
@@ -335,6 +336,7 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
         saveAlbum,
         saveNow,
         deleteAlbum,
+        setIsUploading: setInternalIsUploading,
         updatePages,
         updateConfig,
         updateName,

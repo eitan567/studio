@@ -589,6 +589,42 @@ export function useAlbumPageEditor({
         });
     }, [setAlbumPages]);
 
+    // Replace a photo ID across all pages (for optimistic upload consistency)
+    const replacePhotoId = useCallback((tempId: string, newPhoto: Photo) => {
+        setAlbumPages(prevPages => {
+            let hasChanges = false;
+
+            const nextPages = prevPages.map(page => {
+                const photos = page.photos.map(p => {
+                    // Check if this photo needs replacing (either by explicit ID or originalId)
+                    // We check both because sometimes the tempId becomes the originalId
+                    if (p.id === tempId || p.originalId === tempId || (p.src === newPhoto.src && p.src.startsWith('blob:'))) {
+                        hasChanges = true;
+                        return {
+                            ...p,
+                            // Update identification
+                            id: p.id === tempId ? newPhoto.id : p.id, // Only change node ID if it matched tempId exactly
+                            originalId: newPhoto.id, // Always point to the new master ID
+
+                            // Update Source Data
+                            remoteUrl: newPhoto.remoteUrl || newPhoto.src,
+                            width: newPhoto.width || p.width,
+                            height: newPhoto.height || p.height,
+
+                            // Preserve local state (pan/zoom)
+                            panAndZoom: p.panAndZoom,
+                        };
+                    }
+                    return p;
+                });
+
+                return { ...page, photos };
+            });
+
+            return hasChanges ? nextPages : prevPages;
+        });
+    }, [setAlbumPages]);
+
     return {
         deletePage,
         addSpreadPage,
@@ -603,6 +639,7 @@ export function useAlbumPageEditor({
         handleUpdatePage,
         updatePhotoPanAndZoom,
         handleDropPhoto,
-        handleRemovePhotosFromAlbum
+        handleRemovePhotosFromAlbum,
+        replacePhotoId
     };
 }

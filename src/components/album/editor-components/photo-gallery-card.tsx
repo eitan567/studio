@@ -57,7 +57,7 @@ interface PhotoGalleryCardProps {
     handleClearGallery: () => void;
     handleResetAlbum: () => void;
     handleSortPhotos: () => void;
-    processUploadedFiles: (files: FileList | null) => void;
+    processUploadedFiles: (input: FileList | DataTransferItemList | null) => void;
     onDeletePhotos: (ids: string[]) => void;
     onRemovePhotosFromAlbum: (ids: string[]) => void;
     // Refs 
@@ -95,10 +95,11 @@ const GalleryPhotoItemComponent = ({
     const hasWarning = usage && usage.count > 1;
 
     // Callbacks for this specific item to avoid creating inline functions in render
+    // Callbacks for this specific item to avoid creating inline functions in render
     const handleDragStart = useCallback((e: React.DragEvent) => {
-        if (photo.isUploading) { e.preventDefault(); return; }
+        // photo.isUploading check REMOVED to allow optimistic dragging
         e.dataTransfer.setData('photoId', photo.id);
-    }, [photo.id, photo.isUploading]);
+    }, [photo.id]);
 
     // Simple handlers
     const handleMouseEnter = useCallback(() => onSetActiveBubbleId(photo.id), [photo.id, onSetActiveBubbleId]);
@@ -118,19 +119,13 @@ const GalleryPhotoItemComponent = ({
 
     return (
         <div
-            draggable={!photo.isUploading}
+            draggable={true}
             onDragStart={handleDragStart}
             className={cn(
-                "relative break-inside-avoid mb-2 rounded-md overflow-hidden bg-muted border-2 transition-all group border-transparent",
-                photo.isUploading ? "select-none" : "cursor-grab active:cursor-grabbing hover:border-primary/50"
+                "relative break-inside-avoid mb-2 rounded-md overflow-hidden bg-muted border-2 transition-all group border-transparent cursor-grab active:cursor-grabbing hover:border-primary/50",
             )}
         >
-            {photo.isUploading && (
-                <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
-                    <Loader2 className="h-8 w-8 animate-spin text-white drop-shadow-md" />
-                </div>
-            )}
-            <div className={cn("relative transition-opacity duration-300", photo.isUploading && "opacity-60 grayscale-[0.5]")}>
+            <div className="relative transition-opacity duration-300">
                 {/* Use a simple img tag for gallery to avoid Next/Image overhead in large lists, or keep standard img if already used */}
                 <img src={photo.src} alt={photo.alt} className="w-full h-auto block" loading="lazy" />
             </div>
@@ -351,7 +346,22 @@ const PhotoGalleryCardComponent = ({
 
     return (
         <div className="xl:col-span-3 space-y-4">
-            <Card className="h-[85vh] flex flex-col">
+            <Card
+                className="h-[85vh] flex flex-col"
+                onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }}
+                onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+                        processUploadedFiles(e.dataTransfer.items);
+                    } else if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        processUploadedFiles(e.dataTransfer.files);
+                    }
+                }}
+            >
                 <CardHeader className="pb-3 border-b space-y-2">
                     <div className="flex items-center justify-between">
                         <CardTitle className="heading-sm">Photo Gallery</CardTitle>
@@ -532,9 +542,25 @@ const PhotoGalleryCardComponent = ({
                                 <p className="text-sm">Loading photos...</p>
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center">
-                                <ImageIcon className="h-10 w-10 mb-2 opacity-20" />
-                                <p className="text-sm">No photos loaded.</p>
+                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center space-y-4">
+                                <div className="p-4 rounded-full bg-muted/50 border-2 border-dashed border-muted-foreground/20">
+                                    <FolderUp className="h-8 w-8 text-primary/40" />
+                                </div>
+                                <div className="space-y-1">
+                                    <h3 className="font-medium text-foreground">No photos yet</h3>
+                                    <p className="text-sm text-muted-foreground max-w-[200px] mx-auto">
+                                        Drag & drop photos or entire folders here to start designing
+                                    </p>
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => photoUploadRef.current?.click()}
+                                    className="gap-2"
+                                >
+                                    <Upload className="h-3 w-3" />
+                                    Select Photos
+                                </Button>
                             </div>
                         )
                     ) : (

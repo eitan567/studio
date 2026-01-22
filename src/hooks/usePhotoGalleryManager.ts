@@ -13,6 +13,7 @@ interface UsePhotoGalleryManagerProps {
     albumThumbnailUrl?: string;
     allowDuplicates?: boolean; // Prop added for future extensibility if needed by uploads
     onRemovePhotosFromAlbum?: (photoIds: string[]) => void;
+    onPhotoUploadComplete?: (tempId: string, finalPhoto: Photo) => void;
 }
 
 export function usePhotoGalleryManager({
@@ -21,6 +22,7 @@ export function usePhotoGalleryManager({
     updateThumbnail,
     albumThumbnailUrl,
     onRemovePhotosFromAlbum,
+    onPhotoUploadComplete,
 }: UsePhotoGalleryManagerProps) {
     const { toast } = useToast();
     const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
@@ -34,11 +36,75 @@ export function usePhotoGalleryManager({
     // Start as 'desc' so first click shows a change (sorts to 'asc')
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-    const processUploadedFiles = useCallback(async (files: FileList | null) => {
-        if (!files || files.length === 0) return;
+    const scanFiles = useCallback(async (items: DataTransferItemList): Promise<File[]> => {
+        const files: File[] = [];
+
+        // Helper for FileSystemEntry recursion
+        const traverseFileTree = async (item: any, path = '') => {
+            if (item.isFile) {
+                const file = await new Promise<File>((resolve, reject) => {
+                    item.file((f: File) => resolve(f), reject);
+                });
+                if (file.type.startsWith('image/')) {
+                    files.push(file);
+                }
+            } else if (item.isDirectory) {
+                const dirReader = item.createReader();
+                const entries = await new Promise<any[]>((resolve, reject) => {
+                    const allEntries: any[] = [];
+                    const readEntries = () => {
+                        dirReader.readEntries((batch: any[]) => {
+                            if (batch.length === 0) {
+                                resolve(allEntries);
+                            } else {
+                                allEntries.push(...batch);
+                                readEntries();
+                            }
+                        }, reject);
+                    };
+                    readEntries();
+                });
+
+                for (const entry of entries) {
+                    await traverseFileTree(entry, path + item.name + '/');
+                }
+            }
+        };
+
+        const promises = [];
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            // @ts-ignore - webkitGetAsEntry is non-standard
+            const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : (typeof item.getAsEntry === 'function' ? item.getAsEntry() : null);
+
+            if (entry) {
+                promises.push(traverseFileTree(entry));
+            } else {
+                // Fallback for standard files if entry API fails
+                const file = item.getAsFile();
+                if (file && file.type.startsWith('image/')) {
+                    files.push(file);
+                }
+            }
+        }
+        await Promise.all(promises);
+        return files;
+    }, []);
+
+    const processUploadedFiles = useCallback(async (input: FileList | DataTransferItemList | null) => {
+        if (!input) return;
 
         setIsLoadingPhotos(true);
-        const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+        let imageFiles: File[] = [];
+
+        // Handle specific DataTransferItemList (Drag & Drop with Folders)
+        if (input instanceof DataTransferItemList && input.length > 0) {
+            imageFiles = await scanFiles(input);
+        }
+        // Handle FileList (Files inputs or simple drops)
+        else if (input instanceof FileList || (input as any).length !== undefined) {
+            imageFiles = Array.from(input as FileList).filter(file => file.type.startsWith('image/'));
+        }
 
         if (imageFiles.length === 0) {
             toast({
@@ -69,7 +135,9 @@ export function usePhotoGalleryManager({
         setTimeout(() => {
             const scrollContainer = photoScrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
             if (scrollContainer) {
-                scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' });
+                // If sorting newest first (desc), scroll to top. Otherwise bottom.
+                const topPosition = sortDirection === 'desc' ? 0 : scrollContainer.scrollHeight;
+                scrollContainer.scrollTo({ top: topPosition, behavior: 'smooth' });
             }
         }, 100);
 
@@ -140,6 +208,11 @@ export function usePhotoGalleryManager({
                     const result = results.find(r => r.tempId === p.id);
                     if (result) {
                         if (result.success && result.photo) {
+                            // OPTIMISTIC CONSISTENCY: Notify album editor to swap temp ID with real ID
+                            if (onPhotoUploadComplete) {
+                                onPhotoUploadComplete(p.id, result.photo);
+                            }
+
                             // Success: Update ID to real ID, keep Blob URL as SRC to avoid flicker, store Real URL in remoteUrl
                             return {
                                 ...result.photo,
@@ -200,9 +273,6 @@ export function usePhotoGalleryManager({
             ));
         } finally {
             setIsLoadingPhotos(false);
-
-            // Final Cleanup
-
         }
     }, [uploadPhoto, updateThumbnail, albumThumbnailUrl, setAllPhotos, toast]);
 

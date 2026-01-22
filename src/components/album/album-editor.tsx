@@ -105,7 +105,11 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     photos: savedPhotos,
     updatePhotos: savePhotos,
     saveNow,
+    setIsUploading,
   } = useAlbum(albumId);
+
+
+
 
   const router = useRouter();
   const { signOut } = useAuth();
@@ -216,7 +220,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     handleUpdatePage,
     updatePhotoPanAndZoom,
     handleDropPhoto,
-    handleRemovePhotosFromAlbum
+    handleRemovePhotosFromAlbum,
+    replacePhotoId
   } = useAlbumPageEditor({
     setAlbumPages,
     allPhotos,
@@ -249,8 +254,14 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       updateThumbnail(url);
     },
     albumThumbnailUrl: albumThumbnailUrl,
-    onRemovePhotosFromAlbum: handleRemovePhotosFromAlbum
+    onRemovePhotosFromAlbum: handleRemovePhotosFromAlbum,
+    onPhotoUploadComplete: replacePhotoId
   });
+
+  // Sync upload status to persistence layer for safety nets
+  useEffect(() => {
+    setIsUploading(isLoadingPhotos);
+  }, [isLoadingPhotos, setIsUploading]);
 
   // Sync ref with prop/state
   useEffect(() => {
@@ -605,7 +616,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
         <AlbumEditorToolbar
           albumName={albumName}
           onUpdateName={handleSaveTitle}
-          saveStatus={isSaving ? 'saving' : hasUnsavedChanges ? 'unsaved' : 'saved'}
+          saveStatus={isLoadingPhotos ? 'uploading' : isSaving ? 'saving' : hasUnsavedChanges ? 'unsaved' : 'saved'}
           onBack={async () => {
             // Check if we need to set thumbnail before saving
             if (!albumThumbnailUrl && savedPhotos && savedPhotos.length > 0) {

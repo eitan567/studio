@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 interface AlbumEditorToolbarProps {
     albumName: string;
     onUpdateName: (name: string) => void;
-    saveStatus: 'saving' | 'unsaved' | 'saved';
+    saveStatus: 'saving' | 'unsaved' | 'saved' | 'uploading';
     onBack: () => void;
     onOpenBookView: () => void;
     onOpenCustomLayout: () => void;
@@ -109,7 +109,12 @@ export function AlbumEditorToolbar({
 
                 {/* Save Status Indicator */}
                 <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    {saveStatus === 'saving' ? (
+                    {saveStatus === 'uploading' ? (
+                        <>
+                            <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                            <span className="text-primary font-medium italic">Uploading...</span>
+                        </>
+                    ) : saveStatus === 'saving' ? (
                         <>
                             <Loader2 className="h-3 w-3 animate-spin" />
                             <span>Saving...</span>
