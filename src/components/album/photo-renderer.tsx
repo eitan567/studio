@@ -279,7 +279,6 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
           <img
             src={photo.src}
             alt={photo.alt}
-            crossOrigin="anonymous"
             style={{
               width: '100%',
               height: '100%',

@@ -354,16 +354,25 @@ export function useAlbumPageEditor({
             if (sourceInfo.photoId === targetPhotoId) return;
 
             setAlbumPages(prevPages => {
-                // Find source and target photos
+                // Find source and target photos FIRST
                 let sourcePhoto: Photo | undefined;
                 let targetPhoto: Photo | undefined;
+
+                // Helper to resolve target photo (handles both ID and INSERT_AT)
+                const resolveTargetPhoto = (page: AlbumPage, targetId: string) => {
+                    if (targetId.startsWith('__INSERT_AT__')) {
+                        const idx = parseInt(targetId.replace('__INSERT_AT__', ''), 10);
+                        return page.photos[idx]; // Might be undefined or empty slot
+                    }
+                    return page.photos.find(p => p.id === targetId);
+                };
 
                 for (const page of prevPages) {
                     if (page.id === sourceInfo.pageId) {
                         sourcePhoto = page.photos.find(p => p.id === sourceInfo.photoId);
                     }
                     if (page.id === pageId) {
-                        targetPhoto = page.photos.find(p => p.id === targetPhotoId);
+                        targetPhoto = resolveTargetPhoto(page, targetPhotoId);
                     }
                 }
 
@@ -372,18 +381,26 @@ export function useAlbumPageEditor({
                 // Check if swapping within the same page (SPLIT mode case)
                 const isSamePage = sourceInfo.pageId === pageId;
 
+                // Capture these for use in map callbacks
+                const capturedSourcePhoto = sourcePhoto;
+                const capturedTargetPhoto = targetPhoto;
+
                 // Perform the swap
                 return prevPages.map(page => {
-                    // Same page swap - handle both source and target in one pass
+                    // Same page swap
                     if (isSamePage && page.id === pageId) {
                         return {
                             ...page,
-                            photos: page.photos.map(p => {
-                                // Replace source photo slot with target content
+                            photos: page.photos.map((p, index) => {
+                                const isTarget = targetPhotoId.startsWith('__INSERT_AT__')
+                                    ? index === parseInt(targetPhotoId.replace('__INSERT_AT__', ''), 10)
+                                    : p.id === targetPhotoId;
+
+                                // Replace source photo slot with target content (or empty)
                                 if (p.id === sourceInfo.photoId) {
-                                    if (targetPhoto && targetPhoto.src) {
+                                    if (capturedTargetPhoto && capturedTargetPhoto.src) {
                                         return {
-                                            ...targetPhoto,
+                                            ...capturedTargetPhoto,
                                             id: sourceInfo.photoId,
                                             panAndZoom: { scale: 1, x: 50, y: 50 }
                                         };
@@ -399,10 +416,10 @@ export function useAlbumPageEditor({
                                     }
                                 }
                                 // Replace target photo slot with source content
-                                if (p.id === targetPhotoId) {
+                                if (isTarget) {
                                     return {
-                                        ...sourcePhoto,
-                                        id: targetPhotoId,
+                                        ...capturedSourcePhoto,
+                                        id: p.id, // Keep existing slot ID
                                         panAndZoom: { scale: 1, x: 50, y: 50 }
                                     } as Photo;
                                 }
@@ -411,15 +428,16 @@ export function useAlbumPageEditor({
                         };
                     }
 
-                    // Different pages - update source page
+                    // Different pages - update source page (Remove Source)
                     if (!isSamePage && page.id === sourceInfo.pageId) {
                         return {
                             ...page,
                             photos: page.photos.map(p => {
                                 if (p.id === sourceInfo.photoId) {
-                                    if (targetPhoto && targetPhoto.src) {
+                                    // If we are swapping with a valid target, take it. Else clear.
+                                    if (capturedTargetPhoto && capturedTargetPhoto.src) {
                                         return {
-                                            ...targetPhoto,
+                                            ...capturedTargetPhoto,
                                             id: sourceInfo.photoId,
                                             panAndZoom: { scale: 1, x: 50, y: 50 }
                                         };
@@ -439,15 +457,19 @@ export function useAlbumPageEditor({
                         };
                     }
 
-                    // Different pages - update target page
+                    // Different pages - update target page (Insert Source)
                     if (!isSamePage && page.id === pageId) {
                         return {
                             ...page,
-                            photos: page.photos.map(p => {
-                                if (p.id === targetPhotoId) {
+                            photos: page.photos.map((p, index) => {
+                                const isTarget = targetPhotoId.startsWith('__INSERT_AT__')
+                                    ? index === parseInt(targetPhotoId.replace('__INSERT_AT__', ''), 10)
+                                    : p.id === targetPhotoId;
+
+                                if (isTarget) {
                                     return {
-                                        ...sourcePhoto,
-                                        id: targetPhotoId,
+                                        ...capturedSourcePhoto,
+                                        id: p.id, // Keep slot ID
                                         panAndZoom: { scale: 1, x: 50, y: 50 }
                                     } as Photo;
                                 }

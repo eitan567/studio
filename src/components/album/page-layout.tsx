@@ -311,10 +311,20 @@ const PageLayoutComponent = ({
                                     onDrop={(e) => {
                                         e.preventDefault();
                                         setDragOverPhotoId(null);
-                                        const droppedPhotoId = e.dataTransfer.getData('photoId');
-                                        if (droppedPhotoId) {
-                                            // Use special ID format to indicate insertion at index
-                                            onDropPhoto(page.id, `__INSERT_AT__${actualIndex}`, droppedPhotoId);
+
+                                        const albumPhotoId = e.dataTransfer.getData('albumPhotoId');
+                                        const sourcePageId = e.dataTransfer.getData('sourcePageId');
+
+                                        if (albumPhotoId && sourcePageId) {
+                                            // Album-to-Empty-Slot Drop (Move/Swap)
+                                            // Passing sourceInfo triggers the move behavior
+                                            onDropPhoto(page.id, `__INSERT_AT__${actualIndex}`, albumPhotoId, { pageId: sourcePageId, photoId: albumPhotoId });
+                                        } else {
+                                            // Regular Gallery Drop
+                                            const droppedPhotoId = e.dataTransfer.getData('photoId');
+                                            if (droppedPhotoId) {
+                                                onDropPhoto(page.id, `__INSERT_AT__${actualIndex}`, droppedPhotoId);
+                                            }
                                         }
                                     }}
                                 />
