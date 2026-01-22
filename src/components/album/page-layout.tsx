@@ -402,6 +402,10 @@ export const PageLayout = React.memo(PageLayoutComponent, (prev, next) => {
     // CRITICAL: Check if onDropPhoto handler changed (e.g. captured new photos)
     if (prev.onDropPhoto !== next.onDropPhoto) return false;
 
+    // CRITICAL: Check if global photos changed (needed for Suggestion Fan)
+    if (prev.allPhotos !== next.allPhotos) return false;
+    if (prev.previousPagePhotos !== next.previousPagePhotos) return false;
+
     // Photos check (length and IDs equal?)
     const prevPhotos = prev.overridePhotos || prev.page.photos;
     const nextPhotos = next.overridePhotos || next.page.photos;

@@ -12,6 +12,7 @@ interface UsePhotoGalleryManagerProps {
     updateThumbnail: (url: string) => void;
     albumThumbnailUrl?: string;
     allowDuplicates?: boolean; // Prop added for future extensibility if needed by uploads
+    onRemovePhotosFromAlbum?: (photoIds: string[]) => void;
 }
 
 export function usePhotoGalleryManager({
@@ -19,6 +20,7 @@ export function usePhotoGalleryManager({
     setAllPhotos,
     updateThumbnail,
     albumThumbnailUrl,
+    onRemovePhotosFromAlbum,
 }: UsePhotoGalleryManagerProps) {
     const { toast } = useToast();
     const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
@@ -244,6 +246,12 @@ export function usePhotoGalleryManager({
     const handleClearGallery = useCallback(async () => {
         // 1. Optimistic Update
         const photosToDeleteSnapshot = [...allPhotos];
+
+        // Notify Album to clear used photos
+        if (onRemovePhotosFromAlbum && photosToDeleteSnapshot.length > 0) {
+            onRemovePhotosFromAlbum(photosToDeleteSnapshot.map(p => p.id));
+        }
+
         setAllPhotos([]);
 
         // 2. Background Deletion
@@ -282,6 +290,11 @@ export function usePhotoGalleryManager({
     const handleDeletePhotos = useCallback(async (ids: string[]) => {
         // Optimistic
         setAllPhotos(prev => prev.filter(p => !ids.includes(p.id)));
+
+        // Notify Album
+        if (onRemovePhotosFromAlbum) {
+            onRemovePhotosFromAlbum(ids);
+        }
 
         try {
             const getStoragePath = (url: string) => {

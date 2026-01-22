@@ -162,9 +162,70 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   // State for pages - Defined early for use in updateThumbnail callback
   const [albumPages, setAlbumPages] = useState<AlbumPage[]>([]);
 
+  // State dependencies needed for hooks below
+  const [allowDuplicates, setAllowDuplicates] = useState(true);
+
+  // Computed dependencies
+  const photoUsageDetails = useMemo(() => {
+    const details: Record<string, { count: number; pages: number[] }> = {};
+
+    // Pre-compute a map of src -> photoId for faster lookup
+    const srcToIdMap = new Map<string, string>();
+    allPhotos.forEach(p => {
+      if (p.src) srcToIdMap.set(p.src, p.id);
+    });
+
+    albumPages.forEach((page, pageIndex) => {
+      page.photos.forEach(photo => {
+        let galleryId = photo.originalId;
+        if (!galleryId && photo.src) {
+          galleryId = srcToIdMap.get(photo.src);
+        }
+        galleryId = galleryId || photo.id;
+
+        if (!photo.src || photo.src === '') return;
+
+        if (!details[galleryId]) {
+          details[galleryId] = { count: 0, pages: [] };
+        }
+        details[galleryId].count++;
+        if (!details[galleryId].pages.includes(pageIndex)) {
+          details[galleryId].pages.push(pageIndex);
+        }
+      });
+    });
+    return details;
+  }, [albumPages, allPhotos]);
+
+  const usedPhotoIds = useMemo(() => {
+    return new Set(Object.keys(photoUsageDetails));
+  }, [photoUsageDetails]);
+
+  // Page Manipulation Hook - Moved UP to provide callbacks to Gallery Manager
+  const {
+    deletePage,
+    addSpreadPage,
+    updatePageLayout,
+    handleRemovePhoto,
+    handleUpdateCoverLayout,
+    handleUpdateSpreadLayout,
+    handleUpdateCoverType,
+    handleUpdateSpineText,
+    handleUpdateSpineSettings,
+    handleUpdateTitleSettings,
+    handleUpdatePage,
+    updatePhotoPanAndZoom,
+    handleDropPhoto,
+    handleRemovePhotosFromAlbum
+  } = useAlbumPageEditor({
+    setAlbumPages,
+    allPhotos,
+    allowDuplicates,
+    usedPhotoIds
+  });
+
   const { toast } = useToast();
-  // Photo Gallery Manager Hook - Moved UP to allow access to isLoadingPhotos
-  // We need to define it here because we need `isLoadingPhotos` for the effects below
+  // Photo Gallery Manager Hook
   const {
     isLoadingPhotos,
     setIsLoadingPhotos,
@@ -188,6 +249,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       updateThumbnail(url);
     },
     albumThumbnailUrl: albumThumbnailUrl,
+    onRemovePhotosFromAlbum: handleRemovePhotosFromAlbum
   });
 
   // Sync ref with prop/state
@@ -224,49 +286,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     prevLoadingRef.current = isLoadingPhotos;
   }, [isLoadingPhotos, localPhotos, savePhotos]);
 
-  const photoUsageDetails = useMemo(() => {
-    const details: Record<string, { count: number; pages: number[] }> = {};
-
-    // Pre-compute a map of src -> photoId for faster lookup
-    // This reduces the complexity from O(Pages * PhotosOnPage * AllPhotos) to O(Pages * PhotosOnPage)
-    // which is massive for large galleries (e.g. 1000+ photos).
-    const srcToIdMap = new Map<string, string>();
-    allPhotos.forEach(p => {
-      if (p.src) srcToIdMap.set(p.src, p.id);
-    });
-
-    albumPages.forEach((page, pageIndex) => {
-      page.photos.forEach(photo => {
-        // Use originalId if it exists, otherwise try to find the gallery photo by matching SRC
-        let galleryId = photo.originalId;
-
-        if (!galleryId && photo.src) {
-          galleryId = srcToIdMap.get(photo.src);
-        }
-
-        // Fallback to photo.id if still not found
-        galleryId = galleryId || photo.id;
-
-        // Skip placeholders (no actual photo content)
-        if (!photo.src || photo.src === '') return;
-
-        if (!details[galleryId]) {
-          details[galleryId] = { count: 0, pages: [] };
-        }
-        details[galleryId].count++;
-        // Keep track of which pages the photo appears on
-        if (!details[galleryId].pages.includes(pageIndex)) {
-          details[galleryId].pages.push(pageIndex);
-        }
-      });
-    });
-    return details;
-  }, [albumPages, allPhotos]);
-
-  // Derived from photoUsageDetails for easier boolean checks
-  const usedPhotoIds = useMemo(() => {
-    return new Set(Object.keys(photoUsageDetails));
-  }, [photoUsageDetails]);
+  // photoUsageDetails and usedPhotoIds moved to top
 
   // Chronological index: maps photo.id -> 1-based position sorted by capture date
   const chronologicalIndex = useMemo(() => {
@@ -323,7 +343,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
   const [randomSeed, setRandomSeed] = useState('');
   const [isClient, setIsClient] = useState(false);
-  const [allowDuplicates, setAllowDuplicates] = useState(true);
+  // allowDuplicates moved up
   const [multiSelectMode, setMultiSelectModeLocal] = useState(false); // true = checkboxes, false = trash icons
   const [photoGap, setPhotoGap] = useState(2);
   const [pageMargin, setPageMargin] = useState(0);
@@ -499,28 +519,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   }), [watchedSize, photoGap, pageMargin, backgroundColor, backgroundImage, cornerRadius]);
 
 
-  // Page Manipulation Hook
-  const {
-    deletePage,
-    addSpreadPage,
-    updatePageLayout,
-    handleRemovePhoto,
-    handleUpdateCoverLayout,
-    handleUpdateSpreadLayout,
-    handleUpdateCoverType,
-    handleUpdateSpineText,
-    handleUpdateSpineSettings,
-    handleUpdateTitleSettings,
-    handleUpdatePage,
-    updatePhotoPanAndZoom,
-    handleDropPhoto,
-    handleRemovePhotosFromAlbum
-  } = useAlbumPageEditor({
-    setAlbumPages,
-    allPhotos,
-    allowDuplicates,
-    usedPhotoIds
-  });
+  // Page Manipulation Hook (Moved up)
 
 
   // Process uploaded photo files (from folder or individual selection)
