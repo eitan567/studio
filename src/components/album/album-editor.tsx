@@ -304,10 +304,17 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     const sorted = [...allPhotos].sort((a, b) => {
       const dateA = a.captureDate ? new Date(a.captureDate).getTime() : 0;
       const dateB = b.captureDate ? new Date(b.captureDate).getTime() : 0;
-      if (!dateA && !dateB) return 0;
-      if (!dateA) return 1;
-      if (!dateB) return -1;
-      return dateA - dateB;
+
+      // 1. Primary Sort: Date (Always ASC for numbering)
+      if (dateA !== dateB) return dateA - dateB;
+
+      // 2. Secondary Sort: Filename
+      const nameA = a.alt || '';
+      const nameB = b.alt || '';
+      if (nameA !== nameB) return nameA.localeCompare(nameB);
+
+      // 3. Absolute Tie-breaker: ID
+      return a.id.localeCompare(b.id);
     });
     const indexMap: Record<string, number> = {};
     sorted.forEach((photo, i) => {
@@ -550,11 +557,16 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       const dateA = a.captureDate ? new Date(a.captureDate).getTime() : 0;
       const dateB = b.captureDate ? new Date(b.captureDate).getTime() : 0;
 
-      if (!dateA && !dateB) return 0;
-      if (!dateA) return 1;
-      if (!dateB) return -1;
+      // 1. Primary Sort: Date
+      if (dateA !== dateB) return dateA - dateB;
 
-      return dateA - dateB;
+      // 2. Secondary Sort: Filename
+      const nameA = a.alt || '';
+      const nameB = b.alt || '';
+      if (nameA !== nameB) return nameA.localeCompare(nameB);
+
+      // 3. Absolute Tie-breaker: ID
+      return a.id.localeCompare(b.id);
     });
 
     generateInitialPages(sortedPhotos);
@@ -579,11 +591,16 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
       const dateA = a.captureDate ? new Date(a.captureDate).getTime() : 0;
       const dateB = b.captureDate ? new Date(b.captureDate).getTime() : 0;
 
-      if (!dateA && !dateB) return 0;
-      if (!dateA) return 1;
-      if (!dateB) return -1;
+      // 1. Primary Sort: Date
+      if (dateA !== dateB) return dateA - dateB;
 
-      return dateA - dateB;
+      // 2. Secondary Sort: Filename
+      const nameA = a.alt || '';
+      const nameB = b.alt || '';
+      if (nameA !== nameB) return nameA.localeCompare(nameB);
+
+      // 3. Absolute Tie-breaker: ID
+      return a.id.localeCompare(b.id);
     });
 
     autoFillAlbum(albumPages, sortedPhotos);

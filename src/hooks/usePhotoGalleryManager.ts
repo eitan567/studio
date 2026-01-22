@@ -295,17 +295,25 @@ export function usePhotoGalleryManager({
             const dateA = a.captureDate ? new Date(a.captureDate).getTime() : 0;
             const dateB = b.captureDate ? new Date(b.captureDate).getTime() : 0;
 
-            // Both have dates - sort by date
-            if (dateA && dateB) {
-                const diff = sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
-                if (diff !== 0) return diff;
+            // 1. Primary Sort: Date
+            if (dateA !== dateB) {
+                if (sortDirection === 'asc') {
+                    return dateA - dateB;
+                } else {
+                    return dateB - dateA;
+                }
             }
 
-            // One has date, one doesn't - photos with dates come first
-            if (dateA && !dateB) return -1;
-            if (!dateA && dateB) return 1;
+            // 2. Secondary Sort (Stable Fallback): Filename / Alt
+            const nameA = a.alt || '';
+            const nameB = b.alt || '';
+            if (nameA !== nameB) {
+                return sortDirection === 'asc'
+                    ? nameA.localeCompare(nameB)
+                    : nameB.localeCompare(nameA);
+            }
 
-            // Neither has date (or dates are equal) - use ID as stable fallback
+            // 3. Absolute Tie-breaker: ID
             return sortDirection === 'asc'
                 ? a.id.localeCompare(b.id)
                 : b.id.localeCompare(a.id);
