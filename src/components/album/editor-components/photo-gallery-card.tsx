@@ -122,7 +122,7 @@ const GalleryPhotoItemComponent = ({
             draggable={true}
             onDragStart={handleDragStart}
             className={cn(
-                "relative break-inside-avoid mb-2 rounded-md overflow-hidden bg-muted border-2 transition-all group border-transparent cursor-grab active:cursor-grabbing hover:border-primary/50",
+                "relative rounded-md overflow-hidden bg-muted border-2 transition-all group border-transparent cursor-grab active:cursor-grabbing hover:border-primary/50",
             )}
         >
             <div className="relative transition-opacity duration-300">
@@ -566,17 +566,15 @@ const PhotoGalleryCardComponent = ({
                     ) : (
                         <ScrollArea ref={photoScrollRef} className="h-full px-4 py-2">
                             <ScrollToTopButton scrollAreaRef={photoScrollRef} />
-                            <div className={cn("gap-2 pb-10", isSingleColumn ? "columns-1" : "columns-2")}>
-                                {filteredPhotos.map((photo, index) => {
-                                    const usage = photoUsageDetails?.[photo.id];
-                                    const indexLabel = chronologicalIndex[photo.id] ?? '?';
 
-                                    return (
+                            {isSingleColumn ? (
+                                <div className="flex flex-col gap-2 pb-10">
+                                    {filteredPhotos.map((photo) => (
                                         <GalleryPhotoItem
                                             key={photo.id}
                                             photo={photo}
-                                            usage={usage}
-                                            index={indexLabel}
+                                            usage={photoUsageDetails?.[photo.id]}
+                                            index={chronologicalIndex[photo.id] ?? '?'}
                                             isSelected={selectedPhotos.has(photo.id)}
                                             isActiveBubble={activeBubbleId === photo.id}
                                             multiSelectMode={multiSelectMode}
@@ -585,9 +583,48 @@ const PhotoGalleryCardComponent = ({
                                             onDelete={(id) => onDeletePhotos([id])}
                                             onRemoveFromAlbum={(id) => onRemovePhotosFromAlbum([id])}
                                         />
-                                    );
-                                })}
-                            </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="flex flex-row gap-2 pb-10">
+                                    {/* Left Column (Even Indexes: 0, 2, 4...) */}
+                                    <div className="flex-1 flex flex-col gap-2">
+                                        {filteredPhotos.filter((_, i) => i % 2 === 0).map((photo) => (
+                                            <GalleryPhotoItem
+                                                key={photo.id}
+                                                photo={photo}
+                                                usage={photoUsageDetails?.[photo.id]}
+                                                index={chronologicalIndex[photo.id] ?? '?'}
+                                                isSelected={selectedPhotos.has(photo.id)}
+                                                isActiveBubble={activeBubbleId === photo.id}
+                                                multiSelectMode={multiSelectMode}
+                                                onToggleSelection={toggleSelection}
+                                                onSetActiveBubbleId={setActiveBubbleId}
+                                                onDelete={(id) => onDeletePhotos([id])}
+                                                onRemoveFromAlbum={(id) => onRemovePhotosFromAlbum([id])}
+                                            />
+                                        ))}
+                                    </div>
+                                    {/* Right Column (Odd Indexes: 1, 3, 5...) */}
+                                    <div className="flex-1 flex flex-col gap-2">
+                                        {filteredPhotos.filter((_, i) => i % 2 !== 0).map((photo) => (
+                                            <GalleryPhotoItem
+                                                key={photo.id}
+                                                photo={photo}
+                                                usage={photoUsageDetails?.[photo.id]}
+                                                index={chronologicalIndex[photo.id] ?? '?'}
+                                                isSelected={selectedPhotos.has(photo.id)}
+                                                isActiveBubble={activeBubbleId === photo.id}
+                                                multiSelectMode={multiSelectMode}
+                                                onToggleSelection={toggleSelection}
+                                                onSetActiveBubbleId={setActiveBubbleId}
+                                                onDelete={(id) => onDeletePhotos([id])}
+                                                onRemoveFromAlbum={(id) => onRemovePhotosFromAlbum([id])}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </ScrollArea>
                     )}
                 </CardContent>
