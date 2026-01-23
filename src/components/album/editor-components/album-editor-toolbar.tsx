@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ModeToggle } from '@/components/mode-toggle';
 import { cn } from '@/lib/utils';
+import { AdminSettingsDialog } from '@/components/admin/admin-settings-dialog';
 
 interface AlbumEditorToolbarProps {
     albumName: string;
@@ -54,6 +55,7 @@ export function AlbumEditorToolbar({
     const { isAdmin } = useAuth();
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [editedTitle, setEditedTitle] = useState(albumName);
+    const [adminOpen, setAdminOpen] = useState(false);
 
     // Sync edited title when album name changes externally
     useEffect(() => {
@@ -141,15 +143,18 @@ export function AlbumEditorToolbar({
             <div className="flex items-center gap-2">
                 {/* Admin Button */}
                 {isAdmin && (
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                        title="Admin Panel"
-                        onClick={() => router.push('/admin')}
-                    >
-                        <Shield className="h-5 w-5" />
-                    </Button>
+                    <>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                            title="Admin Panel"
+                            onClick={() => setAdminOpen(true)}
+                        >
+                            <Shield className="h-5 w-5" />
+                        </Button>
+                        <AdminSettingsDialog open={adminOpen} onOpenChange={setAdminOpen} />
+                    </>
                 )}
                 <ModeToggle />
                 <div className="h-4 w-px bg-border mx-1" />

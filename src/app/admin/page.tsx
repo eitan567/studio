@@ -261,7 +261,7 @@ export default function AdminPage() {
                         <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => router.push('/dashboard')}
+                            onClick={() => router.back()}
                         >
                             <ArrowLeft className="h-5 w-5" />
                         </Button>

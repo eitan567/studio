@@ -40,13 +40,16 @@ import { useAuth } from '@/hooks/useAuth';
 
 import { Album } from '@/lib/types';
 
+import { AdminSettingsDialog } from '@/components/admin/admin-settings-dialog';
+
 export default function DashboardPage() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [navigatingId, setNavigatingId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const { user } = useAuth();
+  const [adminOpen, setAdminOpen] = useState(false);
+  const { user, isAdmin } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -134,16 +137,19 @@ export default function DashboardPage() {
             </div>
             <div className="flex items-center gap-3">
               {/* Admin Button - Only visible to admins */}
-              {user && (useAuth() as any).isAdmin && (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-950/30"
-                  title="Admin Panel"
-                  onClick={() => router.push('/admin')}
-                >
-                  <Shield className="h-5 w-5" />
-                </Button>
+              {user && isAdmin && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-950/30"
+                    title="Admin Panel"
+                    onClick={() => setAdminOpen(true)}
+                  >
+                    <Shield className="h-5 w-5" />
+                  </Button>
+                  <AdminSettingsDialog open={adminOpen} onOpenChange={setAdminOpen} />
+                </>
               )}
               <Button
                 variant="outline"
