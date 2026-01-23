@@ -397,8 +397,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(finalState));
             console.log('[SettingsProvider] Step 3: LocalStorage Update Success');
 
-            // Apply theme immediately so UI reflects the saved setting
-            if (finalState.themePreference) {
+            // Apply theme immediately ONLY if it was part of the update
+            if (newSettings.themePreference) {
                 setTheme(finalState.themePreference);
             }
         } catch (e) {
