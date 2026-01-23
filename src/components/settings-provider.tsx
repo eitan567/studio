@@ -36,6 +36,14 @@ export interface UserSettings {
     defaultSpineFontStyle: 'italic' | 'normal';
     defaultSpineTextAlign: 'left' | 'center' | 'right';
 
+    // --- [CATEGORY: Spine Visual Effect] (For double-page spread preview) ---
+    spineEffectSpread: number;         // Spread of center shadow (-left-X -right-X)
+    spineEffectColor: string;          // Base color for center line (hex)
+    spineEffectColorOpacity: number;   // Opacity for center line (0-1)
+    spineEffectWidth: number;          // Width of side shadow gradients (px)
+    spineEffectOpacity: number;        // Opacity for side shadow gradients (0-1)
+    spineEffectCenterOpacity: number;  // Opacity for center of shadow gradient (0-1)
+
     // --- [CATEGORY: Session/General] (Applied ONLY on next app load) ---
     defaultEditorViewMode: 'full' | 'split';
     themePreference: 'light' | 'dark' | 'system';
@@ -73,6 +81,14 @@ export const DEFAULT_SETTINGS: UserSettings = {
     defaultSpineFontWeight: 'normal',
     defaultSpineFontStyle: 'italic',
     defaultSpineTextAlign: 'center',
+
+    // Spine Visual Effect defaults (for double-page spread)
+    spineEffectSpread: 22,
+    spineEffectColor: '#9ca3af', // gray-400
+    spineEffectColorOpacity: 0.9,
+    spineEffectWidth: 160,
+    spineEffectOpacity: 0.64,
+    spineEffectCenterOpacity: 0.85,
 };
 
 const STORAGE_KEY = 'album_studio_user_settings';
@@ -375,7 +391,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         console.log('[SettingsProvider] Starting Step 3: Cache Update', finalState);
         setSettings(finalState);
         // Also update session settings immediately if sticking to this pattern
-        // setSessionSettings(finalState); // Not necessary if we rely on 'settings' for creation
+        setSessionSettings(finalState); // Updated: Explicit user save should reflect in UI immediately
 
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(finalState));

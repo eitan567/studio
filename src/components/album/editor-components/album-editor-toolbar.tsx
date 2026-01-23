@@ -14,7 +14,10 @@ import {
     Check,
     X,
     Pencil,
+    Shield,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ModeToggle } from '@/components/mode-toggle';
@@ -47,6 +50,8 @@ export function AlbumEditorToolbar({
     onShare,
     onLogout,
 }: AlbumEditorToolbarProps) {
+    const router = useRouter();
+    const { isAdmin } = useAuth();
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [editedTitle, setEditedTitle] = useState(albumName);
 
@@ -134,6 +139,18 @@ export function AlbumEditorToolbar({
             </div>
 
             <div className="flex items-center gap-2">
+                {/* Admin Button */}
+                {isAdmin && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                        title="Admin Panel"
+                        onClick={() => router.push('/admin')}
+                    >
+                        <Shield className="h-5 w-5" />
+                    </Button>
+                )}
                 <ModeToggle />
                 <div className="h-4 w-px bg-border mx-1" />
                 <Button variant="outline" className="gap-2 bg-background" onClick={onOpenBookView}>

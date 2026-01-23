@@ -30,6 +30,7 @@ import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { rotateGridTemplate, rotateAdvancedTemplate, getNextRotation, RotationAngle } from '@/lib/template-rotation';
+import { useSettings } from '@/hooks/use-settings';
 
 // Helper function to render a clean preview of an advanced template
 // Uses CSS positioned divs to match the style of grid-based templates
@@ -107,6 +108,69 @@ const renderAdvancedTemplatePreview = (template: AdvancedTemplate) => {
         );
       })}
     </div>
+  );
+};
+
+
+// Spine Effect Overlay Component - uses dynamic settings
+const SpineEffectOverlay = () => {
+  const { settings } = useSettings();
+
+  // Convert hex color to rgba for inline styles
+  const hexToRgba = (hex: string, alpha: number) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
+  const {
+    spineEffectSpread,
+    spineEffectColor,
+    spineEffectColorOpacity,
+    spineEffectWidth,
+    spineEffectOpacity,
+    spineEffectCenterOpacity,
+  } = settings;
+
+  return (
+    <>
+      {/* Inner Spine Shadow (Left Page - approaching center) */}
+      <div
+        className="absolute top-0 bottom-0 pointer-events-none z-10"
+        style={{
+          left: `calc(50% - ${spineEffectWidth}px)`,
+          width: `${spineEffectWidth}px`,
+          background: `linear-gradient(to left, rgba(0,0,0,${spineEffectOpacity}), transparent)`,
+        }}
+      />
+
+      {/* Center Spine Binding */}
+      <div
+        className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[1px] z-10"
+        style={{
+          backgroundColor: hexToRgba(spineEffectColor, spineEffectColorOpacity),
+        }}
+      >
+        <div
+          className="absolute inset-y-0 pointer-events-none mix-blend-multiply"
+          style={{
+            left: `-${spineEffectSpread}px`,
+            right: `-${spineEffectSpread}px`,
+            background: `linear-gradient(to right, transparent, rgba(0,0,0,${spineEffectCenterOpacity}), transparent)`,
+          }}
+        />
+      </div>
+
+      {/* Inner Spine Shadow (Right Page - leaving center) */}
+      <div
+        className="absolute top-0 bottom-0 left-1/2 pointer-events-none z-10"
+        style={{
+          width: `${spineEffectWidth}px`,
+          background: `linear-gradient(to right, rgba(0,0,0,${spineEffectOpacity}), transparent)`,
+        }}
+      />
+    </>
   );
 };
 
@@ -1315,39 +1379,30 @@ const ScaledCoverPreview = React.memo(({
               allPhotos={allPhotos}
               previousPagePhotos={previousPagePhotos}
             />
+
+            {/* Spine Shadows Overlay - for spreads only - INSIDE the same stacking context */}
+            {!page.isCover && page.type === 'spread' && (
+              <SpineEffectOverlay />
+            )}
           </div>
 
-          {/* Spine Shadows Overlay - for spreads only */}
-          {!page.isCover && page.type === 'spread' && (
-            <>
-              {/* Inner Spine Shadow (Left Page - approaching center) */}
-              <div className="absolute top-0 bottom-0 left-[calc(50%-20px)] w-[20px] bg-gradient-to-l from-black/[0.04] to-transparent pointer-events-none z-30" />
-
-              {/* Center Spine Binding */}
-              <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[1px] bg-gray-300/40 z-20">
-                <div className="absolute inset-y-0 -left-8 -right-8 bg-gradient-to-r from-transparent via-black/[0.15] to-transparent pointer-events-none mix-blend-multiply" />
-              </div>
-
-              {/* Inner Spine Shadow (Right Page - leaving center) */}
-              <div className="absolute top-0 bottom-0 left-1/2 w-[20px] bg-gradient-to-r from-black/[0.04] to-transparent pointer-events-none z-30" />
-            </>
-          )}
+          {/* Title Overlay */}
+          <div className="absolute inset-0 z-60 pointer-events-none">
+            {page.titleText && (
+              <DraggableTitle
+                text={page.titleText}
+                color={page.titleColor}
+                fontSize={page.titleFontSize}
+                fontFamily={page.titleFontFamily}
+                position={page.titlePosition}
+                containerId={`front-cover-container-${page.id}`}
+                onUpdatePosition={(x, y) => onUpdateTitleSettings?.(page.id, { position: { x, y } })}
+              />
+            )}
+          </div>
+          {/* End of Title Overlay */}
         </div>
-
-        {/* Title Overlay */}
-        <div className="absolute inset-0 z-60 pointer-events-none">
-          {page.titleText && (
-            <DraggableTitle
-              text={page.titleText}
-              color={page.titleColor}
-              fontSize={page.titleFontSize}
-              fontFamily={page.titleFontFamily}
-              position={page.titlePosition}
-              containerId={`front-cover-container-${page.id}`}
-              onUpdatePosition={(x, y) => onUpdateTitleSettings?.(page.id, { position: { x, y } })}
-            />
-          )}
-        </div>
+        {/* End of LAYER 3 */}
       </div>
     </div>
   );
@@ -1569,20 +1624,18 @@ export function AlbumPreview({
                               activeView={viewMode === 'split' ? 'front' : 'full'}
                             />
                           ) : page.type === 'spread' ? (
-                            <div className="relative h-full w-full">
-                              <ScaledCoverPreview
-                                page={page}
-                                config={effectiveConfig}
-                                onUpdateTitleSettings={onUpdateTitleSettings}
-                                onDropPhoto={onDropPhoto}
-                                onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
-                                onInteractionChange={setIsInteracting}
-                                onRemovePhoto={onRemovePhoto}
-                                allPhotos={allPhotos}
-                                previousPagePhotos={previousPagePhotos}
-                                activeView={viewMode === 'split' ? 'front' : 'full'}
-                              />
-                            </div>
+                            <ScaledCoverPreview
+                              page={page}
+                              config={effectiveConfig}
+                              onUpdateTitleSettings={onUpdateTitleSettings}
+                              onDropPhoto={onDropPhoto}
+                              onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
+                              onInteractionChange={setIsInteracting}
+                              onRemovePhoto={onRemovePhoto}
+                              allPhotos={allPhotos}
+                              previousPagePhotos={previousPagePhotos}
+                              activeView={viewMode === 'split' ? 'front' : 'full'}
+                            />
                           ) : (
                             <ScaledCoverPreview
                               page={page}
@@ -1679,7 +1732,7 @@ function ScrollToTopButton({ scrollAreaRef }: { scrollAreaRef: React.RefObject<H
       variant="secondary"
       size="icon"
       className={cn(
-        "absolute bottom-6 right-8 z-49 rounded-full shadow-lg transition-all duration-300",
+        "absolute bottom-6 right-2 z-49 rounded-full shadow-lg transition-all duration-300",
         isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10 pointer-events-none"
       )}
       onClick={scrollToTop}

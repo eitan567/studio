@@ -4,8 +4,12 @@ import { useState, useEffect, useCallback, createContext, useContext, ReactNode 
 import { User, AuthChangeEvent, Session } from '@supabase/supabase-js'
 import { createClient, signOut as supabaseSignOut } from '@/lib/supabase'
 
+export type UserRole = 'user' | 'admin'
+
 interface AuthContextType {
     user: User | null
+    role: UserRole | null
+    isAdmin: boolean
     isLoading: boolean
     signOut: () => Promise<void>
 }
@@ -14,38 +18,86 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
+    const [role, setRole] = useState<UserRole | null>(null)
     const [isLoading, setIsLoading] = useState(true)
 
+    // Create Supabase client once
+    const [supabase] = useState(() => createClient())
+
     useEffect(() => {
-        const supabase = createClient()
+        let mounted = true;
 
-        // Get initial session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setUser(session?.user ?? null)
-            setIsLoading(false)
-        })
+        const initAuth = async () => {
+            // Get session
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!mounted) return;
 
-        // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            (event: AuthChangeEvent, session: Session | null) => {
-                setUser(session?.user ?? null)
-                setIsLoading(false)
+            const currentUser = session?.user ?? null;
+            setUser(currentUser);
+
+            if (currentUser) {
+                // Read directly from metadata
+                const metaRole = currentUser.app_metadata?.role as UserRole;
+                console.log('[useAuth] Role from metadata:', metaRole);
+                setRole(metaRole || 'user');
+            } else {
+                setRole(null);
             }
-        )
+            setIsLoading(false);
+        };
+
+        initAuth();
+
+        // Listen for changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            async (event, session) => {
+                if (!mounted) return;
+
+                console.log('[useAuth] Auth change:', event);
+                const currentUser = session?.user ?? null;
+                setUser(currentUser);
+
+                if (currentUser) {
+                    const metaRole = currentUser.app_metadata?.role as UserRole;
+                    // Update role if changed
+                    if (metaRole && metaRole !== role) {
+                        setRole(metaRole);
+                    } else if (!role) {
+                        setRole(metaRole || 'user');
+                    }
+                } else {
+                    setRole(null);
+                }
+                setIsLoading(false);
+            }
+        );
 
         return () => {
-            subscription.unsubscribe()
-        }
-    }, [])
+            mounted = false;
+            subscription.unsubscribe();
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Run once on mount
 
     const signOut = useCallback(async () => {
         await supabaseSignOut()
         setUser(null)
-        localStorage.removeItem('album_studio_user_settings') // Clear settings cache
+        setRole(null)
+        localStorage.removeItem('album_studio_user_settings')
     }, [])
 
+    const isAdmin = role === 'admin'
+
+    const value = {
+        user,
+        role,
+        isAdmin,
+        isLoading,
+        signOut,
+    }
+
     return (
-        <AuthContext.Provider value={{ user, isLoading, signOut }}>
+        <AuthContext.Provider value={value}>
             {children}
         </AuthContext.Provider>
     )

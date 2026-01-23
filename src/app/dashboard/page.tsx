@@ -10,6 +10,7 @@ import {
   BookImage,
   Pencil,
   Settings,
+  Shield,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -132,6 +133,18 @@ export default function DashboardPage() {
               </p>
             </div>
             <div className="flex items-center gap-3">
+              {/* Admin Button - Only visible to admins */}
+              {user && (useAuth() as any).isAdmin && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-950/30"
+                  title="Admin Panel"
+                  onClick={() => router.push('/admin')}
+                >
+                  <Shield className="h-5 w-5" />
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="icon"
