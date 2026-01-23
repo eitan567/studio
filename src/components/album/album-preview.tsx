@@ -1502,7 +1502,7 @@ export function AlbumPreview({
               >
                 <div className="w-full relative group/page">
 
-                  <div className={cn("h-18 px-6", page.type === 'single' ? 'w-1/2 mx-auto' : 'w-full')}>
+                  <div className={cn("h-18 px-16", page.type === 'single' ? 'w-1/2 mx-auto' : 'w-full')}>
                     <PageToolbar
                       page={page}
                       pageNumber={index} // Keep for internal logic if needed, but display comes from label
@@ -1764,7 +1764,7 @@ function NavigationControls({
   };
 
   return (
-    <div className="absolute right-10 top-1/2 -translate-y-1/2 translate-x-1/2 z-49 flex flex-col gap-4 w-8">
+    <div className="absolute right-8 top-1/2 -translate-y-1/2 translate-x-1/2 z-49 flex flex-col gap-4 w-8">
       {/* Absolute Jump (Start/End/Specific) */}
       <div className="flex flex-col items-center gap-2 bg-background/90 backdrop-blur-sm p-1.5 rounded-full shadow-lg border">
         <TooltipProvider>

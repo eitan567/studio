@@ -325,6 +325,9 @@ const PhotoGalleryCardComponent = ({
 
     const isClient = typeof window !== 'undefined';
 
+    // Cache for justified rows - used during resize to prevent expensive recalculation
+    const cachedRowsRef = useRef<{ photos: Photo[]; height: number; isLast?: boolean }[]>([]);
+
     // Filtered photos
     const filteredPhotos = useMemo(() => hideUsedPhotos
         ? allPhotos.filter(p => !photoUsageDetails[p.id])
@@ -333,7 +336,7 @@ const PhotoGalleryCardComponent = ({
     // Justified Layout Calculation
     const justifiedRows = useMemo(() => {
         const effectiveWidth = containerWidth > 0 ? containerWidth : 350;
-        if (isSingleColumn || isResizing) return [];
+        if (isSingleColumn) return [];
 
         const targetRowHeight = 140;
         const gap = 2; // tight gap
@@ -366,7 +369,14 @@ const PhotoGalleryCardComponent = ({
         }
 
         return rows;
-    }, [filteredPhotos, containerWidth, isSingleColumn, isResizing]);
+    }, [filteredPhotos, containerWidth, isSingleColumn]);
+
+    // Use cached rows during resize, otherwise use fresh calculation
+    // Update cache when not resizing
+    if (!isResizing && justifiedRows.length > 0) {
+        cachedRowsRef.current = justifiedRows;
+    }
+    const displayRows = isResizing ? cachedRowsRef.current : justifiedRows;
 
     const toggleSelection = (id: string) => {
         const newSelected = new Set(selectedPhotos);
@@ -633,21 +643,7 @@ const PhotoGalleryCardComponent = ({
                         <ScrollArea ref={photoScrollRef} className="h-full px-4 py-2">
                             <ScrollToTopButton scrollAreaRef={photoScrollRef} />
 
-                            {isResizing ? (
-                                <div className="flex flex-col items-center justify-center pt-20 opacity-50 space-y-4">
-                                    <div className="flex flex-col items-center gap-2 animate-pulse">
-                                        <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
-                                            <Wand2 className="h-6 w-6 text-primary" />
-                                        </div>
-                                        <p className="text-xs font-medium text-muted-foreground">מעדכן פריסה...</p>
-                                    </div>
-                                    <div className="grid grid-cols-4 gap-2 w-full px-4">
-                                        {[...Array(12)].map((_, i) => (
-                                            <div key={i} className="aspect-square bg-muted rounded-md" />
-                                        ))}
-                                    </div>
-                                </div>
-                            ) : isSingleColumn ? (
+                            {isSingleColumn ? (
                                 <div className="flex flex-col gap-2 pb-10">
                                     {filteredPhotos.map((photo) => (
                                         <GalleryPhotoItem
@@ -667,7 +663,7 @@ const PhotoGalleryCardComponent = ({
                                 </div>
                             ) : (
                                 <div className="flex flex-col gap-[2px] pb-10">
-                                    {justifiedRows.map((row, rowIndex) => (
+                                    {displayRows.map((row, rowIndex) => (
                                         <div key={rowIndex} className="flex flex-row gap-[2px]" style={{ height: `${row.height}px` }}>
                                             {row.photos.map((photo) => {
                                                 const ar = (photo.width && photo.height) ? photo.width / photo.height : 1.5;
