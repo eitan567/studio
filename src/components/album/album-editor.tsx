@@ -366,16 +366,20 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
   const [galleryWidth, setGalleryWidth] = useState(350);
   const [isResizingGallery, setIsResizingGallery] = useState(false);
   const isResizingRef = useRef(false);
+  const initialXRef = useRef(0);
+  const initialWidthRef = useRef(0);
   const galleryRef = useRef<HTMLDivElement>(null);
 
   const startResizing = useCallback((e: React.MouseEvent) => {
     isResizingRef.current = true;
+    initialXRef.current = e.clientX;
+    initialWidthRef.current = galleryRef.current?.offsetWidth || galleryWidth;
     setIsResizingGallery(true);
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', stopResizing);
-    document.body.style.cursor = 'col-resize';
+    document.body.style.cursor = 'grabbing';
     document.body.style.userSelect = 'none';
-  }, []);
+  }, [galleryWidth]);
 
   const stopResizing = useCallback(() => {
     isResizingRef.current = false;
@@ -393,7 +397,12 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isResizingRef.current || !galleryRef.current) return;
-    const newWidth = window.innerWidth - e.clientX;
+
+    // Calculate delta relative to start position
+    const deltaX = e.clientX - initialXRef.current;
+    // New width = initial width - delta (dragging left increases width)
+    const newWidth = initialWidthRef.current - deltaX;
+
     if (newWidth > 200 && newWidth < 800) {
       // Direct DOM update for performance - NO re-renders during drag
       galleryRef.current.style.width = `${newWidth}px`;
@@ -794,7 +803,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           {/* Resizer Handle */}
           <div
             onMouseDown={startResizing}
-            className="w-2 shrink-0 bg-transparent cursor-col-resize group relative self-stretch z-10"
+            className="w-2 shrink-0 bg-transparent cursor-grab group relative self-stretch z-10"
             title="Drag to resize gallery"
           >
             {/* Permanent solid primary line - matching your design */}
