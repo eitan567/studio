@@ -379,6 +379,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     document.addEventListener('mouseup', stopResizing);
     document.body.style.cursor = 'grabbing';
     document.body.style.userSelect = 'none';
+    // Force light scheme (dark cursor) during resize to prevent white-on-white cursor
+    document.documentElement.style.colorScheme = 'light';
   }, [galleryWidth]);
 
   const stopResizing = useCallback(() => {
@@ -388,6 +390,8 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
     document.removeEventListener('mouseup', stopResizing);
     document.body.style.cursor = 'default';
     document.body.style.userSelect = 'auto';
+    // Revert color scheme override
+    document.documentElement.style.colorScheme = '';
 
     // Sync final width back to state on release - this triggers the expensive layout
     if (galleryRef.current) {
@@ -762,7 +766,7 @@ export function AlbumEditor({ albumId }: AlbumEditorProps) {
           </div>
 
           {/* Main Content: Album Preview */}
-          <div className="flex-1 min-w-0 pl-6">
+          <div className="flex-1 min-w-0 pl-6" style={{ colorScheme: 'light' }}>
             {isLoading || isAlbumLoading || !isInitialized ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center animate-in fade-in duration-300 bg-muted/30 border-2 border-dashed rounded-lg">
                 <Loader2 className="h-12 w-12 mb-4 animate-spin text-primary" />

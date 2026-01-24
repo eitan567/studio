@@ -610,7 +610,7 @@ const PhotoGalleryCardComponent = ({
                         onChange={(e) => { processUploadedFiles(e.target.files); e.target.value = ''; }} />
                 </CardHeader >
 
-                <CardContent ref={containerRef} className="flex-1 overflow-hidden p-0 relative">
+                <CardContent ref={containerRef} className="flex-1 overflow-hidden pr-1 relative">
                     {allPhotos.length === 0 ? (
                         isLoadingPhotos ? (
                             <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center animate-in fade-in">

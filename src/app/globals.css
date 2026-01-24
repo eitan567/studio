@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 :root {
+  color-scheme: light;
   /* Hex-Inspired Light Theme - Clean & Minimal */
   --background: 0 0% 98%;
   --foreground: 0 0% 12%;
@@ -54,6 +55,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   /* Hex-Inspired Dark Theme - Deep Charcoal with Coral Accent */
   --background: 0 0% 10%;
   --foreground: 0 0% 92%;
@@ -107,6 +109,12 @@
 
   body {
     @apply bg-background text-foreground font-body;
+  }
+
+  /* Force visible text cursor in inputs/textareas */
+  input,
+  textarea {
+    caret-color: currentColor;
   }
 }
 
