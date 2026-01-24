@@ -1314,7 +1314,7 @@ const ScaledCoverPreview = React.memo(({
 
       const scaleX = availW / logicalWidth;
       const scaleY = availH / logicalHeight;
-      const fitScale = Math.min(scaleX, scaleY) * 0.9;
+      const fitScale = Math.min(scaleX, scaleY) * 0.92;
       setScale(fitScale);
     };
     measure();
@@ -1522,6 +1522,8 @@ export function AlbumPreview({
         ref={scrollAreaRef}
         className="h-[85vh] w-full"
         style={{ overflowY: isInteracting ? 'hidden' : 'auto' }}
+        scrollBarSide="left"
+        thumbClassName="min-h-[50px]"
       >
         <div className="space-y-8 pb-4">
           {pages.map((page, index) => {
@@ -1557,7 +1559,7 @@ export function AlbumPreview({
               >
                 <div className="w-full relative group/page">
 
-                  <div className={cn("h-18 px-16", page.type === 'single' ? 'w-1/2 mx-auto' : 'w-full')}>
+                  <div className={cn("h-18 px-14", page.type === 'single' ? 'w-1/2 mx-auto' : 'w-full')}>
                     <PageToolbar
                       page={page}
                       pageNumber={index} // Keep for internal logic if needed, but display comes from label

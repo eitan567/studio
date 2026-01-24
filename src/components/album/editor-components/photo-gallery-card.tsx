@@ -640,7 +640,7 @@ const PhotoGalleryCardComponent = ({
                             </div>
                         )
                     ) : (
-                        <ScrollArea ref={photoScrollRef} className="h-full px-4 py-2">
+                        <ScrollArea ref={photoScrollRef} className="h-full px-4 py-2" thumbClassName="min-h-[50px]">
                             <ScrollToTopButton scrollAreaRef={photoScrollRef} />
 
                             {isSingleColumn ? (
