@@ -1752,7 +1752,7 @@ function NavigationControls({
   pageInfo: { label: string; start: number; end: number; isCover: boolean; }[]
 }) {
   const [targetPage, setTargetPage] = useState<string>("");
-  const [stepSize, setStepSize] = useState<string>("5");
+  const [stepSize, setStepSize] = useState<string>("1");
 
   const scrollToIndex = (index: number) => {
     const el = document.getElementById(`album-page-${index}`);
