@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import { AiBackgroundGenerator } from '../ai-background-generator';
-import { useAlbumPreview } from '../album-preview-context';
+import { useAlbumEditor } from '../album-editor-context';
 
 interface AlbumConfigCardProps {
     form: UseFormReturn<{ size: '20x20' | '25x25' | '30x30' }>;
@@ -60,7 +60,7 @@ export function AlbumConfigCard({
     setAvailableBackgrounds,
     backgroundUploadRef,
 }: AlbumConfigCardProps) {
-    const { setPreviewPhotoGap, setPreviewPageMargin, setPreviewCornerRadius } = useAlbumPreview();
+    const { setPreviewPhotoGap, setPreviewPageMargin, setPreviewCornerRadius } = useAlbumEditor();
     // Local slider states for smooth dragging UX
     const [localPhotoGap, setLocalPhotoGap] = React.useState(photoGap);
     const [localPageMargin, setLocalPageMargin] = React.useState(pageMargin);

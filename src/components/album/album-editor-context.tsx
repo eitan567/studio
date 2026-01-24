@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
-interface AlbumPreviewContextType {
+interface AlbumEditorContextType {
     previewPhotoGap: number | null;
     setPreviewPhotoGap: (value: number | null) => void;
     previewPageMargin: number | null;
@@ -11,15 +11,15 @@ interface AlbumPreviewContextType {
     setPreviewCornerRadius: (value: number | null) => void;
 }
 
-const AlbumPreviewContext = createContext<AlbumPreviewContextType | undefined>(undefined);
+const AlbumEditorContext = createContext<AlbumEditorContextType | undefined>(undefined);
 
-export function AlbumPreviewProvider({ children }: { children: ReactNode }) {
+export function AlbumEditorProvider({ children }: { children: ReactNode }) {
     const [previewPhotoGap, setPreviewPhotoGap] = useState<number | null>(null);
     const [previewPageMargin, setPreviewPageMargin] = useState<number | null>(null);
     const [previewCornerRadius, setPreviewCornerRadius] = useState<number | null>(null);
 
     return (
-        <AlbumPreviewContext.Provider
+        <AlbumEditorContext.Provider
             value={{
                 previewPhotoGap,
                 setPreviewPhotoGap,
@@ -30,14 +30,14 @@ export function AlbumPreviewProvider({ children }: { children: ReactNode }) {
             }}
         >
             {children}
-        </AlbumPreviewContext.Provider>
+        </AlbumEditorContext.Provider>
     );
 }
 
-export function useAlbumPreview() {
-    const context = useContext(AlbumPreviewContext);
+export function useAlbumEditor() {
+    const context = useContext(AlbumEditorContext);
     if (context === undefined) {
-        throw new Error('useAlbumPreview must be used within an AlbumPreviewProvider');
+        throw new Error('useAlbumEditor must be used within an AlbumEditorProvider');
     }
     return context;
 }

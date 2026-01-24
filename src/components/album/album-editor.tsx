@@ -1,876 +1,1900 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import {
-  Loader2,
-  Trash2,
-  Upload,
-  Eraser,
-  RotateCcw,
-} from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
-import placeholderImagesData from '@/lib/placeholder-images.json';
+import Image from 'next/image';
+import { BookOpenText, Info, Trash2, LayoutTemplate, Download, Image as ImageIcon, Wand2, Undo, Crop, AlertTriangle, Pencil, BookOpen, Share2, FileText, FileDown, MoreHorizontal, FileImage, Plus, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, CornerDownRight, CornerDownLeft, RotateCw, ChevronUp, ChevronDown, Settings2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
 
-const placeholderImages = placeholderImagesData.placeholderImages;
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
-import * as z from 'zod';
-import { v4 as uuidv4 } from 'uuid';
-
-import type { Photo, AlbumConfig, AlbumPage, PhotoPanAndZoom } from '@/lib/types';
+import type { AlbumPage, AlbumConfig, Photo } from '@/lib/types';
+import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlbumPreview } from './album-preview';
-import { AlbumPreviewProvider } from './album-preview-context';
-import { BookViewOverlay } from './book-view-overlay';
-import { useToast } from '@/hooks/use-toast';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { LAYOUT_TEMPLATES, COVER_TEMPLATES, ADVANCED_TEMPLATES } from '@/hooks/useTemplates';
-import { AdvancedTemplate } from '@/lib/advanced-layout-types';
-import { Checkbox } from '@/components/ui/checkbox';
+} from '@/components/ui/dropdown-menu';
+import type { PhotoPanAndZoom } from '@/lib/types';
+import { PhotoRenderer } from './photo-renderer';
+import { useToast } from '@/hooks/use-toast';
+import { useAlbumEditor } from './album-editor-context';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
+import { AdvancedTemplate, LayoutRegion, insetPolygon } from '@/lib/advanced-layout-types';
+import { ShapeRegion } from './shape-region';
+import { PageLayout } from './page-layout';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, TooltipArrow } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
-import Image from 'next/image';
-
-// Fix for alert import
-import { Alert as AlertUI, AlertDescription as AlertDescriptionUI, AlertTitle as AlertTitleUI } from '@/components/ui/alert';
-import { AiBackgroundGenerator } from './ai-background-generator';
-import { AlbumExporter, AlbumExporterRef } from './album-exporter';
-import { CustomLayoutEditorOverlay } from './custom-layout-editor/custom-layout-editor-overlay';
-import { useAlbum } from '@/hooks/useAlbum';
-import { usePhotoUpload } from '@/hooks/usePhotoUpload';
-import { useAlbumGeneration } from '@/hooks/use-album-generation';
-import { useAlbumPageEditor } from '@/hooks/useAlbumPageEditor';
-import { usePhotoGalleryManager } from '@/hooks/usePhotoGalleryManager';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { rotateGridTemplate, rotateAdvancedTemplate, getNextRotation, RotationAngle } from '@/lib/template-rotation';
 import { useSettings } from '@/hooks/use-settings';
-import { ModeToggle } from '@/components/mode-toggle';
-import { ScrollToTopButton, AlbumConfigCard, PhotoGalleryCard, AlbumEditorToolbar } from './editor-components';
 
-// Parse layout ID helper removed (now in useAlbumPageEditor or used via import if needed)
+// Helper function to render a clean preview of an advanced template
+// Uses CSS positioned divs to match the style of grid-based templates
+const renderAdvancedTemplatePreview = (template: AdvancedTemplate) => {
+  const sortedRegions = [...template.regions].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
 
-interface AlbumEditorProps {
-  albumId: string;
+  // Small inset to create visible gaps between regions (matches gap-0.5)
+  const GAP_INSET = 1; // 1% inset for gaps between regions
+  const EDGE_MARGIN = 2; // 2% margin on edges (p-0.5 equivalent)
+
+  // Scale factor to fit content within margins
+  const scale = (100 - EDGE_MARGIN * 2) / 100;
+
+  return (
+    <div className="w-full h-full relative">
+      {sortedRegions.map((region, index) => {
+        // For circles/ellipses, we'll use border-radius
+        const isCircular = region.shape === 'circle' || region.shape === 'ellipse';
+        const isPolygon = region.shape === 'polygon' && region.points && region.points.length >= 3;
+
+        // For polygons, render using CSS clip-path with the actual polygon points
+        if (isPolygon && region.points) {
+          // Apply inset to polygon points to create visible gaps between shapes
+          const insetPoints = insetPolygon(region.points, GAP_INSET);
+
+          const clipPathPoints = insetPoints.map(([px, py]) => {
+            const scaledX = EDGE_MARGIN + (px * scale);
+            const scaledY = EDGE_MARGIN + (py * scale);
+            return `${scaledX}% ${scaledY}%`;
+          }).join(', ');
+
+          return (
+            <div
+              key={region.id || index}
+              className="absolute bg-primary/20"
+              style={{
+                left: 0,
+                top: 0,
+                width: '100%',
+                height: '100%',
+                clipPath: `polygon(${clipPathPoints})`,
+                zIndex: region.zIndex ?? 0,
+              }}
+            />
+          );
+        }
+
+        // For rectangles and circles: use bounds with gap inset
+        const gapX = region.bounds.x + GAP_INSET;
+        const gapY = region.bounds.y + GAP_INSET;
+        const gapW = Math.max(0, region.bounds.width - (GAP_INSET * 2));
+        const gapH = Math.max(0, region.bounds.height - (GAP_INSET * 2));
+
+        // Apply edge margin scaling
+        const x = EDGE_MARGIN + (gapX * scale);
+        const y = EDGE_MARGIN + (gapY * scale);
+        const width = gapW * scale;
+        const height = gapH * scale;
+
+        return (
+          <div
+            key={region.id || index}
+            className={cn(
+              'absolute bg-primary/20',
+              isCircular ? 'rounded-full' : 'rounded-sm'
+            )}
+            style={{
+              left: `${x}%`,
+              top: `${y}%`,
+              width: `${width}%`,
+              height: `${height}%`,
+              zIndex: region.zIndex ?? 0,
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+};
+
+
+// Spine Effect Overlay Component - uses dynamic settings
+const SpineEffectOverlay = () => {
+  const { settings } = useSettings();
+
+  // Convert hex color to rgba for inline styles
+  const hexToRgba = (hex: string, alpha: number) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
+  const {
+    spineEffectSpread,
+    spineEffectColor,
+    spineEffectColorOpacity,
+    spineEffectWidth,
+    spineEffectOpacity,
+    spineEffectCenterOpacity,
+  } = settings;
+
+  return (
+    <>
+      {/* Inner Spine Shadow (Left Page - approaching center) */}
+      <div
+        className="absolute top-0 bottom-0 pointer-events-none z-10"
+        style={{
+          left: `calc(50% - ${spineEffectWidth}px)`,
+          width: `${spineEffectWidth}px`,
+          background: `linear-gradient(to left, rgba(0,0,0,${spineEffectOpacity}), transparent)`,
+        }}
+      />
+
+      {/* Center Spine Binding */}
+      <div
+        className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[1px] z-10"
+        style={{
+          backgroundColor: hexToRgba(spineEffectColor, spineEffectColorOpacity),
+        }}
+      >
+        <div
+          className="absolute inset-y-0 pointer-events-none mix-blend-multiply"
+          style={{
+            left: `-${spineEffectSpread}px`,
+            right: `-${spineEffectSpread}px`,
+            background: `linear-gradient(to right, transparent, rgba(0,0,0,${spineEffectCenterOpacity}), transparent)`,
+          }}
+        />
+      </div>
+
+      {/* Inner Spine Shadow (Right Page - leaving center) */}
+      <div
+        className="absolute top-0 bottom-0 left-1/2 pointer-events-none z-10"
+        style={{
+          width: `${spineEffectWidth}px`,
+          background: `linear-gradient(to right, rgba(0,0,0,${spineEffectOpacity}), transparent)`,
+        }}
+      />
+    </>
+  );
+};
+
+
+// Template Thumbnail - simple static preview for selection
+type TemplateWithGrid = { id: string; name: string; photoCount?: number; grid: string[] };
+type TemplateUnion = TemplateWithGrid | AdvancedTemplate;
+
+// Parse layout ID to extract base template and rotation (same as in page-layout.tsx)
+function parseLayoutId(layoutId: string): { baseId: string; rotation: RotationAngle } {
+  const rotationMatch = layoutId.match(/_r(90|180|270)$/);
+  if (rotationMatch) {
+    const rotation = parseInt(rotationMatch[1]) as RotationAngle;
+    const baseId = layoutId.replace(/_r(90|180|270)$/, '');
+    return { baseId, rotation };
+  }
+  return { baseId: layoutId, rotation: 0 };
 }
 
-const configSchema = z.object({
-  size: z.enum(['20x20', '25x25', '30x30']),
-});
-
-type ConfigFormData = z.infer<typeof configSchema>;
-
-export function AlbumEditor({ albumId }: AlbumEditorProps) {
-  const { settings, liveSettings, isLoaded: isSettingsLoaded } = useSettings();
-  // Album persistence hook
-  const {
-    album,
-    isLoading: isAlbumLoading,
-    isSaving,
-    error: albumError,
-    hasUnsavedChanges,
-    lastSaved,
-    createAlbum,
-    updatePages,
-    updateConfig,
-    updateName,
-    isNew,
-    config: savedConfig,
-    pages: savedPages,
-    name: albumName,
-
-    updateThumbnail,
-    thumbnail_url: albumThumbnailUrl,
-    photos: savedPhotos,
-    updatePhotos: savePhotos,
-    saveNow,
-    setIsUploading,
-  } = useAlbum(albumId);
-
-
-
-
-  const router = useRouter();
-  const { signOut } = useAuth();
-
-
-
-  // LOCAL photo state - decoupled from DB persistence
-  // This allows transient states (isUploading) without triggering DB saves
-  const [localPhotos, setLocalPhotos] = useState<Photo[]>([]);
-
-  // Track initialization to prevent re-hydrating deleted photos
-  const photosInitialized = useRef(false);
-
-  // Initialize local photos from saved photos on load (ONCE)
-  useEffect(() => {
-    if (!photosInitialized.current && savedPhotos && savedPhotos.length > 0) {
-      setLocalPhotos(savedPhotos);
-      photosInitialized.current = true;
-    } else if (!photosInitialized.current && savedPhotos && savedPhotos.length === 0 && !isAlbumLoading) {
-      // If loading finished and no photos, mark initialized so we don't overwrite later
-      photosInitialized.current = true;
+const TemplateThumbnail = ({
+  template,
+  isSelected,
+  onSelect
+}: {
+  template: TemplateUnion;
+  isSelected: boolean;
+  onSelect: (templateId: string) => void;
+}) => {
+  // Render static preview (no rotation - rotation is handled in toolbar)
+  const renderPreview = () => {
+    if ('grid' in template) {
+      return (
+        <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
+          {template.grid.map((gridClass, i) => (
+            <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
+          ))}
+        </div>
+      );
+    } else {
+      return (
+        <div className="w-full h-16 bg-muted relative overflow-hidden">
+          {renderAdvancedTemplatePreview(template as AdvancedTemplate)}
+        </div>
+      );
     }
-  }, [savedPhotos, isAlbumLoading]);
-
-  // Expose local photos for UI
-  const allPhotos = localPhotos;
-
-  // Track loading state via ref to access inside callbacks without dependencies
-  const isLoadingPhotosRef = useRef(false);
-
-  // Wrapper: updates local state immediately, syncs to DB only for completed photos
-  const setAllPhotos = useCallback((updater: React.SetStateAction<Photo[]>) => {
-    setLocalPhotos(prev => {
-      const next = typeof updater === 'function' ? updater(prev) : updater;
-
-      // Filter out photos that are still uploading or have errors before persisting
-      const photosToSave = next.filter(p => !p.isUploading && !p.error);
-
-      // Persist if there are completed photos OR if we're explicitly clearing (empty array)
-      // BUT SKIP if strictly uploading (to avoid DB churning/sorting)
-      if ((photosToSave.length > 0 || next.length === 0) && !isLoadingPhotosRef.current) {
-        // Debounce slightly standard saves, but block completely if uploading
-        setTimeout(() => {
-          if (!isLoadingPhotosRef.current) {
-            savePhotos(photosToSave);
-          }
-        }, 500);
-      }
-
-      return next;
-    });
-  }, [savePhotos]);
-
-  // State for pages - Defined early for use in updateThumbnail callback
-  const [albumPages, setAlbumPages] = useState<AlbumPage[]>([]);
-
-  // State dependencies needed for hooks below
-  const [allowDuplicates, setAllowDuplicates] = useState(true);
-
-  // Computed dependencies
-  const photoUsageDetails = useMemo(() => {
-    const details: Record<string, { count: number; pages: number[] }> = {};
-
-    // Pre-compute a map of src -> photoId for faster lookup
-    const srcToIdMap = new Map<string, string>();
-    allPhotos.forEach(p => {
-      if (p.src) srcToIdMap.set(p.src, p.id);
-    });
-
-    albumPages.forEach((page, pageIndex) => {
-      page.photos.forEach(photo => {
-        let galleryId = photo.originalId;
-        if (!galleryId && photo.src) {
-          galleryId = srcToIdMap.get(photo.src);
-        }
-        galleryId = galleryId || photo.id;
-
-        if (!photo.src || photo.src === '') return;
-
-        if (!details[galleryId]) {
-          details[galleryId] = { count: 0, pages: [] };
-        }
-        details[galleryId].count++;
-        if (!details[galleryId].pages.includes(pageIndex)) {
-          details[galleryId].pages.push(pageIndex);
-        }
-      });
-    });
-    return details;
-  }, [albumPages, allPhotos]);
-
-  const usedPhotoIds = useMemo(() => {
-    return new Set(Object.keys(photoUsageDetails));
-  }, [photoUsageDetails]);
-
-  // Page Manipulation Hook - Moved UP to provide callbacks to Gallery Manager
-  const {
-    deletePage,
-    addSpreadPage,
-    updatePageLayout,
-    handleRemovePhoto,
-    handleUpdateCoverLayout,
-    handleUpdateSpreadLayout,
-    handleUpdateCoverType,
-    handleUpdateSpineText,
-    handleUpdateSpineSettings,
-    handleUpdateTitleSettings,
-    handleUpdatePage,
-    updatePhotoPanAndZoom,
-    handleDropPhoto,
-    handleRemovePhotosFromAlbum,
-    replacePhotoId
-  } = useAlbumPageEditor({
-    setAlbumPages,
-    allPhotos,
-    allowDuplicates,
-    usedPhotoIds
-  });
-
-  const { toast } = useToast();
-  // Photo Gallery Manager Hook
-  const {
-    isLoadingPhotos,
-    setIsLoadingPhotos,
-    processUploadedFiles,
-    handleSortPhotos,
-    handleClearGallery,
-    handleDeletePhotos,
-    photoScrollRef,
-    folderUploadRef,
-    photoUploadRef,
-    sortedPhotos
-  } = usePhotoGalleryManager({
-    allPhotos,
-    setAllPhotos,
-    updateThumbnail: (url) => {
-      updatePages(albumPages.map(page =>
-        page.isCover && page.coverLayouts?.front === '1-full' && (!page.photos[0] || !page.photos[0].src)
-          ? { ...page, photos: [{ ...page.photos[0], src: url }] }
-          : page
-      ));
-      updateThumbnail(url);
-    },
-    albumThumbnailUrl: albumThumbnailUrl,
-    onRemovePhotosFromAlbum: handleRemovePhotosFromAlbum,
-    onPhotoUploadComplete: replacePhotoId
-  });
-
-  // Sync upload status to persistence layer for safety nets
-  useEffect(() => {
-    setIsUploading(isLoadingPhotos);
-  }, [isLoadingPhotos, setIsUploading]);
-
-  // Sync ref with prop/state
-  useEffect(() => {
-    isLoadingPhotosRef.current = isLoadingPhotos;
-  }, [isLoadingPhotos]);
-
-  // Track previous loading state to detect transition
-  const prevLoadingRef = useRef(false);
-
-  // Delayed save after upload completes (Transition Logic)
-  useEffect(() => {
-    // Only trigger if we effectively transitioned from loading -> not loading
-    if (prevLoadingRef.current && !isLoadingPhotos) {
-      // Transition detected! Upload finished.
-      if (localPhotos.length > 0) {
-        const timer = setTimeout(() => {
-          // Double check we haven't started loading again
-          if (!isLoadingPhotosRef.current) {
-            const validPhotos = localPhotos.filter(p => !p.isUploading && !p.error);
-            if (validPhotos.length > 0) {
-              console.log('[DEBUG] Delayed save triggered after upload');
-              savePhotos(validPhotos);
-            }
-          }
-        }, 2000);
-        // Update ref immediately to prevent double-firing if dep changes
-        prevLoadingRef.current = false;
-        return () => clearTimeout(timer);
-      }
-    }
-
-    // Update ref for next render
-    prevLoadingRef.current = isLoadingPhotos;
-  }, [isLoadingPhotos, localPhotos, savePhotos]);
-
-  // photoUsageDetails and usedPhotoIds moved to top
-
-  // Chronological index: maps photo.id -> 1-based position sorted by capture date
-  const chronologicalIndex = useMemo(() => {
-    const sorted = [...allPhotos].sort((a, b) => {
-      const dateA = a.captureDate ? new Date(a.captureDate).getTime() : 0;
-      const dateB = b.captureDate ? new Date(b.captureDate).getTime() : 0;
-
-      // 1. Primary Sort: Date (Always ASC for numbering)
-      if (dateA !== dateB) return dateA - dateB;
-
-      // 2. Secondary Sort: Filename
-      const nameA = a.alt || '';
-      const nameB = b.alt || '';
-      if (nameA !== nameB) return nameA.localeCompare(nameB);
-
-      // 3. Absolute Tie-breaker: ID
-      return a.id.localeCompare(b.id);
-    });
-    const indexMap: Record<string, number> = {};
-    sorted.forEach((photo, i) => {
-      indexMap[photo.id] = i + 1;
-    });
-    return indexMap;
-  }, [allPhotos]);
-
-  // Calculate empty slots in album (photos with empty src)
-  const emptySlots = useMemo(() => {
-    return albumPages.reduce((total, page) => {
-      return total + page.photos.filter(p => !p.src || p.src === '').length;
-    }, 0);
-  }, [albumPages]);
-
-  const [isLoading, setIsLoading] = useState(false);
-
-  const [isBookViewOpen, setIsBookViewOpen] = useState(false);
-  const [isCustomLayoutEditorOpen, setIsCustomLayoutEditorOpen] = useState(false);
-  const [isCoverEditorOpen, setIsCoverEditorOpen] = useState(false);
-
-  const [customTemplates, setCustomTemplates] = useState<AdvancedTemplate[]>([]);
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  // Load custom templates from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('custom_album_templates');
-    if (saved) {
-      try {
-        setCustomTemplates(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to load custom templates', e);
-      }
-    }
-  }, []);
-
-  const handleAddCustomTemplate = (template: AdvancedTemplate) => {
-    setCustomTemplates(prev => {
-      const next = [...prev, template];
-      localStorage.setItem('custom_album_templates', JSON.stringify(next));
-      return next;
-    });
   };
 
-  const [randomSeed, setRandomSeed] = useState('');
-  const [isClient, setIsClient] = useState(false);
-  // allowDuplicates moved up
-  const [multiSelectMode, setMultiSelectModeLocal] = useState(false); // true = checkboxes, false = trash icons
-  const [galleryWidth, setGalleryWidth] = useState(350);
-  const [isResizingGallery, setIsResizingGallery] = useState(false);
-  const isResizingRef = useRef(false);
-  const initialXRef = useRef(0);
-  const initialWidthRef = useRef(0);
-  const galleryRef = useRef<HTMLDivElement>(null);
+  return (
+    <DropdownMenuItem
+      onSelect={() => onSelect(template.id)}
+      className={cn(
+        "p-0 focus:bg-accent/50 rounded-md cursor-pointer",
+        isSelected && "ring-2 ring-primary"
+      )}
+    >
+      <div className="w-24 h-24 p-1 flex flex-col items-center">
+        {renderPreview()}
+        <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
+      </div>
+    </DropdownMenuItem>
+  );
+};
 
-  const startResizing = useCallback((e: React.MouseEvent) => {
-    isResizingRef.current = true;
-    initialXRef.current = e.clientX;
-    initialWidthRef.current = galleryRef.current?.offsetWidth || galleryWidth;
-    setIsResizingGallery(true);
+
+interface AlbumEditorProps {
+  pages: AlbumPage[];
+  config: AlbumConfig;
+  onDeletePage: (pageId: string) => void;
+  onAddSpread?: (afterIndex: number) => void;
+  onUpdateLayout: (pageId: string, newLayout: string) => void;
+  onUpdateCoverLayout?: (pageId: string, side: 'front' | 'back' | 'full', newLayout: string) => void;
+  onUpdateSpreadLayout?: (pageId: string, side: 'left' | 'right', newLayout: string) => void;
+  onUpdateCoverType?: (pageId: string, newType: 'split' | 'full') => void;
+
+  onUpdatePage?: (page: AlbumPage) => void; // New generic update prop
+  onUpdateSpineText?: (pageId: string, text: string) => void;
+  onUpdateSpineSettings?: (pageId: string, settings: { width?: number; color?: string; opacity?: number; textColor?: string; fontSize?: number; fontFamily?: string }) => void;
+  onUpdateTitleSettings?: (pageId: string, settings: { text?: string; color?: string; fontSize?: number; fontFamily?: string; position?: { x: number; y: number } }) => void;
+  onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
+  onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string, sourceInfo?: { pageId: string; photoId: string }) => void;
+  onDownloadPage: (pageId: string) => void;
+  onRemovePhoto: (pageId: string, photoId: string) => void;
+  allPhotos?: Photo[];
+  customTemplates?: AdvancedTemplate[];
+  defaultViewMode?: 'full' | 'split';
+  visibleTemplateCategories?: string[]; // Added
+  allowedTemplateIds?: string[];      // Added
+}
+
+import { CoverEditorOverlay } from './cover-editor/cover-editor-overlay';
+import { AlbumCover } from './album-cover';
+
+const AVAILABLE_FONTS = ['Inter', 'Serif', 'Mono', 'Cursive', 'Arial', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Impact'];
+
+const DraggableTitle = ({
+  text,
+  color,
+  fontSize = 24,
+  fontFamily,
+  position = { x: 50, y: 50 },
+  containerId, // New prop
+  onUpdatePosition
+}: {
+  text: string;
+  color?: string;
+  fontSize?: number;
+  fontFamily?: string;
+  position?: { x: number; y: number };
+  containerId: string;
+  onUpdatePosition: (x: number, y: number) => void;
+}) => {
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return; // Only left click
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  React.useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      // Convert movement to percentage relative to parent container
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+      onUpdatePosition(Math.max(0, Math.min(100, x)), Math.max(0, Math.min(100, y)));
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
     document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', stopResizing);
-    document.body.style.cursor = 'grabbing';
-    document.body.style.userSelect = 'none';
-    // Force light scheme (dark cursor) during resize to prevent white-on-white cursor
-    document.documentElement.style.colorScheme = 'light';
-  }, [galleryWidth]);
+    document.addEventListener('mouseup', handleMouseUp);
 
-  const stopResizing = useCallback(() => {
-    isResizingRef.current = false;
-    setIsResizingGallery(false);
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', stopResizing);
-    document.body.style.cursor = 'default';
-    document.body.style.userSelect = 'auto';
-    // Revert color scheme override
-    document.documentElement.style.colorScheme = '';
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, onUpdatePosition]);
 
-    // Sync final width back to state on release - this triggers the expensive layout
-    if (galleryRef.current) {
-      setGalleryWidth(galleryRef.current.offsetWidth);
+  return (
+    <div
+      id={`draggable-title-${containerId}`}
+      onMouseDown={handleMouseDown}
+      className={cn(
+        "absolute p-2 border border-transparent hover:border-blue-500 rounded cursor-move select-none z-50 group",
+        isDragging && "border-blue-500 bg-blue-500/10"
+      )}
+      style={{
+        left: `${position.x}%`,
+        top: `${position.y}%`,
+        transform: 'translate(-50%, -50%)',
+      }}
+    >
+      <div style={{ color: color || '#000000', fontSize: `${fontSize}px`, fontFamily: fontFamily || 'Inter', whiteSpace: 'nowrap' }}>
+        {text}
+      </div>
+      <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-black/75 text-white text-[10px] px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+        Drag to move
+      </div>
+    </div>
+  );
+};
+
+
+// Helper to manage color + opacity
+const SpineColorPicker = ({
+  value,
+  onChange,
+  disableAlpha = false
+}: {
+  value?: string;
+  onChange: (color: string) => void;
+  disableAlpha?: boolean;
+}) => {
+  // Parse initial values
+  const [hex, setHex] = useState(() => {
+    if (!value) return '#000000';
+    if (value.startsWith('#')) return value;
+    if (value.startsWith('rgba')) {
+      // Try to extract RGB to Hex if possible, otherwise default black
+      const parts = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      if (parts) {
+        const toHex = (n: number) => n.toString(16).padStart(2, '0');
+        return `#${toHex(parseInt(parts[1]))}${toHex(parseInt(parts[2]))}${toHex(parseInt(parts[3]))}`;
+      }
+      return '#000000';
     }
-  }, []);
+    return value;
+  });
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isResizingRef.current || !galleryRef.current) return;
-
-    // Calculate delta relative to start position
-    const deltaX = e.clientX - initialXRef.current;
-    // New width = initial width - delta (dragging left increases width)
-    const newWidth = initialWidthRef.current - deltaX;
-
-    if (newWidth > 200 && newWidth < 800) {
-      // Direct DOM update for performance - NO re-renders during drag
-      galleryRef.current.style.width = `${newWidth}px`;
+  const [opacity, setOpacity] = useState(() => {
+    if (disableAlpha) return 1;
+    if (!value) return 1;
+    if (value.startsWith('rgba')) {
+      const match = value.match(/rgba?\(.*,\s*([\d.]+)\)/);
+      return match ? parseFloat(match[1]) : 1;
     }
-  }, []);
+    return 1;
+  });
 
-  const [photoGap, setPhotoGap] = useState(2);
-  const [pageMargin, setPageMargin] = useState(0);
-  const [cornerRadius, setCornerRadius] = useState(0);
-  // Preview values - Handled by AlbumPreviewContext
-  const [backgroundColor, setBackgroundColor] = useState('#ffffff');
-  const [backgroundImage, setBackgroundImage] = useState<string | undefined>(undefined);
-  const [availableBackgrounds, setAvailableBackgrounds] = useState<string[]>([
-    'https://picsum.photos/seed/bg1/800/600',
-    'https://picsum.photos/seed/bg2/800/600',
-    'https://picsum.photos/seed/bg3/800/600',
-  ]);
-  const backgroundUploadRef = useRef<HTMLInputElement>(null);
-  const colorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Actually, to properly support re-opening the popover with correct state:
+  React.useEffect(() => {
+    if (!value) {
+      setHex('#000000');
+      if (!disableAlpha) setOpacity(0);
+      return;
+    }
+    if (value.startsWith('#')) {
+      setHex(value);
+      if (!disableAlpha) setOpacity(1);
+    } else if (value.startsWith('rgba')) {
+      // Parse rgba(r, g, b, a)
+      const parts = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*([\d.]*)\)/);
+      if (parts) {
+        const r = parseInt(parts[1]);
+        const g = parseInt(parts[2]);
+        const b = parseInt(parts[3]);
+        const a = parts[4] ? parseFloat(parts[4]) : 1;
+        // Convert rgb to hex
+        const toHex = (n: number) => n.toString(16).padStart(2, '0');
+        setHex(`#${toHex(r)}${toHex(g)}${toHex(b)}`);
+        if (!disableAlpha) setOpacity(a);
+      }
+    }
+  }, [value, disableAlpha]);
 
+  const updateColor = (newHex: string, newOpacity: number) => {
+    setHex(newHex);
+    setOpacity(newOpacity);
 
-
-  // Export State
-  const [isExporting, setIsExporting] = useState(false);
-  const exporterRef = useRef<AlbumExporterRef>(null);
-
-  const handleExport = () => {
-    exporterRef.current?.exportAlbum();
+    if (disableAlpha) {
+      onChange(newHex);
+    } else {
+      // Construct RGBA
+      const r = parseInt(newHex.slice(1, 3), 16);
+      const g = parseInt(newHex.slice(3, 5), 16);
+      const b = parseInt(newHex.slice(5, 7), 16);
+      const rgba = `rgba(${r}, ${g}, ${b}, ${newOpacity})`;
+      onChange(rgba);
+    }
   };
 
-  // Wrapper: updates local state only (no config persistence)
-  const setMultiSelectMode = useCallback((value: boolean) => {
-    setMultiSelectModeLocal(value);
-  }, []);
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className="h-6 w-14 px-1 gap-1 border-dashed"
+          style={{
+            backgroundColor: (!disableAlpha && opacity === 0) ? 'transparent' : (disableAlpha ? hex : (value || (opacity === 0 ? 'transparent' : hex))),
+            // If background is dark, text white, else black. Simple heuristic.
+            color: (disableAlpha || opacity > 0.5) ? (parseInt(hex.slice(1), 16) > 0xffffff / 2 ? 'black' : 'white') : 'inherit'
+          }}
+        >
+          <div className="w-full h-full flex items-center justify-center text-[10px]">
+            {!disableAlpha && opacity === 0 ? 'None' : ''}
+          </div>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-3 space-y-3">
+        <div className="space-y-1">
+          <Label className="text-xs">Color</Label>
+          <div className="flex gap-2">
+            <input
+              type="color"
+              className="h-8 w-12 p-0 border-0"
+              value={hex}
+              onChange={(e) => updateColor(e.target.value, opacity)}
+            />
+            <input
+              type="text"
+              className="flex-1 h-8 text-xs border rounded px-2 font-mono"
+              value={hex}
+              onChange={(e) => {
+                if (/^#[0-9A-F]{6}$/i.test(e.target.value)) {
+                  updateColor(e.target.value, opacity);
+                }
+              }}
+            />
+          </div>
+        </div>
 
-  const handleColorChange = (color: string) => {
-    // Clear previous timeout
-    if (colorDebounceRef.current) {
-      clearTimeout(colorDebounceRef.current);
-    }
+        {!disableAlpha && (
+          <div className="space-y-1">
+            <div className="flex justify-between">
+              <Label className="text-xs">Opacity</Label>
+              <span className="text-xs text-muted-foreground">{Math.round(opacity * 100)}%</span>
+            </div>
+            <Slider
+              value={[opacity]}
+              min={0}
+              max={1}
+              step={0.01}
+              onValueChange={([val]) => updateColor(hex, val)}
+            />
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+};
 
-    // Debounce update by 100ms
-    colorDebounceRef.current = setTimeout(() => {
-      setBackgroundColor(color);
-    }, 100);
-  };
-
+const PageToolbar = ({
+  page,
+  pageNumber,
+  displayLabel, // New Prop
+  canDelete = true,
+  onDeletePage,
+  onUpdateLayout,
+  onUpdateSpreadLayout,
+  onUpdateCoverLayout,
+  onUpdateCoverType,
+  onUpdateSpineText,
+  onUpdateSpineSettings,
+  onUpdateTitleSettings,
+  onOpenCoverEditor, // New prop
+  onDownloadPage,
+  onUpdatePage,
+  toast,
+  viewMode,
+  onToggleViewMode,
+  visibleTemplateCategories,
+  allowedTemplateIds,
+}: {
+  page: AlbumPage;
+  pageNumber: number;
+  displayLabel?: string;
+  canDelete?: boolean;
+  onDeletePage: (id: string) => void;
+  onUpdateLayout: (id: string, layout: string) => void;
+  onUpdateSpreadLayout?: (id: string, side: 'left' | 'right', layout: string) => void;
+  onUpdateCoverLayout?: (id: string, side: 'front' | 'back' | 'full', layout: string) => void;
+  onUpdateCoverType?: (id: string, type: 'split' | 'full') => void;
+  onUpdateSpineText?: (id: string, text: string) => void;
+  onUpdateSpineSettings?: (id: string, settings: { width?: number; color?: string; opacity?: number; textColor?: string; fontSize?: number; fontFamily?: string }) => void;
+  onUpdateTitleSettings?: (id: string, settings: { text?: string; color?: string; fontSize?: number; fontFamily?: string; position?: { x: number; y: number } }) => void;
+  onOpenCoverEditor?: (pageId: string) => void;
+  onDownloadPage?: (pageId: string) => void;
+  onUpdatePage?: (page: AlbumPage) => void;
+  toast: any;
+  viewMode?: 'full' | 'split';
+  onToggleViewMode?: () => void;
+  visibleTemplateCategories?: string[]; // Added
+  allowedTemplateIds?: string[];      // Added
+}) => {
   const {
-    generateEmptyAlbum,
-    extractExifDate,
-    generateInitialPages,
-    generateDummyPhotos,
-    autoFillAlbum
-  } = useAlbumGeneration({
-    setAlbumPages,
-    setAllPhotos,
-    setIsLoadingPhotos,
-    randomSeed,
-    settings: liveSettings
-  });
+    gridTemplates,
+    coverTemplates,
+    advancedTemplates,
+    defaultGridTemplate
+  } = useTemplates();
 
-  // Load album from server or create empty album
-
-  useEffect(() => {
-    setIsClient(true);
-    setRandomSeed(Math.random().toString(36).substring(7));
-  }, []);
-
-
-
-  // Load album from server or create empty album
-  useEffect(() => {
-    if (isAlbumLoading || isInitialized || !isSettingsLoaded) return;
-
-    console.log('[AlbumEditor] Initializing with settings:', {
-      photoGap: settings.defaultPhotoGap,
-      pageMargin: settings.defaultPageMargin,
-      spineOpacity: settings.defaultSpineOpacity,
-      spineWidth: settings.defaultSpineWidth
-    });
-
-    if (album) {
-      // Apply saved config immediately, regardless of whether pages exist
-      setPhotoGap(savedConfig.photoGap ?? settings.defaultPhotoGap);
-      setPageMargin(savedConfig.pageMargin ?? settings.defaultPageMargin);
-      setCornerRadius(savedConfig.cornerRadius || 0);
-      setBackgroundColor(savedConfig.backgroundColor || '#ffffff');
-      setBackgroundImage(savedConfig.backgroundImage);
-      setMultiSelectModeLocal(savedConfig.multiSelectMode ?? true);
-      form.setValue('size', savedConfig.size);
-
-      if (savedPages.length > 0) {
-        // Load existing pages from server
-        setAlbumPages(savedPages);
-      } else {
-        // Existing album but empty -> Initialize with default structure
-        generateEmptyAlbum();
-      }
-      setIsInitialized(true);
-    } else if (isNew || (!album && !isAlbumLoading)) {
-      // Initialize with empty album for new albums
-      generateEmptyAlbum();
-
-      // Also initialize local config states from user settings
-      setPhotoGap(liveSettings.defaultPhotoGap);
-      setPageMargin(liveSettings.defaultPageMargin);
-      setCornerRadius(liveSettings.defaultCornerRadius);
-      setBackgroundColor(liveSettings.defaultBackgroundColor);
-      setIsInitialized(true);
+  // FILTER TEMPLATES
+  const filterTemplates = (templates: TemplateUnion[], category: 'grid' | 'cover' | 'advanced') => {
+    // 1. Category Check
+    if (visibleTemplateCategories && !visibleTemplateCategories.includes(category)) {
+      return [];
     }
-  }, [album, savedPages, savedConfig, isAlbumLoading, isNew, isInitialized, isSettingsLoaded, generateEmptyAlbum, liveSettings]);
-
-  const handleSaveTitle = (newTitle: string) => {
-    updateName(newTitle);
+    // 2. ID Check (if provided and not empty)
+    if (allowedTemplateIds && allowedTemplateIds.length > 0) {
+      return templates.filter(t => allowedTemplateIds.includes(t.id));
+    }
+    return templates;
   };
 
+  const filteredGridTemplates = filterTemplates(gridTemplates, 'grid') as TemplateWithGrid[];
+  const filteredCoverTemplates = filterTemplates(coverTemplates, 'cover') as TemplateWithGrid[];
+  const filteredAdvancedTemplates = filterTemplates(advancedTemplates, 'advanced') as AdvancedTemplate[];
 
-  const form = useForm<ConfigFormData>({
-    resolver: zodResolver(configSchema),
-    defaultValues: {
-      size: '20x20',
-    },
-  });
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showSpineSettings, setShowSpineSettings] = useState(false);
+  const isCoverOrSpread = page.isCover || page.type === 'spread';
+  const isSplit = page.isCover ? (page.coverType === 'split' || !page.coverType) : (page.spreadMode === 'split');
+  const isFull = !isSplit;
 
-  const watchedSize = form.watch('size');
+  if (isCoverOrSpread) {
+    return (
+      <div className="mb-2">
+        <TooltipProvider>
+          <div className="flex items-center justify-between gap-1 rounded-lg border bg-background p-0.5 shadow-lg px-2 flex-wrap">
+            <span className="text-sm font-semibold text-muted-foreground mr-auto pl-1">
+              {displayLabel || (page.isCover ? "Cover" : `Page ${pageNumber}`)}
+            </span>
 
-  // Sync form defaults with settings once loaded for NEW projects
-  useEffect(() => {
-    if (isSettingsLoaded && isNew && !isInitialized) {
-      form.reset({
-        size: settings.defaultAlbumSize,
-      });
-    }
-  }, [isSettingsLoaded, isNew, isInitialized, settings.defaultAlbumSize, form]);
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">Mode:</span>
+              <div className="flex bg-muted/50 p-0.5 rounded-md border">
+                <button
+                  onClick={() => {
+                    if (page.isCover) {
+                      onUpdateCoverType?.(page.id, 'full');
+                    } else {
+                      onUpdatePage?.({ ...page, spreadMode: 'full' });
+                    }
+                  }}
+                  className={cn(
+                    "px-2 py-0.5 text-xs rounded-sm transition-all",
+                    isFull
+                      ? "bg-background shadow-sm text-foreground font-medium"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Full
+                </button>
+                <div className="w-px bg-border/50 my-0.5" />
+                <button
+                  onClick={() => {
+                    if (page.isCover) {
+                      onUpdateCoverType?.(page.id, 'split');
+                    } else {
+                      onUpdatePage?.({ ...page, spreadMode: 'split' });
+                    }
+                  }}
+                  className={cn(
+                    "px-2 py-0.5 text-xs rounded-sm transition-all",
+                    isSplit
+                      ? "bg-background shadow-sm text-foreground font-medium"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Split
+                </button>
+              </div>
+            </div>
 
-  // Auto-save pages when they change
-  useEffect(() => {
-    if (!isInitialized || isAlbumLoading) return;
-    if (albumPages.length === 0) return;
+            <div className="h-4 w-px bg-border mx-2" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(viewMode === 'split' ? "text-primary bg-primary/10" : "text-muted-foreground")}
+                  onClick={onToggleViewMode}
+                >
+                  <BookOpen className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Switch to {viewMode === 'full' ? 'Split' : 'Full'} Editor View</TooltipContent>
+            </Tooltip>
 
-    // If this is a new album, create it first
-    if (isNew) {
-      createAlbum(albumName, config, albumPages);
-      return;
-    }
+            <div className="h-4 w-px bg-border mx-2" />
 
-    // Otherwise, update pages
-    if (album) {
-      updatePages(albumPages);
-    }
-  }, [albumPages, isInitialized]);
+            {/* Layout Dropdowns */}
+            <div className="flex items-center gap-2">
+              {isSplit ? (
+                <>
+                  {/* Left / Back Layout + Rotation */}
+                  <DropdownMenu>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="gap-1 px-2">
+                            <LayoutTemplate className="h-4 w-4" />
+                            <span className="text-xs">{page.isCover ? "Back" : "Page 1"}</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>{page.isCover ? "Back Cover Layout" : "Page 1 Layout"}</TooltipContent>
+                    </Tooltip>
 
-  // Auto-set thumbnail if missing and we have photos
-  useEffect(() => {
-    if (!isAlbumLoading && !albumThumbnailUrl && allPhotos && allPhotos.length > 0) {
-      // Find first photo with actual src (not empty placeholder)
-      const firstValidPhoto = allPhotos.find(p => p.src && p.src.length > 0);
-      if (firstValidPhoto) {
-        updateThumbnail(firstValidPhoto.src);
-      }
-    }
-  }, [isAlbumLoading, albumThumbnailUrl, allPhotos, updateThumbnail]);
+                    <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-96 overflow-y-auto">
+                      {(page.isCover
+                        ? [...filteredCoverTemplates, ...filteredAdvancedTemplates]
+                        : [...filteredGridTemplates, ...filteredAdvancedTemplates]
+                      ).map(template => (
+                        <TemplateThumbnail
+                          key={template.id}
+                          template={template}
+                          isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.back || '' : page.spreadLayouts?.left || '').baseId === template.id}
+                          onSelect={(templateId) => {
+                            // When selecting a new template, preserve current rotation if any
+                            const currentLayoutId = page.isCover ? page.coverLayouts?.back : page.spreadLayouts?.left;
+                            const { rotation } = parseLayoutId(currentLayoutId || '');
+                            const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
+                            if (page.isCover) {
+                              onUpdateCoverLayout?.(page.id, 'back', finalId);
+                            } else {
+                              if (onUpdateSpreadLayout) {
+                                onUpdateSpreadLayout(page.id, 'left', finalId);
+                              } else {
+                                const currentLayouts = page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id };
+                                onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, left: finalId } });
+                              }
+                            }
+                          }}
+                        />
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  {/* Rotation Button for Left/Back */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="relative h-8 w-8"
+                        onClick={() => {
+                          const currentLayoutId = page.isCover ? page.coverLayouts?.back : page.spreadLayouts?.left;
+                          const { baseId, rotation } = parseLayoutId(currentLayoutId || '1-full');
+                          const newRotation = getNextRotation(rotation);
+                          const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
+                          if (page.isCover) {
+                            onUpdateCoverLayout?.(page.id, 'back', newLayout);
+                          } else {
+                            if (onUpdateSpreadLayout) {
+                              onUpdateSpreadLayout(page.id, 'left', newLayout);
+                            } else {
+                              const currentLayouts = page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id };
+                              onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, left: newLayout } });
+                            }
+                          }
+                        }}
+                      >
+                        <RotateCw className="h-4 w-4" />
+                        {parseLayoutId(page.isCover ? page.coverLayouts?.back || '1-full' : page.spreadLayouts?.left || '1-full').rotation !== 0 && (
+                          <span className="absolute -top-2 -right-2 text-[9px] bg-primary text-primary-foreground px-1 rounded">
+                            {parseLayoutId(page.isCover ? page.coverLayouts?.back || '1-full' : page.spreadLayouts?.left || '1-full').rotation}°
+                          </span>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Rotate {page.isCover ? "Back" : "Page 1"} Layout 90°</TooltipContent>
+                  </Tooltip>
 
-  // Auto-save config when it changes
-  useEffect(() => {
-    if (!isInitialized || isAlbumLoading || isNew || !album) return;
-    updateConfig(config);
-  }, [photoGap, pageMargin, cornerRadius, backgroundColor, backgroundImage, watchedSize]);
+                  <div className="h-4 w-px bg-border mx-1" />
+
+                  {/* Right / Front Layout + Rotation */}
+                  <DropdownMenu>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="gap-1 px-2">
+                            <LayoutTemplate className="h-4 w-4" />
+                            <span className="text-xs">{page.isCover ? "Front" : "Page 2"}</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>{page.isCover ? "Front Cover Layout" : "Page 2 Layout"}</TooltipContent>
+                    </Tooltip>
+
+                    {/* For Cover: Combine Cover Templates + Advanced Templates */}
+                    {/* For Pages: Combine Layout Templates + Advanced Templates */}
+                    {/* For Pages: Combine Layout Templates + Advanced Templates */}
+                    <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-96 overflow-y-auto">
+                      {(page.isCover
+                        ? [...filteredCoverTemplates, ...filteredAdvancedTemplates]
+                        : [...filteredGridTemplates, ...filteredAdvancedTemplates]
+                      ).map(template => (
+                        <TemplateThumbnail
+                          key={template.id}
+                          template={template}
+                          isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.front || '1-full' : page.spreadLayouts?.right || '1-full').baseId === template.id}
+                          onSelect={(templateId) => {
+                            const currentLayoutId = page.isCover ? page.coverLayouts?.front : page.spreadLayouts?.right;
+                            const { rotation } = parseLayoutId(currentLayoutId || '1-full');
+                            const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
+                            if (page.isCover) {
+                              onUpdateCoverLayout?.(page.id, 'front', finalId);
+                            } else {
+                              if (onUpdateSpreadLayout) {
+                                onUpdateSpreadLayout(page.id, 'right', finalId);
+                              } else {
+                                const currentLayouts = page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id };
+                                onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, right: finalId } });
+                              }
+                            }
+                          }}
+                        />
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  {/* Rotation Button for Right/Front */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="relative h-8 w-8"
+                        onClick={() => {
+                          const currentLayoutId = page.isCover ? page.coverLayouts?.front : page.spreadLayouts?.right;
+                          const { baseId, rotation } = parseLayoutId(currentLayoutId || '1-full');
+                          const newRotation = getNextRotation(rotation);
+                          const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
+                          if (page.isCover) {
+                            onUpdateCoverLayout?.(page.id, 'front', newLayout);
+                          } else {
+                            if (onUpdateSpreadLayout) {
+                              onUpdateSpreadLayout(page.id, 'right', newLayout);
+                            } else {
+                              const currentLayouts = page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id };
+                              onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, right: newLayout } });
+                            }
+                          }
+                        }}
+                      >
+                        <RotateCw className="h-4 w-4" />
+                        {parseLayoutId(page.isCover ? page.coverLayouts?.front || '1-full' : page.spreadLayouts?.right || '1-full').rotation !== 0 && (
+                          <span className="absolute -top-2 -right-2 text-[9px] bg-primary text-primary-foreground px-1 rounded">
+                            {parseLayoutId(page.isCover ? page.coverLayouts?.front || '1-full' : page.spreadLayouts?.right || '1-full').rotation}°
+                          </span>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Rotate {page.isCover ? "Front" : "Page 2"} Layout 90°</TooltipContent>
+                  </Tooltip>
+                </>
+              ) : (
+                /* Full Spread Layout Selector */
+                <DropdownMenu>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="gap-1 px-2">
+                          <LayoutTemplate className="h-4 w-4" />
+                          <span className="text-xs">Layout</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>Spread Layout</TooltipContent>
+                  </Tooltip>
+                  <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-96 overflow-y-auto">
+                    {(page.isCover ? [...filteredCoverTemplates, ...filteredAdvancedTemplates] : [...filteredGridTemplates, ...filteredAdvancedTemplates]).map(template => (
+                      <TemplateThumbnail
+                        key={template.id}
+                        template={template}
+                        isSelected={parseLayoutId(page.layout || '1-full').baseId === template.id}
+                        onSelect={(templateId) => {
+                          const { rotation } = parseLayoutId(page.layout || '1-full');
+                          const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
+                          if (page.isCover) {
+                            onUpdateCoverLayout?.(page.id, 'full', finalId);
+                          } else {
+                            onUpdateLayout(page.id, finalId);
+                          }
+                        }}
+                      />
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+
+            {/* Rotation Button for Full mode only (Split mode has its own rotation buttons above) */}
+            {isFull && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative"
+                    onClick={() => {
+                      const { baseId, rotation } = parseLayoutId(page.layout || '1-full');
+                      const newRotation = getNextRotation(rotation);
+                      const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
+                      if (page.isCover) {
+                        onUpdateCoverLayout?.(page.id, 'full', newLayout);
+                      } else {
+                        onUpdateLayout(page.id, newLayout);
+                      }
+                    }}
+                  >
+                    <RotateCw className="h-4 w-4" />
+                    {parseLayoutId(page.layout || '1-full').rotation !== 0 && (
+                      <span className="absolute -top-2 -right-2 text-[9px] bg-primary text-primary-foreground px-1 rounded">
+                        {parseLayoutId(page.layout || '1-full').rotation}°
+                      </span>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Rotate Layout 90°</TooltipContent>
+              </Tooltip>
+            )}
+
+            {/* Quick Template Selection Buttons by Photo Count (1-6) - FULL mode only */}
+            {isFull && !page.isCover && (
+              <>
+                <div className="h-4 w-px bg-border mx-1" />
+                <div className="flex items-center gap-0.5">
+                  {[1, 2, 3, 4, 5, 6].map((photoCount) => {
+                    const allTemplatesForPage = [...filteredGridTemplates, ...filteredAdvancedTemplates];
+                    const templatesWithCount = allTemplatesForPage.filter(t => getPhotoCount(t) === photoCount);
+                    const hasTemplates = templatesWithCount.length > 0;
+
+                    // Get current template to check if it matches this count
+                    const { baseId } = parseLayoutId(page.layout || '1-full');
+                    const currentTemplate = allTemplatesForPage.find(t => t.id === baseId);
+                    const currentCount = currentTemplate ? getPhotoCount(currentTemplate) : 0;
+                    const isActive = currentCount === photoCount;
+
+                    // Find current index within templates of this count
+                    const currentIndex = templatesWithCount.findIndex(t => t.id === baseId);
+
+                    return (
+                      <Tooltip key={photoCount}>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant={isActive ? "default" : "outline"}
+                            size="icon"
+                            className={cn(
+                              "h-7 w-7 text-xs font-bold shadow-sm",
+                              !hasTemplates && "opacity-30 cursor-not-allowed"
+                            )}
+                            disabled={!hasTemplates}
+                            onClick={() => {
+                              if (!hasTemplates) return;
+
+                              // Cycle to next template with this count
+                              let nextIndex = 0;
+                              if (isActive && templatesWithCount.length > 1) {
+                                nextIndex = (currentIndex + 1) % templatesWithCount.length;
+                              }
+
+                              const nextTemplate = templatesWithCount[nextIndex];
+                              const { rotation } = parseLayoutId(page.layout || '1-full');
+                              const finalId = rotation === 0 ? nextTemplate.id : `${nextTemplate.id}_r${rotation}`;
+                              onUpdateLayout(page.id, finalId);
+                            }}
+                          >
+                            {photoCount}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {hasTemplates
+                            ? `${photoCount} photo${photoCount > 1 ? 's' : ''} (${templatesWithCount.length} templates)`
+                            : `No ${photoCount}-photo templates`
+                          }
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {page.isCover && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn("hover:text-primary transition-colors")}
+                  >
+                    <Settings2 className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-[380px] p-0 border-none shadow-none bg-transparent">
+                  <div className="bg-background/95 backdrop-blur-sm p-4 rounded-xl border shadow-xl animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-1.5 h-4 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]" />
+                      <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground/80">Spine Structure</h4>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Row 1: Width & Opacity */}
+                      <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center px-0.5">
+                            <Label className="text-[10px] font-semibold uppercase text-muted-foreground/70">Width</Label>
+                            <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-foreground">{page.spineWidth ?? 40}px</span>
+                          </div>
+                          <Slider
+                            value={[page.spineWidth ?? 40]}
+                            min={0}
+                            max={100}
+                            step={1}
+                            onValueChange={(val) => onUpdateSpineSettings?.(page.id, { width: val[0] })}
+                            className="py-2"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center px-0.5">
+                            <Label className="text-[10px] font-semibold uppercase text-muted-foreground/70">Opacity</Label>
+                            <span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-foreground">{Math.round((page.spineOpacity ?? 1) * 100)}%</span>
+                          </div>
+                          <Slider
+                            value={[page.spineOpacity ?? 1]}
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            onValueChange={(val) => onUpdateSpineSettings?.(page.id, { opacity: val[0] })}
+                            className="py-2"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Row 2: Background & Text */}
+                      <div className="grid grid-cols-2 gap-6 pt-2 border-t border-border/40">
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-semibold uppercase text-muted-foreground/70 px-0.5">Background</Label>
+                          <div className="flex items-center gap-3 bg-muted/30 p-1.5 rounded-lg border border-transparent hover:border-border transition-colors">
+                            <SpineColorPicker
+                              value={page.spineColor || '#ffffff'}
+                              onChange={(color) => onUpdateSpineSettings?.(page.id, { color })}
+                            />
+                            <span className="text-[10px] font-mono text-foreground font-medium uppercase tracking-tighter">
+                              {page.spineColor || '#FFFFFF'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-semibold uppercase text-muted-foreground/70 px-0.5">Spine Text</Label>
+                          <Input
+                            value={page.spineText || ''}
+                            onChange={(e) => onUpdateSpineText?.(page.id, e.target.value)}
+                            placeholder="My Album..."
+                            className="h-8 text-xs px-3 bg-muted/30 border-transparent focus-visible:bg-background transition-all"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => onDownloadPage?.(page.id)}><Download className="h-5 w-5" /></Button>
+              </TooltipTrigger>
+              <TooltipContent>Download {page.isCover ? "Cover" : "Spread"}</TooltipContent>
+            </Tooltip>
+
+            {/* Restored Buttons: Pencil, Wand, Undo */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onOpenCoverEditor?.(page.id)}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Edit Design</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><Wand2 className="h-5 w-5" /></Button>
+              </TooltipTrigger>
+              <TooltipContent>Enhance with AI</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><Undo className="h-5 w-5" /></Button>
+              </TooltipTrigger>
+              <TooltipContent>Undo AI Changes</TooltipContent>
+            </Tooltip>
 
 
-  const config: AlbumConfig = useMemo(() => ({
-    size: watchedSize as '20x20',
-    photoGap,
-    pageMargin,
-    backgroundColor,
-    backgroundImage,
-    cornerRadius,
-  }), [watchedSize, photoGap, pageMargin, backgroundColor, backgroundImage, cornerRadius]);
+            {!page.isCover && (
+              <>
+                <div className="h-4 w-px bg-border mx-2" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                        "text-destructive hover:bg-destructive/10 hover:text-destructive",
+                        !canDelete && "opacity-50 cursor-not-allowed"
+                      )}
+                      onClick={() => canDelete && onDeletePage(page.id)}
+                      disabled={!canDelete}
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Delete Spread</TooltipContent>
+                </Tooltip>
+              </>
+            )}
+          </div>
 
-
-  // Page Manipulation Hook (Moved up)
-
-
-  // Process uploaded photo files (from folder or individual selection)
-  // Generate album from existing photos (sorted by capture date)
-  const handleGenerateAlbum = useCallback(() => {
-    if (allPhotos.length === 0) {
-      toast({
-        title: 'No photos',
-        description: 'Please upload photos first.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    // Sort photos by capture date (oldest first), photos without date go to end
-    const sortedPhotos = [...allPhotos].sort((a, b) => {
-      const dateA = a.captureDate ? new Date(a.captureDate).getTime() : 0;
-      const dateB = b.captureDate ? new Date(b.captureDate).getTime() : 0;
-
-      // 1. Primary Sort: Date
-      if (dateA !== dateB) return dateA - dateB;
-
-      // 2. Secondary Sort: Filename
-      const nameA = a.alt || '';
-      const nameB = b.alt || '';
-      if (nameA !== nameB) return nameA.localeCompare(nameB);
-
-      // 3. Absolute Tie-breaker: ID
-      return a.id.localeCompare(b.id);
-    });
-
-    generateInitialPages(sortedPhotos);
-    toast({
-      title: 'Album Generated',
-      description: `Album created with ${sortedPhotos.length} photos sorted by date.`,
-    });
-  }, [allPhotos, generateInitialPages, toast]);
-
-  const handleAutoFillAlbum = useCallback(() => {
-    if (allPhotos.length === 0) {
-      toast({
-        title: 'No photos',
-        description: 'Please upload photos first.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    // Sort photos by capture date (oldest first), photos without date go to end
-    const sortedPhotos = [...allPhotos].sort((a, b) => {
-      const dateA = a.captureDate ? new Date(a.captureDate).getTime() : 0;
-      const dateB = b.captureDate ? new Date(b.captureDate).getTime() : 0;
-
-      // 1. Primary Sort: Date
-      if (dateA !== dateB) return dateA - dateB;
-
-      // 2. Secondary Sort: Filename
-      const nameA = a.alt || '';
-      const nameB = b.alt || '';
-      if (nameA !== nameB) return nameA.localeCompare(nameB);
-
-      // 3. Absolute Tie-breaker: ID
-      return a.id.localeCompare(b.id);
-    });
-
-    autoFillAlbum(albumPages, sortedPhotos);
-    toast({
-      title: 'Album Filled',
-      description: `Album pages filled with ${sortedPhotos.length} photos from gallery.`,
-    });
-  }, [allPhotos, albumPages, autoFillAlbum, toast]);
-
-  const handleResetAlbum = useCallback(() => {
-    generateEmptyAlbum();
-    toast({
-      title: 'Album Reset',
-      description: 'Album has been reset to empty state.',
-    });
-  }, [generateEmptyAlbum, toast]);
-
-  const handleDownloadPage = useCallback(async (pageId: string) => {
-    toast({ title: "Downloading page..." });
-    await exporterRef.current?.exportPage(pageId);
-  }, [toast]);
-
-
+        </TooltipProvider >
+      </div >
+    );
+  }
 
 
   return (
-    <AlbumPreviewProvider>
-      <div className="flex flex-col h-screen bg-background text-foreground">
-        {/* Global Top Toolbar */}
-        <AlbumEditorToolbar
-          albumName={albumName}
-          onUpdateName={handleSaveTitle}
-          saveStatus={isLoadingPhotos ? 'uploading' : isSaving ? 'saving' : hasUnsavedChanges ? 'unsaved' : 'saved'}
-          onBack={async () => {
-            // Check if we need to set thumbnail before saving
-            if (!albumThumbnailUrl && savedPhotos && savedPhotos.length > 0) {
-              const firstValidPhoto = savedPhotos.find(p => p.src && p.src.length > 0);
-              if (firstValidPhoto) {
-                updateThumbnail(firstValidPhoto.src);
-              }
-            }
-            await saveNow();
-            router.push('/dashboard');
-          }}
-          onOpenBookView={() => setIsBookViewOpen(true)}
-          onOpenCustomLayout={() => setIsCustomLayoutEditorOpen(true)}
-          onExportImages={handleExport}
-          onExportPdf={() => exporterRef.current?.exportToPdf()}
-          isExporting={isExporting}
-          onShare={() => toast({ title: "Sharing Album..." })}
-          onLogout={() => signOut().then(() => router.push('/'))}
-        />
-
-        {/* Exporter Component */}
-        <AlbumExporter
-          ref={exporterRef}
-          pages={albumPages}
-          config={config}
-          onExportStart={() => {
-            setIsExporting(true);
-            toast({ title: "Starting Export", description: "Preparing your images..." });
-          }}
-          onExportProgress={(current, total) => {
-            // Optional: Update toast or state if we want detailed progress
-            // toast({ title: "Exporting", description: `Processing page ${current} of ${total}` });
-          }}
-          onExportComplete={() => {
-            setIsExporting(false);
-            toast({ title: "Export Complete", description: "Your download should start shortly." });
-          }}
-          onExportError={(err) => {
-            setIsExporting(false);
-            toast({ title: "Export Failed", description: "Something went wrong.", variant: "destructive" });
-          }}
-        />
-
-        <div
-          className="flex h-[85vh] p-6 flex-1 overflow-hidden bg-muted/30 dark:bg-muted/10 items-stretch"
-          style={{
-            backgroundImage: `
-              linear-gradient(to right, hsl(var(--foreground) / 0.04) 1px, transparent 1px),
-              linear-gradient(to bottom, hsl(var(--foreground) / 0.04) 1px, transparent 1px)
-            `,
-            backgroundSize: '20px 20px'
-          }}
-        >
-          {/* Left Sidebar: Config & Tools */}
-          <div className="w-[300px] shrink-0 space-y-6 overflow-y-auto pr-2">
-            {isClient && isInitialized ? (
-              <AlbumConfigCard
-                form={form}
-                photoGap={photoGap}
-                setPhotoGap={setPhotoGap}
-                pageMargin={pageMargin}
-                setPageMargin={setPageMargin}
-                cornerRadius={cornerRadius}
-                setCornerRadius={setCornerRadius}
-                backgroundColor={backgroundColor}
-                setBackgroundColor={setBackgroundColor}
-                handleColorChange={handleColorChange}
-                backgroundImage={backgroundImage}
-                setBackgroundImage={setBackgroundImage}
-                availableBackgrounds={availableBackgrounds}
-                setAvailableBackgrounds={setAvailableBackgrounds}
-                backgroundUploadRef={backgroundUploadRef}
-              />
-            ) : (
-              <div className="space-y-4">
-                <Skeleton className="h-[300px] w-full rounded-xl" />
-                <Skeleton className="h-[100px] w-full rounded-xl" />
-              </div>
+    <div className="mb-2">
+      <TooltipProvider>
+        <div className="flex items-center justify-between gap-1 rounded-lg border bg-background p-0.5 shadow-lg px-2">
+          <span className="text-sm font-semibold text-muted-foreground mr-auto">
+            {displayLabel || `Page ${pageNumber}`}
+          </span>
+          <div className="flex items-center gap-1">
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon"><LayoutTemplate className="h-5 w-5" /></Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>Page Layout</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
+                {[...gridTemplates, ...advancedTemplates].map(template => (
+                  <TemplateThumbnail
+                    key={template.id}
+                    template={template}
+                    isSelected={parseLayoutId(page.layout || '1-full').baseId === template.id}
+                    onSelect={(templateId) => {
+                      const { rotation } = parseLayoutId(page.layout || '1-full');
+                      const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
+                      onUpdateLayout(page.id, finalId);
+                    }}
+                  />
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {/* Rotation Button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    console.log('[RotateButton] Clicked! Current layout:', page.layout);
+                    const { baseId, rotation } = parseLayoutId(page.layout || '1-full');
+                    console.log('[RotateButton] Parsed:', { baseId, rotation });
+                    const newRotation = getNextRotation(rotation);
+                    console.log('[RotateButton] New rotation:', newRotation);
+                    const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
+                    console.log('[RotateButton] New layout ID:', newLayout);
+                    onUpdateLayout(page.id, newLayout);
+                  }}
+                  className="relative"
+                >
+                  <RotateCw className="h-4 w-4" />
+                  {parseLayoutId(page.layout || '1-full').rotation !== 0 && (
+                    <span className="absolute -top-2 -right-2 text-[9px] bg-primary text-primary-foreground px-1 rounded">
+                      {parseLayoutId(page.layout || '1-full').rotation}°
+                    </span>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Rotate Layout 90°</TooltipContent>
+            </Tooltip>
+            {page.isCover && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(showSpineSettings && "text-primary bg-primary/10")}
+                    onClick={() => setShowSpineSettings(!showSpineSettings)}
+                  >
+                    <Settings2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Show Title Settings</TooltipContent>
+              </Tooltip>
             )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => onDownloadPage?.(page.id)}><Download className="h-5 w-5" /></Button>
+              </TooltipTrigger>
+              <TooltipContent>Download Page</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onOpenCoverEditor?.(page.id)}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Edit Page Design</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><Wand2 className="h-5 w-5" /></Button>
+              </TooltipTrigger>
+              <TooltipContent>Enhance with AI</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature coming soon!" })}><Undo className="h-5 w-5" /></Button>
+              </TooltipTrigger>
+              <TooltipContent>Undo AI Changes</TooltipContent>
+            </Tooltip>
+            <div className="mx-1 h-6 w-px bg-border" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "text-destructive hover:bg-destructive/10 hover:text-destructive",
+                    !canDelete && "opacity-50 cursor-not-allowed"
+                  )}
+                  onClick={() => canDelete && onDeletePage(page.id)}
+                  disabled={!canDelete}
+                >
+                  <Trash2 className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{canDelete ? "Delete Page" : "Cannot delete first/last page"}</TooltipContent>
+            </Tooltip>
           </div>
 
-          {/* Main Content: Album Preview */}
-          <div className="flex-1 min-w-0 pl-6" style={{ colorScheme: 'light' }}>
-            {isLoading || isAlbumLoading || !isInitialized ? (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center animate-in fade-in duration-300 bg-muted/30 border-2 border-dashed rounded-lg">
-                <Loader2 className="h-12 w-12 mb-4 animate-spin text-primary" />
-                <h3 className="text-lg font-semibold mb-2">
-                  {isAlbumLoading ? "Loading Album..." : "Generating Album Layout..."}
-                </h3>
-                <p className="text-sm">
-                  {isAlbumLoading ? "Please wait while we fetch your data." : "Please wait while we prepare your pages."}
-                </p>
-              </div>
-            ) : (
-              <AlbumPreview
-                pages={albumPages}
-                config={config}
-                onDeletePage={deletePage}
-                onAddSpread={addSpreadPage}
-                onUpdateLayout={updatePageLayout}
-                onUpdatePhotoPanAndZoom={updatePhotoPanAndZoom}
-                onDropPhoto={handleDropPhoto}
-                onDownloadPage={handleDownloadPage}
-                onRemovePhoto={handleRemovePhoto}
-                onUpdateCoverLayout={handleUpdateCoverLayout}
-                onUpdateCoverType={handleUpdateCoverType}
-                onUpdateSpineText={handleUpdateSpineText}
-                onUpdateSpineSettings={handleUpdateSpineSettings}
-                onUpdateTitleSettings={handleUpdateTitleSettings}
-                onUpdatePage={handleUpdatePage}
-                onUpdateSpreadLayout={handleUpdateSpreadLayout}
-                allPhotos={allPhotos}
-                customTemplates={customTemplates}
-                defaultViewMode={settings.defaultEditorViewMode}
-                visibleTemplateCategories={settings.visibleTemplateCategories}
-                allowedTemplateIds={settings.allowedTemplateIds}
-              />
-            )}
-          </div>
+          {/* Conditional Title Settings Area for Single Pages */}
+          {showSpineSettings && (
+            <div className="mt-2 p-3 bg-background border rounded-lg shadow-xl space-y-4 animate-in slide-in-from-top-2 duration-200 w-full">
+              <div className="space-y-3 p-3 bg-muted/30 rounded-md border border-border/50 max-w-lg mx-auto">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-1.5 h-4 bg-orange-500 rounded-full" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Title Properties</h4>
+                </div>
 
-          {/* Resizer Handle */}
-          <div
-            onMouseDown={startResizing}
-            className="w-2 shrink-0 bg-transparent cursor-grab group relative self-stretch z-10"
-            title="Drag to resize gallery"
-          >
-            {/* Permanent solid primary line - matching your design */}
-            <div className="absolute inset-y-0 left-2 -translate-x-1/2 w-[6px] bg-primary h-full" />
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Title Text */}
+                  <div className="space-y-1.5 col-span-2">
+                    <Label className="text-[10px] font-medium uppercase text-muted-foreground">Display Title</Label>
+                    <Input
+                      value={page.titleText || ''}
+                      onChange={(e) => onUpdateTitleSettings?.(page.id, { text: e.target.value })}
+                      placeholder="Page Title..."
+                      className="h-7 text-xs px-2"
+                    />
+                  </div>
 
-            {/* Permanent primary pill - matching your design */}
-            <div className="absolute top-1/2 left-2 -translate-x-1/2 -translate-y-1/2 w-5 h-12 rounded-full bg-primary shadow-md flex items-center justify-center opacity-100 group-active:scale-95 transition-all pointer-events-none">
-              <div className="flex gap-[2px]">
-                <div className="w-[1.5px] h-4 bg-primary-foreground/60" />
-                <div className="w-[1.5px] h-4 bg-primary-foreground/60" />
+                  {/* Font Size */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <Label className="text-[10px] font-medium uppercase text-muted-foreground">Size</Label>
+                      <span className="text-[10px] font-bold font-mono">{page.titleFontSize ?? 24}px</span>
+                    </div>
+                    <Slider
+                      value={[page.titleFontSize ?? 24]}
+                      min={8}
+                      max={120}
+                      step={1}
+                      onValueChange={(val) => onUpdateTitleSettings?.(page.id, { fontSize: val[0] })}
+                    />
+                  </div>
+
+                  {/* Title Color */}
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-medium uppercase text-muted-foreground">Color</Label>
+                    <div className="flex items-center gap-2">
+                      <SpineColorPicker
+                        value={page.titleColor || '#000000'}
+                        onChange={(color) => onUpdateTitleSettings?.(page.id, { color })}
+                        disableAlpha={true}
+                      />
+                      <span className="text-[10px] text-muted-foreground font-mono truncate">
+                        {page.titleColor || '#000000'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Font Family Selection */}
+                  <div className="space-y-1.5 col-span-2">
+                    <Label className="text-[10px] font-medium uppercase text-muted-foreground">Font Family</Label>
+                    <div className="flex flex-wrap gap-1">
+                      {AVAILABLE_FONTS.slice(0, 8).map(font => (
+                        <Button
+                          key={font}
+                          variant={page.titleFontFamily === font ? "default" : "outline"}
+                          size="sm"
+                          className="h-6 px-2 text-[10px]"
+                          onClick={() => onUpdateTitleSettings?.(page.id, { fontFamily: font })}
+                        >
+                          {font}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
+          )}
+        </div>
+      </TooltipProvider>
+    </div>
+  );
+};
+
+// --- Scaled Cover Preview Wrapper ---
+const ScaledCoverPreview = React.memo(({
+  page,
+  config,
+  onUpdateTitleSettings,
+  onDropPhoto,
+  onUpdatePhotoPanAndZoom,
+  onInteractionChange,
+  onRemovePhoto,
+  allPhotos = [],
+  previousPagePhotos = [],
+  activeView = 'full',
+}: {
+  page: AlbumPage;
+  config: AlbumConfig;
+  onUpdateTitleSettings?: any;
+  onDropPhoto?: any;
+  onUpdatePhotoPanAndZoom?: any;
+  onInteractionChange?: (isInteracting: boolean) => void;
+  onRemovePhoto?: (pageId: string, photoId: string) => void;
+  allPhotos?: Photo[];
+  previousPagePhotos?: Photo[];
+  activeView?: 'front' | 'back' | 'full';
+}) => {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const BASE_PAGE_PX = 450;
+
+  // Re-calculate logical dimensions for rendering
+  const sizeStr = config?.size || '800x600';
+  const [wStr, hStr] = sizeStr.split('x');
+  const cfgW = Number(wStr);
+  const cfgH = Number(hStr);
+  const pxPerUnit = BASE_PAGE_PX / cfgH;
+  const singlePageLogicalW = cfgW * pxPerUnit;
+  // Use same logic as cover-canvas to ensure consistent "logical" size vs editor
+  // Spine is 0 for regular pages
+  const spineWidth = page.isCover ? (page.spineWidth !== undefined ? page.spineWidth : 40) : 0;
+  const isDouble = page.isCover || page.type === 'spread';
+  const logicalWidth = isDouble ? (singlePageLogicalW * 2) + spineWidth : singlePageLogicalW;
+  const logicalHeight = BASE_PAGE_PX;
+
+  useEffect(() => {
+    if (!wrapperRef.current) return;
+    const measure = () => {
+      const wrapper = wrapperRef.current;
+      if (!wrapper) return;
+      const { width: availW, height: availH } = wrapper.getBoundingClientRect();
+      if (availW === 0 || availH === 0) return;
+
+      const scaleX = availW / logicalWidth;
+      const scaleY = availH / logicalHeight;
+      const fitScale = Math.min(scaleX, scaleY) * 0.92;
+      setScale(fitScale);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(wrapperRef.current);
+    return () => observer.disconnect();
+  }, [logicalWidth, logicalHeight]);
+
+  return (
+    <div ref={wrapperRef} className="w-full h-full flex items-center justify-center p-4">
+      {/* HARDCOVER BOOK CONTAINER */}
+      <div
+        className="relative flex items-center justify-center transition-transform duration-500 will-change-transform"
+        style={{
+          width: logicalWidth,
+          height: logicalHeight,
+          transform: `scale(${scale})`,
+          transformOrigin: 'center center',
+          flexShrink: 0,
+          colorScheme: 'light', // Force system cursor to be dark (for light background) even in dark mode
+        }}
+      >
+        {/* LAYER 1: THE PHYSICAL HARD COVER */}
+        <div className="absolute inset-0 bg-[#F4F4F4] rounded-[5px] shadow-2xl border border-gray-200/80 z-0">
+          <div className="absolute inset-0 bg-gradient-to-r from-gray-50 via-transparent to-gray-50 opacity-40 rounded-[5px]" />
+
+          {/* SPINE DEPTH EFFECT (Bottom Center) */}
+          {!page.isCover && page.type === 'spread' && (
+            <div className="absolute bottom-[-2px] left-1/2 -translate-x-1/2 w-[40px] h-[12px] opacity-50 z-60 pointer-events-none">
+              <div className="w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-black/45 via-black/25 to-transparent rounded-b-xs" />
+            </div>
+          )}
+        </div>
+
+        {/* LAYER 2: INTERMEDIATE PAPER STACK */}
+        <div
+          className="absolute z-0 bg-white border-x border-gray-100 shadow-md"
+          style={{
+            width: '98%',
+            height: '94.5%',
+            top: '50.4%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)'
+          }}
+        />
+
+        {/* LAYER 3: TOP MAIN PAGES CONTAINER */}
+        <div className="relative w-[97%] h-[95%] shadow-lg z-10 overflow-hidden bg-white">
+
+          {/* Full Content - AlbumCover renders the complete spread/cover */}
+          {/* Increased z-index to 50 to ensure it sits ABOVE the center spine/shadows (z-30) AND title overlay (z-40) */}
+          <div className="absolute inset-0 z-50">
+            <AlbumCover
+              page={page}
+              config={config}
+              mode="editor"
+              activeView={activeView}
+              onUpdateTitleSettings={onUpdateTitleSettings}
+              onDropPhoto={onDropPhoto}
+              onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
+              onInteractionChange={onInteractionChange}
+              onRemovePhoto={onRemovePhoto}
+              allPhotos={allPhotos}
+              previousPagePhotos={previousPagePhotos}
+            />
+
+            {/* Spine Shadows Overlay - for spreads only - INSIDE the same stacking context */}
+            {!page.isCover && page.type === 'spread' && (
+              <SpineEffectOverlay />
+            )}
           </div>
 
-          {/* Right Panel: Photo Gallery (Resizable) */}
-          <div
-            ref={galleryRef}
-            style={{ width: `${galleryWidth}px` }}
-            className="shrink-0 min-w-[356px] max-w-[525px]"
-          >
-            <PhotoGalleryCard
-              allPhotos={sortedPhotos}
-              isLoadingPhotos={isLoadingPhotos || isAlbumLoading}
-              isResizing={isResizingGallery}
-              photoUsageDetails={photoUsageDetails}
-              chronologicalIndex={chronologicalIndex}
-              emptySlots={emptySlots}
-              allowDuplicates={allowDuplicates}
-              setAllowDuplicates={setAllowDuplicates}
-              multiSelectMode={multiSelectMode}
-              setMultiSelectMode={setMultiSelectMode}
-              randomSeed={randomSeed}
-              generateDummyPhotos={generateDummyPhotos}
-              handleGenerateAlbum={handleGenerateAlbum}
-              handleAutoFillAlbum={handleAutoFillAlbum}
-              handleClearGallery={handleClearGallery}
-              handleResetAlbum={handleResetAlbum}
-              handleSortPhotos={handleSortPhotos}
-              processUploadedFiles={processUploadedFiles}
-              onDeletePhotos={handleDeletePhotos}
-              onRemovePhotosFromAlbum={handleRemovePhotosFromAlbum}
-              photoScrollRef={photoScrollRef}
-              folderUploadRef={folderUploadRef}
-              photoUploadRef={photoUploadRef}
-            />
+          {/* Title Overlay */}
+          <div className="absolute inset-0 z-60 pointer-events-none">
+            {page.titleText && (
+              <DraggableTitle
+                text={page.titleText}
+                color={page.titleColor}
+                fontSize={page.titleFontSize}
+                fontFamily={page.titleFontFamily}
+                position={page.titlePosition}
+                containerId={`front-cover-container-${page.id}`}
+                onUpdatePosition={(x, y) => onUpdateTitleSettings?.(page.id, { position: { x, y } })}
+              />
+            )}
           </div>
-        </div >
-        {isBookViewOpen && (
-          <BookViewOverlay
-            pages={albumPages}
-            config={config}
-            onClose={() => setIsBookViewOpen(false)}
-          />
-        )}
-        {isCustomLayoutEditorOpen && (
-          <CustomLayoutEditorOverlay
-            config={config}
-            onClose={() => setIsCustomLayoutEditorOpen(false)}
-            customTemplates={customTemplates}
-            onAddTemplate={handleAddCustomTemplate}
-          />
-        )}
+          {/* End of Title Overlay */}
+        </div>
+        {/* End of LAYER 3 */}
       </div>
-    </AlbumPreviewProvider>
+    </div>
+  );
+});
+ScaledCoverPreview.displayName = 'ScaledCoverPreview';
+
+
+export function AlbumEditor({
+  pages,
+  config,
+  onDeletePage,
+  onAddSpread,
+  onUpdateLayout,
+  onUpdateCoverLayout,
+  onUpdateSpreadLayout,
+  onUpdateCoverType,
+  onUpdatePage, // New prop
+  onUpdateSpineText,
+  onUpdateSpineSettings,
+  onUpdateTitleSettings,
+  onUpdatePhotoPanAndZoom,
+  onDropPhoto,
+  onDownloadPage,
+  allPhotos,
+  onRemovePhoto,
+  customTemplates,
+  defaultViewMode = 'full',
+  visibleTemplateCategories,
+  allowedTemplateIds,
+}: AlbumEditorProps) {
+  // Initialize viewMode with defaultViewMode, but allow manual overrides without resetting
+  // when the prop changes (unless we want strict control, which we don't here).
+  const [viewMode, setViewMode] = useState<'full' | 'split'>(defaultViewMode);
+  const { previewPhotoGap, previewPageMargin, previewCornerRadius } = useAlbumEditor();
+  const { toast } = useToast();
+  const [isInteracting, setIsInteracting] = useState(false);
+  const [activePageId, setActivePageId] = useState<string | null>(null);
+  const [isPageEditorOpen, setIsPageEditorOpen] = useState(false);
+  const [dragOverPhotoId, setDragOverPhotoId] = useState<string | null>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  // Track visible pages using IntersectionObserver
+  const [visiblePages, setVisiblePages] = useState<Set<number>>(new Set());
+  const pageRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        setVisiblePages(prev => {
+          const next = new Set(prev);
+          entries.forEach(entry => {
+            const index = parseInt(entry.target.getAttribute('data-page-index') || '-1');
+            if (index >= 0) {
+              if (entry.isIntersecting) {
+                next.add(index);
+              } else {
+                next.delete(index);
+              }
+            }
+          });
+          return next;
+        });
+      },
+      { threshold: 0.1, rootMargin: '100px' }
+    );
+
+    // Observe all page refs
+    pageRefs.current.forEach((el, index) => {
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, [pages.length]);
+
+  const handleOpenPageEditor = (pageId: string) => {
+    setActivePageId(pageId);
+    setIsPageEditorOpen(true);
+  };
+
+  const editingPage = pages.find(p => p.id === activePageId);
+  // Calculate Page Info (Labels and Ranges)
+  const pageInfo = React.useMemo(() => {
+    let counter = 1;
+    return pages.map(page => {
+      if (page.isCover) {
+        return { label: "Cover", start: 0, end: 0, isCover: true };
+      }
+      if (page.type === 'spread') {
+        const start = counter;
+        const end = counter + 1;
+        counter += 2;
+        return { label: `Pages ${start}-${end}`, start, end, isCover: false };
+      }
+      // Single
+      const current = counter;
+      counter += 1;
+      return { label: `Page ${current}`, start: current, end: current, isCover: false };
+    });
+  }, [pages]);
+
+
+  if (pages.length <= 0) {
+    return (
+      <Card className="flex h-[85vh] w-full items-center justify-center bg-muted/50 border-2 border-dashed">
+        <div className="text-center text-muted-foreground">
+          <BookOpenText className="mx-auto h-12 w-12" />
+          <h3 className="mt-4 text-lg font-semibold">Your Album Preview</h3>
+          <p>Generate dummy photos to begin creating your photobook.</p>
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="w-full relative">
+      <ScrollArea
+        ref={scrollAreaRef}
+        className="h-[85vh] w-full"
+        style={{ overflowY: isInteracting ? 'hidden' : 'auto' }}
+        scrollBarSide="left"
+        thumbClassName="min-h-[50px]"
+      >
+        <div className="space-y-8 pb-4">
+          {pages.map((page, index) => {
+            const info = pageInfo[index];
+            const isVisible = visiblePages.has(index);
+
+            // Calculate previousPagePhotos for suggestion fan
+            const previousPagePhotos = index > 0 ? (pages[index - 1]?.photos || []) : [];
+
+            // Create effective config for live preview
+            // We apply the preview values to ALL pages to ensure consistency and reliability.
+            // Performance impact is minimal as this only happens during active slider dragging.
+            const hasPreviewOverrides = previewPhotoGap !== null || previewPageMargin !== null || previewCornerRadius !== null;
+
+            const effectiveConfig: AlbumConfig = hasPreviewOverrides
+              ? {
+                ...config,
+                photoGap: (previewPhotoGap !== null && previewPhotoGap !== undefined) ? previewPhotoGap : (config.photoGap ?? 0),
+                pageMargin: (previewPageMargin !== null && previewPageMargin !== undefined) ? previewPageMargin : (config.pageMargin ?? 0),
+                cornerRadius: (previewCornerRadius !== null && previewCornerRadius !== undefined) ? previewCornerRadius : (config.cornerRadius ?? 0),
+              }
+              : config;
+
+            return (
+              <div
+                key={page.id}
+                id={`album-page-${index}`}
+                data-page-index={index}
+                ref={(el) => {
+                  pageRefs.current.set(index, el);
+                }}
+                className="w-full max-w-full mx-auto"
+              >
+                <div className="w-full relative group/page">
+
+                  <div className={cn("h-18 px-14", page.type === 'single' ? 'w-1/2 mx-auto' : 'w-full')}>
+                    <PageToolbar
+                      page={page}
+                      pageNumber={index} // Keep for internal logic if needed, but display comes from label
+                      displayLabel={info.label} // New Prop
+                      canDelete={!page.isCover && page.type !== 'single'}
+                      onDeletePage={() => onDeletePage(page.id)}
+                      onUpdateLayout={onUpdateLayout}
+                      onUpdateSpreadLayout={onUpdateSpreadLayout}
+                      onUpdateCoverLayout={onUpdateCoverLayout}
+                      onUpdateCoverType={onUpdateCoverType}
+                      onUpdateSpineText={onUpdateSpineText}
+                      onUpdateSpineSettings={onUpdateSpineSettings}
+                      onUpdateTitleSettings={onUpdateTitleSettings}
+                      onOpenCoverEditor={handleOpenPageEditor}
+                      onDownloadPage={onDownloadPage}
+                      onUpdatePage={onUpdatePage}
+                      viewMode={viewMode}
+                      onToggleViewMode={() => setViewMode(prev => prev === 'full' ? 'split' : 'full')}
+                      visibleTemplateCategories={visibleTemplateCategories}
+                      allowedTemplateIds={allowedTemplateIds}
+                      toast={toast}
+                    />
+                  </div>
+
+                  <div className={cn(page.type === 'single' && 'w-1/2 mx-auto')}>
+                    <AspectRatio
+                      ratio={(
+                        () => {
+                          const sizeStr = config?.size || '800x600';
+                          const [w, h] = sizeStr.split('x').map(Number);
+                          const baseRatio = w / h;
+                          if (page.isCover) {
+                            // Include spine width in cover ratio to match ScaledCoverPreview
+                            const BASE_PAGE_PX = 450;
+                            const pxPerUnit = BASE_PAGE_PX / h;
+                            const singlePageW = w * pxPerUnit;
+                            const spineWidth = page.spineWidth !== undefined ? page.spineWidth : 40;
+                            const coverWidth = (singlePageW * 2) + spineWidth;
+                            return coverWidth / BASE_PAGE_PX;
+                          }
+                          return page.type === 'spread' ? baseRatio * 2 : baseRatio;
+                        }
+                      )()}
+                    >
+
+                      <Card
+                        className="h-full w-full border-none bg-transparent shadow-none"
+                      >
+                        <CardContent
+                          className="flex h-full w-full items-center justify-center p-0"
+                          style={{ padding: 0 }}
+                        >
+                          {page.isCover ? (
+                            <ScaledCoverPreview
+                              page={page}
+                              config={effectiveConfig}
+                              onUpdateTitleSettings={onUpdateTitleSettings}
+                              onDropPhoto={onDropPhoto}
+                              onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
+                              onInteractionChange={setIsInteracting}
+                              onRemovePhoto={onRemovePhoto}
+                              allPhotos={allPhotos}
+                              previousPagePhotos={previousPagePhotos}
+                              activeView={viewMode === 'split' ? 'front' : 'full'}
+                            />
+                          ) : page.type === 'spread' ? (
+                            <ScaledCoverPreview
+                              page={page}
+                              config={effectiveConfig}
+                              onUpdateTitleSettings={onUpdateTitleSettings}
+                              onDropPhoto={onDropPhoto}
+                              onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
+                              onInteractionChange={setIsInteracting}
+                              onRemovePhoto={onRemovePhoto}
+                              allPhotos={allPhotos}
+                              previousPagePhotos={previousPagePhotos}
+                              activeView={viewMode === 'split' ? 'front' : 'full'}
+                            />
+                          ) : (
+                            <ScaledCoverPreview
+                              page={page}
+                              config={effectiveConfig}
+                              onUpdateTitleSettings={onUpdateTitleSettings}
+                              onDropPhoto={onDropPhoto}
+                              onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
+                              onRemovePhoto={onRemovePhoto}
+                              allPhotos={allPhotos}
+                              previousPagePhotos={previousPagePhotos}
+                              activeView={viewMode === 'split' ? 'front' : 'full'}
+                            />
+                          )}
+
+                        </CardContent>
+                      </Card>
+                    </AspectRatio>
+                  </div>
+                </div>
+
+                {/* Add Spread Button - Show between pages (not after cover, not after last page) */}
+                {onAddSpread && !page.isCover && index < pages.length - 1 && (
+                  <div className="flex justify-center py-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="opacity-40 hover:opacity-100 transition-opacity"
+                      onClick={() => onAddSpread(index)}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Spread
+                    </Button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div >
+      </ScrollArea >
+
+      {isPageEditorOpen && editingPage && (
+        <CoverEditorOverlay
+          page={editingPage}
+          allPhotos={allPhotos}
+          isCover={editingPage.isCover ?? false}
+          config={config}
+          onUpdatePage={(updatedPage) => {
+            onUpdatePage?.(updatedPage);
+          }}
+          onClose={() => setIsPageEditorOpen(false)}
+        />
+      )}
+
+      {/* Scroll to Top Button */}
+      <ScrollToTopButton scrollAreaRef={scrollAreaRef} />
+
+      {/* Navigation Controls */}
+      <NavigationControls
+        scrollAreaRef={scrollAreaRef}
+        totalPages={pages.length}
+        pageInfo={pageInfo} // Pass the calculated info
+      />
+    </div >
+  );
+}
+
+// Helper Component for Scroll To Top
+function ScrollToTopButton({ scrollAreaRef }: { scrollAreaRef: React.RefObject<HTMLDivElement | null> }) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (!scrollContainer) return;
+
+    const handleScroll = () => {
+      if (scrollContainer.scrollTop > 100) {
+        setIsVisible(true);
+      } else {
+        setIsVisible(false);
+      }
+    };
+
+    scrollContainer.addEventListener('scroll', handleScroll);
+    return () => scrollContainer.removeEventListener('scroll', handleScroll);
+  }, [scrollAreaRef]);
+
+  const scrollToTop = () => {
+    const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    scrollContainer?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  return (
+    <Button
+      variant="secondary"
+      size="icon"
+      className={cn(
+        "absolute bottom-6 right-2 z-49 rounded-full shadow-lg transition-all duration-300",
+        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10 pointer-events-none"
+      )}
+      onClick={scrollToTop}
+    >
+      <ArrowUp className="h-5 w-5" />
+    </Button>
+  );
+}
+
+function NavigationControls({
+  scrollAreaRef,
+  totalPages,
+  pageInfo
+}: {
+  scrollAreaRef: React.RefObject<HTMLDivElement | null>,
+  totalPages: number,
+  pageInfo: { label: string; start: number; end: number; isCover: boolean; }[]
+}) {
+  const [targetPage, setTargetPage] = useState<string>("");
+  const [stepSize, setStepSize] = useState<string>("1");
+
+  const scrollToIndex = (index: number) => {
+    const el = document.getElementById(`album-page-${index}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  const handleJump = () => {
+    const pageNum = parseInt(targetPage);
+    if (!isNaN(pageNum)) {
+      // Find the index where the pageNum falls within range
+      const targetIndex = pageInfo.findIndex(info => !info.isCover && pageNum >= info.start && pageNum <= info.end);
+
+      if (targetIndex !== -1) {
+        scrollToIndex(targetIndex);
+        setTargetPage("");
+      } else if (pageNum === 0) {
+        // Allow 0 for cover
+        scrollToIndex(0);
+        setTargetPage("");
+      }
+    }
+  };
+
+  const activeIndexRef = useRef(0);
+
+  // Helper to get current visible index
+  const getVisibleIndex = () => {
+    const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (!viewport) return 0;
+
+    const viewportRect = viewport.getBoundingClientRect();
+    let bestIndex = 0;
+    let minDiff = Infinity;
+
+    for (let i = 0; i < totalPages; i++) {
+      const el = document.getElementById(`album-page-${i}`);
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        // Distance of element center to viewport center
+        const dist = Math.abs((rect.top + rect.height / 2) - (viewportRect.top + viewportRect.height / 2));
+        if (dist < minDiff) {
+          minDiff = dist;
+          bestIndex = i;
+        }
+      }
+    }
+    return bestIndex;
+  };
+
+  const handleStepJump = (direction: 'up' | 'down') => {
+    const current = getVisibleIndex();
+    const step = parseInt(stepSize) || 1;
+    let next = direction === 'up' ? current - step : current + step;
+
+    // Clamp
+    if (next < 0) next = 0;
+    if (next >= totalPages) next = totalPages - 1;
+
+    scrollToIndex(next);
+  };
+
+  return (
+    <div className="absolute right-6 top-1/2 -translate-y-1/2 translate-x-1/2 z-49 flex flex-col gap-24 w-8">
+      {/* Absolute Jump (Start/End/Specific) */}
+      <div className="flex flex-col items-center gap-2 bg-background/90 backdrop-blur-sm p-1.5 rounded-full shadow-lg border">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => scrollToIndex(0)}>
+                <ChevronsUp className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">Jump to Start</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <div className="flex flex-col items-center gap-1 my-1">
+          <Input
+            type="number"
+            className="w-full h-8 px-0.5 text-center text-xs appearance-none [&::-webkit-inner-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0 border border-input shadow-none"
+            placeholder="#"
+            value={targetPage}
+            onChange={(e) => setTargetPage(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleJump()}
+            title="Type page number"
+          />
+          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={handleJump} disabled={!targetPage}>
+            <CornerDownLeft className="h-3 w-3" />
+          </Button>
+        </div>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => scrollToIndex(totalPages - 1)}>
+                <ChevronsDown className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">Jump to End</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+
+      {/* Relative Step Jump */}
+      <div className="flex flex-col items-center gap-2 bg-background/90 backdrop-blur-sm p-1.5 rounded-full shadow-lg border">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => handleStepJump('up')}>
+                <ChevronUp className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">Jump Up</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <div className="flex flex-col items-center gap-1 my-1">
+          <Input
+            type="number"
+            className="w-full h-8 px-0.5 text-center text-xs appearance-none [&::-webkit-inner-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0 border border-input shadow-none"
+            value={stepSize}
+            onChange={(e) => setStepSize(e.target.value)}
+            title="Pages to jump"
+          />
+        </div>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => handleStepJump('down')}>
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">Jump Down</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+    </div>
   );
 }

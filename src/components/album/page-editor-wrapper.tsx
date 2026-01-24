@@ -3,8 +3,8 @@
 import dynamic from 'next/dynamic';
 import { Loader2 } from 'lucide-react';
 
-const AlbumEditor = dynamic(
-    () => import('./album-editor').then((mod) => mod.AlbumEditor),
+const PageEditor = dynamic(
+    () => import('./page-editor').then((mod) => mod.PageEditor),
     {
         loading: () => (
             <div className="flex items-center justify-center h-screen bg-background text-primary">
@@ -15,10 +15,10 @@ const AlbumEditor = dynamic(
     }
 );
 
-interface AlbumEditorWrapperProps {
+interface PageEditorWrapperProps {
     albumId: string;
 }
 
-export function AlbumEditorWrapper({ albumId }: AlbumEditorWrapperProps) {
-    return <AlbumEditor albumId={albumId} />;
+export function PageEditorWrapper({ albumId }: PageEditorWrapperProps) {
+    return <PageEditor albumId={albumId} />;
 }
