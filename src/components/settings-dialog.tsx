@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { RotateCcw, Monitor, Moon, Sun, LayoutGrid, Bold, Italic, AlignLeft, AlignCenter, AlignRight, RotateCw, Type, Layout } from 'lucide-react';
 import { useSettings, UserSettings, DEFAULT_SETTINGS } from '@/hooks/use-settings';
+import { TemplateManager } from './settings/template-manager';
 import { toast } from '@/hooks/use-toast';
 import { useTheme } from 'next-themes';
 
@@ -71,7 +72,13 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     };
 
     const handleSave = () => {
-        updateSettings(localSettings);
+        // Exclude themePreference from the update payload.
+        // Since we removed the UI for theme selection, localSettings contains a potentially stale
+        // default value. Sending it would trigger SettingsProvider to force-apply that theme,
+        // overriding the user's active session theme (controlled by ModeToggle).
+        const { themePreference, ...settingsToSave } = localSettings;
+
+        updateSettings(settingsToSave);
         toast({
             title: "Settings Saved",
             description: "Your preferences have been updated.",
@@ -479,9 +486,15 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                             ))}
                                         </div>
 
-                                        {/* Placeholder for future granular ID selection */}
-                                        <div className="p-4 bg-muted/20 rounded-md border border-dashed text-center text-sm text-muted-foreground">
+                                        <div className="p-4 bg-muted/20 rounded-md border border-dashed text-center text-sm text-muted-foreground hidden">
                                             Detailed template selection coming soon
+                                        </div>
+
+                                        <div className="pt-4 border-t">
+                                            <TemplateManager
+                                                settings={localSettings}
+                                                onUpdate={handleUpdateLocal}
+                                            />
                                         </div>
                                     </div>
                                 </TabsContent>

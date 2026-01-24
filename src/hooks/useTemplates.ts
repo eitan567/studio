@@ -38,20 +38,23 @@ export function useTemplates() {
 
     const gridTemplates = useMemo(() => {
         const raw = getGridTemplatesSync();
-        return settings?.visibleTemplateCategories?.includes('grid') ? raw : [];
-    }, [trigger, settings?.visibleTemplateCategories]);
+        const visible = settings?.visibleTemplateCategories?.includes('grid') ? raw : [];
+        return visible.filter(t => !settings?.hiddenTemplateIds?.includes(t.id));
+    }, [trigger, settings?.visibleTemplateCategories, settings?.hiddenTemplateIds]);
 
     // Raw templates for lookups (unfiltered so existing albums still work)
     const rawAdvancedTemplates = useMemo(() => getAdvancedTemplatesSync(), [trigger]);
 
     const advancedTemplates = useMemo(() => {
-        return settings?.visibleTemplateCategories?.includes('advanced') ? rawAdvancedTemplates : [];
-    }, [rawAdvancedTemplates, settings?.visibleTemplateCategories]);
+        const visible = settings?.visibleTemplateCategories?.includes('advanced') ? rawAdvancedTemplates : [];
+        return visible.filter(t => !settings?.hiddenTemplateIds?.includes(t.id));
+    }, [rawAdvancedTemplates, settings?.visibleTemplateCategories, settings?.hiddenTemplateIds]);
 
     const coverTemplates = useMemo(() => {
         const raw = getCoverTemplatesSync();
-        return settings?.visibleTemplateCategories?.includes('cover') ? raw : [];
-    }, [trigger, settings?.visibleTemplateCategories]);
+        const visible = settings?.visibleTemplateCategories?.includes('cover') ? raw : [];
+        return visible.filter(t => !settings?.hiddenTemplateIds?.includes(t.id));
+    }, [trigger, settings?.visibleTemplateCategories, settings?.hiddenTemplateIds]);
 
     // Combined templates for dropdowns
     const allTemplates = useMemo(() => [

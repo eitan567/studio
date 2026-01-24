@@ -50,6 +50,7 @@ export interface UserSettings {
     exportWarnDuplicates: boolean;
     visibleTemplateCategories: string[];
     allowedTemplateIds?: string[]; // Empty or undefined means ALL are allowed.
+    hiddenTemplateIds: string[];   // Explicitly hidden templates (opt-out)
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -69,6 +70,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
 
     themePreference: 'light',
     allowedTemplateIds: [],
+    hiddenTemplateIds: [],
 
     defaultSpineWidth: 15,
     defaultSpineColor: '#000000',
