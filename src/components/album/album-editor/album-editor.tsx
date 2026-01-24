@@ -1507,7 +1507,7 @@ export function AlbumEditor({
 
   if (pages.length <= 0) {
     return (
-      <Card className="flex h-[85vh] w-full items-center justify-center bg-muted/50 border-2 border-dashed">
+      <Card className="flex h-[91vh] w-full items-center justify-center bg-muted/50 border-2 border-dashed">
         <div className="text-center text-muted-foreground">
           <BookOpenText className="mx-auto h-12 w-12" />
           <h3 className="mt-4 text-lg font-semibold">Your Album Preview</h3>
@@ -1521,7 +1521,7 @@ export function AlbumEditor({
     <div className="w-full relative">
       <ScrollArea
         ref={scrollAreaRef}
-        className="h-[85vh] w-full"
+        className="h-[91vh] w-full"
         style={{ overflowY: isInteracting ? 'hidden' : 'auto' }}
         scrollBarSide="left"
         thumbClassName="min-h-[50px]"

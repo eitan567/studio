@@ -731,7 +731,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
         />
 
         <div
-          className="flex h-[85vh] p-6 flex-1 overflow-hidden bg-muted/30 dark:bg-muted/10 items-stretch"
+          className="flex h-[calc(100vh-3.5rem)] flex-1 overflow-hidden bg-muted/30 dark:bg-muted/10 items-stretch"
           style={{
             backgroundImage: `
               linear-gradient(to right, hsl(var(--foreground) / 0.04) 1px, transparent 1px),
@@ -741,7 +741,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
           }}
         >
           {/* Left Sidebar: Config & Tools */}
-          <div className="w-[300px] shrink-0 space-y-6 overflow-y-auto pr-2">
+          <div className="w-[300px] shrink-0 overflow-y-auto border-r bg-background z-10">
             {isClient && isInitialized ? (
               <AlbumConfigCard
                 form={form}
@@ -769,7 +769,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
           </div>
 
           {/* Main Content: Album Preview */}
-          <div className="flex-1 min-w-0 pl-6" style={{ colorScheme: 'light' }}>
+          <div className="flex-1 min-w-0 pl-6 pt-4" style={{ colorScheme: 'light' }}>
             {isLoading || isAlbumLoading || !isInitialized ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center animate-in fade-in duration-300 bg-muted/30 border-2 border-dashed rounded-lg">
                 <Loader2 className="h-12 w-12 mb-4 animate-spin text-primary" />
@@ -814,10 +814,10 @@ export function PageEditor({ albumId }: PageEditorProps) {
             title="Drag to resize gallery"
           >
             {/* Permanent solid primary line - matching your design */}
-            <div className="absolute inset-y-0 left-2 -translate-x-1/2 w-[6px] bg-primary h-full" />
+            <div className="absolute inset-y-0 left-1 -translate-x-1/2 w-[6px] bg-primary h-full" />
 
             {/* Permanent primary pill - matching your design */}
-            <div className="absolute top-1/2 left-2 -translate-x-1/2 -translate-y-1/2 w-5 h-12 rounded-full bg-primary shadow-md flex items-center justify-center opacity-100 group-active:scale-95 transition-all pointer-events-none">
+            <div className="absolute top-1/2 left-1 -translate-x-1/2 -translate-y-1/2 w-5 h-12 rounded-full bg-primary shadow-md flex items-center justify-center opacity-100 group-active:scale-95 transition-all pointer-events-none">
               <div className="flex gap-[2px]">
                 <div className="w-[1.5px] h-4 bg-primary-foreground/60" />
                 <div className="w-[1.5px] h-4 bg-primary-foreground/60" />

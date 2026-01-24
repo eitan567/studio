@@ -423,9 +423,9 @@ const PhotoGalleryCardComponent = ({
     const usedCount = Object.keys(photoUsageDetails).length;
 
     return (
-        <div className="h-full space-y-4">
-            <Card
-                className="h-full flex flex-col"
+        <div className="h-full space-y-0">
+            <div
+                className="h-full flex flex-col bg-background border-l shadow-none rounded-none"
                 onDragOver={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -440,9 +440,9 @@ const PhotoGalleryCardComponent = ({
                     }
                 }}
             >
-                <CardHeader className="pb-3 border-b space-y-2">
+                <div className="px-3 py-2 border-b space-y-2 bg-background z-10">
                     <div className="flex items-center justify-between">
-                        <CardTitle className="heading-sm">Photo Gallery</CardTitle>
+                        <h2 className="font-semibold text-sm">Photo Gallery</h2>
                         <div className="flex items-center gap-1">
                             {/* Icon Buttons */}
                             <TooltipProvider>
@@ -608,9 +608,9 @@ const PhotoGalleryCardComponent = ({
                         onChange={(e) => { processUploadedFiles(e.target.files); e.target.value = ''; }} />
                     <input ref={photoUploadRef} type="file" accept="image/*" multiple className="hidden"
                         onChange={(e) => { processUploadedFiles(e.target.files); e.target.value = ''; }} />
-                </CardHeader >
+                </div >
 
-                <CardContent ref={containerRef} className="flex-1 overflow-hidden pr-1 relative">
+                <div ref={containerRef} className="flex-1 overflow-hidden pr-1 relative">
                     {allPhotos.length === 0 ? (
                         isLoadingPhotos ? (
                             <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center animate-in fade-in">
@@ -696,7 +696,7 @@ const PhotoGalleryCardComponent = ({
                             )}
                         </ScrollArea>
                     )}
-                </CardContent>
+                </div>
 
                 {/* Footer Bar with Photo Count and Action Buttons */}
                 <div className="p-3 border-t bg-muted/30 flex flex-col gap-2">
@@ -747,7 +747,7 @@ const PhotoGalleryCardComponent = ({
                         {allPhotos.length} photos total • {usedCount} used{emptySlots > 0 && ` • ${emptySlots} empty`}
                     </p>
                 </div>
-            </Card>
+            </div>
         </div>
     );
 }

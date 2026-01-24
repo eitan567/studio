@@ -103,11 +103,11 @@ export function AlbumConfigCard({
     }, [schedulePreviewUpdate]);
 
     return (
-        <Card>
-            <CardHeader className="pb-3">
-                <CardTitle className="heading-sm">Album Config</CardTitle>
-            </CardHeader>
-            <CardContent>
+        <div className="h-full flex flex-col bg-background">
+            <div className="p-4 py-3 border-b">
+                <h2 className="font-semibold text-sm">Album Config</h2>
+            </div>
+            <div className="p-4 space-y-6">
                 <Form {...form}>
                     <form className="space-y-4">
                         <FormField
@@ -325,7 +325,7 @@ export function AlbumConfigCard({
                         </div>
                     </form>
                 </Form>
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     );
 }
