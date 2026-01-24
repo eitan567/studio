@@ -3,10 +3,10 @@ import { cn } from '@/lib/utils';
 import { AlbumPage, Photo, PhotoPanAndZoom } from '@/lib/types';
 import { useTemplates, GridTemplate } from '@/hooks/useTemplates';
 import { PhotoRenderer } from './photo-renderer';
-import { EmptyPhotoSlot } from './empty-photo-slot';
+import { EmptyPhotoSlot } from '../album-editor/empty-photo-slot';
 import { ShapeRegion } from './shape-region';
 import { rotateGridTemplate, rotateAdvancedTemplate, RotationAngle } from '@/lib/template-rotation';
-import { SuggestionFan } from './suggestion-fan';
+import { SuggestionFan } from '../album-editor/suggestion-fan';
 
 // Parse layout ID to extract base template and rotation
 function parseLayoutId(layoutId: string): { baseId: string; rotation: RotationAngle } {

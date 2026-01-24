@@ -1,9 +1,9 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { AlbumPage, CoverText, AlbumConfig, PhotoPanAndZoom } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { PageLayout } from '../page-layout';
-import { COVER_TEMPLATES } from '../layout-templates';
-import { AlbumCover } from '../album-cover';
+import { PageLayout } from '../layouts/page-layout';
+import { COVER_TEMPLATES } from '../layouts/templates';
+import { AlbumCover } from '../book-view/album-cover';
 
 interface CoverCanvasProps {
     page: AlbumPage;

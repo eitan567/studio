@@ -37,7 +37,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, TooltipArrow } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { Photo } from '@/lib/types';
-import { ScrollToTopButton } from './scroll-to-top-button';
+import { ScrollToTopButton } from '../../shared/scroll-to-top-button';
 
 interface PhotoGalleryCardProps {
     allPhotos: Photo[];

@@ -16,14 +16,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { PhotoPanAndZoom } from '@/lib/types';
-import { PhotoRenderer } from './photo-renderer';
+import { PhotoRenderer } from '../layouts/photo-renderer';
 import { useToast } from '@/hooks/use-toast';
-import { useAlbumEditor } from './album-editor-context';
+import { useAlbumEditor } from './context';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
 import { AdvancedTemplate, LayoutRegion, insetPolygon } from '@/lib/advanced-layout-types';
-import { ShapeRegion } from './shape-region';
-import { PageLayout } from './page-layout';
+import { ShapeRegion } from '../layouts/shape-region';
+import { PageLayout } from '../layouts/page-layout';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Slider } from '@/components/ui/slider';
@@ -260,8 +260,8 @@ interface AlbumEditorProps {
   allowedTemplateIds?: string[];      // Added
 }
 
-import { CoverEditorOverlay } from './cover-editor/cover-editor-overlay';
-import { AlbumCover } from './album-cover';
+import { CoverEditorOverlay } from '../cover-editor/cover-editor-overlay';
+import { AlbumCover } from '../book-view/album-cover';
 
 const AVAILABLE_FONTS = ['Inter', 'Serif', 'Mono', 'Cursive', 'Arial', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Impact'];
 

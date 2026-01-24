@@ -6,7 +6,7 @@
  */
 
 import { createClient } from '@/lib/supabase';
-import { LAYOUT_TEMPLATES as STATIC_LAYOUT_TEMPLATES, COVER_TEMPLATES as STATIC_COVER_TEMPLATES } from '@/components/album/layout-templates';
+import { LAYOUT_TEMPLATES as STATIC_LAYOUT_TEMPLATES, COVER_TEMPLATES as STATIC_COVER_TEMPLATES } from '@/components/album/layouts/templates';
 import { ADVANCED_TEMPLATES as STATIC_ADVANCED_TEMPLATES, AdvancedTemplate } from '@/lib/advanced-layout-types';
 
 // Types

@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { AlbumPage, CoverText, CoverImage, AlbumConfig, Photo, PhotoPanAndZoom } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { PageLayout } from './page-layout';
+import { PageLayout } from '../layouts/page-layout';
 import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
 import { useSettings } from '@/hooks/use-settings'; // Added useSettings import
 
@@ -266,7 +266,7 @@ export const StaticCoverText = ({
     );
 };
 
-import { PhotoRenderer } from './photo-renderer';
+import { PhotoRenderer } from '../layouts/photo-renderer';
 
 // ... (Spine and DraggableCoverText remain unchanged)
 

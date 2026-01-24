@@ -2,7 +2,7 @@ import React from 'react';
 import { Photo } from '@/lib/types';
 import { LayoutRegion, regionToClipPath } from '@/lib/advanced-layout-types';
 import { PhotoRenderer } from './photo-renderer';
-import { EmptyPhotoSlot } from './empty-photo-slot';
+import { EmptyPhotoSlot } from '../album-editor/empty-photo-slot';
 import { cn } from '@/lib/utils';
 
 export const ShapeRegion = ({

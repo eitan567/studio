@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, memo, useState } from 'react';
 import Image from 'next/image';
-import { EmptyPhotoSlot } from './empty-photo-slot';
+import { EmptyPhotoSlot } from '../album-editor/empty-photo-slot';
 import type { Photo, PhotoPanAndZoom } from '@/lib/types';
 
 interface PhotoRendererProps {

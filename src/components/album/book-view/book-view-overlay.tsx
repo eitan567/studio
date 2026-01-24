@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight, BookOpen, ChevronsLeft, ChevronsRight, CornerDownRight } from 'lucide-react';
 import { AlbumPage, AlbumConfig } from '@/lib/types';
 import { AlbumCover } from './album-cover';
-import { PhotoRenderer } from './photo-renderer';
+import { PhotoRenderer } from '../layouts/photo-renderer';
 import { LAYOUT_TEMPLATES } from '@/hooks/useTemplates';
 import { cn } from '@/lib/utils';
 

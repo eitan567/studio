@@ -1,12 +1,12 @@
 import { useRef, useState, useEffect } from 'react';
 import { AlbumPage, AlbumConfig, PhotoPanAndZoom, Photo } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { PageLayout } from '../page-layout';
+import { PageLayout } from '../layouts/page-layout';
 import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
 import { AdvancedTemplate, LayoutRegion, regionToClipPath } from '@/lib/advanced-layout-types';
-import { PhotoRenderer } from '../photo-renderer';
+import { PhotoRenderer } from '../layouts/photo-renderer';
 import { Image as ImageIcon, Plus } from 'lucide-react';
-import { ShapeRegion } from '../shape-region';
+import { ShapeRegion } from '../layouts/shape-region';
 
 interface LayoutCanvasProps {
     page: AlbumPage;

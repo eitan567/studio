@@ -21,9 +21,9 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Photo, AlbumConfig, AlbumPage, PhotoPanAndZoom } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlbumEditor } from './album-editor';
-import { AlbumEditorProvider } from './album-editor-context';
-import { BookViewOverlay } from './book-view-overlay';
+import { AlbumEditor } from '../album-editor/album-editor';
+import { AlbumEditorProvider } from '../album-editor/context';
+import { BookViewOverlay } from '../book-view/book-view-overlay';
 import { useToast } from '@/hooks/use-toast';
 import {
   Form,
@@ -57,9 +57,9 @@ import Image from 'next/image';
 
 // Fix for alert import
 import { Alert as AlertUI, AlertDescription as AlertDescriptionUI, AlertTitle as AlertTitleUI } from '@/components/ui/alert';
-import { AiBackgroundGenerator } from './ai-background-generator';
-import { AlbumExporter, AlbumExporterRef } from './album-exporter';
-import { CustomLayoutEditorOverlay } from './custom-layout-editor/custom-layout-editor-overlay';
+import { AiBackgroundGenerator } from '../shared/ai-background-generator';
+import { AlbumExporter, AlbumExporterRef } from '../shared/album-exporter';
+import { CustomLayoutEditorOverlay } from '../custom-layout-editor/custom-layout-editor-overlay';
 import { useAlbum } from '@/hooks/useAlbum';
 import { usePhotoUpload } from '@/hooks/usePhotoUpload';
 import { useAlbumGeneration } from '@/hooks/use-album-generation';
@@ -67,7 +67,10 @@ import { useAlbumPageEditor } from '@/hooks/useAlbumPageEditor';
 import { usePhotoGalleryManager } from '@/hooks/usePhotoGalleryManager';
 import { useSettings } from '@/hooks/use-settings';
 import { ModeToggle } from '@/components/mode-toggle';
-import { ScrollToTopButton, AlbumConfigCard, PhotoGalleryCard, AlbumEditorToolbar } from './editor-components';
+import { ScrollToTopButton } from '../shared/scroll-to-top-button';
+import { AlbumConfigCard } from './sidebar/config-card';
+import { PhotoGalleryCard } from './sidebar/gallery-card';
+import { AlbumEditorToolbar } from './toolbar';
 
 // Parse layout ID helper removed (now in useAlbumPageEditor or used via import if needed)
 

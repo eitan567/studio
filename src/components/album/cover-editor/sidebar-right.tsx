@@ -26,8 +26,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { SpineColorPicker } from '../spine-color-picker';
-import { AiBackgroundGenerator } from '../ai-background-generator';
+import { SpineColorPicker } from '../shared/spine-color-picker';
+import { AiBackgroundGenerator } from '../shared/ai-background-generator';
 import { useTemplates } from '@/hooks/useTemplates';
 import { useSettings } from '@/hooks/use-settings';
 import { cn } from '@/lib/utils';

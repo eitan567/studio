@@ -21,8 +21,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
-import { AiBackgroundGenerator } from '../ai-background-generator';
-import { useAlbumEditor } from '../album-editor-context';
+import { AiBackgroundGenerator } from '../../shared/ai-background-generator';
+import { useAlbumEditor } from '../../album-editor/context';
 
 interface AlbumConfigCardProps {
     form: UseFormReturn<{ size: '20x20' | '25x25' | '30x30' }>;

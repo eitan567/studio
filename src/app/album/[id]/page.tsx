@@ -1,4 +1,4 @@
-import { PageEditorWrapper } from '@/components/album/page-editor-wrapper';
+import { PageEditorWrapper } from '@/components/album/page-editor/page-editor-wrapper';
 
 export default async function AlbumPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
