@@ -167,7 +167,9 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
             })
 
             if (!response.ok) {
-                throw new Error('Failed to save album')
+                const errorBody = await response.text();
+                console.error('[saveAlbum] Server error:', response.status, errorBody);
+                throw new Error(`Failed to save album: ${response.status}`)
             }
 
             const result = await response.json()

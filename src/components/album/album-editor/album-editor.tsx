@@ -1560,7 +1560,7 @@ export function AlbumEditor({
               >
                 <div className="w-full relative group/page">
 
-                  <div className={cn("h-18 px-10", page.type === 'single' ? 'w-1/2 mx-auto' : 'w-full')}>
+                  <div className={cn("h-18 px-10", page.type === 'single' ? 'w-1/2 mx-auto px-4' : 'w-full')}>
                     <PageToolbar
                       page={page}
                       pageNumber={index} // Keep for internal logic if needed, but display comes from label

@@ -671,7 +671,6 @@ export function PageEditor({ albumId }: PageEditorProps) {
           onExportPdf={() => exporterRef.current?.exportToPdf()}
           isExporting={isExporting}
           onShare={() => toast({ title: "Sharing Album..." })}
-          onLogout={() => signOut().then(() => router.push('/'))}
         />
 
         {/* Exporter Component */}

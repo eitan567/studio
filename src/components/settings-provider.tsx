@@ -149,7 +149,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                 .maybeSingle();
 
             if (data?.settings) {
-                console.log('[SettingsProvider] Fetched remote settings debug:', data.settings);
                 return { ...DEFAULT_SETTINGS, ...data.settings };
             }
             return null;
@@ -161,8 +160,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
     // --- STRICT INITIALIZATION LOGIC ---
     // We use a ref to track if we have already initialized for the current session/user.
-    // This prevents "loops" or re-running logic when auth state flickers.
-    const initializationRef = useRef<{ initialized: boolean, userId: string | null }>({ initialized: false, userId: null });
+    // This prevents "loops" or re-running logic when user state updates rapidly.
+    const initializationRef = useRef<{ initialized: boolean, userId: string | null, promise: boolean }>({ initialized: false, userId: null, promise: false });
 
     // Load from DB on mount or when user changes
     useEffect(() => {
@@ -181,7 +180,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                 return;
             }
 
-            console.log('[SettingsProvider] Initializing Settings for user:', currentUserId || 'Guest');
+            // 1b. Promise Guard: If an init is already running for this user, skip.
+            if (initializationRef.current.promise && initializationRef.current.userId === currentUserId) {
+                // console.log('[SettingsProvider] Init already in progress for', currentUserId);
+                return;
+            }
+
+            // Start lock
+            initializationRef.current.promise = true;
+            initializationRef.current.userId = currentUserId; // Tentatively set user ID to lock it
 
             // NEW LOGIC: Use Browser Navigation Type to distinguish Reload vs. Fresh Navigation
             // manual: "Only on Ctrl+F5 (Reload) should it keep the manual setting."
@@ -209,37 +216,20 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             const sessionUser = (typeof window !== 'undefined' && isReload) ? sessionStorage.getItem(SESSION_INIT_KEY) : null;
             const userTag = currentUserId || 'guest';
 
-            console.log(`[SettingsProvider] Init: User=${userTag}, IsReload=${isReload}, SessionLock=${sessionUser}`);
+            // console.log(`[SettingsProvider] Init: User=${userTag}, IsReload=${isReload}, SessionLock=${sessionUser}`);
 
-            if (currentUser) {
-                try {
+            try {
+                if (currentUser) {
                     // 2. Fetch remote settings
                     const remote = await fetchRemoteSettings();
 
                     if (mounted) {
                         if (remote) {
                             // Found remote settings - use them
-                            console.log('[SettingsProvider] Loaded remote settings');
+                            console.log('[SettingsProvider] Loaded remote settings for user', currentUserId);
                             setSettings(remote);
-                            setSessionSettings(remote); // SNAPSHOT on mount
-
-                            // Sync back to local storage for backup/offline
+                            setSessionSettings(remote);
                             localStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
-
-                            // Apply Theme Preference (ONE TIME ONLY per session)
-                            /* THEME SYNC DISABLED PER USER REQUEST
-                            if (remote.themePreference) {
-                                if (sessionUser === userTag) {
-                                    console.log(`[SettingsProvider] Init: RELOAD Detected (${userTag}). Skipping DB Theme, preserving manual.`);
-                                    // Make sure we keep the key updated just in case
-                                    if (typeof window !== 'undefined') sessionStorage.setItem(SESSION_INIT_KEY, userTag);
-                                } else {
-                                    console.log(`[SettingsProvider] Init: FRESH SESSION (${userTag}). Applying DB Theme:`, remote.themePreference);
-                                    setTheme(remote.themePreference);
-                                    if (typeof window !== 'undefined') sessionStorage.setItem(SESSION_INIT_KEY, userTag);
-                                }
-                            }
-                            */
                         } else {
                             // 3. Migration: No remote settings. Check local storage
                             console.log('[SettingsProvider] No remote settings, migrating local...');
@@ -251,46 +241,46 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                                 settings: local,
                                 updated_at: new Date().toISOString()
                             });
-
-                            // Apply local theme ONCE (New Session Only)
-                            /* THEME SYNC DISABLED PER USER REQUEST
-                            if (local.themePreference) {
-                                if (sessionUser !== userTag) {
-                                    setTheme(local.themePreference);
-                                    if (typeof window !== 'undefined') sessionStorage.setItem(SESSION_INIT_KEY, userTag);
-                                }
-                            }
-                            */
                         }
                     }
-                } catch (err) {
-                    console.error('[SettingsProvider] Error syncing settings:', err);
-                }
-            } else {
-                // Guest Mode
-                console.log('[SettingsProvider] Guest mode, clearing session lock');
-                if (typeof window !== 'undefined') sessionStorage.removeItem(SESSION_INIT_KEY);
+                } else {
+                    // Guest Mode
+                    console.log('[SettingsProvider] Guest mode, clearing session lock');
+                    if (typeof window !== 'undefined') sessionStorage.removeItem(SESSION_INIT_KEY);
 
-                console.log('[SettingsProvider] Guest mode, using local settings');
-                const local = loadSettingsFromStorage();
-                if (local.themePreference) {
-                    // For guest, we use 'guest' as tag
-                    if (sessionUser !== 'guest') {
-                        setTheme(local.themePreference);
-                        if (typeof window !== 'undefined') sessionStorage.setItem(SESSION_INIT_KEY, 'guest');
+                    console.log('[SettingsProvider] Guest mode, using local settings');
+                    const local = loadSettingsFromStorage();
+                    if (local.themePreference) {
+                        if (sessionUser !== 'guest') {
+                            setTheme(local.themePreference);
+                            if (typeof window !== 'undefined') sessionStorage.setItem(SESSION_INIT_KEY, 'guest');
+                        }
                     }
                 }
+            } catch (err) {
+                console.error('[SettingsProvider] Error syncing settings:', err);
+            } finally {
+                if (mounted) {
+                    initializationRef.current = {
+                        initialized: true,
+                        userId: currentUserId,
+                        promise: false
+                    };
+                    setIsLoaded(true);
+                }
             }
-
-            // Mark as initialized for this user ID
-            initializationRef.current = { initialized: true, userId: currentUserId };
-
-            if (mounted) setIsLoaded(true);
         };
 
         initSettings();
 
-        return () => { mounted = false; };
+        return () => {
+            mounted = false;
+            // CRITICAL FIX: If we abort mid-flight (e.g. auth change), release the lock
+            // so the next effect run can try again.
+            if (initializationRef.current.promise) {
+                initializationRef.current.promise = false;
+            }
+        };
     }, [user, authLoading, fetchRemoteSettings, setTheme, supabase]);
 
     // Cleanup session key on Logout so next login is treated as fresh

@@ -198,12 +198,28 @@ export function invalidateCache(): void {
     console.log('[TemplateCache] Cache invalidated');
 }
 
+let preloadPromise: Promise<void> | null = null;
+
 /**
  * Preload the cache (call on app initialization)
+ * Handles concurrent calls by returning the existing promise.
  */
 export async function preloadCache(): Promise<void> {
+    if (cacheInitialized && Date.now() < cacheExpiry) {
+        return;
+    }
+
+    if (preloadPromise) {
+        // console.log('[TemplateCache] Preload already in progress, joining...');
+        return preloadPromise;
+    }
+
     console.log('[TemplateCache] Preloading...');
-    await initializeCache();
+    preloadPromise = initializeCache().finally(() => {
+        preloadPromise = null;
+    });
+
+    return preloadPromise;
 }
 
 /**
