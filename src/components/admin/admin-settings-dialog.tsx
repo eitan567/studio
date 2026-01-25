@@ -162,40 +162,40 @@ function SpineEffectPreview({
 
             {/* Spine effect overlay */}
             <div className="absolute inset-0 pointer-events-none">
-                {/* Center line with shadow spread */}
-                <div
-                    className="absolute inset-y-0 w-px pointer-events-none"
-                    style={{
-                        left: `calc(50% - ${spread}px)`,
-                        right: `calc(50% - ${spread}px)`,
-                        width: `${spread * 2}px`,
-                        background: `linear-gradient(to right, 
-                            transparent, 
-                            rgba(0,0,0,${centerOpacity}) 45%, 
-                            ${hexToRgba(color, colorOpacity)} 50%, 
-                            rgba(0,0,0,${centerOpacity}) 55%, 
-                            transparent
-                        )`,
-                    }}
-                />
-
-                {/* Left shadow gradient */}
+                {/* Left Shadow Gradient */}
                 <div
                     className="absolute inset-y-0 pointer-events-none"
                     style={{
                         left: `calc(50% - ${width}px)`,
                         width: `${width}px`,
-                        background: `linear-gradient(to right, transparent, rgba(0,0,0,${opacity}))`,
+                        background: `linear-gradient(to left, rgba(0,0,0,${opacity}), transparent)`,
                     }}
                 />
 
-                {/* Right shadow gradient */}
+                {/* Center Spine Binding (the actual line) */}
                 <div
-                    className="absolute inset-y-0 pointer-events-none"
+                    className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-[1px] z-10"
                     style={{
-                        right: `calc(50% - ${width}px)`,
+                        backgroundColor: hexToRgba(color, colorOpacity),
+                    }}
+                >
+                    {/* Spread shadow around the center line */}
+                    <div
+                        className="absolute inset-y-0 pointer-events-none"
+                        style={{
+                            left: `-${spread}px`,
+                            right: `-${spread}px`,
+                            background: `linear-gradient(to right, transparent, rgba(0,0,0,${centerOpacity}), transparent)`,
+                        }}
+                    />
+                </div>
+
+                {/* Right Shadow Gradient */}
+                <div
+                    className="absolute inset-y-0 left-1/2 pointer-events-none"
+                    style={{
                         width: `${width}px`,
-                        background: `linear-gradient(to left, transparent, rgba(0,0,0,${opacity}))`,
+                        background: `linear-gradient(to right, rgba(0,0,0,${opacity}), transparent)`,
                     }}
                 />
             </div>
@@ -395,7 +395,7 @@ export function AdminSettingsDialog({ open, onOpenChange }: AdminSettingsDialogP
                                                     label="Shadow Width"
                                                     value={localSettings.spineEffectWidth}
                                                     onChange={(v) => setLocalSettings(prev => ({ ...prev, spineEffectWidth: v }))}
-                                                    min={50}
+                                                    min={0}
                                                     max={300}
                                                     step={5}
                                                     unit="px"
