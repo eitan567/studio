@@ -10,7 +10,6 @@ import {
     FileImage,
     FileText,
     Share2,
-    LogOut,
     Check,
     X,
     Pencil,
@@ -23,6 +22,7 @@ import { Input } from '@/components/ui/input';
 import { ModeToggle } from '@/components/mode-toggle';
 import { cn } from '@/lib/utils';
 import { AdminSettingsDialog } from '@/components/admin/admin-settings-dialog';
+import { UserNav } from '@/components/user-nav';
 
 interface AlbumEditorToolbarProps {
     albumName: string;
@@ -35,7 +35,6 @@ interface AlbumEditorToolbarProps {
     onExportPdf: () => void;
     isExporting: boolean;
     onShare: () => void;
-    onLogout: () => void;
 }
 
 export function AlbumEditorToolbar({
@@ -49,7 +48,6 @@ export function AlbumEditorToolbar({
     onExportPdf,
     isExporting,
     onShare,
-    onLogout,
 }: AlbumEditorToolbarProps) {
     const router = useRouter();
     const { isAdmin } = useAuth();
@@ -181,10 +179,7 @@ export function AlbumEditorToolbar({
                     <span className="hidden sm:inline">Share</span>
                 </Button>
                 <div className="h-4 w-px bg-border mx-1" />
-                <Button variant="ghost" size="sm" className="gap-2 text-destructive hover:text-destructive" onClick={onLogout}>
-                    <LogOut className="h-4 w-4" />
-                    <span className="hidden sm:inline">Logout</span>
-                </Button>
+                <UserNav showSettingsLink={false} />
             </div>
         </div>
     );

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
 import { User, AuthChangeEvent, Session } from '@supabase/supabase-js'
 import { createClient, signOut as supabaseSignOut } from '@/lib/supabase'
 
@@ -17,6 +18,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+    const router = useRouter()
     const [user, setUser] = useState<User | null>(null)
     const [role, setRole] = useState<UserRole | null>(null)
     const [isLoading, setIsLoading] = useState(true)
@@ -86,7 +88,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null)
         setRole(null)
         localStorage.removeItem('album_studio_user_settings')
-    }, [])
+        router.push('/')
+        router.refresh()
+    }, [router])
 
     const isAdmin = role === 'ADMIN'
 

@@ -5,12 +5,13 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Eye, EyeOff } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { signUp, signIn, signInWithGoogle } from '@/lib/supabase';
 
@@ -72,6 +73,8 @@ export function UserAuthForm({ className, mode, ...props }: UserAuthFormProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
   const [isGoogleLoading, setIsGoogleLoading] = React.useState<boolean>(false);
+  const [showPassword, setShowPassword] = React.useState<boolean>(false);
+  const [rememberMe, setRememberMe] = React.useState<boolean>(false);
 
   const redirectTo = searchParams.get('redirectTo') || '/dashboard';
 
@@ -80,10 +83,22 @@ export function UserAuthForm({ className, mode, ...props }: UserAuthFormProps) {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<LoginFormData | SignupFormData>({
     resolver: zodResolver(schema),
   });
+
+  // Load saved email for "Remember Me"
+  React.useEffect(() => {
+    if (mode === 'login') {
+      const savedEmail = localStorage.getItem('savedEmail');
+      if (savedEmail) {
+        setValue('email', savedEmail);
+        setRememberMe(true);
+      }
+    }
+  }, [mode, setValue]);
 
   async function onSubmit(data: LoginFormData | SignupFormData) {
     setIsLoading(true);
@@ -98,10 +113,18 @@ export function UserAuthForm({ className, mode, ...props }: UserAuthFormProps) {
           description: 'Please check your email to verify your account.',
         });
 
-        // For development, auto-redirect (in production, might want to wait for email verification)
-        router.push(redirectTo);
+        // Use window.location for robust browser password saving detection
+        window.location.href = redirectTo;
       } else {
         const loginData = data as LoginFormData;
+
+        // Handle Remember Me logic
+        if (rememberMe) {
+          localStorage.setItem('savedEmail', loginData.email);
+        } else {
+          localStorage.removeItem('savedEmail');
+        }
+
         await signIn(loginData.email, loginData.password);
 
         toast({
@@ -109,8 +132,9 @@ export function UserAuthForm({ className, mode, ...props }: UserAuthFormProps) {
           description: 'You are now signed in.',
         });
 
-        router.push(redirectTo);
-        router.refresh();
+        // Small delay + full reload to ensure browser password prompt
+        await new Promise(resolve => setTimeout(resolve, 500));
+        window.location.href = redirectTo;
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'An error occurred';
@@ -129,7 +153,6 @@ export function UserAuthForm({ className, mode, ...props }: UserAuthFormProps) {
 
     try {
       await signInWithGoogle();
-      // Google OAuth redirects, so we don't need to handle success here
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Google sign-in failed';
       toast({
@@ -171,7 +194,7 @@ export function UserAuthForm({ className, mode, ...props }: UserAuthFormProps) {
               placeholder="name@example.com"
               type="email"
               autoCapitalize="none"
-              autoComplete="email"
+              autoComplete="username"
               autoCorrect="off"
               disabled={isLoading}
               {...register('email')}
@@ -184,19 +207,54 @@ export function UserAuthForm({ className, mode, ...props }: UserAuthFormProps) {
           </div>
           <div className="grid gap-1">
             <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              placeholder="Your Password"
-              type="password"
-              disabled={isLoading}
-              {...register('password')}
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                placeholder="Your Password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                disabled={isLoading}
+                className="pr-10"
+                {...register('password')}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex={-1}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span className="sr-only">
+                  {showPassword ? 'Hide password' : 'Show password'}
+                </span>
+              </Button>
+            </div>
             {errors.password && (
               <p className="px-1 text-xs text-destructive">
                 {errors.password.message}
               </p>
             )}
           </div>
+
+          {mode === 'login' && (
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="remember"
+                checked={rememberMe}
+                onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+              />
+              <Label htmlFor="remember" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                Remember me
+              </Label>
+            </div>
+          )}
+
           <Button disabled={isLoading || isGoogleLoading} className="mt-2">
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {mode === 'login' ? 'Sign In' : 'Create Account'}
