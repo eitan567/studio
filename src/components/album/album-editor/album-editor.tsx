@@ -1826,7 +1826,7 @@ function NavigationControls({
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => scrollToIndex(0)}>
+              <Button variant="ghost" size="icon" className="h-10 w-6 rounded-full" onClick={() => scrollToIndex(0)}>
                 <ChevronsUp className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
@@ -1852,7 +1852,7 @@ function NavigationControls({
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => scrollToIndex(totalPages - 1)}>
+              <Button variant="ghost" size="icon" className="h-10 w-6 rounded-full" onClick={() => scrollToIndex(totalPages - 1)}>
                 <ChevronsDown className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
@@ -1866,7 +1866,7 @@ function NavigationControls({
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => handleStepJump('up')}>
+              <Button variant="ghost" size="icon" className="h-10 w-6 rounded-full" onClick={() => handleStepJump('up')}>
                 <ChevronUp className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
@@ -1887,7 +1887,7 @@ function NavigationControls({
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => handleStepJump('down')}>
+              <Button variant="ghost" size="icon" className="h-10 w-6 rounded-full" onClick={() => handleStepJump('down')}>
                 <ChevronDown className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
