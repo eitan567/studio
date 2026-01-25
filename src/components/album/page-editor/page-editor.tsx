@@ -736,7 +736,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
           </div>
 
           {/* Main Content: Album Preview */}
-          <div className="flex-1 min-w-0 pl-6 pt-4" style={{ colorScheme: 'light' }}>
+          <div className="flex-1 min-w-0 pr-6 pt-4" style={{ colorScheme: 'light' }}>
             {isLoading || isAlbumLoading || !isInitialized ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center animate-in fade-in duration-300 bg-muted/30 border-2 border-dashed rounded-lg">
                 <Loader2 className="h-12 w-12 mb-4 animate-spin text-primary" />
@@ -777,12 +777,12 @@ export function PageEditor({ albumId }: PageEditorProps) {
           {/* Gallery Control Strip */}
           <div className="w-[1px] shrink-0 bg-border z-20 flex flex-col items-center justify-center relative overflow-visible">
             {/* Buttons attached to the strip */}
-            <div className="absolute top-8 -translate-y-1/2 flex flex-col gap-1 -right-3 translate-x-[50%] z-30">
+            <div className="absolute top-8 -translate-y-1/2 flex flex-col gap-1 -right-2 translate-x-[50%] z-30">
               {/* Collapsed Mode: Show Left Arrow to open */}
               {galleryMode === 'collapsed' && (
                 <Button
                   variant="secondary" size="icon"
-                  className="h-10 w-6 rounded-l-md rounded-r-none border shadow-md bg-background -translate-x-full"
+                  className="h-10 w-4 rounded-l-md rounded-r-none border shadow-md bg-background -translate-x-full"
                   onClick={() => setGalleryMode('default')}
                   title="Open Gallery"
                 >
@@ -795,7 +795,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
                 <div className="flex flex-col gap-1 -translate-x-full">
                   <Button
                     variant="secondary" size="icon"
-                    className="h-8 w-6 rounded-l-md rounded-r-none border shadow-sm bg-background"
+                    className="h-8 w-4 rounded-l-md rounded-r-none border shadow-sm bg-background"
                     onClick={() => setGalleryMode('expanded')}
                     title="Maximize Width"
                   >
@@ -803,7 +803,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
                   </Button>
                   <Button
                     variant="secondary" size="icon"
-                    className="h-8 w-6 rounded-l-md rounded-r-none border shadow-sm bg-background"
+                    className="h-8 w-4 rounded-l-md rounded-r-none border shadow-sm bg-background"
                     onClick={() => setGalleryMode('collapsed')}
                     title="Collapse"
                   >
@@ -816,7 +816,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
               {galleryMode === 'expanded' && (
                 <Button
                   variant="secondary" size="icon"
-                  className="h-10 w-6 rounded-l-md rounded-r-none border shadow-md bg-background -translate-x-full"
+                  className="h-10 w-4 rounded-l-md rounded-r-none border shadow-md bg-background -translate-x-full"
                   onClick={() => setGalleryMode('default')}
                   title="Restore Standard Width"
                 >

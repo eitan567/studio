@@ -1314,7 +1314,7 @@ const ScaledCoverPreview = React.memo(({
 
       const scaleX = availW / logicalWidth;
       const scaleY = availH / logicalHeight;
-      const fitScale = Math.min(scaleX, scaleY) * 0.92;
+      const fitScale = Math.min(scaleX, scaleY) * 0.94;
       setScale(fitScale);
     };
     measure();
@@ -1523,7 +1523,7 @@ export function AlbumEditor({
         ref={scrollAreaRef}
         className="h-[91vh] w-full"
         style={{ overflowY: isInteracting ? 'hidden' : 'auto' }}
-        scrollBarSide="left"
+        scrollBarSide="rightWide"
         thumbClassName="min-h-[50px]"
       >
         <div className="space-y-8 pb-4">
@@ -1560,7 +1560,7 @@ export function AlbumEditor({
               >
                 <div className="w-full relative group/page">
 
-                  <div className={cn("h-18 px-14", page.type === 'single' ? 'w-1/2 mx-auto' : 'w-full')}>
+                  <div className={cn("h-18 px-10", page.type === 'single' ? 'w-1/2 mx-auto' : 'w-full')}>
                     <PageToolbar
                       page={page}
                       pageNumber={index} // Keep for internal logic if needed, but display comes from label
@@ -1735,7 +1735,7 @@ function ScrollToTopButton({ scrollAreaRef }: { scrollAreaRef: React.RefObject<H
       variant="secondary"
       size="icon"
       className={cn(
-        "absolute bottom-6 right-2 z-49 rounded-full shadow-lg transition-all duration-300",
+        "absolute bottom-6 -right-3 z-49 rounded-full shadow-lg transition-all duration-300",
         isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10 pointer-events-none"
       )}
       onClick={scrollToTop}
@@ -1820,7 +1820,7 @@ function NavigationControls({
   };
 
   return (
-    <div className="absolute right-6 top-1/2 -translate-y-1/2 translate-x-1/2 z-49 flex flex-col gap-24 w-8">
+    <div className="absolute right-2 top-1/2 -translate-y-1/2 translate-x-1/2 z-49 flex flex-col gap-4 w-8">
       {/* Absolute Jump (Start/End/Specific) */}
       <div className="flex flex-col items-center gap-2 bg-background/90 backdrop-blur-sm p-1.5 rounded-full shadow-lg border">
         <TooltipProvider>
