@@ -1,115 +1,89 @@
-/**
- * Seed Templates Script
- * 
- * Populates the templates table with existing static templates.
- * Run with: npx tsx scripts/seed-templates.ts
- */
 
 import { createClient } from '@supabase/supabase-js';
-import * as dotenv from 'dotenv';
-import * as path from 'path';
+import dotenv from 'dotenv';
+import path from 'path';
 
-// Load .env.local
+// Load environment variables from .env.local
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
-// Import templates - using require for compatibility
-const { LAYOUT_TEMPLATES, COVER_TEMPLATES } = require('../src/components/album/layout-templates');
-const { ADVANCED_TEMPLATES } = require('../src/lib/advanced-layout-types');
+// Import static templates
+// Note: We need to use relative paths from scripts/ directory
+import { LAYOUT_TEMPLATES } from '../src/components/album/layouts/templates';
+import { COVER_TEMPLATES } from '../src/components/album/layouts/templates';
+import { ADVANCED_TEMPLATES } from '../src/lib/advanced-layout-types';
 
-// Load environment variables
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseServiceKey) {
-    console.error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+if (!supabaseUrl || !supabaseKey) {
+    console.error('Missing Supabase credentials in .env.local');
     process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// Create Supabase client directly (bypassing app logic)
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function seedTemplates() {
-    console.log('🌱 Seeding templates...\n');
+    console.log(`Connecting to Supabase at ${supabaseUrl}...`);
 
-    // Prepare grid templates
-    const gridTemplates = LAYOUT_TEMPLATES.map((t, i) => ({
+    // Transform Static Grid Templates to DB Schema
+    const gridRows = LAYOUT_TEMPLATES.map((t, index) => ({
         id: t.id,
         name: t.name,
         type: 'grid',
-        category: 'layout',
-        photo_count: t.grid.length,
         grid: t.grid,
-        regions: null,
-        created_by: 'system',
-        is_system: true,
+        photo_count: t.grid.length,
         is_active: true,
-        sort_order: i,
+        sort_order: index,
+        created_at: new Date().toISOString()
     }));
 
-    // Prepare cover templates
-    const coverTemplates = COVER_TEMPLATES.map((t, i) => ({
-        id: `cover-${t.id}`,
+    // Transform Static Cover Templates
+    const coverRows = COVER_TEMPLATES.map((t, index) => ({
+        id: t.id,
         name: t.name,
         type: 'cover',
-        category: 'cover',
-        photo_count: t.grid.length,
         grid: t.grid,
-        regions: null,
-        created_by: 'system',
-        is_system: true,
+        photo_count: t.grid.length,
         is_active: true,
-        sort_order: i,
+        sort_order: index,
+        created_at: new Date().toISOString()
     }));
 
-    // Prepare advanced templates
-    const advancedTemplates = ADVANCED_TEMPLATES.map((t, i) => ({
+    // Transform Static Advanced Templates
+    const advancedRows = ADVANCED_TEMPLATES.map((t, index) => ({
         id: t.id,
         name: t.name,
         type: 'advanced',
         category: t.category,
         photo_count: t.photoCount,
-        grid: null,
         regions: t.regions,
-        created_by: t.createdBy || 'system',
-        is_system: true,
+        created_by: t.createdBy,
         is_active: true,
-        sort_order: i,
+        sort_order: index,
+        created_at: new Date().toISOString()
     }));
 
-    const allTemplates = [...gridTemplates, ...coverTemplates, ...advancedTemplates];
+    const rawTemplates = [...gridRows, ...coverRows, ...advancedRows];
 
-    console.log(`📦 Preparing ${gridTemplates.length} grid, ${coverTemplates.length} cover, ${advancedTemplates.length} advanced templates\n`);
+    // Deduplicate by ID (latest wins)
+    const uniqueTemplates = Array.from(
+        new Map(rawTemplates.map(item => [item.id, item])).values()
+    );
 
-    // Upsert all templates (update if exists, insert if not)
-    const { data, error } = await supabase
+    console.log(`Found ${uniqueTemplates.length} unique templates to sync (from ${rawTemplates.length} total).`);
+
+    // Upsert
+    const { error } = await supabase
         .from('templates')
-        .upsert(allTemplates, { onConflict: 'id' })
-        .select();
+        .upsert(uniqueTemplates, { onConflict: 'id' });
 
     if (error) {
-        console.error('❌ Error seeding templates:', error);
+        console.error('Error seeding templates:', error);
         process.exit(1);
     }
 
-    console.log(`✅ Successfully seeded ${data?.length || 0} templates!\n`);
-
-    // Show summary
-    const summary = await supabase
-        .from('templates')
-        .select('type')
-        .eq('is_active', true);
-
-    if (summary.data) {
-        const counts = summary.data.reduce((acc: Record<string, number>, t) => {
-            acc[t.type] = (acc[t.type] || 0) + 1;
-            return acc;
-        }, {});
-        console.log('📊 Template counts in DB:');
-        console.log(`   Grid: ${counts.grid || 0}`);
-        console.log(`   Cover: ${counts.cover || 0}`);
-        console.log(`   Advanced: ${counts.advanced || 0}`);
-    }
-
-    console.log('\n🎉 Done!');
+    console.log('Successfully seeded templates!');
 }
 
-seedTemplates().catch(console.error);
+seedTemplates();
