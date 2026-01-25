@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, createContext, useContext, ReactNode 
 import { User, AuthChangeEvent, Session } from '@supabase/supabase-js'
 import { createClient, signOut as supabaseSignOut } from '@/lib/supabase'
 
-export type UserRole = 'user' | 'admin'
+export type UserRole = 'USER' | 'ADMIN' | 'GUEST' // Updated types
 
 interface AuthContextType {
     user: User | null
@@ -36,10 +36,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(currentUser);
 
             if (currentUser) {
-                // Read directly from metadata
-                const metaRole = currentUser.app_metadata?.role as UserRole;
+                // Read directly from metadata and normalize
+                const rawRole = currentUser.app_metadata?.role as string;
+                const metaRole = rawRole?.toUpperCase() as UserRole;
                 console.log('[useAuth] Role from metadata:', metaRole);
-                setRole(metaRole || 'user');
+                setRole(metaRole || 'USER');
             } else {
                 setRole(null);
             }
@@ -58,12 +59,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setUser(currentUser);
 
                 if (currentUser) {
-                    const metaRole = currentUser.app_metadata?.role as UserRole;
+                    const rawRole = currentUser.app_metadata?.role as string;
+                    const metaRole = rawRole?.toUpperCase() as UserRole;
                     // Update role if changed
                     if (metaRole && metaRole !== role) {
                         setRole(metaRole);
                     } else if (!role) {
-                        setRole(metaRole || 'user');
+                        setRole(metaRole || 'USER');
                     }
                 } else {
                     setRole(null);
@@ -86,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('album_studio_user_settings')
     }, [])
 
-    const isAdmin = role === 'admin'
+    const isAdmin = role === 'ADMIN'
 
     const value = {
         user,

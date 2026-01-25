@@ -2,12 +2,11 @@
  * Template Cache - Module-Level In-Memory Cache
  * 
  * Loads templates from Supabase once per server instance.
- * Falls back to static templates if DB is unavailable.
+ * STRICT MODE: Only loads from DB. No static fallback.
  */
 
 import { createClient } from '@/lib/supabase';
-import { LAYOUT_TEMPLATES as STATIC_LAYOUT_TEMPLATES, COVER_TEMPLATES as STATIC_COVER_TEMPLATES } from '@/components/album/layouts/templates';
-import { ADVANCED_TEMPLATES as STATIC_ADVANCED_TEMPLATES, AdvancedTemplate } from '@/lib/advanced-layout-types';
+import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 
 // Types
 export interface GridTemplate {
@@ -17,11 +16,16 @@ export interface GridTemplate {
     photoCount?: number; // Optional, derived from grid.length if not specified
 }
 
+// Internal DB Row Type (Reflects Joined Data)
 export interface DBTemplate {
     id: string;
     name: string;
-    type: 'grid' | 'advanced' | 'cover';
-    category?: string;
+    type_id: number;
+    category_id: number;
+    // Joined relations
+    template_type?: { code: string };
+    template_category?: { code: string };
+    // Other fields
     photo_count: number;
     grid?: string[];
     regions?: AdvancedTemplate['regions'];
@@ -56,47 +60,60 @@ async function initializeCache(): Promise<void> {
     try {
         const supabase = createClient();
 
-        // Fetch all active templates
+        // Fetch all active templates with Joins
+        // resolving type_id -> template_type.code
         const { data, error } = await supabase
             .from('templates')
-            .select('*')
+            .select(`
+                *,
+                template_type:template_types ( code ),
+                template_category:template_categories ( code )
+            `)
             .eq('is_active', true)
             .order('sort_order');
 
         if (error) throw error;
 
         if (data && data.length > 0) {
-            // Separate by type
-            gridTemplatesCache = data
-                .filter((t: DBTemplate) => t.type === 'grid')
-                .map((t: DBTemplate) => ({
-                    id: t.id,
-                    name: t.name,
-                    grid: t.grid || []
-                }));
 
-            advancedTemplatesCache = data
-                .filter((t: DBTemplate) => t.type === 'advanced')
-                .map((t: DBTemplate) => ({
-                    id: t.id,
-                    name: t.name,
-                    category: t.category as AdvancedTemplate['category'],
-                    photoCount: t.photo_count,
-                    regions: t.regions || [],
-                    createdBy: t.created_by as AdvancedTemplate['createdBy'],
-                }));
+            // Logic: GRID vs ADVANCED based on JOINED code
+            // We default to 'GRID' if join fails/missing
 
-            coverTemplatesCache = data
-                .filter((t: DBTemplate) => t.type === 'cover')
-                .map((t: DBTemplate) => ({
-                    id: t.id,
-                    name: t.name,
-                    grid: t.grid || []
-                }));
+            const rawGrids = data.filter((t: DBTemplate) => {
+                const code = t.template_type?.code;
+                return code === 'GRID' || !code;
+            });
 
-            console.log(`[TemplateCache] Loaded ${gridTemplatesCache.length} grid, ${advancedTemplatesCache.length} advanced, ${coverTemplatesCache.length} cover templates from DB`);
+            const rawAdvanced = data.filter((t: DBTemplate) =>
+                t.template_type?.code === 'ADVANCED'
+            );
+
+            gridTemplatesCache = rawGrids.map((t: DBTemplate) => ({
+                id: t.id,
+                name: t.name,
+                grid: t.grid || []
+            }));
+
+            // Covers are grids
+            coverTemplatesCache = [...gridTemplatesCache];
+
+            advancedTemplatesCache = rawAdvanced.map((t: DBTemplate) => ({
+                id: t.id,
+                name: t.name,
+                // Use joined category code
+                category: (t.template_category?.code?.toLowerCase() || 'custom') as AdvancedTemplate['category'],
+                photoCount: t.photo_count,
+                regions: t.regions || [],
+                createdBy: t.created_by as AdvancedTemplate['createdBy'],
+                isCustom: t.created_by === 'user'
+            }));
+
+            console.log(`[TemplateCache] Loaded ${gridTemplatesCache.length} grid, ${advancedTemplatesCache.length} advanced from DB`);
         } else {
-            console.log('[TemplateCache] No templates in DB, using static fallback');
+            console.warn('[TemplateCache] No templates found in DB.');
+            gridTemplatesCache = [];
+            advancedTemplatesCache = [];
+            coverTemplatesCache = [];
         }
 
         cacheInitialized = true;
@@ -104,11 +121,15 @@ async function initializeCache(): Promise<void> {
         cacheError = null;
 
     } catch (error) {
-        console.error('[TemplateCache] Failed to load from DB, using static fallback:', error);
+        console.error('[TemplateCache] Failed to load from DB:', error);
         cacheError = error as Error;
-        // Keep using static templates as fallback
-        cacheInitialized = true; // Prevent repeated failed attempts
-        cacheExpiry = now + (5 * 60 * 1000); // Retry in 5 minutes on error
+        // NO FALLBACK
+        gridTemplatesCache = [];
+        advancedTemplatesCache = [];
+        coverTemplatesCache = [];
+
+        // Don't mark initialized so we retry next time
+        cacheInitialized = false;
     }
 }
 
@@ -117,10 +138,7 @@ async function initializeCache(): Promise<void> {
  */
 export async function getGridTemplates(): Promise<GridTemplate[]> {
     await initializeCache();
-    if (gridTemplatesCache && gridTemplatesCache.length > 0) {
-        return gridTemplatesCache;
-    }
-    return STATIC_LAYOUT_TEMPLATES;
+    return gridTemplatesCache || [];
 }
 
 /**
@@ -128,10 +146,7 @@ export async function getGridTemplates(): Promise<GridTemplate[]> {
  */
 export async function getAdvancedTemplates(): Promise<AdvancedTemplate[]> {
     await initializeCache();
-    if (advancedTemplatesCache && advancedTemplatesCache.length > 0) {
-        return advancedTemplatesCache;
-    }
-    return STATIC_ADVANCED_TEMPLATES;
+    return advancedTemplatesCache || [];
 }
 
 /**
@@ -139,10 +154,7 @@ export async function getAdvancedTemplates(): Promise<AdvancedTemplate[]> {
  */
 export async function getCoverTemplates(): Promise<GridTemplate[]> {
     await initializeCache();
-    if (coverTemplatesCache && coverTemplatesCache.length > 0) {
-        return coverTemplatesCache;
-    }
-    return STATIC_COVER_TEMPLATES;
+    return coverTemplatesCache || [];
 }
 
 /**
@@ -159,27 +171,19 @@ export async function getAllTemplates() {
 
 /**
  * SYNC versions for use in components that can't be async
- * These return cached data or static fallback immediately
+ * Note: If cache isn't loaded, these return empty arrays.
+ * Components should handle empty states or trigger preload.
  */
 export function getGridTemplatesSync(): GridTemplate[] {
-    if (gridTemplatesCache && gridTemplatesCache.length > 0) {
-        return gridTemplatesCache;
-    }
-    return STATIC_LAYOUT_TEMPLATES;
+    return gridTemplatesCache || [];
 }
 
 export function getAdvancedTemplatesSync(): AdvancedTemplate[] {
-    if (advancedTemplatesCache && advancedTemplatesCache.length > 0) {
-        return advancedTemplatesCache;
-    }
-    return STATIC_ADVANCED_TEMPLATES;
+    return advancedTemplatesCache || [];
 }
 
 export function getCoverTemplatesSync(): GridTemplate[] {
-    if (coverTemplatesCache && coverTemplatesCache.length > 0) {
-        return coverTemplatesCache;
-    }
-    return STATIC_COVER_TEMPLATES;
+    return coverTemplatesCache || [];
 }
 
 /**
@@ -209,9 +213,8 @@ export function getCacheStatus() {
     return {
         initialized: cacheInitialized,
         expiresAt: cacheExpiry ? new Date(cacheExpiry).toISOString() : null,
-        gridCount: gridTemplatesCache?.length ?? 'using static',
-        advancedCount: advancedTemplatesCache?.length ?? 'using static',
-        coverCount: coverTemplatesCache?.length ?? 'using static',
+        gridCount: gridTemplatesCache?.length ?? 0,
+        advancedCount: advancedTemplatesCache?.length ?? 0,
         error: cacheError?.message ?? null,
     };
 }

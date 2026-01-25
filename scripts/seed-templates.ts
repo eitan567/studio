@@ -26,52 +26,82 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 async function seedTemplates() {
     console.log(`Connecting to Supabase at ${supabaseUrl}...`);
 
-    // Transform Static Grid Templates to DB Schema
-    const gridRows = LAYOUT_TEMPLATES.map((t, index) => ({
+    // 1. Seed Reference Tables
+    console.log('Seeding Types and Categories...');
+
+    const types = [
+        { id: 1, code: 'GRID', description: 'Standard grid layouts' },
+        { id: 2, code: 'ADVANCED', description: 'Advanced layouts' }
+    ];
+    const { error: typesError } = await supabase.from('template_types').upsert(types);
+    if (typesError) throw typesError;
+
+    const categories = [
+        { id: 1, code: 'GRID', label: 'Grid' },
+        { id: 2, code: 'GEOMETRIC', label: 'Geometric' },
+        { id: 3, code: 'ARTISTIC', label: 'Artistic' },
+        { id: 4, code: 'DIAGONAL', label: 'Diagonal' },
+        { id: 5, code: 'CUSTOM', label: 'Custom' }
+    ];
+    // Helper to find cat ID
+    const getCatId = (code: string) => categories.find(c => c.code === code)?.id || 1;
+
+    const { error: catsError } = await supabase.from('template_categories').upsert(categories);
+    if (catsError) throw catsError;
+
+    // 2. Transform Templates
+
+    // Transform Static Grid Templates
+    const gridRows = LAYOUT_TEMPLATES.map((t) => ({
         id: t.id,
         name: t.name,
-        type: 'grid',
+        type_id: 1, // GRID
+        category_id: 1, // GRID
         grid: t.grid,
         photo_count: t.grid.length,
         is_active: true,
-        sort_order: index,
         created_at: new Date().toISOString()
     }));
 
     // Transform Static Cover Templates
-    const coverRows = COVER_TEMPLATES.map((t, index) => ({
+    const coverRows = COVER_TEMPLATES.map((t) => ({
         id: t.id,
         name: t.name,
-        type: 'cover',
+        type_id: 1, // GRID
+        category_id: 1, // GRID
         grid: t.grid,
         photo_count: t.grid.length,
         is_active: true,
-        sort_order: index,
         created_at: new Date().toISOString()
     }));
 
     // Transform Static Advanced Templates
-    const advancedRows = ADVANCED_TEMPLATES.map((t, index) => ({
+    const advancedRows = ADVANCED_TEMPLATES.map((t) => ({
         id: t.id,
         name: t.name,
-        type: 'advanced',
-        category: t.category,
+        type_id: 2, // ADVANCED
+        category_id: getCatId(t.category.toUpperCase()),
         photo_count: t.photoCount,
         regions: t.regions,
         created_by: t.createdBy,
         is_active: true,
-        sort_order: index,
         created_at: new Date().toISOString()
     }));
 
     const rawTemplates = [...gridRows, ...coverRows, ...advancedRows];
 
     // Deduplicate by ID (latest wins)
-    const uniqueTemplates = Array.from(
+    let uniqueTemplates = Array.from(
         new Map(rawTemplates.map(item => [item.id, item])).values()
     );
 
-    console.log(`Found ${uniqueTemplates.length} unique templates to sync (from ${rawTemplates.length} total).`);
+    // Assign sequential sort_order (1..N) after deduplication
+    uniqueTemplates = uniqueTemplates.map((t, index) => ({
+        ...t,
+        sort_order: index + 1
+    }));
+
+    console.log(`Found ${uniqueTemplates.length} unique templates to sync.`);
 
     // Upsert
     const { error } = await supabase
@@ -86,4 +116,7 @@ async function seedTemplates() {
     console.log('Successfully seeded templates!');
 }
 
-seedTemplates();
+seedTemplates().catch(err => {
+    console.error('Fatal Script Error:', err);
+    process.exit(1);
+});

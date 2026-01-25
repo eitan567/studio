@@ -2,22 +2,18 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LogIn, User } from 'lucide-react';
+import { LogIn } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/icons';
 import { ModeToggle } from '@/components/mode-toggle';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { UserNav } from '@/components/user-nav';
+import { useAuth } from '@/hooks/useAuth';
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const { user, isLoading } = useAuth();
   const isDashboard = pathname.startsWith('/dashboard') || pathname.startsWith('/album');
 
   return (
@@ -30,24 +26,14 @@ export function SiteHeader() {
           </Link>
         </div>
         <div className="flex flex-1 items-center justify-end space-x-2">
-          <nav className="flex items-center gap-1">
+          <nav className="flex items-center gap-1 mr-2">
             <ModeToggle />
           </nav>
-          {isDashboard ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="secondary" className="relative h-8 w-8 rounded-full">
-                  <User className="h-5 w-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuItem>Profile</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/">Log out</Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+
+          {isLoading ? (
+            <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />
+          ) : user ? (
+            <UserNav showSettingsLink={!isDashboard} />
           ) : (
             <nav className="flex items-center gap-2">
               <Button variant="ghost" asChild>
