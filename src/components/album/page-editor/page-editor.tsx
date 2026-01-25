@@ -7,6 +7,10 @@ import {
   Upload,
   Eraser,
   RotateCcw,
+  ChevronLeft,
+  ChevronRight,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
@@ -366,55 +370,18 @@ export function PageEditor({ albumId }: PageEditorProps) {
   const [isClient, setIsClient] = useState(false);
   // allowDuplicates moved up
   const [multiSelectMode, setMultiSelectModeLocal] = useState(false); // true = checkboxes, false = trash icons
-  const [galleryWidth, setGalleryWidth] = useState(350);
-  const [isResizingGallery, setIsResizingGallery] = useState(false);
-  const isResizingRef = useRef(false);
-  const initialXRef = useRef(0);
-  const initialWidthRef = useRef(0);
-  const galleryRef = useRef<HTMLDivElement>(null);
+  // Gallery Sidebar State
+  type GalleryMode = 'collapsed' | 'default' | 'expanded';
+  const [galleryMode, setGalleryMode] = useState<GalleryMode>('default');
 
-  const startResizing = useCallback((e: React.MouseEvent) => {
-    isResizingRef.current = true;
-    initialXRef.current = e.clientX;
-    initialWidthRef.current = galleryRef.current?.offsetWidth || galleryWidth;
-    setIsResizingGallery(true);
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', stopResizing);
-    document.body.style.cursor = 'grabbing';
-    document.body.style.userSelect = 'none';
-    // Force light scheme (dark cursor) during resize to prevent white-on-white cursor
-    document.documentElement.style.colorScheme = 'light';
-  }, [galleryWidth]);
-
-  const stopResizing = useCallback(() => {
-    isResizingRef.current = false;
-    setIsResizingGallery(false);
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', stopResizing);
-    document.body.style.cursor = 'default';
-    document.body.style.userSelect = 'auto';
-    // Revert color scheme override
-    document.documentElement.style.colorScheme = '';
-
-    // Sync final width back to state on release - this triggers the expensive layout
-    if (galleryRef.current) {
-      setGalleryWidth(galleryRef.current.offsetWidth);
+  const getGalleryWidth = (mode: GalleryMode) => {
+    switch (mode) {
+      case 'collapsed': return 0;
+      case 'expanded': return 525;
+      default: return 356;
     }
-  }, []);
+  };
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isResizingRef.current || !galleryRef.current) return;
-
-    // Calculate delta relative to start position
-    const deltaX = e.clientX - initialXRef.current;
-    // New width = initial width - delta (dragging left increases width)
-    const newWidth = initialWidthRef.current - deltaX;
-
-    if (newWidth > 200 && newWidth < 800) {
-      // Direct DOM update for performance - NO re-renders during drag
-      galleryRef.current.style.width = `${newWidth}px`;
-    }
-  }, []);
 
   const [photoGap, setPhotoGap] = useState(2);
   const [pageMargin, setPageMargin] = useState(0);
@@ -807,55 +774,91 @@ export function PageEditor({ albumId }: PageEditorProps) {
             )}
           </div>
 
-          {/* Resizer Handle */}
-          <div
-            onMouseDown={startResizing}
-            className="w-2 shrink-0 bg-transparent cursor-grab group relative self-stretch z-10"
-            title="Drag to resize gallery"
-          >
-            {/* Permanent solid primary line - matching your design */}
-            <div className="absolute inset-y-0 left-1 -translate-x-1/2 w-[6px] bg-primary h-full" />
+          {/* Gallery Control Strip */}
+          <div className="w-[1px] shrink-0 bg-border z-20 flex flex-col items-center justify-center relative overflow-visible">
+            {/* Buttons attached to the strip */}
+            <div className="absolute top-8 -translate-y-1/2 flex flex-col gap-1 -right-3 translate-x-[50%] z-30">
+              {/* Collapsed Mode: Show Left Arrow to open */}
+              {galleryMode === 'collapsed' && (
+                <Button
+                  variant="secondary" size="icon"
+                  className="h-10 w-6 rounded-l-md rounded-r-none border shadow-md bg-background -translate-x-full"
+                  onClick={() => setGalleryMode('default')}
+                  title="Open Gallery"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+              )}
 
-            {/* Permanent primary pill - matching your design */}
-            <div className="absolute top-1/2 left-1 -translate-x-1/2 -translate-y-1/2 w-5 h-12 rounded-full bg-primary shadow-md flex items-center justify-center opacity-100 group-active:scale-95 transition-all pointer-events-none">
-              <div className="flex gap-[2px]">
-                <div className="w-[1.5px] h-4 bg-primary-foreground/60" />
-                <div className="w-[1.5px] h-4 bg-primary-foreground/60" />
-              </div>
+              {/* Default Mode: Show Left (Expand) and Right (Collapse) */}
+              {galleryMode === 'default' && (
+                <div className="flex flex-col gap-1 -translate-x-full">
+                  <Button
+                    variant="secondary" size="icon"
+                    className="h-8 w-6 rounded-l-md rounded-r-none border shadow-sm bg-background"
+                    onClick={() => setGalleryMode('expanded')}
+                    title="Maximize Width"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="secondary" size="icon"
+                    className="h-8 w-6 rounded-l-md rounded-r-none border shadow-sm bg-background"
+                    onClick={() => setGalleryMode('collapsed')}
+                    title="Collapse"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+
+              {/* Expanded Mode: Show Right Arrow to shrink */}
+              {galleryMode === 'expanded' && (
+                <Button
+                  variant="secondary" size="icon"
+                  className="h-10 w-6 rounded-l-md rounded-r-none border shadow-md bg-background -translate-x-full"
+                  onClick={() => setGalleryMode('default')}
+                  title="Restore Standard Width"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
 
-          {/* Right Panel: Photo Gallery (Resizable) */}
+          {/* Right Panel: Photo Gallery */}
           <div
-            ref={galleryRef}
-            style={{ width: `${galleryWidth}px` }}
-            className="shrink-0 min-w-[356px] max-w-[525px]"
+            style={{ width: `${getGalleryWidth(galleryMode)}px` }}
+            className="shrink-0 transition-[width] duration-300 ease-in-out overflow-hidden"
           >
-            <PhotoGalleryCard
-              allPhotos={sortedPhotos}
-              isLoadingPhotos={isLoadingPhotos || isAlbumLoading}
-              isResizing={isResizingGallery}
-              photoUsageDetails={photoUsageDetails}
-              chronologicalIndex={chronologicalIndex}
-              emptySlots={emptySlots}
-              allowDuplicates={allowDuplicates}
-              setAllowDuplicates={setAllowDuplicates}
-              multiSelectMode={multiSelectMode}
-              setMultiSelectMode={setMultiSelectMode}
-              randomSeed={randomSeed}
-              generateDummyPhotos={generateDummyPhotos}
-              handleGenerateAlbum={handleGenerateAlbum}
-              handleAutoFillAlbum={handleAutoFillAlbum}
-              handleClearGallery={handleClearGallery}
-              handleResetAlbum={handleResetAlbum}
-              handleSortPhotos={handleSortPhotos}
-              processUploadedFiles={processUploadedFiles}
-              onDeletePhotos={handleDeletePhotos}
-              onRemovePhotosFromAlbum={handleRemovePhotosFromAlbum}
-              photoScrollRef={photoScrollRef}
-              folderUploadRef={folderUploadRef}
-              photoUploadRef={photoUploadRef}
-            />
+            {/* Rigid container to prevent layout thrashing during transition */}
+            <div className="h-full w-[356px] min-w-full">
+              <PhotoGalleryCard
+                allPhotos={sortedPhotos}
+                isLoadingPhotos={isLoadingPhotos || isAlbumLoading}
+                isResizing={false} // No longer used really
+                photoUsageDetails={photoUsageDetails}
+                chronologicalIndex={chronologicalIndex}
+                emptySlots={emptySlots}
+                allowDuplicates={allowDuplicates}
+                setAllowDuplicates={setAllowDuplicates}
+                multiSelectMode={multiSelectMode}
+                setMultiSelectMode={setMultiSelectMode}
+                randomSeed={randomSeed}
+                generateDummyPhotos={generateDummyPhotos}
+                handleGenerateAlbum={handleGenerateAlbum}
+                handleAutoFillAlbum={handleAutoFillAlbum}
+                handleClearGallery={handleClearGallery}
+                handleResetAlbum={handleResetAlbum}
+                handleSortPhotos={handleSortPhotos}
+                processUploadedFiles={processUploadedFiles}
+                onDeletePhotos={handleDeletePhotos}
+                onRemovePhotosFromAlbum={handleRemovePhotosFromAlbum}
+                photoScrollRef={photoScrollRef}
+                folderUploadRef={folderUploadRef}
+                photoUploadRef={photoUploadRef}
+              />
+            </div>
           </div>
         </div >
         {isBookViewOpen && (
