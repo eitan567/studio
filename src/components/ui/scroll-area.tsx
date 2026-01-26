@@ -10,14 +10,15 @@ const ScrollArea = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root> & {
     scrollBarSide?: "left" | "rightWide" | "rightThin"
     thumbClassName?: string
+    viewportRef?: React.RefObject<HTMLDivElement | null>
   }
->(({ className, children, scrollBarSide = "rightThin", thumbClassName, ...props }, ref) => (
+>(({ className, children, scrollBarSide = "rightThin", thumbClassName, viewportRef, ...props }, ref) => (
   <ScrollAreaPrimitive.Root
     ref={ref}
     className={cn("relative overflow-hidden", className)}
     {...props}
   >
-    <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit]">
+    <ScrollAreaPrimitive.Viewport ref={viewportRef} className="h-full w-full rounded-[inherit]">
       {children}
     </ScrollAreaPrimitive.Viewport>
     <ScrollBar side={scrollBarSide} thumbClassName={thumbClassName} />

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual'; // NEW
 import {
     Loader2,
     Sparkles,
@@ -38,6 +39,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, TooltipArrow 
 import { cn } from '@/lib/utils';
 import type { Photo } from '@/lib/types';
 import { ScrollToTopButton } from '../../shared/scroll-to-top-button';
+import { GalleryImage } from '@/components/gallery/gallery-image'; // NEW
 
 interface PhotoGalleryCardProps {
     allPhotos: Photo[];
@@ -80,7 +82,8 @@ const GalleryPhotoItemComponent = ({
     onSetActiveBubbleId,
     onDelete,
     onRemoveFromAlbum,
-    style
+    style,
+    onDimensionsLoaded
 }: {
     photo: Photo;
     usage?: { count: number; pages: number[] };
@@ -93,6 +96,7 @@ const GalleryPhotoItemComponent = ({
     onDelete: (id: string) => void;
     onRemoveFromAlbum: (id: string) => void;
     style?: React.CSSProperties;
+    onDimensionsLoaded?: (id: string, width: number, height: number) => void;
 }) => {
     const isUsed = !!usage;
     const hasWarning = usage && usage.count > 1;
@@ -128,9 +132,23 @@ const GalleryPhotoItemComponent = ({
                 "relative rounded-md overflow-hidden bg-muted border-2 transition-all group border-transparent cursor-grab active:cursor-grabbing hover:border-primary/50",
             )}
         >
-            <div className="relative h-full w-full transition-opacity duration-300">
-                {/* Use object-cover to ensure the justified container is filled perfectly */}
-                <img src={photo.src} alt={photo.alt} className="w-full h-full object-cover block" loading="lazy" />
+            <div className="relative h-full w-full transition-opacity duration-300 select-none">
+                <GalleryImage
+                    src={photo.remoteUrl || photo.src}
+                    alt={photo.alt}
+                    size="thumbnail"
+                    className="w-full h-full block object-cover"
+                    containerClassName="w-full h-full"
+                    aspectRatio={undefined}
+                    draggable={false}
+                    fill
+                    sizes="(max-width: 768px) 33vw, 20vw"
+                    onLoadingComplete={(img) => {
+                        if (img.naturalWidth && img.naturalHeight) {
+                            onDimensionsLoaded?.(photo.id, img.naturalWidth, img.naturalHeight);
+                        }
+                    }}
+                />
             </div>
 
             {/* Top Overlays: Index, Usage (Right) */}
@@ -269,6 +287,154 @@ const GalleryPhotoItem = React.memo(GalleryPhotoItemComponent, (prev, next) => {
     return true;
 });
 
+const VirtualGalleryContent = ({
+    isSingleColumn,
+    filteredPhotos,
+    displayRows,
+    photoUsageDetails,
+    chronologicalIndex,
+    selectedPhotos,
+    activeBubbleId,
+    multiSelectMode,
+    toggleSelection,
+    setActiveBubbleId,
+    onDeletePhotos,
+    onRemovePhotosFromAlbum,
+    parentRef,
+    onDimensionsLoaded,
+    containerWidth
+}: {
+    isSingleColumn: boolean;
+    filteredPhotos: Photo[];
+    displayRows: { photos: Photo[]; height: number; isLast?: boolean }[];
+    photoUsageDetails: any;
+    chronologicalIndex: any;
+    selectedPhotos: Set<string>;
+    activeBubbleId: string | null;
+    multiSelectMode: boolean;
+    toggleSelection: (id: string) => void;
+    setActiveBubbleId: (id: string | null) => void;
+    onDeletePhotos: (ids: string[]) => void;
+    onRemovePhotosFromAlbum: (ids: string[]) => void;
+    parentRef: React.RefObject<HTMLDivElement | null>;
+    onDimensionsLoaded: (id: string, width: number, height: number) => void;
+    containerWidth: number;
+}) => {
+    const count = isSingleColumn ? filteredPhotos.length : displayRows.length;
+    // Gap is now handled via padding on the row wrapper
+    const gap = 2;
+    // Match the safety buffer used in justifiedRows calculation (12px padding)
+    const usableWidth = Math.max(100, containerWidth - 12);
+
+    const virtualizer = useVirtualizer({
+        count,
+        getScrollElement: () => parentRef.current,
+        estimateSize: (index) => {
+            if (isSingleColumn) return 200;
+            // Return raw height estimate. Measurement will capture the true height including padding.
+            return displayRows[index] ? displayRows[index].height + 2 : 140;
+        },
+        overscan: 4
+    });
+
+    const items = virtualizer.getVirtualItems();
+
+    return (
+        <div
+            style={{
+                height: `${virtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative',
+            }}
+        >
+            {items.map((virtualRow) => {
+                // Remove explicit height from wrapper to prevent clamping stale sizes
+                const style = {
+                    position: 'absolute' as const,
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                };
+
+                if (isSingleColumn) {
+                    const photo = filteredPhotos[virtualRow.index];
+                    if (!photo) return null;
+
+                    return (
+                        <div
+                            key={virtualRow.key}
+                            ref={virtualizer.measureElement}
+                            data-index={virtualRow.index}
+                            style={{ ...style, paddingBottom: '8px' }}
+                        >
+                            <GalleryPhotoItem
+                                photo={photo}
+                                usage={photoUsageDetails?.[photo.id]}
+                                index={chronologicalIndex[photo.id] ?? '?'}
+                                isSelected={selectedPhotos.has(photo.id)}
+                                isActiveBubble={activeBubbleId === photo.id}
+                                multiSelectMode={multiSelectMode}
+                                onToggleSelection={toggleSelection}
+                                onSetActiveBubbleId={setActiveBubbleId}
+                                onDelete={(id) => onDeletePhotos([id])}
+                                onRemoveFromAlbum={(id) => onRemovePhotosFromAlbum([id])}
+                                onDimensionsLoaded={onDimensionsLoaded}
+                                style={{ height: '100%' }} // Ensure it accepts height
+                            />
+                        </div>
+                    );
+                } else {
+                    const row = displayRows[virtualRow.index];
+                    if (!row) return null;
+
+                    const rowGaps = (row.photos.length - 1) * gap;
+                    // Note: usableWidth here is just for internal prop calculation if needed, 
+                    // but row.height is already pre-calculated in the parent.
+
+                    return (
+                        <div
+                            key={virtualRow.key}
+                            ref={virtualizer.measureElement}
+                            data-index={virtualRow.index}
+                            style={{ ...style, paddingBottom: '2px' }} // Physical gap
+                            className="flex flex-row gap-[2px]"
+                        >
+                            {row.photos.map((photo) => {
+                                const ar = (photo.width && photo.height) ? photo.width / photo.height : 1.0;
+                                // Calculation: row height * aspect ratio = pixel width
+                                const photoPixelWidth = row.height * ar;
+
+                                return (
+                                    <GalleryPhotoItem
+                                        key={photo.id}
+                                        photo={photo}
+                                        usage={photoUsageDetails?.[photo.id]}
+                                        index={chronologicalIndex[photo.id] ?? '?'}
+                                        isSelected={selectedPhotos.has(photo.id)}
+                                        isActiveBubble={activeBubbleId === photo.id}
+                                        multiSelectMode={multiSelectMode}
+                                        onToggleSelection={toggleSelection}
+                                        onSetActiveBubbleId={setActiveBubbleId}
+                                        onDelete={(id) => onDeletePhotos([id])}
+                                        onRemoveFromAlbum={(id) => onRemovePhotosFromAlbum([id])}
+                                        onDimensionsLoaded={onDimensionsLoaded}
+                                        style={{
+                                            height: `${row.height}px`,
+                                            width: `${photoPixelWidth}px`,
+                                            flexShrink: 0,
+                                        }}
+                                    />
+                                );
+                            })}
+                        </div>
+                    );
+                }
+            })}
+        </div>
+    );
+};
+
 const PhotoGalleryCardComponent = ({
     allPhotos,
     isLoadingPhotos,
@@ -296,32 +462,47 @@ const PhotoGalleryCardComponent = ({
 }: PhotoGalleryCardProps) => {
     const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
     const [activeBubbleId, setActiveBubbleId] = useState<string | null>(null);
+    const [dimensionsCache, setDimensionsCache] = useState<Record<string, { width: number; height: number }>>({});
+    const hasSortedRef = useRef(false);
+
+    useEffect(() => {
+        if (!hasSortedRef.current && allPhotos.length > 0) {
+            handleSortPhotos();
+            hasSortedRef.current = true;
+        }
+    }, [allPhotos.length, handleSortPhotos]);
+
+    const handlePhotoDimensionsLoaded = useCallback((id: string, width: number, height: number) => {
+        setDimensionsCache(prev => {
+            if (prev[id]) return prev;
+            return { ...prev, [id]: { width, height } };
+        });
+    }, []);
 
     const [hideUsedPhotos, setHideUsedPhotos] = useState(false);
-    const [isSingleColumn, setIsSingleColumn] = useState(false);
+    const isSingleColumn = false;
+    const setIsSingleColumn = (val: boolean) => { };
 
     // Track container width for justified layout
-    const [containerWidth, setContainerWidth] = useState(300); // Default to a reasonable width
+    const [containerWidth, setContainerWidth] = useState(0); // Initialize at 0 to wait for measurement
     const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        if (!containerRef.current) return;
-        let frameId: number;
+        const target = photoScrollRef.current || containerRef.current;
+        if (!target) return;
+
         const observer = new ResizeObserver((entries) => {
-            if (entries[0]) {
-                // Use requestAnimationFrame to throttle updates to the next screen refresh
-                cancelAnimationFrame(frameId);
-                frameId = requestAnimationFrame(() => {
-                    setContainerWidth(entries[0].contentRect.width);
-                });
+            for (const entry of entries) {
+                // clientWidth is most reliable for inner space excluding scrollbars
+                // We prioritize the scroll viewport (photoScrollRef) if available
+                setContainerWidth(Math.floor(entry.contentRect.width));
             }
         });
-        observer.observe(containerRef.current);
-        return () => {
-            observer.disconnect();
-            cancelAnimationFrame(frameId);
-        };
-    }, []);
+
+        observer.observe(target);
+
+        return () => observer.disconnect();
+    }, [photoScrollRef, containerRef]);
 
     const isClient = typeof window !== 'undefined';
 
@@ -333,43 +514,65 @@ const PhotoGalleryCardComponent = ({
         ? allPhotos.filter(p => !photoUsageDetails[p.id])
         : allPhotos, [allPhotos, hideUsedPhotos, photoUsageDetails]);
 
+    // Merge dimensions from cache
+    const effectivePhotos = useMemo(() => {
+        return filteredPhotos.map(p => {
+            const cached = dimensionsCache[p.id];
+            if (cached) {
+                // Prioritize cached dimensions (loaded from actual image) over DB metadata
+                return { ...p, width: cached.width, height: cached.height };
+            }
+            return p;
+        });
+    }, [filteredPhotos, dimensionsCache]);
+
     // Justified Layout Calculation
     const justifiedRows = useMemo(() => {
-        const effectiveWidth = containerWidth > 0 ? containerWidth : 350;
+        if (containerWidth === 0) return []; // Wait for measurement
+
+        // UNIFIED PADDING CONSTANT: Must match VirtualGalleryContent logic
+        const padding = 12;
+        const effectiveWidth = Math.max(100, containerWidth - padding);
         if (isSingleColumn) return [];
 
-        const targetRowHeight = 140;
-        const gap = 2; // tight gap
-        const padding = 32; // px-4 on scroll area
-        const usableWidth = effectiveWidth - padding;
+        const gap = 2;
+
+        // Strict density limits based on user feedback
+        const maxPhotos = effectiveWidth < 450 ? 2 : 3;
+
+        // Adjusted target AR
+        const targetARSum = Math.max(1.0, effectiveWidth / 200);
 
         const rows: { photos: Photo[]; height: number; isLast?: boolean }[] = [];
         let currentRow: Photo[] = [];
-        let currentRowWidth = 0;
+        let currentRowARSum = 0;
 
-        for (const photo of filteredPhotos) {
-            const ar = (photo.width && photo.height) ? photo.width / photo.height : 1.5;
-            const scaledWidth = targetRowHeight * ar;
-
-            if (currentRowWidth + scaledWidth > usableWidth && currentRow.length > 0) {
-                // Row is full, calculate justified height
-                const totalAR = currentRow.reduce((acc, p) => acc + ((p.width && p.height) ? p.width / p.height : 1.5), 0);
-                const rowHeight = (usableWidth - (currentRow.length - 1) * gap) / totalAR;
-                rows.push({ photos: currentRow, height: rowHeight });
-                currentRow = [];
-                currentRowWidth = 0;
-            }
+        for (const photo of effectivePhotos) {
+            const ar = (photo.width && photo.height) ? photo.width / photo.height : 1.0;
 
             currentRow.push(photo);
-            currentRowWidth += scaledWidth + gap;
-        }
+            currentRowARSum += ar;
 
-        if (currentRow.length > 0) {
-            rows.push({ photos: currentRow, height: targetRowHeight, isLast: true });
+            const isLastPhotoInSource = photo.id === effectivePhotos[effectivePhotos.length - 1].id;
+
+            const hitMaxLimit = currentRow.length >= maxPhotos;
+            const reachedTarget = currentRowARSum >= targetARSum;
+
+            if (hitMaxLimit || reachedTarget || isLastPhotoInSource) {
+                const usableWidth = effectiveWidth - (currentRow.length - 1) * gap;
+                let rowHeight = usableWidth / currentRowARSum;
+
+                // Removed safety clamp to ensure full width justification
+                // rowHeight = Math.min(rowHeight, 320); 
+
+                rows.push({ photos: currentRow, height: rowHeight });
+                currentRow = [];
+                currentRowARSum = 0;
+            }
         }
 
         return rows;
-    }, [filteredPhotos, containerWidth, isSingleColumn]);
+    }, [effectivePhotos, containerWidth, isSingleColumn]);
 
     // Use cached rows during resize, otherwise use fresh calculation
     // Update cache when not resizing
@@ -425,6 +628,7 @@ const PhotoGalleryCardComponent = ({
     return (
         <div className="h-full space-y-0">
             <div
+                ref={containerRef}
                 className="h-full flex flex-col bg-background border-l shadow-none rounded-none"
                 onDragOver={(e) => {
                     e.preventDefault();
@@ -610,7 +814,7 @@ const PhotoGalleryCardComponent = ({
                         onChange={(e) => { processUploadedFiles(e.target.files); e.target.value = ''; }} />
                 </div >
 
-                <div ref={containerRef} className="flex-1 overflow-hidden pr-1 relative">
+                <div ref={containerRef} className="flex-1 overflow-hidden relative">
                     {allPhotos.length === 0 ? (
                         isLoadingPhotos ? (
                             <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center animate-in fade-in">
@@ -640,60 +844,30 @@ const PhotoGalleryCardComponent = ({
                             </div>
                         )
                     ) : (
-                        <ScrollArea ref={photoScrollRef} className="h-full px-4 py-2" thumbClassName="min-h-[50px]">
+                        <ScrollArea
+                            viewportRef={photoScrollRef}
+                            className="h-full w-full mr-4 py-1"
+                            thumbClassName="min-h-[50px]"
+                        >
                             <ScrollToTopButton scrollAreaRef={photoScrollRef} />
 
-                            {isSingleColumn ? (
-                                <div className="flex flex-col gap-2 pb-10">
-                                    {filteredPhotos.map((photo) => (
-                                        <GalleryPhotoItem
-                                            key={photo.id}
-                                            photo={photo}
-                                            usage={photoUsageDetails?.[photo.id]}
-                                            index={chronologicalIndex[photo.id] ?? '?'}
-                                            isSelected={selectedPhotos.has(photo.id)}
-                                            isActiveBubble={activeBubbleId === photo.id}
-                                            multiSelectMode={multiSelectMode}
-                                            onToggleSelection={toggleSelection}
-                                            onSetActiveBubbleId={setActiveBubbleId}
-                                            onDelete={(id) => onDeletePhotos([id])}
-                                            onRemoveFromAlbum={(id) => onRemovePhotosFromAlbum([id])}
-                                        />
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="flex flex-col gap-[2px] pb-10">
-                                    {displayRows.map((row, rowIndex) => (
-                                        <div key={rowIndex} className="flex flex-row gap-[2px]" style={{ height: `${row.height}px` }}>
-                                            {row.photos.map((photo) => {
-                                                const ar = (photo.width && photo.height) ? photo.width / photo.height : 1.5;
-                                                return (
-                                                    <GalleryPhotoItem
-                                                        key={photo.id}
-                                                        photo={photo}
-                                                        usage={photoUsageDetails?.[photo.id]}
-                                                        index={chronologicalIndex[photo.id] ?? '?'}
-                                                        isSelected={selectedPhotos.has(photo.id)}
-                                                        isActiveBubble={activeBubbleId === photo.id}
-                                                        multiSelectMode={multiSelectMode}
-                                                        onToggleSelection={toggleSelection}
-                                                        onSetActiveBubbleId={setActiveBubbleId}
-                                                        onDelete={(id) => onDeletePhotos([id])}
-                                                        onRemoveFromAlbum={(id) => onRemovePhotosFromAlbum([id])}
-                                                        style={{
-                                                            height: '100%',
-                                                            flexGrow: ar,
-                                                            flexShrink: 0,
-                                                            flexBasis: 0,
-                                                            width: row.isLast ? `${row.height * ar}px` : 'auto'
-                                                        }}
-                                                    />
-                                                );
-                                            })}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                            <VirtualGalleryContent
+                                isSingleColumn={isSingleColumn}
+                                filteredPhotos={filteredPhotos}
+                                displayRows={displayRows}
+                                photoUsageDetails={photoUsageDetails}
+                                chronologicalIndex={chronologicalIndex}
+                                selectedPhotos={selectedPhotos}
+                                activeBubbleId={activeBubbleId}
+                                multiSelectMode={multiSelectMode}
+                                toggleSelection={toggleSelection}
+                                setActiveBubbleId={setActiveBubbleId}
+                                onDeletePhotos={onDeletePhotos}
+                                onRemovePhotosFromAlbum={onRemovePhotosFromAlbum}
+                                parentRef={photoScrollRef}
+                                onDimensionsLoaded={handlePhotoDimensionsLoaded}
+                                containerWidth={containerWidth}
+                            />
                         </ScrollArea>
                     )}
                 </div>
@@ -750,6 +924,6 @@ const PhotoGalleryCardComponent = ({
             </div>
         </div>
     );
-}
+};
 
 export const PhotoGalleryCard = React.memo(PhotoGalleryCardComponent);
