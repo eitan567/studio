@@ -368,7 +368,7 @@ const VirtualGalleryContent = ({
 
                     return (
                         <div
-                            key={virtualRow.key}
+                            key={`${virtualRow.key}-${containerWidth}`}
                             ref={virtualizer.measureElement}
                             data-index={virtualRow.index}
                             style={{ ...style, paddingBottom: '8px' }}
@@ -399,7 +399,7 @@ const VirtualGalleryContent = ({
 
                     return (
                         <div
-                            key={virtualRow.key}
+                            key={`${virtualRow.key}-${containerWidth}`}
                             ref={virtualizer.measureElement}
                             data-index={virtualRow.index}
                             style={{ ...style, paddingBottom: '2px' }} // Physical gap
