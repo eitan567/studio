@@ -337,6 +337,11 @@ const VirtualGalleryContent = ({
         overscan: 4
     });
 
+    // Force remeasure when layout data changes to prevent stale height glitches
+    useEffect(() => {
+        virtualizer.measure();
+    }, [virtualizer, displayRows, isSingleColumn]);
+
     const items = virtualizer.getVirtualItems();
 
     return (
@@ -486,6 +491,7 @@ const PhotoGalleryCardComponent = ({
     // Track container width for justified layout
     const [containerWidth, setContainerWidth] = useState(0); // Initialize at 0 to wait for measurement
     const containerRef = useRef<HTMLDivElement>(null);
+    const resizeTimeoutRef = useRef<NodeJS.Timeout>();
 
     useEffect(() => {
         const target = photoScrollRef.current || containerRef.current;
@@ -493,15 +499,21 @@ const PhotoGalleryCardComponent = ({
 
         const observer = new ResizeObserver((entries) => {
             for (const entry of entries) {
-                // clientWidth is most reliable for inner space excluding scrollbars
-                // We prioritize the scroll viewport (photoScrollRef) if available
-                setContainerWidth(Math.floor(entry.contentRect.width));
+                // Debounce layout updates to prevent thrashing and visual glitches while resizing
+                if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
+
+                resizeTimeoutRef.current = setTimeout(() => {
+                    setContainerWidth(Math.floor(entry.contentRect.width));
+                }, 200);
             }
         });
 
         observer.observe(target);
 
-        return () => observer.disconnect();
+        return () => {
+            observer.disconnect();
+            if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
+        };
     }, [photoScrollRef, containerRef]);
 
     const isClient = typeof window !== 'undefined';
