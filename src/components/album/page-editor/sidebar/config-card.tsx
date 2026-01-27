@@ -21,6 +21,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { AiBackgroundGenerator } from '../../shared/ai-background-generator';
 import { useAlbumEditor } from '../../album-editor/context';
 
@@ -40,6 +41,8 @@ interface AlbumConfigCardProps {
     availableBackgrounds: string[];
     setAvailableBackgrounds: React.Dispatch<React.SetStateAction<string[]>>;
     backgroundUploadRef: React.RefObject<HTMLInputElement | null>;
+    pagesWithEmptySlots?: { index: number; label: string }[];
+    onNavigateToPage?: (index: number) => void;
     // No preview callbacks - handled by context
 }
 
@@ -59,6 +62,8 @@ export function AlbumConfigCard({
     availableBackgrounds,
     setAvailableBackgrounds,
     backgroundUploadRef,
+    pagesWithEmptySlots = [],
+    onNavigateToPage,
 }: AlbumConfigCardProps) {
     const { setPreviewPhotoGap, setPreviewPageMargin, setPreviewCornerRadius } = useAlbumEditor();
     // Local slider states for smooth dragging UX
@@ -323,6 +328,33 @@ export function AlbumConfigCard({
                                 }}
                             />
                         </div>
+
+                        {pagesWithEmptySlots.length > 0 && (
+                            <div className="space-y-3 pt-2 border-t">
+                                <label className="text-sm font-semibold flex items-center gap-2">
+                                    <span className="flex h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
+                                    Empty Photo Slots
+                                </label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {pagesWithEmptySlots.map((page) => (
+                                        <Button
+                                            key={page.index}
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-9 px-2 text-xs font-medium justify-start bg-orange-50/30 hover:bg-orange-100 hover:text-orange-900 border-orange-200/50 transition-colors truncate"
+                                            onClick={() => onNavigateToPage?.(page.index)}
+                                            title={`Go to ${page.label}`}
+                                        >
+                                            <span className="w-1.5 h-1.5 rounded-full bg-orange-400 mr-2 shrink-0" />
+                                            {page.label}
+                                        </Button>
+                                    ))}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground italic">
+                                    Click a page to jump to its empty slots.
+                                </p>
+                            </div>
+                        )}
                     </form>
                 </Form>
             </div>

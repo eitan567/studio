@@ -100,6 +100,8 @@ export function useAlbumPageEditor({
                             panAndZoom: defaultPanAndZoom
                         });
                     }
+                } else if (currentPhotos.length > newPhotoCount) {
+                    currentPhotos.splice(newPhotoCount);
                 }
 
                 return {
@@ -109,7 +111,7 @@ export function useAlbumPageEditor({
                 };
             });
         });
-    }, [setAlbumPages]);
+    }, [setAlbumPages, findTemplate]);
 
     const handleRemovePhoto = useCallback((pageId: string, photoId: string) => {
         setAlbumPages(prevPages => {
@@ -165,6 +167,8 @@ export function useAlbumPageEditor({
                                 height: 400
                             });
                         }
+                    } else if (currentPhotos.length > requiredPhotos) {
+                        currentPhotos.splice(requiredPhotos);
                     }
 
                     return {
@@ -202,6 +206,8 @@ export function useAlbumPageEditor({
                             height: 400
                         });
                     }
+                } else if (currentPhotos.length > totalRequired) {
+                    currentPhotos.splice(totalRequired);
                 }
 
                 return {
@@ -214,7 +220,7 @@ export function useAlbumPageEditor({
                 };
             });
         });
-    }, [setAlbumPages]);
+    }, [setAlbumPages, findCoverTemplate, defaultCoverTemplate]);
 
     const handleUpdateSpreadLayout = useCallback((pageId: string, side: 'left' | 'right', newLayout: string) => {
         setAlbumPages(prevPages => {
@@ -270,6 +276,8 @@ export function useAlbumPageEditor({
                             panAndZoom: { scale: 1, x: 50, y: 50 }
                         }));
                         currentPhotos.push(...newSlots);
+                    } else if (currentPhotos.length > totalRequired) {
+                        currentPhotos.splice(totalRequired);
                     }
                 }
 
@@ -283,14 +291,57 @@ export function useAlbumPageEditor({
                 };
             });
         });
-    }, [setAlbumPages]);
+    }, [setAlbumPages, defaultGridTemplate, findTemplate]);
 
     const handleUpdateCoverType = useCallback((pageId: string, newType: 'split' | 'full') => {
-        setAlbumPages(prevPages => prevPages.map(page => {
-            if (page.id !== pageId) return page;
-            return { ...page, coverType: newType };
-        }));
-    }, [setAlbumPages]);
+        setAlbumPages(prevPages => {
+            return prevPages.map(page => {
+                if (page.id !== pageId || !page.isCover) return page;
+
+                // When switching cover type, we need to ensure the photos array matches the required count
+                // for the new type's layouts.
+                let requiredCount = 0;
+                if (newType === 'full') {
+                    const { baseId } = parseLayoutId(page.layout || defaultCoverTemplate.id);
+                    const template = findCoverTemplate(baseId) || defaultCoverTemplate;
+                    requiredCount = getPhotoCount(template);
+                } else {
+                    const currentFrontLayout = page.coverLayouts?.front || '1-full';
+                    const currentBackLayout = page.coverLayouts?.back || '1-full';
+
+                    const { baseId: frontBaseId } = parseLayoutId(currentFrontLayout);
+                    const { baseId: backBaseId } = parseLayoutId(currentBackLayout);
+
+                    const frontTemplate = findCoverTemplate(frontBaseId) || defaultCoverTemplate;
+                    const backTemplate = findCoverTemplate(backBaseId) || defaultCoverTemplate;
+
+                    requiredCount = getPhotoCount(frontTemplate) + getPhotoCount(backTemplate);
+                }
+
+                let currentPhotos = [...page.photos];
+                if (currentPhotos.length < requiredCount) {
+                    const missingCount = requiredCount - currentPhotos.length;
+                    for (let i = 0; i < missingCount; i++) {
+                        currentPhotos.push({
+                            id: uuidv4(),
+                            src: '',
+                            alt: 'Drop photo here',
+                            width: 600,
+                            height: 400
+                        });
+                    }
+                } else if (currentPhotos.length > requiredCount) {
+                    currentPhotos.splice(requiredCount);
+                }
+
+                return {
+                    ...page,
+                    coverType: newType,
+                    photos: currentPhotos
+                };
+            });
+        });
+    }, [setAlbumPages, findCoverTemplate, defaultCoverTemplate]);
 
     const handleUpdateSpineText = useCallback((pageId: string, text: string) => {
         setAlbumPages(prevPages => prevPages.map(page => {

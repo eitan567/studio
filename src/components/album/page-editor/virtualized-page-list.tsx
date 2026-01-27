@@ -1,6 +1,6 @@
 'use client';
 
-import React, { memo, CSSProperties, useEffect, useRef, useCallback, useState, useMemo } from 'react';
+import React, { memo, CSSProperties, useEffect, useRef, useCallback, useState, useMemo, forwardRef, useImperativeHandle } from 'react';
 import * as ReactWindow from 'react-window';
 const List = (ReactWindow as any).VariableSizeList || (ReactWindow as any).List;
 
@@ -348,14 +348,14 @@ const Row = memo(({ index, style, ariaAttributes, ...data }: any) => {
     );
 });
 
-export const VirtualizedPageList = memo(({
+export const VirtualizedPageList = memo(forwardRef(({
     pages,
     config,
     onOpenEditor,
     onEnhanceWithAi,
     onUndo,
     ...props
-}: VirtualizedPageListProps) => {
+}: VirtualizedPageListProps, ref) => {
     const listRef = useRef<any>(null);
     const { containerRef, width, height } = useContainerSize();
     const [scrollOffset, setScrollOffset] = useState(0);
@@ -547,6 +547,6 @@ export const VirtualizedPageList = memo(({
             )}
         </div>
     );
-});
+}));
 
 VirtualizedPageList.displayName = 'VirtualizedPageList';

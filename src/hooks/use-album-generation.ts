@@ -200,17 +200,36 @@ export function useAlbumGeneration({
                     const randomIndex = Math.floor(Math.random() * photos.length);
                     const randomPhoto = photos[randomIndex];
                     coverPhotos.push({ ...randomPhoto, id: uuidv4(), originalId: randomPhoto.id, remoteUrl: randomPhoto.remoteUrl, panAndZoom: defaultPanAndZoom });
+                } else {
+                    coverPhotos.push({
+                        id: uuidv4(),
+                        src: '',
+                        alt: 'Drop photo here',
+                        width: 600,
+                        height: 400,
+                        panAndZoom: defaultPanAndZoom
+                    });
                 }
             }
         } else {
             const fullTemplate = availableCoverTemplates[Math.floor(Math.random() * availableCoverTemplates.length)];
             fullCoverLayout = fullTemplate.id;
+            const requiredCount = getPhotoCount(fullTemplate);
 
-            for (let i = 0; i < getPhotoCount(fullTemplate); i++) {
+            for (let i = 0; i < requiredCount; i++) {
                 if (photos.length > 0) {
                     const randomIndex = Math.floor(Math.random() * photos.length);
                     const randomPhoto = photos[randomIndex];
                     coverPhotos.push({ ...randomPhoto, id: uuidv4(), originalId: randomPhoto.id, remoteUrl: randomPhoto.remoteUrl, panAndZoom: defaultPanAndZoom });
+                } else {
+                    coverPhotos.push({
+                        id: uuidv4(),
+                        src: '',
+                        alt: 'Drop photo here',
+                        width: 600,
+                        height: 400,
+                        panAndZoom: defaultPanAndZoom
+                    });
                 }
             }
         }
@@ -277,60 +296,44 @@ export function useAlbumGeneration({
 
                 const totalNeeded = getPhotoCount(leftTemplate) + getPhotoCount(rightTemplate);
 
+                // If not enough photos for the chosen split templates, try to find smaller ones
                 if (photosPool.length < totalNeeded) {
-                    if (photosPool.length >= 2) {
+                    // Try to find templates that fit the remaining photos, prioritizing 1-photo templates if very few left
+                    if (photosPool.length === 1) {
+                        leftTemplate = availableGridTemplates.find(t => getPhotoCount(t) === 1) || availableGridTemplates[0];
+                        rightTemplate = availableGridTemplates.find(t => getPhotoCount(t) === 0) || availableGridTemplates[0]; // Use a template that takes 0 photos for the right side, or default
+                    } else if (photosPool.length === 2) {
                         leftTemplate = availableGridTemplates.find(t => getPhotoCount(t) === 1) || availableGridTemplates[0];
                         rightTemplate = availableGridTemplates.find(t => getPhotoCount(t) === 1) || availableGridTemplates[0];
                     } else {
-                        // Fallback to single page or spread with 1 photo if we only have 1 left
-                        leftTemplate = availableGridTemplates.find(t => getPhotoCount(t) === 1) || availableGridTemplates[0];
-                        rightTemplate = availableGridTemplates[0]; // Empty or default
-
-                        // Actually, if only 1 photo left, we might just want a full spread or single page?
-                        // But logic here was "try to make a split spread". 
-                        // Let's use a simpler fallback: just make a spread with whatever fits
-                        const fallbackTemplate = availableGridTemplates.find(t => getPhotoCount(t) === photosPool.length) || availableGridTemplates[0];
-                        const pagePhotos = photosPool.splice(0, Math.min(photosPool.length, getPhotoCount(fallbackTemplate)));
-
-                        newPages.push({
-                            id: uuidv4(),
-                            type: 'spread',
-                            photos: pagePhotos.map(p => ({ ...p, id: uuidv4(), originalId: p.id, remoteUrl: p.remoteUrl, panAndZoom: defaultPanAndZoom })),
-                            layout: fallbackTemplate.id,
-                            spreadMode: 'full' // Fallback to full if we can't make a nice split
-                        });
-                        continue;
+                        // For more than 2 photos but still less than totalNeeded, just pick random small ones
+                        leftTemplate = availableGridTemplates.find(t => getPhotoCount(t) <= Math.floor(photosPool.length / 2)) || availableGridTemplates[0];
+                        rightTemplate = availableGridTemplates.find(t => getPhotoCount(t) <= (photosPool.length - getPhotoCount(leftTemplate))) || availableGridTemplates[0];
                     }
                 }
 
-                const leftPhotosCount = getPhotoCount(leftTemplate);
-                const rightPhotosCount = getPhotoCount(rightTemplate);
-
-                if (photosPool.length >= leftPhotosCount + rightPhotosCount) {
-                    const pagePhotos = photosPool.splice(0, leftPhotosCount + rightPhotosCount);
-                    newPages.push({
-                        id: uuidv4(),
-                        type: 'spread',
-                        photos: pagePhotos.map(p => ({ ...p, id: uuidv4(), originalId: p.id, remoteUrl: p.remoteUrl, panAndZoom: defaultPanAndZoom })),
-                        layout: '4-grid', // This is just a placeholder/container layout name? Or does it matter? Usually for split spreads the layout prop on the page itself is less used than spreadLayouts
-                        spreadMode: 'split',
-                        spreadLayouts: {
-                            left: leftTemplate.id,
-                            right: rightTemplate.id
-                        }
-                    });
-                } else {
-                    // Not enough photos for selected split templates
-                    const fallbackTemplate = availableGridTemplates.find(t => getPhotoCount(t) === 1) || availableGridTemplates[0];
-                    const pagePhotos = photosPool.splice(0, Math.min(photosPool.length, getPhotoCount(fallbackTemplate)));
-                    newPages.push({
-                        id: uuidv4(),
-                        type: 'spread',
-                        photos: pagePhotos.map(p => ({ ...p, id: uuidv4(), originalId: p.id, remoteUrl: p.remoteUrl, panAndZoom: defaultPanAndZoom })),
-                        layout: fallbackTemplate.id,
-                        spreadMode: 'full'
-                    });
+                const currentTotalNeeded = getPhotoCount(leftTemplate) + getPhotoCount(rightTemplate);
+                const pagePhotos = [];
+                for (let i = 0; i < currentTotalNeeded; i++) {
+                    if (photosPool.length > 0) {
+                        const p = photosPool.shift()!;
+                        pagePhotos.push({ ...p, id: uuidv4(), originalId: p.id, remoteUrl: p.remoteUrl, panAndZoom: defaultPanAndZoom });
+                    } else {
+                        pagePhotos.push({ id: uuidv4(), src: '', alt: 'Drop photo here', width: 600, height: 400, panAndZoom: defaultPanAndZoom });
+                    }
                 }
+
+                newPages.push({
+                    id: uuidv4(),
+                    type: 'spread',
+                    photos: pagePhotos,
+                    layout: 'cover', // This is just a placeholder/container layout name? Or does it matter? Usually for split spreads the layout prop on the page itself is less used than spreadLayouts
+                    spreadMode: 'split',
+                    spreadLayouts: {
+                        left: leftTemplate.id,
+                        right: rightTemplate.id
+                    }
+                });
 
             } else {
                 // Full Spread
@@ -347,12 +350,28 @@ export function useAlbumGeneration({
                     }
                 }
 
-                const pagePhotos = photosPool.splice(0, Math.min(photosPool.length, getPhotoCount(selectedTemplate)));
+                const requiredCount = getPhotoCount(selectedTemplate);
+                const pagePhotos = [];
+                for (let i = 0; i < requiredCount; i++) {
+                    if (photosPool.length > 0) {
+                        const p = photosPool.shift()!;
+                        pagePhotos.push({ ...p, id: uuidv4(), originalId: p.id, remoteUrl: p.remoteUrl, panAndZoom: defaultPanAndZoom });
+                    } else {
+                        pagePhotos.push({
+                            id: uuidv4(),
+                            src: '',
+                            alt: 'Drop photo here',
+                            width: 600,
+                            height: 400,
+                            panAndZoom: defaultPanAndZoom
+                        });
+                    }
+                }
 
                 newPages.push({
                     id: uuidv4(),
                     type: 'spread',
-                    photos: pagePhotos.map(p => ({ ...p, id: uuidv4(), originalId: p.id, remoteUrl: p.remoteUrl, panAndZoom: defaultPanAndZoom })),
+                    photos: pagePhotos,
                     layout: selectedTemplate.id,
                     spreadMode: 'full'
                 });

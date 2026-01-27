@@ -176,6 +176,9 @@ export function PageEditor({ albumId }: PageEditorProps) {
   // State for pages - Defined early for use in updateThumbnail callback
   const [albumPages, setAlbumPages] = useState<AlbumPage[]>([]);
 
+  // Ref for the virtualized list to trigger scrolling
+  const virtualListRef = useRef<{ scrollToPage: (index: number) => void } | null>(null);
+
   // State dependencies needed for hooks below
   const [allowDuplicates, setAllowDuplicates] = useState(true);
 
@@ -360,6 +363,29 @@ export function PageEditor({ albumId }: PageEditorProps) {
     return albumPages.reduce((total, page) => {
       return total + page.photos.filter(p => !p.src || p.src === '').length;
     }, 0);
+  }, [albumPages]);
+
+  // Calculate specific pages that have empty slots
+  const pagesWithEmptySlots = useMemo(() => {
+    let counter = 1;
+    return albumPages
+      .map((page, index) => {
+        let label = "";
+        const start = counter;
+        if (page.isCover) {
+          label = "Cover";
+        } else if (page.type === 'spread') {
+          label = `Pages ${start}-${start + 1}`;
+          counter += 2;
+        } else {
+          label = `Page ${start}`;
+          counter += 1;
+        }
+
+        const hasEmpty = page.photos.some(p => !p.src || p.src === '');
+        return { index, label, hasEmpty };
+      })
+      .filter(p => p.hasEmpty);
   }, [albumPages]);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -790,6 +816,8 @@ export function PageEditor({ albumId }: PageEditorProps) {
                 availableBackgrounds={availableBackgrounds}
                 setAvailableBackgrounds={setAvailableBackgrounds}
                 backgroundUploadRef={backgroundUploadRef}
+                pagesWithEmptySlots={pagesWithEmptySlots}
+                onNavigateToPage={(index) => virtualListRef.current?.scrollToPage(index)}
               />
             ) : (
               <div className="space-y-4">
@@ -837,6 +865,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
                 defaultViewMode={settings.defaultEditorViewMode as "single" | "spread"}
                 visibleTemplateCategories={settings.visibleTemplateCategories}
                 allowedTemplateIds={settings.allowedTemplateIds || []}
+                ref={virtualListRef}
               />
             )}
           </div>
