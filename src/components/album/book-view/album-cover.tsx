@@ -20,7 +20,7 @@ export interface AlbumCoverProps {
     page: AlbumPage;
     config?: AlbumConfig;
     mode?: 'preview' | 'editor';
-    activeView?: 'front' | 'back' | 'full';
+    activeView?: 'front' | 'back' | 'full' | 'split';
 
     // Interaction Handlers (Optional - mainly for Editor)
     activeTextIds?: string[];
@@ -42,6 +42,7 @@ export interface AlbumCoverProps {
     // For suggestion fan feature
     allPhotos?: Photo[];
     previousPagePhotos?: Photo[];
+    priority?: boolean;
 }
 
 // --- Internal Helper Components ---
@@ -589,7 +590,8 @@ export const AlbumCover = ({
     // onUpdateTitleSettings
     useSimpleImage,
     allPhotos = [],
-    previousPagePhotos = []
+    previousPagePhotos = [],
+    priority = false, // Default to false
 }: AlbumCoverProps) => {
     const {
         gridTemplates,
@@ -881,6 +883,7 @@ export const AlbumCover = ({
                             backgroundColor={config?.backgroundColor}
                             allPhotos={allPhotos}
                             previousPagePhotos={previousPagePhotos}
+                            priority={priority}
                         />
                     </div>
                 </div>
@@ -920,6 +923,7 @@ export const AlbumCover = ({
                                 backgroundColor={config?.backgroundColor}
                                 allPhotos={allPhotos}
                                 previousPagePhotos={previousPagePhotos}
+                                priority={priority}
                             />
                         </div>
                     </div>
@@ -983,6 +987,7 @@ export const AlbumCover = ({
                                 backgroundColor={config?.backgroundColor}
                                 allPhotos={allPhotos}
                                 previousPagePhotos={previousPagePhotos}
+                                priority={priority}
                             />
                         </div>
                     </div>

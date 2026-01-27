@@ -48,7 +48,7 @@ export function getOptimizedImageUrl(storagePath: string, options: TransformOpti
                 width: options.width,
                 height: options.height,
                 quality: options.quality || 80,
-                format: options.format || 'webp',
+                format: (options.format || 'webp') as any,
                 resize: options.resize || 'cover',
             },
         });
@@ -71,16 +71,28 @@ export default function supabaseLoader({ src, width, quality }: { src: string; w
         return getOptimizedImageUrl(src, { width, quality, resize: 'contain' });
     }
 
-    // CASE 2: src is already a Supabase URL
-    // We can try to inject transform params if it matches our Supabase URL.
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    if (supabaseUrl && src.startsWith(supabaseUrl)) {
-        const url = new URL(src);
-        url.searchParams.set('width', width.toString());
-        url.searchParams.set('quality', (quality || 75).toString());
-        url.searchParams.set('format', 'webp');
-        url.searchParams.set('resize', 'contain'); // Force contain to prevent cropping
-        return url.toString();
+    // CASE 2: Supabase Storage URL
+    if (src.includes('/storage/v1/object/public/')) {
+        const isLocal = src.includes('127.0.0.1') || src.includes('localhost');
+
+        // Local: Return original with dummy param to satisfy Next.js loader warning
+        if (isLocal) {
+            return `${src}?w=${width}`;
+        }
+
+        // Remote: Replace /object/public/ with /render/image/public/ to enable transformations
+        const transformSrc = src.replace(/\/storage\/v1\/object\/public\//, '/storage/v1/render/image/public/');
+
+        try {
+            const url = new URL(transformSrc);
+            url.searchParams.set('width', width.toString());
+            url.searchParams.set('quality', (quality || 50).toString());
+            url.searchParams.set('format', 'webp');
+            url.searchParams.set('resize', 'contain');
+            return url.toString();
+        } catch (e) {
+            return src;
+        }
     }
 
     // CASE 3: External URL (Unsplash, etc) - return as is

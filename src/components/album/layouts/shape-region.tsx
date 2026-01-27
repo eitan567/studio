@@ -23,6 +23,7 @@ export const ShapeRegion = ({
     onReplace,
     pageId,
     cornerRadius = 0,
+    priority,
 }: {
     region: LayoutRegion;
     photo?: Photo;
@@ -41,6 +42,7 @@ export const ShapeRegion = ({
     onReplace?: (e: React.MouseEvent, anchorElement?: HTMLElement) => void;
     pageId?: string;
     cornerRadius?: number;
+    priority?: boolean;
 }) => {
     const rootRef = React.useRef<HTMLDivElement>(null);
     // Unique ID for the mask (though we use clip-path now, keeping IDs unique is good practice)
@@ -175,6 +177,7 @@ export const ShapeRegion = ({
                 onReplace={undefined}
                 pageId={pageId}
                 photoId={photo.id}
+                priority={priority}
             />
         );
     };

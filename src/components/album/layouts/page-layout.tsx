@@ -37,6 +37,7 @@ export interface PageLayoutProps {
     // For suggestion fan feature
     allPhotos?: Photo[];
     previousPagePhotos?: Photo[];
+    priority?: boolean;
 }
 
 const PageLayoutComponent = ({
@@ -54,7 +55,8 @@ const PageLayoutComponent = ({
     cornerRadius = 0,
     backgroundColor: configBackgroundColor,
     allPhotos = [],
-    previousPagePhotos = []
+    previousPagePhotos = [],
+    priority = false // Default to false
 }: PageLayoutProps) => {
     const { gridTemplates, advancedTemplates } = useTemplates();
     const effectiveTemplateSource = templateSource || gridTemplates;
@@ -259,6 +261,7 @@ const PageLayoutComponent = ({
                             onReplace={(e, anchor) => handleEmptySlotClick(e, actualIndex, anchor)}
                             pageId={page.id}
                             cornerRadius={cornerRadius}
+                            priority={priority}
                         />
                     );
                 })}
@@ -377,6 +380,7 @@ const PageLayoutComponent = ({
                                 onReplace={(e, anchor) => handleEmptySlotClick(e, actualIndex, anchor)}
                                 pageId={page.id}
                                 photoId={photo.id}
+                                priority={priority}
                             />
                         </div>
                     );
@@ -409,6 +413,7 @@ export const PageLayout = React.memo(PageLayoutComponent, (prev, next) => {
     if (prev.overrideLayout !== next.overrideLayout) return false;
     if (prev.page.layout !== next.page.layout) return false;
     if (prev.page.id !== next.page.id) return false;
+    if (prev.priority !== next.priority) return false;
     // CRITICAL: Check if onDropPhoto handler changed (e.g. captured new photos)
     if (prev.onDropPhoto !== next.onDropPhoto) return false;
 

@@ -37,10 +37,14 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
 }, ref) => {
     const { settings } = useSettings();
     const containerRef = React.useRef<HTMLDivElement>(null);
+    const [isRendering, setIsRendering] = useState(false);
 
     useImperativeHandle(ref, () => ({
         exportAlbum: async () => {
             try {
+                setIsRendering(true);
+                // Wait for React to render the pages
+                await new Promise(r => setTimeout(r, 500));
                 // Check for duplicates if enabled
                 if (settings.exportWarnDuplicates) {
                     const seenPhotoIds = new Set<string>();
@@ -115,13 +119,17 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                 saveAs(content, `album-export-${new Date().toISOString().split('T')[0]}.zip`);
 
                 onExportComplete?.();
+                setIsRendering(false);
             } catch (err) {
                 console.error("Export failed:", err);
                 onExportError?.(err);
+                setIsRendering(false);
             }
         },
         exportPage: async (pageId: string) => {
             try {
+                setIsRendering(true);
+                await new Promise(r => setTimeout(r, 500));
                 if (!containerRef.current) return;
 
                 const exportContainer = containerRef.current;
@@ -156,17 +164,25 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                     saveAs(blob, filename);
                 }
 
+                setIsRendering(false);
             } catch (err) {
                 console.error("Single page export failed:", err);
                 onExportError?.(err);
+                setIsRendering(false);
             }
         },
         exportToPdf: async () => {
             try {
-                if (!containerRef.current) return;
+                setIsRendering(true);
+                await new Promise(r => setTimeout(r, 1000));
                 onExportStart?.();
 
                 const exportContainer = containerRef.current;
+                if (!exportContainer) {
+                    console.error("Export container not found");
+                    setIsRendering(false);
+                    return;
+                }
 
                 // Wait for rendering
                 await new Promise(r => setTimeout(r, 1000));
@@ -219,9 +235,11 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
 
                 pdf.save(`album-export-${new Date().toISOString().split('T')[0]}.pdf`);
                 onExportComplete?.();
+                setIsRendering(false);
             } catch (err) {
                 console.error("PDF Export failed:", err);
                 onExportError?.(err);
+                setIsRendering(false);
             }
         }
     }));
@@ -244,7 +262,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                 flexDirection: 'column',
             }}
         >
-            {pages.map((page, index) => {
+            {isRendering && pages.map((page, index) => {
                 const isSpread = page.type === 'spread' || page.isCover;
                 const width = isSpread ? 1000 : 500;
                 const height = 500; // 2:1 ratio for spread, 1:1 for single (assuming square format preference in config, typically 20x20 is square)

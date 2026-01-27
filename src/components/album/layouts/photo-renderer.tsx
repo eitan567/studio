@@ -2,6 +2,7 @@
 
 import React, { useEffect, useLayoutEffect, useRef, memo, useState } from 'react';
 import Image from 'next/image';
+import supabaseLoader from '@/lib/supabase-image-loader';
 import { EmptyPhotoSlot } from '../album-editor/empty-photo-slot';
 import type { Photo, PhotoPanAndZoom } from '@/lib/types';
 
@@ -15,10 +16,11 @@ interface PhotoRendererProps {
   // For CTRL+drag swapping between frames
   pageId?: string;
   photoId?: string;
+  priority?: boolean;
 }
 
 // Using memo to prevent re-rendering of all photos when only one is being updated
-export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onInteractionChange, useSimpleImage, onRemove, onReplace, pageId, photoId }: PhotoRendererProps) {
+export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onInteractionChange, useSimpleImage, onRemove, onReplace, pageId, photoId, priority = false }: PhotoRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLDivElement>(null);
   const isInteracting = useRef(false);
@@ -296,6 +298,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
           <img
             src={photo.src}
             alt={photo.alt}
+            loading="lazy"
             style={{
               width: '100%',
               height: '100%',
@@ -334,8 +337,8 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
           className="object-cover pointer-events-none"
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           draggable={false}
-          priority
-          unoptimized
+          priority={priority}
+          loader={supabaseLoader}
         />
       </div>
 

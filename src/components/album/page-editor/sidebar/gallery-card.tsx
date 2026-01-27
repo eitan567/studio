@@ -83,7 +83,8 @@ const GalleryPhotoItemComponent = ({
     onDelete,
     onRemoveFromAlbum,
     style,
-    onDimensionsLoaded
+    onDimensionsLoaded,
+    priority // Destructure priority
 }: {
     photo: Photo;
     usage?: { count: number; pages: number[] };
@@ -97,6 +98,7 @@ const GalleryPhotoItemComponent = ({
     onRemoveFromAlbum: (id: string) => void;
     style?: React.CSSProperties;
     onDimensionsLoaded?: (id: string, width: number, height: number) => void;
+    priority?: boolean;
 }) => {
     const isUsed = !!usage;
     const hasWarning = usage && usage.count > 1;
@@ -142,6 +144,7 @@ const GalleryPhotoItemComponent = ({
                     aspectRatio={undefined}
                     draggable={false}
                     fill
+                    priority={priority}
                     sizes="(max-width: 768px) 33vw, 20vw"
                     onLoadingComplete={(img) => {
                         if (img.naturalWidth && img.naturalHeight) {
@@ -386,6 +389,7 @@ const VirtualGalleryContent = ({
                                 onRemoveFromAlbum={(id) => onRemovePhotosFromAlbum([id])}
                                 onDimensionsLoaded={onDimensionsLoaded}
                                 style={{ height: '100%' }} // Ensure it accepts height
+                                priority={virtualRow.index < 12}
                             />
                         </div>
                     );
@@ -429,6 +433,7 @@ const VirtualGalleryContent = ({
                                             width: `${photoPixelWidth}px`,
                                             flexShrink: 0,
                                         }}
+                                        priority={virtualRow.index < 5}
                                     />
                                 );
                             })}

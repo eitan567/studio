@@ -293,6 +293,60 @@ function ScrollToTopButton({ onScrollToTop, scrollOffset }: { onScrollToTop: () 
     );
 }
 
+// Item Data Interface
+interface ItemData {
+    pages: AlbumPage[];
+    config: AlbumConfig;
+    pageInfo: any;
+    onOpenEditor?: (pageId: string) => void;
+    onEnhanceWithAi?: (pageId: string) => void;
+    onUndo?: (pageId: string) => void;
+    // Pass all other props that Row needs
+    [key: string]: any;
+}
+
+// Item Renderer outside of component to maintain identity
+const Row = memo(({ index, style, ariaAttributes, ...data }: any) => {
+    const { pages, config, pageInfo, onOpenEditor, onEnhanceWithAi, onUndo, ...rest } = data;
+    const page = pages?.[index];
+    if (!page) return null;
+
+    // Calculate previousPagePhotos for suggestion fan
+    const previousPagePhotos = index > 0 ? (pages[index - 1]?.photos || []) : [];
+
+    // Only eager load the first page (index 0) and the second (index 1) which is usually partial or cover
+    // index < 2 covers: 0 (Cover/First Page), 1 (Back Cover/Second Page)
+    const isPriority = index < 2;
+
+    if (isPriority) {
+        console.log('[VirtualizedRow] rendering priority row:', index);
+    } else {
+        // Log every 10th row for non-priority to avoid flooding, but enough to see if it renders everything
+        if (index % 10 === 0) {
+            console.log('[VirtualizedRow] rendering row:', index);
+        }
+    }
+
+    return (
+        <div style={style} className="flex justify-center w-full px-4" data-page-id={page.id}>
+            <div className="w-full max-w-8xl flex flex-col justify-start py-4">
+                <PageCanvas
+                    page={page}
+                    pageIndex={index}
+                    config={config}
+                    previousPagePhotos={previousPagePhotos}
+                    displayLabel={pageInfo[index]?.label}
+                    onOpenEditor={onOpenEditor}
+                    onEnhanceWithAi={onEnhanceWithAi}
+                    onUndo={onUndo}
+                    priority={isPriority}
+                    {...(rest as any)}
+                />
+            </div>
+        </div>
+    );
+});
+
 export const VirtualizedPageList = memo(({
     pages,
     config,
@@ -322,6 +376,17 @@ export const VirtualizedPageList = memo(({
             return { label: `Page ${current}`, start: current, end: current, isCover: false };
         });
     }, [pages]);
+
+    // Memoize Item Data to prevent unnecessary Row re-renders
+    const itemData = useMemo<ItemData>(() => ({
+        pages,
+        config,
+        pageInfo,
+        onOpenEditor,
+        onEnhanceWithAi,
+        onUndo,
+        ...props
+    }), [pages, config, pageInfo, onOpenEditor, onEnhanceWithAi, onUndo, props]);
 
     // Manual Centered Scrolling Logic
     const scrollToPageCentered = useCallback((index: number) => {
@@ -375,33 +440,7 @@ export const VirtualizedPageList = memo(({
         setTimeout(performScroll, 0);
     }, [pages, config, width, height]);
 
-    // Item Renderer for this custom List component
-    // It passes `index` and `style` props, just like react-window lists
-    const Row = memo(({ index, style }: { index: number; style: CSSProperties }) => {
-        const page = pages[index];
-        if (!page) return null;
 
-        // Calculate previousPagePhotos for suggestion fan
-        const previousPagePhotos = index > 0 ? (pages[index - 1]?.photos || []) : [];
-
-        return (
-            <div style={style} className="flex justify-center w-full px-4" data-page-id={page.id}>
-                <div className="w-full max-w-8xl flex flex-col justify-start py-4">
-                    <PageCanvas
-                        page={page}
-                        pageIndex={index}
-                        config={config}
-                        previousPagePhotos={previousPagePhotos}
-                        displayLabel={pageInfo[index]?.label}
-                        onOpenEditor={onOpenEditor}
-                        onEnhanceWithAi={onEnhanceWithAi}
-                        onUndo={onUndo}
-                        {...props}
-                    />
-                </div>
-            </div>
-        );
-    });
 
     // Efficiently determine which page is centered during scroll
     const onScroll = useCallback((e: any) => {
@@ -483,10 +522,10 @@ export const VirtualizedPageList = memo(({
                         width={width}
                         rowCount={pages.length}
                         rowHeight={(index: number) => getPageHeight(index, pages, config, width, height)}
+                        rowProps={itemData}
                         rowComponent={Row}
-                        rowProps={{}}
                         className="custom-scrollbar"
-                        overscanCount={2}
+                        overscanCount={1}
                         onScroll={onScroll}
                     />
                     <NavigationControls
