@@ -383,7 +383,7 @@ export const VirtualizedPageList = memo(({
 
         return (
             <div style={style} className="flex justify-center w-full px-4" data-page-id={page.id}>
-                <div className="w-full max-w-5xl flex flex-col justify-start py-4">
+                <div className="w-full max-w-6xl flex flex-col justify-start py-4">
                     <PageCanvas
                         page={page}
                         pageIndex={index}
