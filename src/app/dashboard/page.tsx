@@ -238,12 +238,10 @@ export default function DashboardPage() {
                           {(() => {
                             // Calculate if album is complete (all slots filled)
                             const totalSlots = (album.pages || []).reduce((acc, page) => {
-                              const layout = page.layout || '1';
-                              const slots = parseInt(layout) || 1;
-                              return acc + (page.type === 'spread' ? slots * 2 : slots);
+                              return acc + (page.photos?.length || 0);
                             }, 0);
                             const filledSlots = (album.pages || []).reduce((acc, page) => {
-                              return acc + (page.photos?.filter(p => p.src)?.length || 0);
+                              return acc + (page.photos?.filter(p => p.src && p.src !== '')?.length || 0);
                             }, 0);
                             const isComplete = totalSlots > 0 && filledSlots >= totalSlots;
 
