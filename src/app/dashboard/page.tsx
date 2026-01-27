@@ -187,7 +187,7 @@ export default function DashboardPage() {
               </CreateAlbumDialog>
 
               {/* Album Cards */}
-              {albums.map((album) => (
+              {albums.map((album, index) => (
                 <div
                   key={album.id}
                   className="group relative"
@@ -216,6 +216,7 @@ export default function DashboardPage() {
                             alt={album.name}
                             width={400}
                             height={533}
+                            priority={index < 4}
                             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                           />
                         ) : (
