@@ -96,7 +96,7 @@ const getPageHeight = (index: number, pages: AlbumPage[], config: AlbumConfig, c
     // Add Toolbar Height + Paddings
     // Toolbar ~80px, Padding buffer ~60px
     // Precise layout variables
-    const toolbarHeight = 84;
+    const toolbarHeight = 124;
     const paddingBuffer = 60;
     const paddingTop = 20; // py-4 is ~16px, added a small buffer
     const paddingBelow = paddingBuffer - paddingTop;
@@ -225,7 +225,10 @@ function NavigationControls({
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-10 w-6 rounded-full" onClick={() => onScrollToPage(totalPages - 1)}>
+                            <Button variant="ghost" size="icon" className="h-10 w-6 rounded-full" onClick={() => {
+                                onScrollToPage(totalPages - 1);
+                                setTimeout(() => onScrollToPage(totalPages - 1), 100);
+                            }}>
                                 <ChevronsDown className="h-4 w-4" />
                             </Button>
                         </TooltipTrigger>

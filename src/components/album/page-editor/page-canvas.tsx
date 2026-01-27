@@ -286,9 +286,10 @@ const SpineColorPicker = ({ value, onChange, disableAlpha = false }: { value?: s
 };
 
 const PageToolbar = ({
-    page, pageNumber, displayLabel, canDelete = true, onDeletePage, onUpdateLayout, onUpdateSpreadLayout, onUpdateCoverLayout, onUpdateCoverType, onUpdateSpineText, onUpdateSpineSettings, onUpdateTitleSettings, onDownloadPage, onUpdatePage, toast, viewMode, onToggleViewMode, visibleTemplateCategories, allowedTemplateIds
+    page, pageNumber, displayLabel, canDelete = true, onDeletePage, onUpdateLayout, onUpdateSpreadLayout, onUpdateCoverLayout, onUpdateCoverType, onUpdateSpineText, onUpdateSpineSettings, onUpdateTitleSettings, onDownloadPage, onUpdatePage, toast, viewMode, onToggleViewMode, visibleTemplateCategories, allowedTemplateIds,
+    onCycleLayout, onEnhanceWithAi, onUndo, onOpenEditor // New props
 }: any) => {
-    const { gridTemplates, coverTemplates, advancedTemplates, defaultGridTemplate } = useTemplates();
+    const { gridTemplates, coverTemplates, advancedTemplates, findTemplate, defaultGridTemplate } = useTemplates();
 
     const filterTemplates = (templates: TemplateUnion[], category: 'grid' | 'cover' | 'advanced') => {
         if (visibleTemplateCategories && !visibleTemplateCategories.includes(category)) return [];
@@ -305,23 +306,73 @@ const PageToolbar = ({
     const isSplit = page.isCover ? (page.coverType === 'split' || !page.coverType) : (page.spreadMode === 'split');
     const isFull = !isSplit;
 
+    const renderLayoutCycleButtons = () => (
+        <div className="flex items-center gap-0.5 border-r pr-2 mr-2">
+            {[1, 2, 3, 4, 5, 6].map(count => {
+                const { baseId } = parseLayoutId(page.layout || '1-full');
+                const currentTemplate = findTemplate(baseId);
+                const currentCount = currentTemplate ? getPhotoCount(currentTemplate) : 0;
+                const isActive = currentCount === count;
+                return (
+                    <Button
+                        key={count}
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                            "h-6 w-6 p-0 text-[10px] font-bold transition-all",
+                            isActive ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        )}
+                        onClick={() => onCycleLayout?.(count)}
+                    >
+                        {count}
+                    </Button>
+                );
+            })}
+        </div>
+    );
+
+    const renderCommonActions = () => (
+        <>
+            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEnhanceWithAi?.(page.id)}><Wand2 className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>AI Enhance</TooltipContent></Tooltip>
+            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onUndo?.(page.id)}><Undo className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Undo</TooltipContent></Tooltip>
+            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onOpenEditor?.(page.id)}><Pencil className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>{page.isCover ? "Cover Editor" : "Page Editor"}</TooltipContent></Tooltip>
+            <div className="h-4 w-px bg-border mx-1" />
+        </>
+    );
+
     if (isCoverOrSpread) {
         return (
-            <div className="mb-2">
+            <div className="">
                 <TooltipProvider>
-                    <div className="flex items-center justify-between gap-1 rounded-lg border bg-background p-0.5 shadow-lg px-2 flex-wrap">
-                        <span className="text-sm font-semibold text-muted-foreground mr-auto pl-1">{displayLabel || (page.isCover ? "Cover" : `Page ${pageNumber}`)}</span>
-                        <div className="flex items-center gap-1">
-                            <span className="text-xs text-muted-foreground whitespace-nowrap">Mode:</span>
-                            <div className="flex bg-muted/50 p-0.5 rounded-md border">
-                                <button onClick={() => page.isCover ? onUpdateCoverType?.(page.id, 'full') : onUpdatePage?.({ ...page, spreadMode: 'full' })} className={cn("px-2 py-0.5 text-xs rounded-sm transition-all", isFull ? "bg-background shadow-sm text-foreground font-medium" : "text-muted-foreground hover:text-foreground")}>Full</button>
-                                <div className="w-px bg-border/50 my-0.5" />
-                                <button onClick={() => page.isCover ? onUpdateCoverType?.(page.id, 'split') : onUpdatePage?.({ ...page, spreadMode: 'split' })} className={cn("px-2 py-0.5 text-xs rounded-sm transition-all", isSplit ? "bg-background shadow-sm text-foreground font-medium" : "text-muted-foreground hover:text-foreground")}>Split</button>
-                            </div>
+                    <div className="flex items-center gap-1 rounded-lg border bg-background p-0.5 shadow-lg px-2 flex-wrap min-h-[42px]">
+                        <span className="text-sm font-semibold text-muted-foreground mr-auto pl-1 whitespace-nowrap">{displayLabel || (page.isCover ? "Cover" : `Page ${pageNumber}`)}</span>
+
+                        {/* Layout Toggle - BookOpen icon */}
+                        <div className="flex items-center gap-2 border-r pr-2 mr-2">
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant={isFull ? "secondary" : "ghost"}
+                                        size="icon"
+                                        className={cn("h-8 w-8", isFull && "bg-primary/10 text-primary hover:bg-primary/20")}
+                                        onClick={() => {
+                                            const newMode = isFull ? 'split' : 'full';
+                                            if (page.isCover) onUpdateCoverType?.(page.id, newMode);
+                                            else onUpdatePage?.({ ...page, spreadMode: newMode });
+                                        }}
+                                    >
+                                        <BookOpen className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>{isFull ? "Switch to Split Mode" : "Switch to Full Mode"}</TooltipContent>
+                            </Tooltip>
                         </div>
 
-                        <div className="h-4 w-px bg-border mx-2" />
-                        <div className="flex items-center gap-2">
+                        {/* Integrated Actions */}
+                        {renderLayoutCycleButtons()}
+                        {renderCommonActions()}
+
+                        <div className="flex items-center gap-1">
                             {isSplit ? (
                                 <>
                                     <DropdownMenu>
@@ -371,35 +422,38 @@ const PageToolbar = ({
                                     }}><RotateCw className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Rotate Layout</TooltipContent></Tooltip>
                                 </>
                             ) : (
-                                <DropdownMenu>
-                                    <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">Layout</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>Spread Layout</TooltipContent></Tooltip>
-                                    <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-96 overflow-y-auto">
-                                        {(page.isCover ? [...filteredCoverTemplates, ...filteredAdvancedTemplates] : [...filteredGridTemplates, ...filteredAdvancedTemplates]).map(template => (
-                                            <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.layout || '1-full').baseId === template.id} onSelect={(templateId) => {
-                                                const { rotation } = parseLayoutId(page.layout || '1-full');
-                                                const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
-                                                if (page.isCover) onUpdateCoverLayout?.(page.id, 'full', finalId);
-                                                else onUpdateLayout(page.id, finalId);
-                                            }} />
-                                        ))}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                                <>
+                                    <DropdownMenu>
+                                        <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">Layout</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>Spread Layout</TooltipContent></Tooltip>
+                                        <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-96 overflow-y-auto">
+                                            {(page.isCover ? [...filteredCoverTemplates, ...filteredAdvancedTemplates] : [...filteredGridTemplates, ...filteredAdvancedTemplates]).map(template => (
+                                                <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.layout || '1-full').baseId === template.id} onSelect={(templateId) => {
+                                                    const { rotation } = parseLayoutId(page.layout || '1-full');
+                                                    const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
+                                                    if (page.isCover) onUpdateCoverLayout?.(page.id, 'full', finalId);
+                                                    else onUpdateLayout(page.id, finalId);
+                                                }} />
+                                            ))}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="relative" onClick={() => {
+                                                const { baseId, rotation } = parseLayoutId(page.layout || '1-full');
+                                                const newRotation = getNextRotation(rotation);
+                                                const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
+                                                if (page.isCover) onUpdateCoverLayout?.(page.id, 'full', newLayout);
+                                                else onUpdateLayout(page.id, newLayout);
+                                            }}><RotateCw className="h-4 w-4" /></Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Rotate Layout 90°</TooltipContent>
+                                    </Tooltip>
+                                </>
                             )}
                         </div>
-                        {isFull && (
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="relative" onClick={() => {
-                                        const { baseId, rotation } = parseLayoutId(page.layout || '1-full');
-                                        const newRotation = getNextRotation(rotation);
-                                        const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
-                                        if (page.isCover) onUpdateCoverLayout?.(page.id, 'full', newLayout);
-                                        else onUpdateLayout(page.id, newLayout);
-                                    }}><RotateCw className="h-4 w-4" /></Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Rotate Layout 90°</TooltipContent>
-                            </Tooltip>
-                        )}
+
+                        <div className="h-4 w-px bg-border mx-2" />
+
                         {page.isCover && (
                             <Popover>
                                 <PopoverTrigger asChild><Button variant="ghost" size="icon" className={cn(showSpineSettings && "text-primary bg-primary/10")} onClick={() => setShowSpineSettings(!showSpineSettings)}><Settings2 className="h-4 w-4" /></Button></PopoverTrigger>
@@ -432,8 +486,13 @@ const PageToolbar = ({
     return (
         <div className="mb-2">
             <TooltipProvider>
-                <div className="flex items-center justify-between gap-1 rounded-lg border bg-background p-0.5 shadow-lg px-2">
+                <div className="flex items-center justify-between gap-1 rounded-lg border bg-background p-0.5 shadow-lg px-2 min-h-[42px]">
                     <span className="text-sm font-semibold text-muted-foreground mr-auto">{displayLabel || `Page ${pageNumber}`}</span>
+
+                    {/* Integrated Actions for Single Page */}
+                    {renderLayoutCycleButtons()}
+                    {renderCommonActions()}
+
                     <div className="flex items-center gap-1">
                         <DropdownMenu>
                             <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><LayoutTemplate className="h-5 w-5" /></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>Page Layout</TooltipContent></Tooltip>
@@ -683,64 +742,9 @@ export const PageCanvas = React.memo(({
 
     return (
         <div className="w-full relative group/page text-left">
-            {/* Floating Actions Toolbar */}
-            <div className="absolute right-[-45px] top-1/2 -translate-y-1/2 flex flex-col gap-2 opacity-0 group-hover/page:opacity-100 transition-opacity duration-200 z-50">
-                <div className="flex flex-col gap-1 p-1 bg-background/90 backdrop-blur-sm border rounded-lg shadow-xl">
-                    {[1, 2, 3, 4, 5, 6].map(count => {
-                        const { baseId } = parseLayoutId(page.layout || '1-full');
-                        const currentTemplate = findTemplate(baseId);
-                        const currentCount = currentTemplate ? getPhotoCount(currentTemplate) : 0;
-                        const isActive = currentCount === count;
 
-                        return (
-                            <Button
-                                key={count}
-                                variant="ghost"
-                                size="sm"
-                                className={cn(
-                                    "h-8 w-8 p-0 text-xs font-bold transition-all",
-                                    isActive ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                                )}
-                                onClick={() => cycleLayoutByPhotoCount(count)}
-                            >
-                                {count}
-                            </Button>
-                        );
-                    })}
-                </div>
 
-                <div className="flex flex-col gap-1 p-1 bg-background/90 backdrop-blur-sm border rounded-lg shadow-xl">
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEnhanceWithAi?.(page.id)}>
-                                    <Wand2 className="h-4 w-4" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent side="right">AI Enhance</TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onUndo?.(page.id)}>
-                                    <Undo className="h-4 w-4" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent side="right">Undo</TooltipContent>
-                        </Tooltip>
-                        <div className="h-px bg-border my-1 mx-1" />
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onOpenEditor?.(page.id)}>
-                                    <Pencil className="h-4 w-4" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent side="right">{page.isCover ? "Cover Editor" : "Page Editor"}</TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-                </div>
-            </div>
-
-            <div className={cn("h-18 px-10", page.type === 'single' ? 'w-1/2 mx-auto px-4' : 'w-full')}>
+            <div className={cn("px-10 pt-1", page.type === 'single' ? 'w-1/2 mx-auto px-4' : 'w-full')}>
                 <PageToolbar
                     page={page}
                     pageNumber={pageIndex + 1}
@@ -761,6 +765,10 @@ export const PageCanvas = React.memo(({
                     visibleTemplateCategories={visibleTemplateCategories}
                     allowedTemplateIds={allowedTemplateIds}
                     toast={toast}
+                    onCycleLayout={cycleLayoutByPhotoCount}
+                    onEnhanceWithAi={onEnhanceWithAi}
+                    onUndo={onUndo}
+                    onOpenEditor={onOpenEditor}
                 />
             </div>
 
