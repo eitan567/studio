@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { logger } from '@/lib/logger';
 import placeholderImagesData from '@/lib/placeholder-images.json';
 
 const placeholderImages = placeholderImagesData.placeholderImages;
@@ -437,7 +438,8 @@ export function PageEditor({ albumId }: PageEditorProps) {
     setMultiSelectModeLocal(value);
   }, []);
 
-  const handleColorChange = (color: string) => {
+  const handleColorChange = useCallback((color: string) => {
+    logger.debug('Color change requested:', color);
     // Clear previous timeout
     if (colorDebounceRef.current) {
       clearTimeout(colorDebounceRef.current);
@@ -447,7 +449,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
     colorDebounceRef.current = setTimeout(() => {
       setBackgroundColor(color);
     }, 100);
-  };
+  }, []);
 
   const {
     generateEmptyAlbum,
@@ -552,7 +554,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
     if (lastSavedPagesRef.current === '') {
       const serverPagesStr = JSON.stringify(savedPages);
       if (currentPagesStr === serverPagesStr) {
-        console.log('[PageEditor] Skipping auto-save: Pages match server hydration');
+        logger.debug('Skipping auto-save: Pages match server hydration');
         lastSavedPagesRef.current = currentPagesStr;
         return;
       }
@@ -570,7 +572,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
 
     // Otherwise, update pages
     if (album) {
-      console.log('[PageEditor] Auto-saving pages...');
+      logger.debug('Auto-saving pages...');
       lastSavedPagesRef.current = currentPagesStr;
       updatePages(albumPages);
     }
@@ -601,11 +603,11 @@ export function PageEditor({ albumId }: PageEditorProps) {
       watchedSize !== savedConfig.size;
 
     if (!isConfigChanged) {
-      console.log('[PageEditor] Skipping auto-save: Config matches server hydration');
+      logger.debug('Skipping auto-save: Config matches server hydration');
       return;
     }
 
-    console.log('[PageEditor] Auto-saving config...');
+    logger.debug('Auto-saving config...');
     updateConfig(config);
   }, [photoGap, pageMargin, cornerRadius, backgroundColor, backgroundImage, watchedSize, isInitialized, isAlbumLoading, isNew, album, savedConfig]);
 

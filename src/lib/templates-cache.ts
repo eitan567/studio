@@ -7,6 +7,7 @@
 
 import { createClient } from '@/lib/supabase';
 import { AdvancedTemplate } from '@/lib/advanced-layout-types';
+import { logger } from '@/lib/logger';
 
 // Types
 export interface GridTemplate {
@@ -108,9 +109,9 @@ async function initializeCache(): Promise<void> {
                 isCustom: t.created_by === 'user'
             }));
 
-            console.log(`[TemplateCache] Loaded ${gridTemplatesCache.length} grid, ${advancedTemplatesCache.length} advanced from DB`);
+            logger.info(`Loaded ${gridTemplatesCache.length} grid, ${advancedTemplatesCache.length} advanced from DB`);
         } else {
-            console.warn('[TemplateCache] No templates found in DB.');
+            logger.warn('No templates found in DB.');
             gridTemplatesCache = [];
             advancedTemplatesCache = [];
             coverTemplatesCache = [];
@@ -121,7 +122,7 @@ async function initializeCache(): Promise<void> {
         cacheError = null;
 
     } catch (error) {
-        console.error('[TemplateCache] Failed to load from DB:', error);
+        logger.error('Failed to load from DB:', error);
         cacheError = error as Error;
         // NO FALLBACK
         gridTemplatesCache = [];
@@ -195,7 +196,7 @@ export function invalidateCache(): void {
     gridTemplatesCache = null;
     advancedTemplatesCache = null;
     coverTemplatesCache = null;
-    console.log('[TemplateCache] Cache invalidated');
+    logger.info('Cache invalidated');
 }
 
 let preloadPromise: Promise<void> | null = null;
@@ -214,7 +215,7 @@ export async function preloadCache(): Promise<void> {
         return preloadPromise;
     }
 
-    console.log('[TemplateCache] Preloading...');
+    logger.debug('Preloading...');
     preloadPromise = initializeCache().finally(() => {
         preloadPromise = null;
     });

@@ -10,15 +10,16 @@
 
 import { useEffect } from 'react';
 import { preloadCache, getCacheStatus } from '@/lib/templates-cache';
+import { logger } from '@/lib/logger';
 
 export function TemplatePreloader() {
     useEffect(() => {
         // Preload templates on mount
         preloadCache().then(() => {
             const status = getCacheStatus();
-            console.log('[TemplatePreloader] Cache loaded:', status);
+            logger.debug('Cache loaded:', status);
         }).catch((error) => {
-            console.error('[TemplatePreloader] Failed to preload:', error);
+            logger.error('Failed to preload:', error);
         });
     }, []);
 
