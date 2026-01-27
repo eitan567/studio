@@ -748,7 +748,7 @@ export const PageCanvas = React.memo(({
         <div className="w-full relative group/page text-left">
 
 
-            <div className={cn("px-10 pt-1", page.type === 'single' ? 'w-1/2 mx-auto px-4' : 'w-full')}>
+            <div className={cn("px-8 pt-1", page.type === 'single' ? 'w-1/2 mx-auto px-4' : 'w-full')}>
                 <PageToolbar
                     page={page}
                     pageNumber={pageIndex + 1}
