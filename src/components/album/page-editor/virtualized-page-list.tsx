@@ -96,9 +96,9 @@ const getPageHeight = (index: number, pages: AlbumPage[], config: AlbumConfig, c
     // Add Toolbar Height + Paddings
     // Toolbar ~80px, Padding buffer ~60px
     // Precise layout variables
-    const toolbarHeight = 124;
+    const toolbarHeight = 215;
     const paddingBuffer = 60;
-    const paddingTop = 20; // py-4 is ~16px, added a small buffer
+    const paddingTop = 40; // py-4 is ~16px, added a small buffer
     const paddingBelow = paddingBuffer - paddingTop;
 
     let total = imageHeight + toolbarHeight + paddingBuffer;
@@ -386,7 +386,7 @@ export const VirtualizedPageList = memo(({
 
         return (
             <div style={style} className="flex justify-center w-full px-4" data-page-id={page.id}>
-                <div className="w-full max-w-6xl flex flex-col justify-start py-4">
+                <div className="w-full max-w-8xl flex flex-col justify-start py-4">
                     <PageCanvas
                         page={page}
                         pageIndex={index}

@@ -1324,7 +1324,7 @@ const ScaledCoverPreview = React.memo(({
   }, [logicalWidth, logicalHeight]);
 
   return (
-    <div ref={wrapperRef} className="w-full h-full flex items-center justify-center p-4">
+    <div ref={wrapperRef} className="w-full h-full flex items-center justify-center p-4 pt-0">
       {/* HARDCOVER BOOK CONTAINER */}
       <div
         className="relative flex items-center justify-center transition-transform duration-500 will-change-transform"

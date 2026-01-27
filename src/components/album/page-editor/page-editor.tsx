@@ -760,7 +760,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
           </div>
 
           {/* Main Content: Album Preview */}
-          <div className="flex-1 min-w-0 pr-6 pt-4 h-full flex flex-col" style={{ colorScheme: 'light' }}>
+          <div className="flex-1 min-w-0 pr-6 h-full flex flex-col" style={{ colorScheme: 'light' }}>
             {isLoading || isAlbumLoading || !isInitialized ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center animate-in fade-in duration-300 bg-muted/30 border-2 border-dashed rounded-lg">
                 <Loader2 className="h-12 w-12 mb-4 animate-spin text-primary" />

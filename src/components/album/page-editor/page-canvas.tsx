@@ -595,7 +595,7 @@ const ScaledCoverPreview = React.memo(({
     }, [logicalWidth, logicalHeight]);
 
     return (
-        <div ref={wrapperRef} className="w-full h-full flex items-center justify-center p-4">
+        <div ref={wrapperRef} className="w-full h-full flex items-center justify-center p-4 pt-0">
             <div className="relative flex items-center justify-center"
                 style={{ width: logicalWidth, height: logicalHeight, transform: `scale(${scale})`, transformOrigin: 'center center', flexShrink: 0, colorScheme: 'light' }}>
                 <div className="absolute inset-0 bg-[#F4F4F4] rounded-[5px] shadow-2xl border border-gray-200/80 z-0">
