@@ -5,6 +5,7 @@ import * as ReactWindow from 'react-window';
 const List = (ReactWindow as any).VariableSizeList || (ReactWindow as any).List;
 
 import { AlbumPage, AlbumConfig, Photo } from '@/lib/types';
+import { logger } from '@/lib/logger';
 import { PageCanvas } from '@/components/album/page-editor/page-canvas';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -182,7 +183,7 @@ function NavigationControls({
         if (next < 0) next = 0;
         if (next >= totalPages) next = totalPages - 1;
 
-        console.log('--- Navigation Debug ---', {
+        logger.debug('[NavigationControls] Stepping:', {
             currentPageIndex: current,
             totalPages,
             step,
@@ -319,11 +320,11 @@ const Row = memo(({ index, style, ariaAttributes, ...data }: any) => {
     const isPriority = index < 2;
 
     if (isPriority) {
-        console.log('[VirtualizedRow] rendering priority row:', index);
+        logger.debug('[VirtualizedRow] rendering priority row:', index);
     } else {
         // Log every 10th row for non-priority to avoid flooding, but enough to see if it renders everything
         if (index % 10 === 0) {
-            console.log('[VirtualizedRow] rendering row:', index);
+            logger.debug('[VirtualizedRow] rendering row:', index);
         }
     }
 
@@ -405,7 +406,7 @@ export const VirtualizedPageList = memo(({
         const paddingTop = 20;
 
         // Debug: Inspect listRef to understand what we are working with
-        console.log('[scrollToPageCentered] listRef keys:', Object.keys(listRef.current || {}));
+        logger.debug('listRef keys:', Object.keys(listRef.current || {}));
         const el = listRef.current?.element || listRef.current?.outerRef?.current; // Handle different libs
 
         // Standard geometric centering for most pages. 

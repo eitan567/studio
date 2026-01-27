@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 
 import type { AlbumPage, AlbumConfig, Photo, PhotoPanAndZoom } from '@/lib/types';
+import { logger } from '@/lib/logger';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
@@ -729,7 +730,7 @@ export const PageCanvas = React.memo(({
     }, [page, pageIndex, externalDisplayLabel]);
 
     if (!config) {
-        console.error('[PageCanvas] Missing config for page:', page.id);
+        logger.error('Missing config for page:', page.id);
         return <div className="p-4 text-red-500">Missing Configuration</div>;
     }
 

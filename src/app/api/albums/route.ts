@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { logger } from '@/lib/logger'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!
@@ -40,13 +41,13 @@ export async function GET(request: NextRequest) {
             .order('updated_at', { ascending: false })
 
         if (error) {
-            console.error('Error fetching albums:', error)
+            logger.error('Error fetching albums:', error)
             return NextResponse.json({ error: 'Failed to fetch albums' }, { status: 500 })
         }
 
         return NextResponse.json({ albums })
     } catch (error) {
-        console.error('Albums GET error:', error)
+        logger.error('Albums GET error:', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
 
         const body = await request.json()
         const { name, config, pages, thumbnail_url } = body
-        console.log('[POST /api/albums] Received body:', { name, config: !!config, pages: !!pages, thumbnail_url });
+        logger.debug('POST /api/albums: Received body:', { name, config: !!config, pages: !!pages, thumbnail_url });
 
         const { data: album, error } = await supabase
             .from('albums')
@@ -78,16 +79,16 @@ export async function POST(request: NextRequest) {
             .select()
             .single()
 
-        console.log('[POST /api/albums] Created album:', album?.id, 'thumbnail_url:', album?.thumbnail_url);
+        logger.debug('POST /api/albums: Created album:', album?.id, 'thumbnail_url:', album?.thumbnail_url);
 
         if (error) {
-            console.error('Error creating album:', error)
+            logger.error('Error creating album:', error)
             return NextResponse.json({ error: 'Failed to create album' }, { status: 500 })
         }
 
         return NextResponse.json({ album }, { status: 201 })
     } catch (error) {
-        console.error('Albums POST error:', error)
+        logger.error('Albums POST error:', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }

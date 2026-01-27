@@ -12,6 +12,7 @@ import {
   Settings,
   Shield,
 } from 'lucide-react';
+import { logger } from '@/lib/logger';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { SettingsDialog } from '@/components/settings-dialog';
@@ -62,7 +63,7 @@ export default function DashboardPage() {
         setAlbums(data.albums || []);
       }
     } catch (error) {
-      console.error('Failed to fetch albums:', error);
+      logger.error('Failed to fetch albums:', error);
     } finally {
       setIsLoading(false);
     }

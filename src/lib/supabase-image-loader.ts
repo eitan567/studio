@@ -95,6 +95,12 @@ export default function supabaseLoader({ src, width, quality }: { src: string; w
         }
     }
 
-    // CASE 3: External URL (Unsplash, etc) - return as is
-    return src;
+    // CASE 3: External URL (Unsplash, Picsum, etc) - return with width param to satisfy Next.js loader warning
+    try {
+        const url = new URL(src);
+        url.searchParams.set('w', width.toString());
+        return url.toString();
+    } catch (e) {
+        return src;
+    }
 }

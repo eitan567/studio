@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Photo } from '@/lib/types';
 import { usePhotoUpload } from '@/hooks/usePhotoUpload';
+import { logger } from '@/lib/logger';
 import placeholderImagesData from '@/lib/placeholder-images.json';
 
 const placeholderImages = placeholderImagesData.placeholderImages;
@@ -240,7 +241,7 @@ export function usePhotoGalleryManager({
                                 updateThumbnail(firstSuccess.photo.src);
                             }
                         } catch (e) {
-                            console.warn('Thumbnail update failed (non-critical):', e);
+                            logger.warn('Thumbnail update failed (non-critical):', e);
                         }
                     }
                 }
@@ -262,7 +263,7 @@ export function usePhotoGalleryManager({
             }
 
         } catch (error) {
-            console.error('Batch process error:', error);
+            logger.error('Batch process error:', error);
             toast({
                 title: 'Upload Process Error',
                 description: 'Critical error during upload.',
@@ -360,7 +361,7 @@ export function usePhotoGalleryManager({
                 description: 'All photos have been permanently deleted.',
             });
         } catch (e) {
-            console.error('Failed to clear gallery (server sync)', e);
+            logger.error('Failed to clear gallery (server sync)', e);
             toast({ title: 'Warning', description: 'Gallery cleared locally, but server sync may have failed.', variant: 'destructive' });
         }
     }, [allPhotos, setAllPhotos, toast]);
@@ -401,7 +402,7 @@ export function usePhotoGalleryManager({
             });
 
         } catch (e) {
-            console.error("Delete failed", e);
+            logger.error("Delete failed", e);
             toast({ title: "Error", description: "Failed to delete from server", variant: "destructive" });
         }
     }, [allPhotos, setAllPhotos, toast]);

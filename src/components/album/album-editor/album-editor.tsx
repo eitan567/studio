@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { BookOpenText, Info, Trash2, LayoutTemplate, Download, Image as ImageIcon, Wand2, Undo, Crop, AlertTriangle, Pencil, BookOpen, Share2, FileText, FileDown, MoreHorizontal, FileImage, Plus, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown, CornerDownRight, CornerDownLeft, RotateCw, ChevronUp, ChevronDown, Settings2 } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
+import { logger } from '@/lib/logger';
 
 import type { AlbumPage, AlbumConfig, Photo } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
@@ -1098,13 +1099,13 @@ const PageToolbar = ({
                   variant="ghost"
                   size="icon"
                   onClick={() => {
-                    console.log('[RotateButton] Clicked! Current layout:', page.layout);
-                    const { baseId, rotation } = parseLayoutId(page.layout || '1-full');
-                    console.log('[RotateButton] Parsed:', { baseId, rotation });
+                    logger.debug('RotateButton: Clicked! Current layout:', page.layout);
+                    const { baseId, rotation } = parseLayoutId(page.layout);
+                    logger.debug('RotateButton: Parsed:', { baseId, rotation });
                     const newRotation = getNextRotation(rotation);
-                    console.log('[RotateButton] New rotation:', newRotation);
+                    logger.debug('RotateButton: New rotation:', newRotation);
                     const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
-                    console.log('[RotateButton] New layout ID:', newLayout);
+                    logger.debug('RotateButton: New layout ID:', newLayout);
                     onUpdateLayout(page.id, newLayout);
                   }}
                   className="relative"

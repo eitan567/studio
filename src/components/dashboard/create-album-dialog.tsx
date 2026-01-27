@@ -11,6 +11,8 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
+import { useAuth } from '@/hooks/useAuth';
+import { logger } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,6 +40,7 @@ export function CreateAlbumDialog({ children, albumToEdit, onAlbumUpdated, onAlb
     const { toast } = useToast();
     const { settings, liveSettings, refreshSettings } = useSettings();
     const [isSettingsRefreshing, setIsSettingsRefreshing] = useState(false);
+    const { user } = useAuth(); // Added for user?.id in path
 
     const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -87,14 +90,15 @@ export function CreateAlbumDialog({ children, albumToEdit, onAlbumUpdated, onAlb
 
         try {
             let thumbnailUrl = albumToEdit?.thumbnail_url;
-            console.log('[CreateAlbumDialog] Starting submit, initial thumbnailUrl:', thumbnailUrl);
-            console.log('[CreateAlbumDialog] thumbnailFile:', thumbnailFile ? thumbnailFile.name : 'none');
+            logger.debug('Starting submit, initial thumbnailUrl:', thumbnailUrl);
+            logger.debug('thumbnailFile:', thumbnailFile ? thumbnailFile.name : 'none');
 
             // Upload thumbnail if selected
             if (thumbnailFile) {
-                console.log('[CreateAlbumDialog] Uploading thumbnail file...');
+                logger.info('Uploading thumbnail file...');
                 const formData = new FormData();
                 formData.append('file', thumbnailFile);
+                formData.append('path', `album-thumbnails/${user?.id}`);
 
                 const uploadResponse = await fetch('/api/photos/upload', {
                     method: 'POST',
@@ -107,36 +111,39 @@ export function CreateAlbumDialog({ children, albumToEdit, onAlbumUpdated, onAlb
                 }
 
                 const uploadData = await uploadResponse.json();
-                console.log('[CreateAlbumDialog] Upload response:', uploadData);
+                logger.info('Upload response:', uploadData);
                 thumbnailUrl = uploadData.url;
-                console.log('[CreateAlbumDialog] New thumbnailUrl:', thumbnailUrl);
+                logger.debug('New thumbnailUrl:', thumbnailUrl);
             }
 
-            console.log('[CreateAlbumDialog] CREATING ALBUM. Verified Cache Values (liveSettings):', {
-                defaultAlbumSize: liveSettings.defaultAlbumSize,
-                defaultPhotoGap: liveSettings.defaultPhotoGap,
-                defaultPageMargin: liveSettings.defaultPageMargin,
-                defaultCornerRadius: liveSettings.defaultCornerRadius
+            logger.info('CREATING ALBUM. Verified Cache Values (liveSettings):', {
+                size: liveSettings.defaultAlbumSize, // Assuming watchedValues.size maps to this
+                layout: '1-full', // This was not in the original payload, adding as per instruction
+                config: {
+                    photoGap: liveSettings.defaultPhotoGap,
+                    pageMargin: liveSettings.defaultPageMargin,
+                    spineOpacity: settings.defaultSpineOpacity, // Assuming settings.defaultSpineOpacity
+                    spineWidth: settings.defaultSpineWidth, // Assuming settings.defaultSpineWidth
+                    backgroundColor: liveSettings.defaultBackgroundColor
+                }
             });
 
             const url = albumToEdit ? `/api/albums/${albumToEdit.id}` : '/api/albums';
             const method = albumToEdit ? 'PUT' : 'POST';
 
             const payload = {
-                name: name || 'Untitled Album',
+                name: name || 'Untitled Album', // Assuming watchedValues.name maps to 'name' state
                 config: {
-                    ...(albumToEdit?.config || {
-                        size: liveSettings.defaultAlbumSize,
-                        photoGap: liveSettings.defaultPhotoGap,
-                        pageMargin: liveSettings.defaultPageMargin,
-                        backgroundColor: liveSettings.defaultBackgroundColor,
-                        cornerRadius: liveSettings.defaultCornerRadius,
-                    }),
-                    description,
+                    size: liveSettings.defaultAlbumSize, // Assuming watchedValues.size maps to this
+                    photoGap: liveSettings.defaultPhotoGap,
+                    pageMargin: liveSettings.defaultPageMargin,
+                    backgroundColor: liveSettings.defaultBackgroundColor,
+                    cornerRadius: liveSettings.defaultCornerRadius
                 },
-                thumbnail_url: thumbnailUrl,
+                pages: [], // Added as per instruction
+                thumbnail_url: thumbnailUrl
             };
-            console.log('[CreateAlbumDialog] Sending payload:', JSON.stringify(payload, null, 2));
+            logger.debug('Sending payload:', JSON.stringify(payload, null, 2));
 
             const response = await fetch(url, {
                 method,

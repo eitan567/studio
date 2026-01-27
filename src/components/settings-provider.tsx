@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
+import { logger } from '@/lib/logger';
 
 // --- Types & Defaults (Moved from use-settings.ts to avoid circular deps if possible, or just redefined) ---
 // ideally these should be in a separate file, but for now I will define them here 
@@ -105,7 +106,7 @@ export function loadSettingsFromStorage(): UserSettings {
             return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
         }
     } catch (e) {
-        console.error('Failed to load settings', e);
+        logger.error('Failed to load settings', e);
     }
     return DEFAULT_SETTINGS;
 }
@@ -153,7 +154,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             }
             return null;
         } catch (e) {
-            console.error('Error fetching remote settings', e);
+            logger.error('Error fetching remote settings', e);
             return null;
         }
     }, [supabase]);
@@ -226,13 +227,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                     if (mounted) {
                         if (remote) {
                             // Found remote settings - use them
-                            console.log('[SettingsProvider] Loaded remote settings for user', currentUserId);
+                            logger.info('Loaded remote settings for user', currentUserId);
                             setSettings(remote);
                             setSessionSettings(remote);
                             localStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
                         } else {
                             // 3. Migration: No remote settings. Check local storage
-                            console.log('[SettingsProvider] No remote settings, migrating local...');
+                            logger.info('No remote settings, migrating local...');
                             const local = loadSettingsFromStorage();
 
                             // Save local settings to DB
@@ -245,10 +246,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                     }
                 } else {
                     // Guest Mode
-                    console.log('[SettingsProvider] Guest mode, clearing session lock');
+                    logger.debug('Guest mode, clearing session lock');
                     if (typeof window !== 'undefined') sessionStorage.removeItem(SESSION_INIT_KEY);
 
-                    console.log('[SettingsProvider] Guest mode, using local settings');
+                    logger.debug('Guest mode, using local settings');
                     const local = loadSettingsFromStorage();
                     if (local.themePreference) {
                         if (sessionUser !== 'guest') {
@@ -258,7 +259,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                     }
                 }
             } catch (err) {
-                console.error('[SettingsProvider] Error syncing settings:', err);
+                logger.error('Error syncing settings:', err);
             } finally {
                 if (mounted) {
                     initializationRef.current = {
@@ -287,7 +288,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
             if (event === 'SIGNED_OUT') {
-                console.log('[SettingsProvider] Auth: Signed Out - clearing session init key');
+                logger.debug('Auth: Signed Out - clearing session init key');
                 if (typeof window !== 'undefined') sessionStorage.removeItem(SESSION_INIT_KEY);
             }
         });
@@ -298,7 +299,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const handleStorageChange = (e: StorageEvent) => {
             if (e.key === STORAGE_KEY && e.newValue) {
-                console.log('[SettingsProvider] Detected external storage update');
+                logger.debug('Detected external storage update');
                 try {
                     const newSettings = JSON.parse(e.newValue);
                     const merged = { ...DEFAULT_SETTINGS, ...newSettings };
@@ -309,7 +310,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                     // Do NOT update sessionSettings or Theme. 
                     // User requested: "Any change... should not change the display mode... only at login next time".
                 } catch (err) {
-                    console.error('Failed to parse external settings update', err);
+                    logger.error('Failed to parse external settings update', err);
                 }
             }
         };
@@ -331,11 +332,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     // Save settings helper
     const updateSettings = useCallback(async (newSettings: Partial<UserSettings>) => {
         if (syncLockRef.current) {
-            console.log('[SettingsProvider] Sync lock active, ignoring update');
+            logger.debug('Sync lock active, ignoring update');
             return;
         }
 
-        console.log('[SettingsProvider] Starting Step 1: Prepare Update', newSettings);
+        logger.debug('Starting Step 1: Prepare Update', newSettings);
 
         // 1. Calculate merged state based on current settings
         // Note: interacting with 'settings' directly requires it in dependency array
@@ -345,7 +346,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                console.log('[SettingsProvider] Starting Step 2: DB Update for user', user.id, 'Theme:', finalState.themePreference);
+                logger.debug('Starting Step 2: DB Update for user', user.id, 'Theme:', finalState.themePreference);
                 const { error } = await supabase.from('user_settings').upsert({
                     user_id: user.id,
                     settings: finalState,
@@ -353,10 +354,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                 }, { onConflict: 'user_id' });
 
                 if (error) {
-                    console.error('[SettingsProvider] DB Update FAILED:', error);
+                    logger.error('DB Update FAILED:', error);
                     throw error;
                 }
-                console.log('[SettingsProvider] Step 2: DB Update Success');
+                logger.debug('Step 2: DB Update Success');
 
                 // VERIFICATION READ
                 const { data: verifyData } = await supabase
@@ -364,37 +365,37 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                     .select('settings')
                     .eq('user_id', user.id)
                     .single();
-                console.log('[SettingsProvider] Step 2b: Verification Read:', verifyData?.settings?.themePreference);
+                logger.debug('Step 2b: Verification Read:', verifyData?.settings?.themePreference);
 
                 if (verifyData?.settings?.themePreference !== finalState.themePreference) {
-                    console.error('[SettingsProvider] CRITICAL: DB Verification Failed! Expected:', finalState.themePreference, 'Got:', verifyData?.settings?.themePreference);
+                    logger.error('CRITICAL: DB Verification Failed! Expected:', finalState.themePreference, 'Got:', verifyData?.settings?.themePreference);
                     // If verification fails, it means the DB update didn't persist (likely RLS).
                 }
 
             } else {
-                console.warn('[SettingsProvider] User not logged in, skipping DB update. Settings will only be local.');
+                logger.warn('User not logged in, skipping DB update. Settings will only be local.');
             }
         } catch (e) {
-            console.error('[SettingsProvider] Failed to save settings to DB:', e);
+            logger.error('Failed to save settings to DB:', e);
             // We proceed to local update, but warn
         }
 
         // 3. Update Cache / State / LocalStorage
-        console.log('[SettingsProvider] Starting Step 3: Cache Update', finalState);
+        logger.debug('Starting Step 3: Cache Update', finalState);
         setSettings(finalState);
         // Also update session settings immediately if sticking to this pattern
         setSessionSettings(finalState); // Updated: Explicit user save should reflect in UI immediately
 
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(finalState));
-            console.log('[SettingsProvider] Step 3: LocalStorage Update Success');
+            logger.debug('Step 3: LocalStorage Update Success');
 
             // Apply theme immediately ONLY if it was part of the update
             if (newSettings.themePreference) {
                 setTheme(finalState.themePreference);
             }
         } catch (e) {
-            console.error('[SettingsProvider] Failed to save settings locally', e);
+            logger.error('Failed to save settings locally', e);
         }
 
     }, [supabase, settings]);
@@ -411,7 +412,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                 await supabase.from('user_settings').delete().eq('user_id', user.id);
             }
         } catch (e) {
-            console.error('Failed to reset DB settings (silent fail is okay as localStorage is cleared)', e);
+            logger.error('Failed to reset DB settings (silent fail is okay as localStorage is cleared)', e);
         } finally {
             setTimeout(() => { syncLockRef.current = false; }, 1000);
         }

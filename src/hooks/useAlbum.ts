@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import type { AlbumConfig, AlbumPage, Album } from '@/lib/types'
+import { logger } from '@/lib/logger'
 
 
 interface UseAlbumOptions {
@@ -97,7 +98,7 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
             })
         } catch (err: any) {
             if (err.name === 'AbortError') return;
-            console.error('Load album error:', err)
+            logger.error('Load album error:', err)
             setError('Failed to load album')
         } finally {
             if (loadingIdRef.current === id) {
@@ -140,7 +141,7 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
 
             return data.album
         } catch (err) {
-            console.error('Create album error:', err)
+            logger.error('Create album error:', err)
             setError('Failed to create album')
             throw err
         } finally {
@@ -187,7 +188,7 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
 
             if (!response.ok) {
                 const errorBody = await response.text();
-                console.error('[saveAlbum] Server error:', response.status, errorBody);
+                logger.error('Server error:', response.status, errorBody);
                 throw new Error(`Failed to save album: ${response.status}`)
             }
 
@@ -214,7 +215,7 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
             setHasUnsavedChanges(false)
             setLastSaved(new Date())
         } catch (err) {
-            console.error('Save album error:', err)
+            logger.error('Save album error:', err)
             setError('Failed to save changes')
         } finally {
             setIsSaving(false)
@@ -297,7 +298,7 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
 
             router.push('/dashboard')
         } catch (err) {
-            console.error('Delete album error:', err)
+            logger.error('Delete album error:', err)
             setError('Failed to delete album')
         }
     }, [album, router])

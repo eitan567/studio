@@ -1,4 +1,5 @@
 import { genkit } from 'genkit';
+import { logger } from '@/lib/logger';
 import { googleAI } from '@genkit-ai/google-genai';
 
 const apiKey = process.env.GOOGLE_GENAI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -6,9 +7,9 @@ const apiKey = process.env.GOOGLE_GENAI_API_KEY || process.env.GOOGLE_API_KEY;
 const globalForGenkit = globalThis as unknown as { __genkit: ReturnType<typeof genkit> | undefined };
 
 if (!globalForGenkit.__genkit) {
-  console.log('Genkit Init - Initializing New Instance');
-  console.log('Genkit Init - API Key present:', !!apiKey);
-  console.log('Genkit Init - Env Vars:', {
+  logger.info('Genkit Init: Initializing New Instance');
+  logger.info('Genkit Init: API Key present:', !!apiKey);
+  logger.debug('Genkit Init: Env Vars:', {
     GOOGLE_GENAI_API_KEY: !!process.env.GOOGLE_GENAI_API_KEY,
     GOOGLE_API_KEY: !!process.env.GOOGLE_API_KEY
   });

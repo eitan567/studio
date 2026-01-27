@@ -1,6 +1,7 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { AlbumPage, Photo, AlbumConfig } from '@/lib/types';
+import { logger } from '@/lib/logger';
 import { getPhotoCount, useTemplates } from '@/hooks/useTemplates';
 import { useToast } from '@/hooks/use-toast';
 import { UserSettings } from '@/hooks/use-settings';
@@ -25,7 +26,7 @@ export function useAlbumGeneration({
 
     // Use settings directly from props
     const generateEmptyAlbum = useCallback(() => {
-        console.log('[generateEmptyAlbum] Using settings from prop:', {
+        logger.info('Using settings for empty album:', {
             spineWidth: settings.defaultSpineWidth,
             spineOpacity: settings.defaultSpineOpacity,
             photoGap: settings.defaultPhotoGap,

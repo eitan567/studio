@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { logger } from '@/lib/logger'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!
@@ -48,13 +49,13 @@ export async function GET(
             if (error.code === 'PGRST116') {
                 return NextResponse.json({ error: 'Album not found' }, { status: 404 })
             }
-            console.error('Error fetching album:', error)
+            logger.error('Error fetching album:', error)
             return NextResponse.json({ error: 'Failed to fetch album' }, { status: 500 })
         }
 
         return NextResponse.json({ album })
     } catch (error) {
-        console.error('Album GET error:', error)
+        logger.error('Album GET error:', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }
@@ -100,13 +101,13 @@ export async function PUT(
             if (error.code === 'PGRST116') {
                 return NextResponse.json({ error: 'Album not found' }, { status: 404 })
             }
-            console.error('Error updating album:', error)
+            logger.error('Error updating album:', error)
             return NextResponse.json({ error: 'Failed to update album' }, { status: 500 })
         }
 
         return NextResponse.json({ album })
     } catch (error) {
-        console.error('Album PUT error:', error)
+        logger.error('Album PUT error:', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }
@@ -150,13 +151,13 @@ export async function DELETE(
                 const match = url.match(/\/photos\/(.+)$/);
                 if (match && match[1]) {
                     const path = decodeURIComponent(match[1]);
-                    console.log('[DELETE] Extracted path:', path, 'from URL:', url);
+                    logger.debug('DELETE: Extracted path:', path, 'from URL:', url);
                     return path;
                 }
-                console.log('[DELETE] Failed to extract path from URL:', url);
+                logger.debug('DELETE: Failed to extract path from URL:', url);
                 return null;
             } catch (e) {
-                console.error('[DELETE] Error extracting path:', e);
+                logger.error('DELETE: Error extracting path:', e);
                 return null;
             }
         };
@@ -165,39 +166,38 @@ export async function DELETE(
             .map((p: any) => p.src ? getStoragePath(p.src) : null)
             .filter((p: string | null) => p !== null) as string[] : [];
 
-        console.log('[DELETE] Initial paths to delete (from photos):', pathsToDelete);
+        logger.debug('DELETE: Initial paths to delete (from photos):', pathsToDelete);
 
         // Also delete the thumbnail if it exists in storage
         if (album?.thumbnail_url) {
-            console.log('[DELETE] Checking thumbnail_url:', album.thumbnail_url);
             const thumbnailPath = getStoragePath(album.thumbnail_url);
             if (thumbnailPath) {
                 if (!pathsToDelete.includes(thumbnailPath)) {
                     pathsToDelete.push(thumbnailPath);
-                    console.log('[DELETE] Added thumbnail to deletion list:', thumbnailPath);
+                    logger.debug('DELETE: Added thumbnail to deletion list:', thumbnailPath);
                 } else {
-                    console.log('[DELETE] Thumbnail already in deletion list');
+                    logger.debug('DELETE: Thumbnail already in deletion list');
                 }
             }
         }
 
         // 3. Delete from Storage and DB
         if (pathsToDelete.length > 0) {
-            console.log('[DELETE] Removing files from storage:', pathsToDelete);
+            logger.info('DELETE: Removing files from storage:', pathsToDelete);
             // Storage
             const { error: storageError } = await supabase.storage.from('photos').remove(pathsToDelete);
-            if (storageError) console.error('[DELETE] Storage Remove Error:', storageError);
+            if (storageError) logger.error('DELETE: Storage Remove Error:', storageError);
 
             // DB - delete by storage_path
             const { error: dbDeleteError } = await supabase.from('photos').delete().in('storage_path', pathsToDelete);
-            if (dbDeleteError) console.error('[DELETE] DB Photo Delete Error (by storage_path):', dbDeleteError);
+            if (dbDeleteError) logger.error('DELETE: DB Photo Delete Error (by storage_path):', dbDeleteError);
         } else {
-            console.log('[DELETE] No files to delete from storage.');
+            logger.debug('DELETE: No files to delete from storage.');
         }
 
         // Also delete thumbnail from photos table by URL if it exists
         if (album?.thumbnail_url) {
-            console.log('[DELETE] Thumbnail URL to delete from DB:', album.thumbnail_url);
+            logger.debug('DELETE: Thumbnail URL to delete from DB:', album.thumbnail_url);
 
             // First, check if this photo exists in the DB
             const { data: existingPhoto, error: findError } = await supabase
@@ -206,16 +206,16 @@ export async function DELETE(
                 .eq('url', album.thumbnail_url)
                 .single();
 
-            console.log('[DELETE] Found photo in DB:', existingPhoto, 'Error:', findError?.message);
+            logger.debug('DELETE: Found photo in DB:', existingPhoto, 'Error:', findError?.message);
 
             if (existingPhoto) {
                 const { error: thumbnailDbError, count } = await supabase
                     .from('photos')
                     .delete()
                     .eq('url', album.thumbnail_url);
-                console.log('[DELETE] Deleted from photos table. Error:', thumbnailDbError?.message, 'Count:', count);
+                logger.info('DELETE: Deleted from photos table. Error:', thumbnailDbError?.message, 'Count:', count);
             } else {
-                console.log('[DELETE] Thumbnail not found in photos table, nothing to delete');
+                logger.debug('DELETE: Thumbnail not found in photos table, nothing to delete');
             }
         }
 
@@ -227,13 +227,13 @@ export async function DELETE(
             .eq('user_id', user.id)
 
         if (error) {
-            console.error('Error deleting album:', error)
+            logger.error('Error deleting album:', error)
             return NextResponse.json({ error: 'Failed to delete album' }, { status: 500 })
         }
 
         return NextResponse.json({ success: true })
     } catch (error) {
-        console.error('Album DELETE error:', error)
+        logger.error('Album DELETE error:', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }

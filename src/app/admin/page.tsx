@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useSettings } from '@/hooks/use-settings';
+import { logger } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
@@ -207,13 +208,13 @@ export default function AdminPage() {
 
     // Redirect non-admin users (only after role is loaded)
     useEffect(() => {
-        console.log('[AdminPage] Auth state:', { user: user?.email, isAdmin, authLoading, role: (useAuth as any).role });
+        logger.debug('Auth state:', { user: user?.email, isAdmin, authLoading, role: (useAuth as any).role });
         // Wait until auth is fully loaded before making redirect decision
         if (!authLoading && user && isAdmin === false) {
-            console.log('[AdminPage] Not admin, redirecting to dashboard');
+            logger.info('Not admin, redirecting to dashboard');
             router.push('/dashboard');
         } else if (!authLoading && !user) {
-            console.log('[AdminPage] No user, redirecting to dashboard');
+            logger.info('No user, redirecting to dashboard');
             router.push('/dashboard');
         }
     }, [user, isAdmin, authLoading, router]);

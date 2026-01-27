@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, createContext, useContext, ReactNode 
 import { useRouter } from 'next/navigation'
 import { User, AuthChangeEvent, Session } from '@supabase/supabase-js'
 import { createClient, signOut as supabaseSignOut } from '@/lib/supabase'
+import { logger } from '@/lib/logger'
 
 export type UserRole = 'USER' | 'ADMIN' | 'GUEST' // Updated types
 
@@ -41,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 // Read directly from metadata and normalize
                 const rawRole = currentUser.app_metadata?.role as string;
                 const metaRole = rawRole?.toUpperCase() as UserRole;
-                console.log('[useAuth] Role from metadata:', metaRole);
+                logger.info('Role from metadata:', metaRole);
                 setRole(metaRole || 'USER');
             } else {
                 setRole(null);
@@ -56,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             async (event, session) => {
                 if (!mounted) return;
 
-                console.log('[useAuth] Auth change:', event);
+                logger.debug('Auth change:', event);
                 const currentUser = session?.user ?? null;
                 setUser(currentUser);
 

@@ -314,7 +314,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
           if (!isLoadingPhotosRef.current) {
             const validPhotos = localPhotos.filter(p => !p.isUploading && !p.error);
             if (validPhotos.length > 0) {
-              console.log('[DEBUG] Delayed save triggered after upload');
+              logger.debug('Delayed save triggered after upload');
               savePhotos(validPhotos);
             }
           }
@@ -478,7 +478,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
   useEffect(() => {
     if (isAlbumLoading || isInitialized || !isSettingsLoaded) return;
 
-    console.log('[AlbumEditor] Initializing with settings:', {
+    logger.debug('Initializing [AlbumEditor] with settings:', {
       photoGap: settings.defaultPhotoGap,
       pageMargin: settings.defaultPageMargin,
       spineOpacity: settings.defaultSpineOpacity,

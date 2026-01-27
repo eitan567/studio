@@ -4,6 +4,7 @@
  */
 
 import { AdvancedTemplate, LayoutRegion, RegionBounds } from './advanced-layout-types';
+import { logger } from './logger';
 
 export type RotationAngle = 0 | 90 | 180 | 270;
 
@@ -280,7 +281,7 @@ export function rotateGridTemplate(grid: string[], angle: RotationAngle): string
         result = result.map(rotateGridClass90CW);
     }
 
-    console.log('[rotateGridTemplate] Input:', grid, 'Angle:', angle, 'Output:', result);
+    logger.debug('rotateGridTemplate: Input:', grid, 'Angle:', angle, 'Output:', result);
     return result;
 }
 
