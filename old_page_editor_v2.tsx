@@ -7,10 +7,6 @@ import {
   Upload,
   Eraser,
   RotateCcw,
-  ChevronLeft,
-  ChevronRight,
-  Maximize2,
-  Minimize2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
@@ -25,7 +21,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Photo, AlbumConfig, AlbumPage, PhotoPanAndZoom } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-// import { AlbumEditor } from '../album-editor/album-editor'; // Removed in favor of VirtualizedPageList
+import { AlbumEditor } from '../album-editor/album-editor';
 import { AlbumEditorProvider } from '../album-editor/context';
 import { BookViewOverlay } from '../book-view/book-view-overlay';
 import { useToast } from '@/hooks/use-toast';
@@ -64,7 +60,6 @@ import { Alert as AlertUI, AlertDescription as AlertDescriptionUI, AlertTitle as
 import { AiBackgroundGenerator } from '../shared/ai-background-generator';
 import { AlbumExporter, AlbumExporterRef } from '../shared/album-exporter';
 import { CustomLayoutEditorOverlay } from '../custom-layout-editor/custom-layout-editor-overlay';
-import { CoverEditorOverlay } from '../cover-editor/cover-editor-overlay';
 import { useAlbum } from '@/hooks/useAlbum';
 import { usePhotoUpload } from '@/hooks/usePhotoUpload';
 import { useAlbumGeneration } from '@/hooks/use-album-generation';
@@ -76,7 +71,6 @@ import { ScrollToTopButton } from '../shared/scroll-to-top-button';
 import { AlbumConfigCard } from './sidebar/config-card';
 import { PhotoGalleryCard } from './sidebar/gallery-card';
 import { AlbumEditorToolbar } from './toolbar';
-import { VirtualizedPageList } from './virtualized-page-list';
 
 // Parse layout ID helper removed (now in useAlbumPageEditor or used via import if needed)
 
@@ -239,28 +233,6 @@ export function PageEditor({ albumId }: PageEditorProps) {
   });
 
   const { toast } = useToast();
-
-  const handleOpenEditor = useCallback((pageId: string) => {
-    const page = albumPages.find(p => p.id === pageId);
-    if (!page) return;
-
-    setEditingPageId(pageId);
-    setIsCoverEditorOpen(true);
-  }, [albumPages]);
-
-  const handleEnhanceWithAi = useCallback((pageId: string) => {
-    toast({
-      title: "AI Enhancement",
-      description: "Enhancing photos on this page using AI...",
-    });
-  }, [toast]);
-
-  const handleUndo = useCallback((pageId: string) => {
-    toast({
-      title: "Undo",
-      description: "Reverting last change...",
-    });
-  }, [toast]);
   // Photo Gallery Manager Hook
   const {
     isLoadingPhotos,
@@ -366,7 +338,6 @@ export function PageEditor({ albumId }: PageEditorProps) {
   const [isBookViewOpen, setIsBookViewOpen] = useState(false);
   const [isCustomLayoutEditorOpen, setIsCustomLayoutEditorOpen] = useState(false);
   const [isCoverEditorOpen, setIsCoverEditorOpen] = useState(false);
-  const [editingPageId, setEditingPageId] = useState<string | null>(null);
 
   const [customTemplates, setCustomTemplates] = useState<AdvancedTemplate[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -395,18 +366,55 @@ export function PageEditor({ albumId }: PageEditorProps) {
   const [isClient, setIsClient] = useState(false);
   // allowDuplicates moved up
   const [multiSelectMode, setMultiSelectModeLocal] = useState(false); // true = checkboxes, false = trash icons
-  // Gallery Sidebar State
-  type GalleryMode = 'collapsed' | 'default' | 'expanded';
-  const [galleryMode, setGalleryMode] = useState<GalleryMode>('default');
+  const [galleryWidth, setGalleryWidth] = useState(350);
+  const [isResizingGallery, setIsResizingGallery] = useState(false);
+  const isResizingRef = useRef(false);
+  const initialXRef = useRef(0);
+  const initialWidthRef = useRef(0);
+  const galleryRef = useRef<HTMLDivElement>(null);
 
-  const getGalleryWidth = (mode: GalleryMode) => {
-    switch (mode) {
-      case 'collapsed': return 0;
-      case 'expanded': return 525;
-      default: return 356;
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    isResizingRef.current = true;
+    initialXRef.current = e.clientX;
+    initialWidthRef.current = galleryRef.current?.offsetWidth || galleryWidth;
+    setIsResizingGallery(true);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', stopResizing);
+    document.body.style.cursor = 'grabbing';
+    document.body.style.userSelect = 'none';
+    // Force light scheme (dark cursor) during resize to prevent white-on-white cursor
+    document.documentElement.style.colorScheme = 'light';
+  }, [galleryWidth]);
+
+  const stopResizing = useCallback(() => {
+    isResizingRef.current = false;
+    setIsResizingGallery(false);
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', stopResizing);
+    document.body.style.cursor = 'default';
+    document.body.style.userSelect = 'auto';
+    // Revert color scheme override
+    document.documentElement.style.colorScheme = '';
+
+    // Sync final width back to state on release - this triggers the expensive layout
+    if (galleryRef.current) {
+      setGalleryWidth(galleryRef.current.offsetWidth);
     }
-  };
+  }, []);
 
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isResizingRef.current || !galleryRef.current) return;
+
+    // Calculate delta relative to start position
+    const deltaX = e.clientX - initialXRef.current;
+    // New width = initial width - delta (dragging left increases width)
+    const newWidth = initialWidthRef.current - deltaX;
+
+    if (newWidth > 200 && newWidth < 800) {
+      // Direct DOM update for performance - NO re-renders during drag
+      galleryRef.current.style.width = `${newWidth}px`;
+    }
+  }, []);
 
   const [photoGap, setPhotoGap] = useState(2);
   const [pageMargin, setPageMargin] = useState(0);
@@ -696,6 +704,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
           onExportPdf={() => exporterRef.current?.exportToPdf()}
           isExporting={isExporting}
           onShare={() => toast({ title: "Sharing Album..." })}
+          onLogout={() => signOut().then(() => router.push('/'))}
         />
 
         {/* Exporter Component */}
@@ -722,7 +731,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
         />
 
         <div
-          className="flex h-[calc(100vh-3.5rem)] flex-1 overflow-hidden bg-muted/30 dark:bg-muted/10 items-stretch"
+          className="flex h-[85vh] p-6 flex-1 overflow-hidden bg-muted/30 dark:bg-muted/10 items-stretch"
           style={{
             backgroundImage: `
               linear-gradient(to right, hsl(var(--foreground) / 0.04) 1px, transparent 1px),
@@ -732,7 +741,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
           }}
         >
           {/* Left Sidebar: Config & Tools */}
-          <div className="w-[300px] shrink-0 overflow-y-auto border-r bg-background z-10">
+          <div className="w-[300px] shrink-0 space-y-6 overflow-y-auto pr-2">
             {isClient && isInitialized ? (
               <AlbumConfigCard
                 form={form}
@@ -760,7 +769,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
           </div>
 
           {/* Main Content: Album Preview */}
-          <div className="flex-1 min-w-0 pr-6 pt-4 h-full flex flex-col" style={{ colorScheme: 'light' }}>
+          <div className="flex-1 min-w-0 pl-6" style={{ colorScheme: 'light' }}>
             {isLoading || isAlbumLoading || !isInitialized ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center animate-in fade-in duration-300 bg-muted/30 border-2 border-dashed rounded-lg">
                 <Loader2 className="h-12 w-12 mb-4 animate-spin text-primary" />
@@ -772,10 +781,9 @@ export function PageEditor({ albumId }: PageEditorProps) {
                 </p>
               </div>
             ) : (
-              <VirtualizedPageList
+              <AlbumEditor
                 pages={albumPages}
                 config={config}
-                allPhotos={allPhotos}
                 onDeletePage={deletePage}
                 onAddSpread={addSpreadPage}
                 onUpdateLayout={updatePageLayout}
@@ -790,102 +798,64 @@ export function PageEditor({ albumId }: PageEditorProps) {
                 onUpdateTitleSettings={handleUpdateTitleSettings}
                 onUpdatePage={handleUpdatePage}
                 onUpdateSpreadLayout={handleUpdateSpreadLayout}
-                onOpenEditor={handleOpenEditor}
-                onEnhanceWithAi={handleEnhanceWithAi}
-                onUndo={handleUndo}
+                allPhotos={allPhotos}
                 customTemplates={customTemplates}
-                defaultViewMode={settings.defaultEditorViewMode as "single" | "spread"}
+                defaultViewMode={settings.defaultEditorViewMode}
                 visibleTemplateCategories={settings.visibleTemplateCategories}
-                allowedTemplateIds={settings.allowedTemplateIds || []}
+                allowedTemplateIds={settings.allowedTemplateIds}
               />
             )}
           </div>
 
-          {/* Gallery Control Strip */}
-          <div className="w-[1px] shrink-0 bg-border z-20 flex flex-col items-center justify-center relative overflow-visible">
-            {/* Buttons attached to the strip */}
-            <div className="absolute top-8 -translate-y-1/2 flex flex-col gap-1 -right-2 translate-x-[50%] z-30">
-              {/* Collapsed Mode: Show Left Arrow to open */}
-              {galleryMode === 'collapsed' && (
-                <Button
-                  variant="secondary" size="icon"
-                  className="h-10 w-4 rounded-l-md rounded-r-none border shadow-md bg-background -translate-x-full"
-                  onClick={() => setGalleryMode('default')}
-                  title="Open Gallery"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-              )}
+          {/* Resizer Handle */}
+          <div
+            onMouseDown={startResizing}
+            className="w-2 shrink-0 bg-transparent cursor-grab group relative self-stretch z-10"
+            title="Drag to resize gallery"
+          >
+            {/* Permanent solid primary line - matching your design */}
+            <div className="absolute inset-y-0 left-2 -translate-x-1/2 w-[6px] bg-primary h-full" />
 
-              {/* Default Mode: Show Left (Expand) and Right (Collapse) */}
-              {galleryMode === 'default' && (
-                <div className="flex flex-col gap-1 -translate-x-full">
-                  <Button
-                    variant="secondary" size="icon"
-                    className="h-8 w-4 rounded-l-md rounded-r-none border shadow-sm bg-background"
-                    onClick={() => setGalleryMode('expanded')}
-                    title="Maximize Width"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="secondary" size="icon"
-                    className="h-8 w-4 rounded-l-md rounded-r-none border shadow-sm bg-background"
-                    onClick={() => setGalleryMode('collapsed')}
-                    title="Collapse"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-
-              {/* Expanded Mode: Show Right Arrow to shrink */}
-              {galleryMode === 'expanded' && (
-                <Button
-                  variant="secondary" size="icon"
-                  className="h-10 w-4 rounded-l-md rounded-r-none border shadow-md bg-background -translate-x-full"
-                  onClick={() => setGalleryMode('default')}
-                  title="Restore Standard Width"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              )}
+            {/* Permanent primary pill - matching your design */}
+            <div className="absolute top-1/2 left-2 -translate-x-1/2 -translate-y-1/2 w-5 h-12 rounded-full bg-primary shadow-md flex items-center justify-center opacity-100 group-active:scale-95 transition-all pointer-events-none">
+              <div className="flex gap-[2px]">
+                <div className="w-[1.5px] h-4 bg-primary-foreground/60" />
+                <div className="w-[1.5px] h-4 bg-primary-foreground/60" />
+              </div>
             </div>
           </div>
 
-          {/* Right Panel: Photo Gallery */}
+          {/* Right Panel: Photo Gallery (Resizable) */}
           <div
-            style={{ width: `${getGalleryWidth(galleryMode)}px` }}
-            className="shrink-0 transition-[width] duration-300 ease-in-out overflow-hidden"
+            ref={galleryRef}
+            style={{ width: `${galleryWidth}px` }}
+            className="shrink-0 min-w-[356px] max-w-[525px]"
           >
-            {/* Rigid container to prevent layout thrashing during transition */}
-            <div className="h-full w-[356px] min-w-full">
-              <PhotoGalleryCard
-                allPhotos={sortedPhotos}
-                isLoadingPhotos={isLoadingPhotos || isAlbumLoading}
-                isResizing={false} // No longer used really
-                photoUsageDetails={photoUsageDetails}
-                chronologicalIndex={chronologicalIndex}
-                emptySlots={emptySlots}
-                allowDuplicates={allowDuplicates}
-                setAllowDuplicates={setAllowDuplicates}
-                multiSelectMode={multiSelectMode}
-                setMultiSelectMode={setMultiSelectMode}
-                randomSeed={randomSeed}
-                generateDummyPhotos={generateDummyPhotos}
-                handleGenerateAlbum={handleGenerateAlbum}
-                handleAutoFillAlbum={handleAutoFillAlbum}
-                handleClearGallery={handleClearGallery}
-                handleResetAlbum={handleResetAlbum}
-                handleSortPhotos={handleSortPhotos}
-                processUploadedFiles={processUploadedFiles}
-                onDeletePhotos={handleDeletePhotos}
-                onRemovePhotosFromAlbum={handleRemovePhotosFromAlbum}
-                photoScrollRef={photoScrollRef}
-                folderUploadRef={folderUploadRef}
-                photoUploadRef={photoUploadRef}
-              />
-            </div>
+            <PhotoGalleryCard
+              allPhotos={sortedPhotos}
+              isLoadingPhotos={isLoadingPhotos || isAlbumLoading}
+              isResizing={isResizingGallery}
+              photoUsageDetails={photoUsageDetails}
+              chronologicalIndex={chronologicalIndex}
+              emptySlots={emptySlots}
+              allowDuplicates={allowDuplicates}
+              setAllowDuplicates={setAllowDuplicates}
+              multiSelectMode={multiSelectMode}
+              setMultiSelectMode={setMultiSelectMode}
+              randomSeed={randomSeed}
+              generateDummyPhotos={generateDummyPhotos}
+              handleGenerateAlbum={handleGenerateAlbum}
+              handleAutoFillAlbum={handleAutoFillAlbum}
+              handleClearGallery={handleClearGallery}
+              handleResetAlbum={handleResetAlbum}
+              handleSortPhotos={handleSortPhotos}
+              processUploadedFiles={processUploadedFiles}
+              onDeletePhotos={handleDeletePhotos}
+              onRemovePhotosFromAlbum={handleRemovePhotosFromAlbum}
+              photoScrollRef={photoScrollRef}
+              folderUploadRef={folderUploadRef}
+              photoUploadRef={photoUploadRef}
+            />
           </div>
         </div >
         {isBookViewOpen && (
@@ -901,19 +871,6 @@ export function PageEditor({ albumId }: PageEditorProps) {
             onClose={() => setIsCustomLayoutEditorOpen(false)}
             customTemplates={customTemplates}
             onAddTemplate={handleAddCustomTemplate}
-          />
-        )}
-        {isCoverEditorOpen && editingPageId && (
-          <CoverEditorOverlay
-            page={albumPages.find(p => p.id === editingPageId) || albumPages[0]}
-            onUpdatePage={handleUpdatePage}
-            onClose={() => {
-              setIsCoverEditorOpen(false);
-              setEditingPageId(null);
-            }}
-            allPhotos={album?.photos || []}
-            isCover={albumPages.find(p => p.id === editingPageId)?.isCover ?? false}
-            config={config}
           />
         )}
       </div>

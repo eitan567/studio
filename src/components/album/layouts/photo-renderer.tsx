@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, memo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, memo, useState } from 'react';
 import Image from 'next/image';
 import { EmptyPhotoSlot } from '../album-editor/empty-photo-slot';
 import type { Photo, PhotoPanAndZoom } from '@/lib/types';
@@ -62,50 +62,32 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
 
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Calculate wrapper dimensions that cover the container while maintaining photo aspect ratio
-  const getWrapperDimensions = (userScale: number = 1) => {
-    if (!containerSize.width || !containerSize.height || !photo.width || !photo.height) {
-      return {
-        wrapperWidth: containerSize.width || 100,
-        wrapperHeight: containerSize.height || 100,
-        overflowX: 0,
-        overflowY: 0
-      };
-    }
-
-    // Calculate scale to cover the container (like object-cover)
-    const scaleX = containerSize.width / photo.width;
-    const scaleY = containerSize.height / photo.height;
+  // Pure helper to calculate dimensions
+  const getDimensions = (cWidth: number, cHeight: number, pWidth: number, pHeight: number, userScale: number) => {
+    const scaleX = cWidth / pWidth;
+    const scaleY = cHeight / pHeight;
     const coverScale = Math.max(scaleX, scaleY);
-
-    // Apply user zoom
     const totalScale = coverScale * userScale;
 
-    // Wrapper dimensions (the actual size the photo will be displayed at)
-    const wrapperWidth = photo.width * totalScale;
-    const wrapperHeight = photo.height * totalScale;
+    const wrapperWidth = pWidth * totalScale;
+    const wrapperHeight = pHeight * totalScale;
 
     return {
       wrapperWidth,
       wrapperHeight,
-      overflowX: Math.max(0, wrapperWidth - containerSize.width),
-      overflowY: Math.max(0, wrapperHeight - containerSize.height)
+      overflowX: Math.max(0, wrapperWidth - cWidth),
+      overflowY: Math.max(0, wrapperHeight - cHeight)
     };
   };
 
-  const applyTransform = () => {
-    if (imageRef.current && containerSize.width && containerSize.height && photo.width && photo.height) {
+  const applyTransform = (cWidth: number, cHeight: number) => {
+    if (imageRef.current && cWidth && cHeight && photo.width && photo.height) {
       const { scale, x, y } = currentValues.current;
-      const { wrapperWidth, wrapperHeight, overflowX, overflowY } = getWrapperDimensions(scale);
+      const { wrapperWidth, wrapperHeight, overflowX, overflowY } = getDimensions(cWidth, cHeight, photo.width, photo.height, scale);
 
-      // Set wrapper size to the actual photo display size
       imageRef.current.style.width = `${wrapperWidth}px`;
       imageRef.current.style.height = `${wrapperHeight}px`;
 
-      // Calculate position: x=50 means centered
-      // At x=0: show left edge, left=0
-      // At x=100: show right edge, left=-overflowX
-      // At x=50: centered, left=-overflowX/2
       const left = -((x / 100) * overflowX);
       const top = -((y / 100) * overflowY);
 
@@ -115,40 +97,54 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
   };
 
   // Sync with external changes (like AI enhancement or Undo)
-  // Re-run when photo.src changes because the container ref only exists when rendering actual image
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        setContainerSize({
-          width: entry.contentRect.width,
-          height: entry.contentRect.height
-        });
+        const { width, height } = entry.contentRect;
+        setContainerSize({ width, height });
+        // Immediate update on resize
+        applyTransform(width, height);
       }
     });
     observer.observe(container);
     return () => observer.disconnect();
   }, [photo.src]);
 
-  useEffect(() => {
-    if (photo.src) {
-      applyTransform();
+  // Initial Sync Measurement to prevent flash/jump
+  useLayoutEffect(() => {
+    if (containerRef.current && photo.src) {
+      const rect = containerRef.current.getBoundingClientRect();
+      if (rect.width && rect.height) {
+        // Update style immediately
+        applyTransform(rect.width, rect.height);
+        // Sync state if needed (though ResizeObserver handles this mostly, this catches the very first frame)
+        if (rect.width !== containerSize.width || rect.height !== containerSize.height) {
+          setContainerSize({ width: rect.width, height: rect.height });
+        }
+      }
     }
-  }, [containerSize, photo.width, photo.height, photo.src]);
+  }, [photo.src, photo.width, photo.height]); // Re-run if source photo changes
 
-  useEffect(() => {
+  // Update when Pan/Zoom changes (e.g. from props)
+  useLayoutEffect(() => {
     if (!isInteracting.current) {
+      // ... (sync logic)
       currentValues.current = {
         scale: photo.panAndZoom?.scale ?? 1,
         x: photo.panAndZoom?.x ?? 50,
         y: photo.panAndZoom?.y ?? 50
       };
-      if (photo.src) {
-        applyTransform();
+      // Apply using current container size (state or measure?)
+      // State might be 0 on first render, so measure again to be safe
+      const width = containerSize.width || containerRef.current?.getBoundingClientRect().width || 0;
+      const height = containerSize.height || containerRef.current?.getBoundingClientRect().height || 0;
+      if (width && height) {
+        applyTransform(width, height);
       }
     }
-  }, [photo.panAndZoom, photo.src]);
+  }, [photo.panAndZoom, photo.src, containerSize.width, containerSize.height]);
 
   const commitChanges = () => {
     // Pass a fresh copy to the parent
@@ -156,8 +152,17 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
   };
 
   const updatePanBoundaries = () => {
+    // We allow values to slightly exceed bounds during interaction for smooth feel,
+    // but ultimately the check should be logic-driven:
+    // With object-cover, we generally want to allow panning as long as the image still covers the container.
+    // However, our x/y are percentages of the OVERFLOW.
+    // 0 = Align Left/Top
+    // 100 = Align Right/Bottom
+    // So 0-100 is exactly the valid range to keep content covering the container.
+    // If we go < 0, we show empty space on left. If > 100, empty space on right.
+    // We should clamp STRICTLY to 0-100 to avoid whitespace.
+
     const { x, y } = currentValues.current;
-    // Simply clamp x and y to 0-100 range
     currentValues.current.x = Math.max(0, Math.min(100, x));
     currentValues.current.y = Math.max(0, Math.min(100, y));
   };
@@ -168,12 +173,15 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
 
     currentValues.current.scale = newScale;
     updatePanBoundaries();
-    applyTransform();
+    const width = containerSize.width || containerRef.current?.getBoundingClientRect().width || 0;
+    const height = containerSize.height || containerRef.current?.getBoundingClientRect().height || 0;
+    if (width && height) applyTransform(width, height);
 
     if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     syncTimeoutRef.current = setTimeout(commitChanges, 200);
   };
 
+  // Stable references for global mouse events to avoid registration bugs
   // Stable references for global mouse events to avoid registration bugs
   const handleGlobalMouseMove = (e: MouseEvent) => {
     if (!isInteracting.current || !containerRef.current) return;
@@ -182,19 +190,28 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
     const dy = e.clientY - dragStart.current.y;
     dragStart.current = { x: e.clientX, y: e.clientY };
 
-    const { overflowX, overflowY } = getWrapperDimensions(currentValues.current.scale);
+    const width = containerSize.width || containerRef.current.getBoundingClientRect().width;
+    const height = containerSize.height || containerRef.current.getBoundingClientRect().height;
 
-    // Convert pixel drag to percentage change
-    // Moving by overflowX pixels should change x by 100
+    // Safety check
+    if (!width || !height || !photo.width || !photo.height) return;
+
+    // השינוי המרכזי כאן - שימוש ב-getDimensions במקום הפונקציה החסרה
+    const { overflowX, overflowY } = getDimensions(width, height, photo.width, photo.height, currentValues.current.scale);
+
     const dXPercent = overflowX > 0 ? (dx / overflowX) * 100 : 0;
     const dYPercent = overflowY > 0 ? (dy / overflowY) * 100 : 0;
 
-    // Subtract because dragging right (positive dx) should decrease x (show more of right side)
-    currentValues.current.x -= dXPercent;
-    currentValues.current.y -= dYPercent;
+    const newX = currentValues.current.x - dXPercent;
+    const newY = currentValues.current.y - dYPercent;
+
+    currentValues.current.x = newX;
+    currentValues.current.y = newY;
 
     updatePanBoundaries();
-    requestAnimationFrame(applyTransform);
+
+    // שליחת מימדים מעודכנים לפונקציית העדכון
+    requestAnimationFrame(() => applyTransform(width, height));
   };
 
   // Store values at the start of interaction to check for changes
@@ -302,7 +319,13 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
       <div
         ref={imageRef}
         className="absolute"
-        style={{ transition: 'none', width: '100%', height: '100%' }}
+        style={{
+          transition: 'none',
+          width: '100%',
+          height: '100%',
+          // Use sync measurement to update positions immediately
+          // opacity: (containerSize.width > 0 && containerSize.height > 0) ? 1 : 0
+        }}
       >
         <Image
           src={photo.src}

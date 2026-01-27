@@ -823,7 +823,7 @@ export const AlbumCover = ({
             {isFullSpread ? (
                 /* FULL COVER MODE (Spread) */
                 <div
-                    className="relative h-full bg-white transition-all overflow-hidden flex"
+                    className="relative h-full bg-white overflow-hidden flex"
                     style={{
                         width: isFull ? '100%' : '200%',
                         transform: isFront ? 'translateX(-50%)' : 'none',
@@ -890,7 +890,7 @@ export const AlbumCover = ({
                     {/* Left / Back Page */}
                     <div
                         className={cn(
-                            "relative h-full bg-white transition-all overflow-hidden",
+                            "relative h-full bg-white overflow-hidden",
                             isFull ? "flex-1" : isBack ? "w-full" : "hidden"
                         )}
                         style={{
@@ -953,7 +953,7 @@ export const AlbumCover = ({
                     {/* Right / Front Page */}
                     <div
                         className={cn(
-                            "relative h-full bg-white transition-all overflow-hidden",
+                            "relative h-full bg-white overflow-hidden",
                             isFull ? "flex-1" : isFront ? "w-full" : "hidden"
                         )}
                         style={{
@@ -1183,7 +1183,7 @@ export const AlbumCover = ({
         >
             <div
                 ref={containerRef}
-                className="w-full h-full relative overflow-hidden transition-all ease-in-out duration-300"
+                className="w-full h-full relative overflow-hidden"
                 style={{
                     backgroundColor: '#eee',
                     containerType: 'inline-size'

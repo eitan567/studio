@@ -25,7 +25,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Photo, AlbumConfig, AlbumPage, PhotoPanAndZoom } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-// import { AlbumEditor } from '../album-editor/album-editor'; // Removed in favor of VirtualizedPageList
+import { AlbumEditor } from '../album-editor/album-editor';
 import { AlbumEditorProvider } from '../album-editor/context';
 import { BookViewOverlay } from '../book-view/book-view-overlay';
 import { useToast } from '@/hooks/use-toast';
@@ -64,7 +64,6 @@ import { Alert as AlertUI, AlertDescription as AlertDescriptionUI, AlertTitle as
 import { AiBackgroundGenerator } from '../shared/ai-background-generator';
 import { AlbumExporter, AlbumExporterRef } from '../shared/album-exporter';
 import { CustomLayoutEditorOverlay } from '../custom-layout-editor/custom-layout-editor-overlay';
-import { CoverEditorOverlay } from '../cover-editor/cover-editor-overlay';
 import { useAlbum } from '@/hooks/useAlbum';
 import { usePhotoUpload } from '@/hooks/usePhotoUpload';
 import { useAlbumGeneration } from '@/hooks/use-album-generation';
@@ -76,7 +75,6 @@ import { ScrollToTopButton } from '../shared/scroll-to-top-button';
 import { AlbumConfigCard } from './sidebar/config-card';
 import { PhotoGalleryCard } from './sidebar/gallery-card';
 import { AlbumEditorToolbar } from './toolbar';
-import { VirtualizedPageList } from './virtualized-page-list';
 
 // Parse layout ID helper removed (now in useAlbumPageEditor or used via import if needed)
 
@@ -239,28 +237,6 @@ export function PageEditor({ albumId }: PageEditorProps) {
   });
 
   const { toast } = useToast();
-
-  const handleOpenEditor = useCallback((pageId: string) => {
-    const page = albumPages.find(p => p.id === pageId);
-    if (!page) return;
-
-    setEditingPageId(pageId);
-    setIsCoverEditorOpen(true);
-  }, [albumPages]);
-
-  const handleEnhanceWithAi = useCallback((pageId: string) => {
-    toast({
-      title: "AI Enhancement",
-      description: "Enhancing photos on this page using AI...",
-    });
-  }, [toast]);
-
-  const handleUndo = useCallback((pageId: string) => {
-    toast({
-      title: "Undo",
-      description: "Reverting last change...",
-    });
-  }, [toast]);
   // Photo Gallery Manager Hook
   const {
     isLoadingPhotos,
@@ -366,7 +342,6 @@ export function PageEditor({ albumId }: PageEditorProps) {
   const [isBookViewOpen, setIsBookViewOpen] = useState(false);
   const [isCustomLayoutEditorOpen, setIsCustomLayoutEditorOpen] = useState(false);
   const [isCoverEditorOpen, setIsCoverEditorOpen] = useState(false);
-  const [editingPageId, setEditingPageId] = useState<string | null>(null);
 
   const [customTemplates, setCustomTemplates] = useState<AdvancedTemplate[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -696,6 +671,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
           onExportPdf={() => exporterRef.current?.exportToPdf()}
           isExporting={isExporting}
           onShare={() => toast({ title: "Sharing Album..." })}
+          onLogout={() => signOut().then(() => router.push('/'))}
         />
 
         {/* Exporter Component */}
@@ -760,7 +736,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
           </div>
 
           {/* Main Content: Album Preview */}
-          <div className="flex-1 min-w-0 pr-6 pt-4 h-full flex flex-col" style={{ colorScheme: 'light' }}>
+          <div className="flex-1 min-w-0 pl-6 pt-4" style={{ colorScheme: 'light' }}>
             {isLoading || isAlbumLoading || !isInitialized ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center animate-in fade-in duration-300 bg-muted/30 border-2 border-dashed rounded-lg">
                 <Loader2 className="h-12 w-12 mb-4 animate-spin text-primary" />
@@ -772,10 +748,9 @@ export function PageEditor({ albumId }: PageEditorProps) {
                 </p>
               </div>
             ) : (
-              <VirtualizedPageList
+              <AlbumEditor
                 pages={albumPages}
                 config={config}
-                allPhotos={allPhotos}
                 onDeletePage={deletePage}
                 onAddSpread={addSpreadPage}
                 onUpdateLayout={updatePageLayout}
@@ -790,13 +765,11 @@ export function PageEditor({ albumId }: PageEditorProps) {
                 onUpdateTitleSettings={handleUpdateTitleSettings}
                 onUpdatePage={handleUpdatePage}
                 onUpdateSpreadLayout={handleUpdateSpreadLayout}
-                onOpenEditor={handleOpenEditor}
-                onEnhanceWithAi={handleEnhanceWithAi}
-                onUndo={handleUndo}
+                allPhotos={allPhotos}
                 customTemplates={customTemplates}
-                defaultViewMode={settings.defaultEditorViewMode as "single" | "spread"}
+                defaultViewMode={settings.defaultEditorViewMode}
                 visibleTemplateCategories={settings.visibleTemplateCategories}
-                allowedTemplateIds={settings.allowedTemplateIds || []}
+                allowedTemplateIds={settings.allowedTemplateIds}
               />
             )}
           </div>
@@ -804,12 +777,12 @@ export function PageEditor({ albumId }: PageEditorProps) {
           {/* Gallery Control Strip */}
           <div className="w-[1px] shrink-0 bg-border z-20 flex flex-col items-center justify-center relative overflow-visible">
             {/* Buttons attached to the strip */}
-            <div className="absolute top-8 -translate-y-1/2 flex flex-col gap-1 -right-2 translate-x-[50%] z-30">
+            <div className="absolute top-8 -translate-y-1/2 flex flex-col gap-1 -right-3 translate-x-[50%] z-30">
               {/* Collapsed Mode: Show Left Arrow to open */}
               {galleryMode === 'collapsed' && (
                 <Button
                   variant="secondary" size="icon"
-                  className="h-10 w-4 rounded-l-md rounded-r-none border shadow-md bg-background -translate-x-full"
+                  className="h-10 w-6 rounded-l-md rounded-r-none border shadow-md bg-background -translate-x-full"
                   onClick={() => setGalleryMode('default')}
                   title="Open Gallery"
                 >
@@ -822,7 +795,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
                 <div className="flex flex-col gap-1 -translate-x-full">
                   <Button
                     variant="secondary" size="icon"
-                    className="h-8 w-4 rounded-l-md rounded-r-none border shadow-sm bg-background"
+                    className="h-8 w-6 rounded-l-md rounded-r-none border shadow-sm bg-background"
                     onClick={() => setGalleryMode('expanded')}
                     title="Maximize Width"
                   >
@@ -830,7 +803,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
                   </Button>
                   <Button
                     variant="secondary" size="icon"
-                    className="h-8 w-4 rounded-l-md rounded-r-none border shadow-sm bg-background"
+                    className="h-8 w-6 rounded-l-md rounded-r-none border shadow-sm bg-background"
                     onClick={() => setGalleryMode('collapsed')}
                     title="Collapse"
                   >
@@ -843,7 +816,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
               {galleryMode === 'expanded' && (
                 <Button
                   variant="secondary" size="icon"
-                  className="h-10 w-4 rounded-l-md rounded-r-none border shadow-md bg-background -translate-x-full"
+                  className="h-10 w-6 rounded-l-md rounded-r-none border shadow-md bg-background -translate-x-full"
                   onClick={() => setGalleryMode('default')}
                   title="Restore Standard Width"
                 >
@@ -901,19 +874,6 @@ export function PageEditor({ albumId }: PageEditorProps) {
             onClose={() => setIsCustomLayoutEditorOpen(false)}
             customTemplates={customTemplates}
             onAddTemplate={handleAddCustomTemplate}
-          />
-        )}
-        {isCoverEditorOpen && editingPageId && (
-          <CoverEditorOverlay
-            page={albumPages.find(p => p.id === editingPageId) || albumPages[0]}
-            onUpdatePage={handleUpdatePage}
-            onClose={() => {
-              setIsCoverEditorOpen(false);
-              setEditingPageId(null);
-            }}
-            allPhotos={album?.photos || []}
-            isCover={albumPages.find(p => p.id === editingPageId)?.isCover ?? false}
-            config={config}
           />
         )}
       </div>
