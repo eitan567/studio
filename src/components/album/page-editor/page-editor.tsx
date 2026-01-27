@@ -537,22 +537,44 @@ export function PageEditor({ albumId }: PageEditorProps) {
     }
   }, [isSettingsLoaded, isNew, isInitialized, settings.defaultAlbumSize, form]);
 
+  // Track the last stringified version of pages we know is on the server to prevent redundant saves
+  const lastSavedPagesRef = useRef<string>('');
+
   // Auto-save pages when they change
   useEffect(() => {
     if (!isInitialized || isAlbumLoading) return;
     if (albumPages.length === 0) return;
 
+    // Fast change detection
+    const currentPagesStr = JSON.stringify(albumPages);
+
+    // 1. Initial hydration check: if we just initialized and the pages match what came from server, skip
+    if (lastSavedPagesRef.current === '') {
+      const serverPagesStr = JSON.stringify(savedPages);
+      if (currentPagesStr === serverPagesStr) {
+        console.log('[PageEditor] Skipping auto-save: Pages match server hydration');
+        lastSavedPagesRef.current = currentPagesStr;
+        return;
+      }
+    }
+
+    // 2. Redundancy check: if the pages haven't changed since our last local save, skip
+    if (currentPagesStr === lastSavedPagesRef.current) return;
+
     // If this is a new album, create it first
     if (isNew) {
+      lastSavedPagesRef.current = currentPagesStr;
       createAlbum(albumName, config, albumPages);
       return;
     }
 
     // Otherwise, update pages
     if (album) {
+      console.log('[PageEditor] Auto-saving pages...');
+      lastSavedPagesRef.current = currentPagesStr;
       updatePages(albumPages);
     }
-  }, [albumPages, isInitialized]);
+  }, [albumPages, isInitialized, isAlbumLoading, isNew, savedPages]);
 
   // Auto-set thumbnail if missing and we have photos
   useEffect(() => {
@@ -568,8 +590,24 @@ export function PageEditor({ albumId }: PageEditorProps) {
   // Auto-save config when it changes
   useEffect(() => {
     if (!isInitialized || isAlbumLoading || isNew || !album) return;
+
+    // Compare with saved config to prevent redundant save on hydration
+    const isConfigChanged =
+      config.photoGap !== savedConfig.photoGap ||
+      config.pageMargin !== savedConfig.pageMargin ||
+      config.cornerRadius !== savedConfig.cornerRadius ||
+      config.backgroundColor !== savedConfig.backgroundColor ||
+      config.backgroundImage !== savedConfig.backgroundImage ||
+      watchedSize !== savedConfig.size;
+
+    if (!isConfigChanged) {
+      console.log('[PageEditor] Skipping auto-save: Config matches server hydration');
+      return;
+    }
+
+    console.log('[PageEditor] Auto-saving config...');
     updateConfig(config);
-  }, [photoGap, pageMargin, cornerRadius, backgroundColor, backgroundImage, watchedSize]);
+  }, [photoGap, pageMargin, cornerRadius, backgroundColor, backgroundImage, watchedSize, isInitialized, isAlbumLoading, isNew, album, savedConfig]);
 
 
   const config: AlbumConfig = useMemo(() => ({

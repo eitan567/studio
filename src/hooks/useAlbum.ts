@@ -33,6 +33,8 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
     // Ref to track pending save timeout
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     const pendingDataRef = useRef<{ pages?: AlbumPage[]; config?: AlbumConfig; name?: string; thumbnail_url?: string; photos?: any[] } | null>(null)
+    const loadingIdRef = useRef<string | null>(null)
+    const abortControllerRef = useRef<AbortController | null>(null)
 
     // Refs to track latest state without triggering re-renders in callbacks
     const albumRef = useRef<Album | null>(null);
@@ -55,11 +57,24 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
             return
         }
 
-        setIsLoading(true)
-        setError(null)
+        // Deduplication: Don't load if already loading this ID
+        if (loadingIdRef.current === id) return;
+
+        // Abort previous request if any
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+
+        loadingIdRef.current = id;
+        abortControllerRef.current = new AbortController();
+
+        setIsLoading(true);
+        setError(null);
 
         try {
-            const response = await fetch(`/api/albums/${id}`)
+            const response = await fetch(`/api/albums/${id}`, {
+                signal: abortControllerRef.current.signal
+            });
 
             if (!response.ok) {
                 if (response.status === 404) {
@@ -80,11 +95,15 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
                 config: { ...DEFAULT_CONFIG, ...(data.album.config || {}) },
                 pages: data.album.pages || [],
             })
-        } catch (err) {
+        } catch (err: any) {
+            if (err.name === 'AbortError') return;
             console.error('Load album error:', err)
             setError('Failed to load album')
         } finally {
-            setIsLoading(false)
+            if (loadingIdRef.current === id) {
+                loadingIdRef.current = null;
+                setIsLoading(false);
+            }
         }
     }, [router])
 
