@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
 
         const formData = await request.formData()
         const file = formData.get('file') as File | null
+        const captureDate = formData.get('capture_date') as string | null
 
         if (!file) {
             return NextResponse.json(
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
                 original_name: file.name,
                 storage_path: storagePath,
                 url: publicUrl,
+                capture_date: captureDate ? new Date(captureDate).toISOString() : null,
             })
             .select()
             .single()

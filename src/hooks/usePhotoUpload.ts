@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import type { Photo } from '@/lib/types'
+import exifr from 'exifr'
 
 interface UploadProgress {
     loaded: number
@@ -44,11 +45,24 @@ export function usePhotoUpload() {
         }
 
         try {
-            // Get dimensions before upload
+            // Get dimensions and EXIF data before upload
             const dimensions = await getImageDimensions(file)
+
+            let captureDate: Date | undefined = undefined
+            try {
+                const exif = await exifr.parse(file)
+                if (exif?.DateTimeOriginal) {
+                    captureDate = new Date(exif.DateTimeOriginal)
+                }
+            } catch (e) {
+                console.warn('Failed to extract EXIF data:', e)
+            }
 
             const formData = new FormData()
             formData.append('file', file)
+            if (captureDate) {
+                formData.append('capture_date', captureDate.toISOString())
+            }
 
             const response = await fetch('/api/photos/upload', {
                 method: 'POST',
@@ -73,7 +87,7 @@ export function usePhotoUpload() {
                 alt: file.name,
                 width: dimensions.width,
                 height: dimensions.height,
-                captureDate: new Date(file.lastModified), // Use file modification date as fallback for capture date
+                captureDate: captureDate, // Use extracted date
             }
 
             return { success: true, photo, url: data.url }

@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import Image, { ImageProps } from 'next/image';
 import supabaseLoader, { getOptimizedImageUrl, ImageSize, ImageSizes } from '@/lib/supabase-image-loader';
 import { cn } from '@/lib/utils';
-import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle } from 'lucide-react';
 
 interface GalleryImageProps extends Omit<ImageProps, 'src' | 'alt' | 'loader'> {
@@ -45,9 +44,7 @@ export function GalleryImage({
             className={cn("relative overflow-hidden bg-muted w-full h-full", containerClassName)}
             style={aspectRatio ? { aspectRatio } : undefined}
         >
-            {isLoading && (
-                <Skeleton className="absolute inset-0 h-full w-full z-10 animate-pulse" />
-            )}
+
 
             {hasError ? (
                 <div className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground z-20">
@@ -59,8 +56,8 @@ export function GalleryImage({
                     alt={alt}
                     loader={supabaseLoader}
                     className={cn(
-                        "duration-500 ease-in-out",
-                        isLoading ? "scale-110 blur-sm grayscale" : "scale-100 blur-0 grayscale-0",
+                        "transition-all duration-700 ease-in-out",
+                        isLoading ? "opacity-0 scale-105 blur-md" : "opacity-100 scale-100 blur-0",
                         className
                     )}
                     onLoad={(e) => {

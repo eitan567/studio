@@ -4,6 +4,7 @@ import { Photo } from '@/lib/types';
 import { usePhotoUpload } from '@/hooks/usePhotoUpload';
 import { logger } from '@/lib/logger';
 import placeholderImagesData from '@/lib/placeholder-images.json';
+import exifr from 'exifr';
 
 const placeholderImages = placeholderImagesData.placeholderImages;
 
@@ -119,15 +120,27 @@ export function usePhotoGalleryManager({
 
         const newFiles = imageFiles;
 
-        // Create temp photos for optimistic UI
-        const tempPhotos: Photo[] = newFiles.map(file => ({
-            id: crypto.randomUUID(), // Temp ID
-            src: URL.createObjectURL(file),
-            alt: file.name,
-            width: 800, // approximated
-            height: 600, // approximated
-            isUploading: true,
-            captureDate: new Date(file.lastModified)
+        // Create temp photos for optimistic UI with EXIF data
+        const tempPhotos: Photo[] = await Promise.all(newFiles.map(async file => {
+            let captureDate: Date | undefined = undefined;
+            try {
+                const exif = await exifr.parse(file);
+                if (exif?.DateTimeOriginal) {
+                    captureDate = new Date(exif.DateTimeOriginal);
+                }
+            } catch (e) {
+                // ignore
+            }
+
+            return {
+                id: crypto.randomUUID(), // Temp ID
+                src: URL.createObjectURL(file),
+                alt: file.name,
+                width: 800, // approximated
+                height: 600, // approximated
+                isUploading: true,
+                captureDate: captureDate // Only use EXIF date, no fallback to lastModified
+            };
         }));
 
         setAllPhotos(prev => [...prev, ...tempPhotos]);
@@ -286,40 +299,53 @@ export function usePhotoGalleryManager({
         toast({
             title: "Sorted",
             description: nextDirection === 'asc'
-                ? "Photos sorted by date (Oldest -> Newest)"
-                : "Photos sorted by date (Newest -> Oldest)"
+                ? "Photos sorted by number (#1 -> #N)"
+                : "Photos sorted by number (#N -> #1)"
         });
     }, [sortDirection, toast]);
 
-    const sortedPhotos = useMemo(() => {
-        return [...allPhotos].sort((a, b) => {
-            const dateA = a.captureDate ? new Date(a.captureDate).getTime() : 0;
-            const dateB = b.captureDate ? new Date(b.captureDate).getTime() : 0;
+    // Chronological index: maps photo.id -> 1-based position sorted by capture date
+    const chronologicalIndex = useMemo(() => {
+        const sorted = [...allPhotos].sort((a, b) => {
+            const dateA = a.captureDate ? new Date(a.captureDate).getTime() : null;
+            const dateB = b.captureDate ? new Date(b.captureDate).getTime() : null;
 
-            // 1. Primary Sort: Date
-            if (dateA !== dateB) {
-                if (sortDirection === 'asc') {
-                    return dateA - dateB;
-                } else {
-                    return dateB - dateA;
-                }
+            // 1. Primary Sort: Presence of date (Defined dates always come first for numbering)
+            if (dateA !== null && dateB === null) return -1;
+            if (dateA === null && dateB !== null) return 1;
+
+            // 2. Both have dates: Sort ASC (always ASC for numbering)
+            if (dateA !== null && dateB !== null) {
+                if (dateA !== dateB) return dateA - dateB;
             }
 
-            // 2. Secondary Sort (Stable Fallback): Filename / Alt
+            // 2. Secondary Sort: Filename
             const nameA = a.alt || '';
             const nameB = b.alt || '';
-            if (nameA !== nameB) {
-                return sortDirection === 'asc'
-                    ? nameA.localeCompare(nameB)
-                    : nameB.localeCompare(nameA);
-            }
+            if (nameA !== nameB) return nameA.localeCompare(nameB);
 
             // 3. Absolute Tie-breaker: ID
-            return sortDirection === 'asc'
-                ? a.id.localeCompare(b.id)
-                : b.id.localeCompare(a.id);
+            return a.id.localeCompare(b.id);
         });
-    }, [allPhotos, sortDirection]);
+        const indexMap: Record<string, number> = {};
+        sorted.forEach((photo, i) => {
+            indexMap[photo.id] = i + 1;
+        });
+        return indexMap;
+    }, [allPhotos]);
+
+    const sortedPhotos = useMemo(() => {
+        return [...allPhotos].sort((a, b) => {
+            const indexA = chronologicalIndex[a.id] || 0;
+            const indexB = chronologicalIndex[b.id] || 0;
+
+            if (sortDirection === 'asc') {
+                return indexA - indexB;
+            } else {
+                return indexB - indexA;
+            }
+        });
+    }, [allPhotos, chronologicalIndex, sortDirection]);
 
 
     const handleClearGallery = useCallback(async () => {
@@ -423,6 +449,7 @@ export function usePhotoGalleryManager({
         photoScrollRef,
         folderUploadRef,
         photoUploadRef,
-        sortedPhotos
+        sortedPhotos,
+        chronologicalIndex
     };
 }

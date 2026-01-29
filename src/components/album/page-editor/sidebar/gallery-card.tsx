@@ -337,7 +337,7 @@ const VirtualGalleryContent = ({
             // Return raw height estimate. Measurement will capture the true height including padding.
             return displayRows[index] ? displayRows[index].height + 2 : 140;
         },
-        overscan: 4
+        overscan: 20
     });
 
     // Force remeasure when layout data changes to prevent stale height glitches
@@ -389,7 +389,7 @@ const VirtualGalleryContent = ({
                                 onRemoveFromAlbum={(id) => onRemovePhotosFromAlbum([id])}
                                 onDimensionsLoaded={onDimensionsLoaded}
                                 style={{ height: '100%' }} // Ensure it accepts height
-                                priority={virtualRow.index < 12}
+                                priority={virtualRow.index < 150}
                             />
                         </div>
                     );
@@ -433,7 +433,7 @@ const VirtualGalleryContent = ({
                                             width: `${photoPixelWidth}px`,
                                             flexShrink: 0,
                                         }}
-                                        priority={virtualRow.index < 5}
+                                        priority={virtualRow.index < 30}
                                     />
                                 );
                             })}
@@ -496,7 +496,7 @@ const PhotoGalleryCardComponent = ({
     // Track container width for justified layout
     const [containerWidth, setContainerWidth] = useState(0); // Initialize at 0 to wait for measurement
     const containerRef = useRef<HTMLDivElement>(null);
-    const resizeTimeoutRef = useRef<NodeJS.Timeout>();
+    const resizeTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
     useEffect(() => {
         const target = photoScrollRef.current || containerRef.current;
@@ -719,7 +719,7 @@ const PhotoGalleryCardComponent = ({
                                             <ArrowUpDown className="h-3 w-3" />
                                         </Button>
                                     </TooltipTrigger>
-                                    <TooltipContent>Sort by Date</TooltipContent>
+                                    <TooltipContent>Sort by Number</TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>
 

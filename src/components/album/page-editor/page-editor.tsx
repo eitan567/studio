@@ -276,7 +276,8 @@ export function PageEditor({ albumId }: PageEditorProps) {
     photoScrollRef,
     folderUploadRef,
     photoUploadRef,
-    sortedPhotos
+    sortedPhotos,
+    chronologicalIndex
   } = usePhotoGalleryManager({
     allPhotos,
     setAllPhotos,
@@ -334,29 +335,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
 
   // photoUsageDetails and usedPhotoIds moved to top
 
-  // Chronological index: maps photo.id -> 1-based position sorted by capture date
-  const chronologicalIndex = useMemo(() => {
-    const sorted = [...allPhotos].sort((a, b) => {
-      const dateA = a.captureDate ? new Date(a.captureDate).getTime() : 0;
-      const dateB = b.captureDate ? new Date(b.captureDate).getTime() : 0;
 
-      // 1. Primary Sort: Date (Always ASC for numbering)
-      if (dateA !== dateB) return dateA - dateB;
-
-      // 2. Secondary Sort: Filename
-      const nameA = a.alt || '';
-      const nameB = b.alt || '';
-      if (nameA !== nameB) return nameA.localeCompare(nameB);
-
-      // 3. Absolute Tie-breaker: ID
-      return a.id.localeCompare(b.id);
-    });
-    const indexMap: Record<string, number> = {};
-    sorted.forEach((photo, i) => {
-      indexMap[photo.id] = i + 1;
-    });
-    return indexMap;
-  }, [allPhotos]);
 
   // Calculate empty slots in album (photos with empty src)
   const emptySlots = useMemo(() => {
@@ -665,11 +644,17 @@ export function PageEditor({ albumId }: PageEditorProps) {
 
     // Sort photos by capture date (oldest first), photos without date go to end
     const sortedPhotos = [...allPhotos].sort((a, b) => {
-      const dateA = a.captureDate ? new Date(a.captureDate).getTime() : 0;
-      const dateB = b.captureDate ? new Date(b.captureDate).getTime() : 0;
+      const dateA = a.captureDate ? new Date(a.captureDate).getTime() : null;
+      const dateB = b.captureDate ? new Date(b.captureDate).getTime() : null;
 
-      // 1. Primary Sort: Date
-      if (dateA !== dateB) return dateA - dateB;
+      // 1. Primary Sort: Presence of date (Defined dates always come first)
+      if (dateA !== null && dateB === null) return -1;
+      if (dateA === null && dateB !== null) return 1;
+
+      // 2. Both have dates: Sort ASC
+      if (dateA !== null && dateB !== null) {
+        if (dateA !== dateB) return dateA - dateB;
+      }
 
       // 2. Secondary Sort: Filename
       const nameA = a.alt || '';
@@ -699,11 +684,17 @@ export function PageEditor({ albumId }: PageEditorProps) {
 
     // Sort photos by capture date (oldest first), photos without date go to end
     const sortedPhotos = [...allPhotos].sort((a, b) => {
-      const dateA = a.captureDate ? new Date(a.captureDate).getTime() : 0;
-      const dateB = b.captureDate ? new Date(b.captureDate).getTime() : 0;
+      const dateA = a.captureDate ? new Date(a.captureDate).getTime() : null;
+      const dateB = b.captureDate ? new Date(b.captureDate).getTime() : null;
 
-      // 1. Primary Sort: Date
-      if (dateA !== dateB) return dateA - dateB;
+      // 1. Primary Sort: Presence of date (Defined dates always come first)
+      if (dateA !== null && dateB === null) return -1;
+      if (dateA === null && dateB !== null) return 1;
+
+      // 2. Both have dates: Sort ASC
+      if (dateA !== null && dateB !== null) {
+        if (dateA !== dateB) return dateA - dateB;
+      }
 
       // 2. Secondary Sort: Filename
       const nameA = a.alt || '';
