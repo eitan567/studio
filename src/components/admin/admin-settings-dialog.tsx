@@ -203,6 +203,218 @@ function SpineEffectPreview({
     );
 }
 
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { createClient } from "@/lib/supabase";
+
+interface UserProfile {
+    id: string;
+    email: string;
+    full_name: string | null;
+    avatar_url: string | null;
+    role_id: number;
+    created_at: string;
+    role?: {
+        code: string;
+        description: string;
+    }
+}
+
+interface UserRole {
+    id: number;
+    code: string;
+    description: string;
+}
+
+function UsersTab() {
+    const [users, setUsers] = useState<UserProfile[]>([]);
+    const [roles, setRoles] = useState<UserRole[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const { user: currentUser } = useAuth();
+    const { toast } = useToast();
+    const supabase = createClient();
+
+    // Fetch users and roles
+    useEffect(() => {
+        const fetchData = async () => {
+            setIsLoading(true);
+            try {
+                // Fetch roles
+                const { data: rolesData, error: rolesError } = await supabase
+                    .from('user_roles')
+                    .select('*')
+                    .order('id');
+
+                if (rolesError) throw rolesError;
+                setRoles(rolesData || []);
+
+                // Fetch profiles with their roles
+                const { data: usersData, error: usersError } = await supabase
+                    .from('profiles')
+                    .select('*, role:user_roles(code, description)')
+                    .order('created_at', { ascending: false });
+
+                if (usersError) throw usersError;
+                // @ts-ignore - Join typing can be tricky
+                setUsers(usersData || []);
+
+            } catch (error) {
+                console.error('Error fetching users full details:', JSON.stringify(error, null, 2));
+                console.error(error); // Log raw object too
+                toast({
+                    title: "Failed to load users",
+                    variant: "destructive"
+                });
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchData();
+    }, []);
+
+    const handleRoleChange = async (userId: string, newRoleId: string) => {
+        const roleId = parseInt(newRoleId);
+        if (isNaN(roleId)) return;
+
+        // Optimistic update
+        const originalUsers = [...users];
+        setUsers(users.map(u => u.id === userId ? { ...u, role_id: roleId } : u));
+
+        try {
+            const { error } = await supabase.rpc('update_user_role', {
+                target_user_id: userId,
+                new_role_id: roleId
+            });
+
+            if (error) throw error;
+
+            toast({
+                title: "User role updated"
+            });
+
+            // Refresh to confirm sync (optional, but good for robust UI)
+            // For now, relies on optimistic update success
+
+        } catch (error) {
+            console.error('Error updating role:', error);
+            toast({
+                title: "Failed to update role",
+                variant: "destructive"
+            });
+            setUsers(originalUsers); // Revert
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center h-48">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="max-w-5xl mx-auto space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Users & Roles</CardTitle>
+                    <CardDescription>Manage user access and permissions across the application.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>User</TableHead>
+                                    <TableHead>Email</TableHead>
+                                    <TableHead>Joined</TableHead>
+                                    <TableHead>Role</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {users.map((user) => (
+                                    <TableRow key={user.id}>
+                                        <TableCell className="font-medium">
+                                            <div className="flex items-center gap-3">
+                                                {user.avatar_url ? (
+                                                    <img src={user.avatar_url} alt="" className="w-8 h-8 rounded-full bg-muted object-cover" />
+                                                ) : (
+                                                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                                                        {user.full_name?.charAt(0).toUpperCase() || user.email.charAt(0).toUpperCase()}
+                                                    </div>
+                                                )}
+                                                <div className="flex flex-col">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span>{user.full_name || 'No Name'}</span>
+                                                        {user.role_id === 1 && (
+                                                            <div className="text-blue-500" title="Admin">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shield-check"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" /><path d="m9 12 2 2 4-4" /></svg>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {currentUser?.id === user.id && (
+                                                        <span className="text-[10px] text-primary font-medium">(You)</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>{user.email}</TableCell>
+                                        <TableCell className="text-muted-foreground text-sm">
+                                            {new Date(user.created_at).toLocaleDateString()}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Select
+                                                value={user.role_id.toString()}
+                                                onValueChange={(val) => {
+                                                    const newRole = parseInt(val);
+                                                    if (currentUser?.id === user.id && newRole !== 1) {
+                                                        const confirmed = window.confirm("Are you sure you want to remove your own Admin privileges? you will not be able to undo this.");
+                                                        if (!confirmed) return;
+                                                    }
+                                                    handleRoleChange(user.id, val)
+                                                }}
+                                            >
+                                                <SelectTrigger className="w-[140px] h-8">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {roles.map((role) => (
+                                                        <SelectItem key={role.id} value={role.id.toString()}>
+                                                            <div className="flex items-center gap-2">
+                                                                <span>{role.code}</span>
+                                                            </div>
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
+
 interface AdminSettingsDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -212,6 +424,7 @@ export function AdminSettingsDialog({ open, onOpenChange }: AdminSettingsDialogP
     const { user, isAdmin } = useAuth();
     const { settings, updateSettings } = useSettings();
     const [isSaving, setIsSaving] = useState(false);
+    const { toast } = useToast();
 
     // Local state for live preview
     const [localSettings, setLocalSettings] = useState({
@@ -270,6 +483,15 @@ export function AdminSettingsDialog({ open, onOpenChange }: AdminSettingsDialogP
         setIsSaving(true);
         try {
             await updateSettings(localSettings);
+            toast({
+                title: "Settings saved"
+            });
+            onOpenChange(false);
+        } catch (error) {
+            toast({
+                title: "Failed to save settings",
+                variant: "destructive"
+            });
         } finally {
             setIsSaving(false);
         }
@@ -327,16 +549,16 @@ export function AdminSettingsDialog({ open, onOpenChange }: AdminSettingsDialogP
                                         Book Spine
                                     </TabsTrigger>
                                     <TabsTrigger
-                                        value="general"
-                                        className="data-[state=active]:bg-background data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 h-full"
-                                    >
-                                        General
-                                    </TabsTrigger>
-                                    <TabsTrigger
                                         value="users"
                                         className="data-[state=active]:bg-background data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 h-full"
                                     >
                                         Users & Roles
+                                    </TabsTrigger>
+                                    <TabsTrigger
+                                        value="general"
+                                        className="data-[state=active]:bg-background data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 h-full"
+                                    >
+                                        General
                                     </TabsTrigger>
                                 </TabsList>
                             </div>
@@ -492,6 +714,10 @@ export function AdminSettingsDialog({ open, onOpenChange }: AdminSettingsDialogP
                             </div>
                         </TabsContent>
 
+                        <TabsContent value="users" className="flex-1 p-6 m-0">
+                            <UsersTab />
+                        </TabsContent>
+
                         <TabsContent value="general" className="flex-1 p-6 m-0">
                             <div className="max-w-4xl mx-auto">
                                 <Card>
@@ -502,22 +728,6 @@ export function AdminSettingsDialog({ open, onOpenChange }: AdminSettingsDialogP
                                     <CardContent>
                                         <div className="h-48 flex items-center justify-center border-2 border-dashed rounded-lg text-muted-foreground">
                                             General settings placeholder
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        </TabsContent>
-
-                        <TabsContent value="users" className="flex-1 p-6 m-0">
-                            <div className="max-w-4xl mx-auto">
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>Users & Roles</CardTitle>
-                                        <CardDescription>Manage user access and permissions.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="h-48 flex items-center justify-center border-2 border-dashed rounded-lg text-muted-foreground">
-                                            User management placeholder
                                         </div>
                                     </CardContent>
                                 </Card>
