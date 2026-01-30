@@ -24,6 +24,7 @@ export const ShapeRegion = ({
     pageId,
     cornerRadius = 0,
     priority,
+    chronologicalIndex,
 }: {
     region: LayoutRegion;
     photo?: Photo;
@@ -43,6 +44,7 @@ export const ShapeRegion = ({
     pageId?: string;
     cornerRadius?: number;
     priority?: boolean;
+    chronologicalIndex?: Record<string, number>;
 }) => {
     const rootRef = React.useRef<HTMLDivElement>(null);
     // Unique ID for the mask (though we use clip-path now, keeping IDs unique is good practice)
@@ -178,6 +180,7 @@ export const ShapeRegion = ({
                 pageId={pageId}
                 photoId={photo.id}
                 priority={priority}
+                chronologicalIndex={chronologicalIndex}
             />
         );
     };

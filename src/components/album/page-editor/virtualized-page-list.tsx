@@ -52,6 +52,7 @@ interface VirtualizedPageListProps {
     defaultViewMode: 'single' | 'spread';
     visibleTemplateCategories: string[];
     allowedTemplateIds: string[];
+    chronologicalIndex?: Record<string, number>;
 }
 
 // Fixed dimensions for fallback

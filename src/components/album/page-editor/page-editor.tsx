@@ -856,6 +856,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
                 defaultViewMode={settings.defaultEditorViewMode as "single" | "spread"}
                 visibleTemplateCategories={settings.visibleTemplateCategories}
                 allowedTemplateIds={settings.allowedTemplateIds || []}
+                chronologicalIndex={chronologicalIndex}
                 ref={virtualListRef}
               />
             )}

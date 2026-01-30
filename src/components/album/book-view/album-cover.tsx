@@ -43,6 +43,7 @@ export interface AlbumCoverProps {
     allPhotos?: Photo[];
     previousPagePhotos?: Photo[];
     priority?: boolean;
+    chronologicalIndex?: Record<string, number>;
 }
 
 // --- Internal Helper Components ---
@@ -592,6 +593,7 @@ export const AlbumCover = ({
     allPhotos = [],
     previousPagePhotos = [],
     priority = false, // Default to false
+    chronologicalIndex,
 }: AlbumCoverProps) => {
     const {
         gridTemplates,
@@ -884,6 +886,7 @@ export const AlbumCover = ({
                             allPhotos={allPhotos}
                             previousPagePhotos={previousPagePhotos}
                             priority={priority}
+                            chronologicalIndex={chronologicalIndex}
                         />
                     </div>
                 </div>
@@ -924,6 +927,7 @@ export const AlbumCover = ({
                                 allPhotos={allPhotos}
                                 previousPagePhotos={previousPagePhotos}
                                 priority={priority}
+                                chronologicalIndex={chronologicalIndex}
                             />
                         </div>
                     </div>
@@ -988,6 +992,7 @@ export const AlbumCover = ({
                                 allPhotos={allPhotos}
                                 previousPagePhotos={previousPagePhotos}
                                 priority={priority}
+                                chronologicalIndex={chronologicalIndex}
                             />
                         </div>
                     </div>

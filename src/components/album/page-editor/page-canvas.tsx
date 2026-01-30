@@ -551,6 +551,7 @@ const ScaledCoverPreview = React.memo(({
     previousPagePhotos = [],
     activeView = 'full',
     priority = false, // Add priority here
+    chronologicalIndex,
 }: {
     page: AlbumPage;
     config: AlbumConfig;
@@ -563,6 +564,7 @@ const ScaledCoverPreview = React.memo(({
     previousPagePhotos?: Photo[];
     activeView?: 'full' | 'split' | 'front' | 'back';
     priority?: boolean;
+    chronologicalIndex?: Record<string, number>;
 }) => {
     const wrapperRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
@@ -612,7 +614,7 @@ const ScaledCoverPreview = React.memo(({
                 <div className="absolute z-0 bg-white border-x border-gray-100 shadow-md" style={{ width: '98%', height: '94.5%', top: '50.4%', left: '50%', transform: 'translate(-50%, -50%)' }} />
                 <div className="relative w-[97%] h-[95%] shadow-lg z-10 overflow-hidden bg-white">
                     <div className="absolute inset-0 z-50">
-                        <AlbumCover page={page} config={config} mode="editor" activeView={activeView} onUpdateTitleSettings={onUpdateTitleSettings} onDropPhoto={onDropPhoto} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} onInteractionChange={onInteractionChange} onRemovePhoto={onRemovePhoto} allPhotos={allPhotos} previousPagePhotos={previousPagePhotos} priority={priority} />
+                        <AlbumCover page={page} config={config} mode="editor" activeView={activeView} onUpdateTitleSettings={onUpdateTitleSettings} onDropPhoto={onDropPhoto} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} onInteractionChange={onInteractionChange} onRemovePhoto={onRemovePhoto} allPhotos={allPhotos} previousPagePhotos={previousPagePhotos} priority={priority} chronologicalIndex={chronologicalIndex} />
                         {!page.isCover && page.type === 'spread' && <SpineEffectOverlay />}
                     </div>
                     <div className="absolute inset-0 z-60 pointer-events-none">
@@ -653,6 +655,7 @@ interface PageCanvasProps {
     visibleTemplateCategories?: string[];
     allowedTemplateIds?: string[];
     priority?: boolean;
+    chronologicalIndex?: Record<string, number>;
 }
 
 export const PageCanvas = React.memo(({
@@ -684,6 +687,7 @@ export const PageCanvas = React.memo(({
     previousPagePhotos = [],
     displayLabel: externalDisplayLabel,
     priority = false, // Default to false
+    chronologicalIndex,
 }: PageCanvasProps & { previousPagePhotos?: Photo[]; displayLabel?: string }) => {
     const { gridTemplates, coverTemplates, advancedTemplates, findTemplate, defaultGridTemplate } = useTemplates();
     const { previewPhotoGap, previewPageMargin, previewCornerRadius } = useAlbumEditor();
@@ -809,6 +813,7 @@ export const PageCanvas = React.memo(({
                                 previousPagePhotos={previousPagePhotos}
                                 activeView="full"
                                 priority={priority}
+                                chronologicalIndex={chronologicalIndex}
                             />
                         </CardContent>
                     </Card>

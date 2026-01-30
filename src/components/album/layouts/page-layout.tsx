@@ -38,6 +38,7 @@ export interface PageLayoutProps {
     allPhotos?: Photo[];
     previousPagePhotos?: Photo[];
     priority?: boolean;
+    chronologicalIndex?: Record<string, number>;
 }
 
 const PageLayoutComponent = ({
@@ -56,7 +57,8 @@ const PageLayoutComponent = ({
     backgroundColor: configBackgroundColor,
     allPhotos = [],
     previousPagePhotos = [],
-    priority = false // Default to false
+    priority = false, // Default to false
+    chronologicalIndex
 }: PageLayoutProps) => {
     const { gridTemplates, advancedTemplates } = useTemplates();
     const effectiveTemplateSource = templateSource || gridTemplates;
@@ -262,6 +264,7 @@ const PageLayoutComponent = ({
                             pageId={page.id}
                             cornerRadius={cornerRadius}
                             priority={priority}
+                            chronologicalIndex={chronologicalIndex}
                         />
                     );
                 })}
@@ -381,6 +384,7 @@ const PageLayoutComponent = ({
                                 pageId={page.id}
                                 photoId={photo.id}
                                 priority={priority}
+                                chronologicalIndex={chronologicalIndex}
                             />
                         </div>
                     );
@@ -420,6 +424,7 @@ export const PageLayout = React.memo(PageLayoutComponent, (prev, next) => {
     // CRITICAL: Check if global photos changed (needed for Suggestion Fan)
     if (prev.allPhotos !== next.allPhotos) return false;
     if (prev.previousPagePhotos !== next.previousPagePhotos) return false;
+    if (prev.chronologicalIndex !== next.chronologicalIndex) return false;
 
     // Photos check (length and IDs equal?)
     const prevPhotos = prev.overridePhotos || prev.page.photos;

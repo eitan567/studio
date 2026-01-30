@@ -84,7 +84,8 @@ const GalleryPhotoItemComponent = ({
     onRemoveFromAlbum,
     style,
     onDimensionsLoaded,
-    priority // Destructure priority
+    priority, // Destructure priority
+    isHighlighted
 }: {
     photo: Photo;
     usage?: { count: number; pages: number[] };
@@ -99,6 +100,7 @@ const GalleryPhotoItemComponent = ({
     style?: React.CSSProperties;
     onDimensionsLoaded?: (id: string, width: number, height: number) => void;
     priority?: boolean;
+    isHighlighted?: boolean;
 }) => {
     const isUsed = !!usage;
     const hasWarning = usage && usage.count > 1;
@@ -132,6 +134,7 @@ const GalleryPhotoItemComponent = ({
             style={style}
             className={cn(
                 "relative rounded-md overflow-hidden bg-muted border-2 transition-all group border-transparent cursor-grab active:cursor-grabbing hover:border-primary/50",
+                isHighlighted && "animate-photo-highlight"
             )}
         >
             <div className="relative h-full w-full transition-opacity duration-300 select-none">
@@ -272,6 +275,7 @@ const GalleryPhotoItem = React.memo(GalleryPhotoItemComponent, (prev, next) => {
     if (prev.isSelected !== next.isSelected) return false;
     if (prev.isActiveBubble !== next.isActiveBubble) return false;
     if (prev.multiSelectMode !== next.multiSelectMode) return false;
+    if (prev.isHighlighted !== next.isHighlighted) return false;
 
     // Check usage object deeply-ish
     const prevUsage = prev.usage;
@@ -290,7 +294,7 @@ const GalleryPhotoItem = React.memo(GalleryPhotoItemComponent, (prev, next) => {
     return true;
 });
 
-const VirtualGalleryContent = ({
+const VirtualGalleryContent = React.forwardRef(({
     isSingleColumn,
     filteredPhotos,
     displayRows,
@@ -305,7 +309,8 @@ const VirtualGalleryContent = ({
     onRemovePhotosFromAlbum,
     parentRef,
     onDimensionsLoaded,
-    containerWidth
+    containerWidth,
+    highlightedPhotoId
 }: {
     isSingleColumn: boolean;
     filteredPhotos: Photo[];
@@ -322,7 +327,8 @@ const VirtualGalleryContent = ({
     parentRef: React.RefObject<HTMLDivElement | null>;
     onDimensionsLoaded: (id: string, width: number, height: number) => void;
     containerWidth: number;
-}) => {
+    highlightedPhotoId: string | null;
+}, ref) => {
     const count = displayRows.length;
     // Gap is now handled via padding on the row wrapper
     const gap = 2;
@@ -337,6 +343,30 @@ const VirtualGalleryContent = ({
         },
         overscan: 20
     });
+
+    // Expose scrollToPhoto via ref
+    React.useImperativeHandle(ref, () => ({
+        scrollToPhoto: (photoId: string) => {
+            const rowIndex = displayRows.findIndex(row => row.photos.some(p => p.id === photoId));
+            if (rowIndex !== -1 && parentRef.current) {
+                // Calculate exact offset since we know all row heights
+                let targetOffset = 0;
+                for (let i = 0; i < rowIndex; i++) {
+                    targetOffset += displayRows[i].height + 2; // +2 for gap/padding
+                }
+
+                // Center the row
+                const containerHeight = parentRef.current.clientHeight;
+                const rowHeight = displayRows[rowIndex].height;
+                const centeredOffset = Math.max(0, targetOffset - (containerHeight / 2) + (rowHeight / 2));
+
+                parentRef.current.scrollTo({
+                    top: centeredOffset,
+                    behavior: 'smooth'
+                });
+            }
+        }
+    }));
 
     // Force remeasure and scroll to top when layout mode changes to prevent stale height glitches
     useEffect(() => {
@@ -398,6 +428,7 @@ const VirtualGalleryContent = ({
                                         flexShrink: 0,
                                     }}
                                     priority={virtualRow.index < 30}
+                                    isHighlighted={photo.id === highlightedPhotoId}
                                 />
                             );
                         })}
@@ -406,7 +437,9 @@ const VirtualGalleryContent = ({
             })}
         </div>
     );
-};
+});
+
+import { useAlbumEditor } from '../../album-editor/context';
 
 const PhotoGalleryCardComponent = ({
     allPhotos,
@@ -433,6 +466,15 @@ const PhotoGalleryCardComponent = ({
     photoUploadRef,
     isResizing = false
 }: PhotoGalleryCardProps) => {
+    const { registerGalleryScroll, highlightedPhotoId } = useAlbumEditor();
+    const virtualContentRef = useRef<{ scrollToPhoto: (photoId: string) => void }>(null);
+
+    useEffect(() => {
+        registerGalleryScroll((photoId) => {
+            virtualContentRef.current?.scrollToPhoto(photoId);
+        });
+    }, [registerGalleryScroll]);
+
     const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
     const [activeBubbleId, setActiveBubbleId] = useState<string | null>(null);
     const [dimensionsCache, setDimensionsCache] = useState<Record<string, { width: number; height: number }>>({});
@@ -842,6 +884,7 @@ const PhotoGalleryCardComponent = ({
                             thumbClassName="min-h-[50px]"
                         >
                             <VirtualGalleryContent
+                                ref={virtualContentRef}
                                 isSingleColumn={isSingleColumn}
                                 filteredPhotos={filteredPhotos}
                                 displayRows={displayRows}
@@ -857,6 +900,7 @@ const PhotoGalleryCardComponent = ({
                                 parentRef={photoScrollRef}
                                 onDimensionsLoaded={handlePhotoDimensionsLoaded}
                                 containerWidth={containerWidth}
+                                highlightedPhotoId={highlightedPhotoId}
                             />
                         </ScrollArea>
                     )}

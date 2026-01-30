@@ -5,6 +5,7 @@ import Image from 'next/image';
 import supabaseLoader from '@/lib/supabase-image-loader';
 import { EmptyPhotoSlot } from '../album-editor/empty-photo-slot';
 import type { Photo, PhotoPanAndZoom } from '@/lib/types';
+import { useAlbumEditor } from '../album-editor/context';
 
 interface PhotoRendererProps {
   photo: Photo;
@@ -17,10 +18,23 @@ interface PhotoRendererProps {
   pageId?: string;
   photoId?: string;
   priority?: boolean;
+  chronologicalIndex?: Record<string, number>;
 }
 
 // Using memo to prevent re-rendering of all photos when only one is being updated
-export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onInteractionChange, useSimpleImage, onRemove, onReplace, pageId, photoId, priority = false }: PhotoRendererProps) {
+export const PhotoRenderer = memo(function PhotoRenderer({
+  photo,
+  onUpdate,
+  onInteractionChange,
+  useSimpleImage,
+  onRemove,
+  onReplace,
+  pageId,
+  photoId,
+  priority = false,
+  chronologicalIndex
+}: PhotoRendererProps) {
+  const { scrollToGallery } = useAlbumEditor();
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLDivElement>(null);
   const isInteracting = useRef(false);
@@ -399,6 +413,22 @@ export const PhotoRenderer = memo(function PhotoRenderer({ photo, onUpdate, onIn
             <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
             <path d="M8 16H3v5" />
           </svg>
+        </button>
+      )}
+
+      {chronologicalIndex?.[photo.originalId || photo.id] !== undefined && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            scrollToGallery(photo.originalId || photo.id);
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          className="absolute bottom-2 right-2 min-w-[20px] h-[20px] px-1.5 flex items-center justify-center bg-black/60 text-white text-[10px] font-bold rounded-full hover:bg-primary transition-all opacity-0 group-hover:opacity-100 z-[250] pointer-events-auto shadow-md border border-white/20"
+          title={`Photo #${chronologicalIndex[photo.originalId || photo.id]} - Click to find in gallery`}
+        >
+          #{chronologicalIndex[photo.originalId || photo.id]}
         </button>
       )}
     </div>
