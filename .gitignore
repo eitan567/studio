@@ -43,3 +43,17 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
+.kilocode/mcp.json
+.kilocode/skills/theme-factory/LICENSE.txt
+.kilocode/skills/theme-factory/SKILL.md
+.kilocode/skills/theme-factory/theme-showcase.pdf
+.kilocode/skills/theme-factory/themes/arctic-frost.md
+.kilocode/skills/theme-factory/themes/botanical-garden.md
+.kilocode/skills/theme-factory/themes/desert-rose.md
+.kilocode/skills/theme-factory/themes/forest-canopy.md
+.kilocode/skills/theme-factory/themes/golden-hour.md
+.kilocode/skills/theme-factory/themes/midnight-galaxy.md
+.kilocode/skills/theme-factory/themes/modern-minimalist.md
+.kilocode/skills/theme-factory/themes/ocean-depths.md
+.kilocode/skills/theme-factory/themes/sunset-boulevard.md
+.kilocode/skills/theme-factory/themes/tech-innovation.md
