@@ -866,8 +866,6 @@ const PhotoGalleryCardComponent = ({
                             className="h-full w-full mr-4 py-1"
                             thumbClassName="min-h-[50px]"
                         >
-                            <ScrollToTopButton scrollAreaRef={photoScrollRef} />
-
                             <VirtualGalleryContent
                                 isSingleColumn={isSingleColumn}
                                 filteredPhotos={filteredPhotos}
@@ -886,6 +884,11 @@ const PhotoGalleryCardComponent = ({
                                 containerWidth={containerWidth}
                             />
                         </ScrollArea>
+                    )}
+                    {allPhotos.length > 0 && (
+                        <div className="absolute bottom-16 right-6 z-[100]">
+                            <ScrollToTopButton scrollAreaRef={photoScrollRef} />
+                        </div>
                     )}
                 </div>
 

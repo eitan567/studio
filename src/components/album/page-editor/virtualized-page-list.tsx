@@ -3,7 +3,6 @@
 import React, { memo, CSSProperties, useEffect, useRef, useCallback, useState, useMemo, forwardRef, useImperativeHandle } from 'react';
 import * as ReactWindow from 'react-window';
 const List = (ReactWindow as any).VariableSizeList || (ReactWindow as any).List;
-
 import { AlbumPage, AlbumConfig, Photo } from '@/lib/types';
 import { logger } from '@/lib/logger';
 import { PageCanvas } from '@/components/album/page-editor/page-canvas';
