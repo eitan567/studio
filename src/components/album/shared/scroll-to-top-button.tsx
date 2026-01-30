@@ -72,17 +72,26 @@ export function ScrollToTopButton({ scrollAreaRef, className, dependency }: Scro
         }
 
         if (scrollContainer) {
-            // Use smooth scroll
-            scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+            const element = scrollContainer;
+            const start = element.scrollTop;
+            const duration = 500; // ms
+            const startTime = performance.now();
 
-            // Safety: ensure we reach top after smooth scroll animation
-            // This handles cases where virtualizer might interfere
-            const el = scrollContainer;
-            setTimeout(() => {
-                if (el.scrollTop > 0) {
-                    el.scrollTo({ top: 0, behavior: 'smooth' });
+            const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+            const animate = (currentTime: number) => {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+
+                const easedProgress = easeOutCubic(progress);
+                element.scrollTop = start * (1 - easedProgress);
+
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
                 }
-            }, 500);
+            };
+
+            requestAnimationFrame(animate);
         }
     };
 
