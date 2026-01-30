@@ -339,6 +339,7 @@ export function AlbumConfigCard({
                                     {pagesWithEmptySlots.map((page) => (
                                         <Button
                                             key={page.index}
+                                            type="button"
                                             variant="outline"
                                             size="sm"
                                             className="h-9 px-2 text-xs font-medium justify-start bg-orange-50/30 hover:bg-orange-100 hover:text-orange-900 border-orange-200/50 transition-colors truncate"

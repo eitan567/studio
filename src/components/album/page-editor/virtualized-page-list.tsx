@@ -359,6 +359,16 @@ export const VirtualizedPageList = memo(forwardRef(({
     const { containerRef, width, height } = useContainerSize();
     const [scrollOffset, setScrollOffset] = useState(0);
     const [centeredPageIndex, setCenteredPageIndex] = useState(0);
+    const [centeredPageId, setCenteredPageId] = useState<string | null>(null);
+
+    // Expose methods to parent via ref
+    useImperativeHandle(ref, () => ({
+        scrollToPage: (index: number) => {
+            scrollToPageCentered(index);
+        },
+        getCurrentPageIndex: () => centeredPageIndex
+    }));
+
 
     // Calculate Page Info for Navigation
     const pageInfo = useMemo(() => {
