@@ -343,7 +343,7 @@ const VirtualGalleryContent = ({
     // Force remeasure when layout data changes to prevent stale height glitches
     useEffect(() => {
         virtualizer.measure();
-    }, [virtualizer, displayRows, isSingleColumn]);
+    }, [virtualizer, displayRows, isSingleColumn, filteredPhotos]);
 
     const items = virtualizer.getVirtualItems();
 
@@ -484,7 +484,7 @@ const PhotoGalleryCardComponent = ({
 
     const handlePhotoDimensionsLoaded = useCallback((id: string, width: number, height: number) => {
         setDimensionsCache(prev => {
-            if (prev[id]) return prev;
+            if (prev[id]?.width === width && prev[id]?.height === height) return prev;
             return { ...prev, [id]: { width, height } };
         });
     }, []);
