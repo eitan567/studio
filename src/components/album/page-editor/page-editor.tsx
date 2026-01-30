@@ -400,7 +400,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
   const [randomSeed, setRandomSeed] = useState('');
   const [isClient, setIsClient] = useState(false);
   // allowDuplicates moved up
-  const [multiSelectMode, setMultiSelectModeLocal] = useState(false); // true = checkboxes, false = trash icons
+  const [multiSelectMode, setMultiSelectModeLocal] = useState(true); // true = checkboxes, false = trash icons
   // Gallery Sidebar State
   type GalleryMode = 'collapsed' | 'default' | 'expanded';
   const [galleryMode, setGalleryMode] = useState<GalleryMode>('default');
@@ -497,7 +497,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
       setCornerRadius(savedConfig.cornerRadius || 0);
       setBackgroundColor(savedConfig.backgroundColor || '#ffffff');
       setBackgroundImage(savedConfig.backgroundImage);
-      setMultiSelectModeLocal(savedConfig.multiSelectMode ?? true);
+      setMultiSelectModeLocal(savedConfig.multiSelectMode ?? false);
       form.setValue('size', savedConfig.size);
 
       if (savedPages.length > 0) {
