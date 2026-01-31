@@ -341,6 +341,11 @@ const VirtualGalleryContent = React.forwardRef(({
     // Match the justifiedRows calculation padding (ScrollArea pr-4 + pl-1 = 20px)
     const usableWidth = Math.max(100, containerWidth - 20);
 
+    // CRITICAL: Use a ref to always have the LATEST selectedPhotos at drag time
+    // This fixes the stale closure issue where memo'd GalleryPhotoItem has old callbacks
+    const selectedPhotosRef = useRef(selectedPhotos);
+    selectedPhotosRef.current = selectedPhotos; // Update on every render
+
     const virtualizer = useVirtualizer({
         count,
         getScrollElement: () => parentRef.current,
@@ -434,10 +439,16 @@ const VirtualGalleryContent = React.forwardRef(({
                                     onRemoveFromAlbum={(id) => onRemovePhotosFromAlbum([id])}
                                     onDimensionsLoaded={onDimensionsLoaded}
                                     onDragStart={(e, id) => {
-                                        if (selectedPhotos.has(id)) {
-                                            const ids = Array.from(selectedPhotos);
+                                        // CRITICAL: Use ref to get LATEST selection, bypassing stale closure
+                                        const currentSelection = selectedPhotosRef.current;
+                                        // Only use multi-select mode (dynamic justified) when 2+ photos are selected
+                                        // AND the dragged photo is one of the selected ones
+                                        if (currentSelection.has(id) && currentSelection.size > 1) {
+                                            const ids = Array.from(currentSelection);
                                             e.dataTransfer.setData('selectedPhotoIds', JSON.stringify(ids));
                                         }
+                                        // Always set the single photo ID for normal drop targets
+                                        e.dataTransfer.setData('photoId', id);
                                     }}
                                     style={{
                                         height: `${row.height}px`,

@@ -230,6 +230,8 @@ const PageLayoutComponent = ({
                 ref={containerRef}
                 className={cn("w-full h-full relative")}
             >
+                {/* Debug Log */}
+                {/* {console.log('[PageLayout Render] Layout:', layout, 'Regions:', sortedRegions.length, 'Photos:', photos.length, 'Dimensions:', W, H)} */}
                 {/* Only render regions if we have dimensions, otherwise wait for measure */}
                 {W > 0 && H > 0 && sortedRegions.map((region, index) => {
                     const photo = photos[index];

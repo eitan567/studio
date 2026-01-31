@@ -403,19 +403,37 @@ export function useAlbumPageEditor({
         if (targetPhotoId === '__REPLACE_ALL__') {
             try {
                 const photoIds = JSON.parse(droppedPhotoId);
+                console.log('[handleDropPhoto] Received photoIds:', photoIds);
+                console.log('[handleDropPhoto] allPhotosRef.current count:', allPhotosRef.current.length);
                 if (Array.isArray(photoIds)) {
                     setAlbumPages(prevPages => prevPages.map(page => {
                         if (page.id === pageId) {
                             const newPhotos = photoIds
-                                .map(id => allPhotosRef.current.find(p => p.id === id))
-                                .filter((p): p is Photo => !!p);
+                                .map((id: string) => {
+                                    const found = allPhotosRef.current.find(p => p.id === id);
+                                    if (!found) console.warn('[handleDropPhoto] Photo not found in ref:', id);
+                                    return found;
+                                })
+                                .filter((p): p is Photo => !!p); // Filters out undefined photos
+
+                            console.log('[handleDropPhoto] newPhotos count:', newPhotos.length);
 
                             if (newPhotos.length > 0) {
                                 return {
                                     ...page,
                                     photos: newPhotos,
                                     layout: 'dynamic-justified',
-                                    spreadMode: undefined // Reset to full spread mode for dynamic layouts
+                                    // Sync spreadLayouts and coverLayouts
+                                    spreadLayouts: {
+                                        left: 'dynamic-justified',
+                                        right: 'dynamic-justified'
+                                    },
+                                    coverLayouts: {
+                                        front: 'dynamic-justified',
+                                        back: 'dynamic-justified'
+                                    },
+                                    spreadMode: undefined, // Reset spread mode for regular pages (forces full spread logic in some places)
+                                    coverType: 'full', // Force full cover type for dynamic justified to ensure isFullSpread=true in AlbumCover
                                 };
                             }
                         }

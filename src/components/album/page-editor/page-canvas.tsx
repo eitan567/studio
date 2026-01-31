@@ -437,7 +437,8 @@ const PageToolbar = ({
                                         <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative h-8 w-8" onClick={() => {
                                             const currentLayoutId = page.isCover ? page.coverLayouts?.front : page.spreadLayouts?.right;
                                             const { baseId, rotation } = parseLayoutId(currentLayoutId || '1-full');
-                                            const nextBaseId = baseId === 'dynamic-justified' ? 'dynamic-justified-smart' : 'dynamic-justified';
+                                            // Simple robust toggle
+                                            const nextBaseId = baseId.includes('smart') ? 'dynamic-justified' : 'dynamic-justified-smart';
                                             const newLayout = rotation === 0 ? nextBaseId : `${nextBaseId}_r${rotation}`;
                                             if (page.isCover) onUpdateCoverLayout?.(page.id, 'front', newLayout);
                                             else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'right', newLayout) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id }), right: newLayout } });
@@ -487,32 +488,34 @@ const PageToolbar = ({
 
                         <div className="h-4 w-px bg-border mx-2" />
 
-                        {page.isCover && (
-                            <Popover>
-                                <PopoverTrigger asChild><Button variant="ghost" size="icon" className={cn(showSpineSettings && "text-primary bg-primary/10")} onClick={() => setShowSpineSettings(!showSpineSettings)}><Settings2 className="h-4 w-4" /></Button></PopoverTrigger>
-                                <PopoverContent align="end" className="w-[380px] p-0 border-none shadow-none bg-transparent">
-                                    <div className="bg-background/95 backdrop-blur-sm p-4 rounded-xl border shadow-xl animate-in fade-in zoom-in-95 duration-200">
-                                        <div className="flex items-center gap-2 mb-4"><div className="w-1.5 h-4 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]" /><h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground/80">Spine Structure</h4></div>
-                                        <div className="space-y-4">
-                                            <div className="grid grid-cols-2 gap-6">
-                                                <div className="space-y-2"><div className="flex justify-between items-center px-0.5"><Label className="text-[10px] font-semibold uppercase text-muted-foreground/70">Width</Label><span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-foreground">{page.spineWidth ?? 40}px</span></div><Slider value={[page.spineWidth ?? 40]} min={0} max={100} step={1} onValueChange={(val) => onUpdateSpineSettings?.(page.id, { width: val[0] })} className="py-2" /></div>
-                                                <div className="space-y-2"><div className="flex justify-between items-center px-0.5"><Label className="text-[10px] font-semibold uppercase text-muted-foreground/70">Opacity</Label><span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-foreground">{Math.round((page.spineOpacity ?? 1) * 100)}%</span></div><Slider value={[page.spineOpacity ?? 1]} min={0} max={1} step={0.01} onValueChange={(val) => onUpdateSpineSettings?.(page.id, { opacity: val[0] })} className="py-2" /></div>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-6 pt-2 border-t border-border/40">
-                                                <div className="space-y-2"><Label className="text-[10px] font-semibold uppercase text-muted-foreground/70 px-0.5">Background</Label><div className="flex items-center gap-3 bg-muted/30 p-1.5 rounded-lg border border-transparent hover:border-border transition-colors"><SpineColorPicker value={page.spineColor || '#ffffff'} onChange={(color) => onUpdateSpineSettings?.(page.id, { color })} /><span className="text-[10px] font-mono text-foreground font-medium uppercase tracking-tighter">{page.spineColor || '#FFFFFF'}</span></div></div>
-                                                <div className="space-y-2"><Label className="text-[10px] font-semibold uppercase text-muted-foreground/70 px-0.5">Spine Text</Label><Input value={page.spineText || ''} onChange={(e) => onUpdateSpineText?.(page.id, e.target.value)} placeholder="My Album..." className="h-8 text-xs px-3 bg-muted/30 border-transparent focus-visible:bg-background transition-all" /></div>
+                        {
+                            page.isCover && (
+                                <Popover>
+                                    <PopoverTrigger asChild><Button variant="ghost" size="icon" className={cn(showSpineSettings && "text-primary bg-primary/10")} onClick={() => setShowSpineSettings(!showSpineSettings)}><Settings2 className="h-4 w-4" /></Button></PopoverTrigger>
+                                    <PopoverContent align="end" className="w-[380px] p-0 border-none shadow-none bg-transparent">
+                                        <div className="bg-background/95 backdrop-blur-sm p-4 rounded-xl border shadow-xl animate-in fade-in zoom-in-95 duration-200">
+                                            <div className="flex items-center gap-2 mb-4"><div className="w-1.5 h-4 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]" /><h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground/80">Spine Structure</h4></div>
+                                            <div className="space-y-4">
+                                                <div className="grid grid-cols-2 gap-6">
+                                                    <div className="space-y-2"><div className="flex justify-between items-center px-0.5"><Label className="text-[10px] font-semibold uppercase text-muted-foreground/70">Width</Label><span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-foreground">{page.spineWidth ?? 40}px</span></div><Slider value={[page.spineWidth ?? 40]} min={0} max={100} step={1} onValueChange={(val) => onUpdateSpineSettings?.(page.id, { width: val[0] })} className="py-2" /></div>
+                                                    <div className="space-y-2"><div className="flex justify-between items-center px-0.5"><Label className="text-[10px] font-semibold uppercase text-muted-foreground/70">Opacity</Label><span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-foreground">{Math.round((page.spineOpacity ?? 1) * 100)}%</span></div><Slider value={[page.spineOpacity ?? 1]} min={0} max={1} step={0.01} onValueChange={(val) => onUpdateSpineSettings?.(page.id, { opacity: val[0] })} className="py-2" /></div>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-6 pt-2 border-t border-border/40">
+                                                    <div className="space-y-2"><Label className="text-[10px] font-semibold uppercase text-muted-foreground/70 px-0.5">Background</Label><div className="flex items-center gap-3 bg-muted/30 p-1.5 rounded-lg border border-transparent hover:border-border transition-colors"><SpineColorPicker value={page.spineColor || '#ffffff'} onChange={(color) => onUpdateSpineSettings?.(page.id, { color })} /><span className="text-[10px] font-mono text-foreground font-medium uppercase tracking-tighter">{page.spineColor || '#FFFFFF'}</span></div></div>
+                                                    <div className="space-y-2"><Label className="text-[10px] font-semibold uppercase text-muted-foreground/70 px-0.5">Spine Text</Label><Input value={page.spineText || ''} onChange={(e) => onUpdateSpineText?.(page.id, e.target.value)} placeholder="My Album..." className="h-8 text-xs px-3 bg-muted/30 border-transparent focus-visible:bg-background transition-all" /></div>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </PopoverContent>
-                            </Popover>
-                        )}
+                                    </PopoverContent>
+                                </Popover>
+                            )
+                        }
                         <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => onDownloadPage?.(page.id)}><Download className="h-5 w-5" /></Button></TooltipTrigger><TooltipContent>Download {page.isCover ? "Cover" : "Spread"}</TooltipContent></Tooltip>
                         {!page.isCover && <><div className="h-4 w-px bg-border mx-2" /><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className={cn("text-destructive hover:bg-destructive/10 hover:text-destructive", !canDelete && "opacity-50 cursor-not-allowed")} onClick={() => canDelete && onDeletePage(page.id)} disabled={!canDelete}><Trash2 className="h-5 w-5" /></Button></TooltipTrigger><TooltipContent>Delete Spread</TooltipContent></Tooltip></>}
 
-                    </div>
-                </TooltipProvider>
-            </div>
+                    </div >
+                </TooltipProvider >
+            </div >
         );
     }
 

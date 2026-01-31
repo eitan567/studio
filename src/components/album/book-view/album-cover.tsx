@@ -739,9 +739,6 @@ export const AlbumCover = ({
     const isFull = activeView === 'full';
     const isFront = activeView === 'front';
     const isBack = activeView === 'back';
-    const isFullSpread = page.isCover ? (page.coverType === 'full') : (page.spreadMode !== 'split');
-
-    // Layout Data
     const backLayoutId = page.isCover
         ? (page.coverLayouts?.back || defaultCoverTemplate?.id || '1-full')
         : (page.spreadLayouts?.left || defaultGridTemplate?.id || '1-full');
@@ -750,23 +747,42 @@ export const AlbumCover = ({
         ? (page.coverLayouts?.front || defaultCoverTemplate?.id || '1-full')
         : (page.spreadLayouts?.right || defaultGridTemplate?.id || '1-full');
 
-    const templateSource = page.isCover ? [...coverTemplates, ...advancedTemplates] : [...gridTemplates, ...advancedTemplates];
-
-    // Parse layout IDs to get base IDs for template lookup (removes rotation suffix)
+    // Parse layout IDs
     const { baseId: backBaseId } = parseLayoutId(backLayoutId);
     const { baseId: frontBaseId } = parseLayoutId(frontLayoutId);
+
+    const templateSource = page.isCover ? [...coverTemplates, ...advancedTemplates] : [...gridTemplates, ...advancedTemplates];
+
+    // Dynamic layouts on cover MUST always be full spread
+    // This allows robust handling even if coverType update lags slightly
+    const isDynamicLayout = backBaseId.startsWith('dynamic-justified') || frontBaseId.startsWith('dynamic-justified');
+    const isFullSpread = page.isCover
+        ? (page.coverType === 'full' || isDynamicLayout)
+        : (page.spreadMode !== 'split' || isDynamicLayout);
 
     const backTemplate = templateSource.find(t => t.id === backBaseId) || templateSource[0] || defaultCoverTemplate || defaultGridTemplate;
     const frontTemplate = templateSource.find(t => t.id === frontBaseId) || templateSource[0] || defaultCoverTemplate || defaultGridTemplate;
 
     // Check if backTemplate is undefined properly? No, default to [0] fixes it.
 
-    const backPhotoCount = backTemplate ? getPhotoCount(backTemplate) : 0;
+    // FIX: For dynamic layouts, we want ALL photos, not just the template count
+    const isDynamicBack = backBaseId.startsWith('dynamic-justified');
+    const backPhotoCount = isDynamicBack
+        ? (page.photos?.length || 0)
+        : (backTemplate ? getPhotoCount(backTemplate) : 0);
+
+    // Front photo count logic usually for split pages.
+    // If full spread dynamic, frontPhotoCount doesn't matter much if we use backLayout for full.
+    const isDynamicFront = frontBaseId.startsWith('dynamic-justified');
+    const frontPhotoCount = isDynamicFront
+        ? (page.photos?.length || 0)
+        : (frontTemplate ? getPhotoCount(frontTemplate) : 0);
 
     // Photos - Validation: Ensure photos exist
     const safePhotos = page.photos || [];
-    const backPhotos = safePhotos.slice(0, backPhotoCount);
-    const frontPhotos = safePhotos.slice(backPhotoCount);
+    // If full spread dynamic, we pass ALL photos to the single layout instance.
+    const backPhotos = isDynamicBack ? safePhotos : safePhotos.slice(0, backPhotoCount);
+    const frontPhotos = isDynamicFront ? safePhotos : safePhotos.slice(backPhotoCount);
 
 
     // ... (unchanged)

@@ -35,9 +35,14 @@ export function generateJustifiedLayout(photos: Photo[], rowCount: number = 2): 
 
     const regions: LayoutRegion[] = [];
     let photoIndex = 0;
-    const rowHeightPercent = 100 / rowCount;
+    // Use the actual number of partitions returned (might be <= rowCount)
+    const activeRows = partitionIndices.length;
+    // Recalculate row height based on actual rows if we want to fill usage?
+    // If we asked for 3 rows but got 2, should we use 50% or 33% height?
+    // Standard justified layout usually fills height. So 100 / activeRows.
+    const rowHeightPercent = 100 / activeRows;
 
-    for (let r = 0; r < rowCount; r++) {
+    for (let r = 0; r < activeRows; r++) {
         // Determine photos in this row
         // partitionIndices gives the ending indices (exclusive? or inclusive?)
         // Standard linear partition returns lists. Let's assume we implement a simple one helper.
@@ -83,51 +88,83 @@ export function generateJustifiedLayout(photos: Photo[], rowCount: number = 2): 
     };
 }
 
-// Simple Linear Partition logic
+// Greedy Linear Partition logic for any k
 // Returns array of arrays of weights
 function getLinearPartition(weights: number[], k: number): number[][] {
+    // console.log('[getLinearPartition] Called with', { weightsCount: weights.length, k });
     if (k <= 0) return [];
     if (k >= weights.length) return weights.map(w => [w]);
     if (k === 1) return [weights];
 
-    // Greedy approximation for k=2 (since user asked specifically for 2 rows usually)
-    // For generalized k, we can use a more complex algo, but for < 10 photos greedy is fine.
-
-    // Actually, simple "Knapsack-like" greedy:
-    // Iterate through finding best split points.
-
-    // For k=2, just find simple best split
+    // Explicit robust logic for k=2 (Standard Justified Layout uses this)
     if (k === 2) {
         let bestDiff = Infinity;
         let splitIndex = 1;
-
         let leftSum = 0;
-        let totalSum = weights.reduce((a, b) => a + b, 0);
+        const totalSum = weights.reduce((a, b) => a + b, 0);
 
         for (let i = 0; i < weights.length - 1; i++) {
             leftSum += weights[i];
             const rightSum = totalSum - leftSum;
             const diff = Math.abs(leftSum - rightSum);
+
+            // Strictly better or equal?
             if (diff < bestDiff) {
                 bestDiff = diff;
                 splitIndex = i + 1;
             }
         }
-
         return [weights.slice(0, splitIndex), weights.slice(splitIndex)];
     }
 
-    // For k > 2, recursive greedy?
-    // Just simple even distribution by count for fallback if logic fails
-    // Or just put 1 in each and dump rest in last.
-    // Let's stick to k=2 support primarily as per request, fallback to even chunks.
+    // Heuristic for k > 2 (Smart Layout)
+    // Simple even chunking is safer than buggy greedy for now, 
+    // unless we implement full DP or careful greedy.
+    // Let's try to improve "Chunking" by weight-balance rather than count-balance.
 
-    const chunkSize = Math.ceil(weights.length / k);
-    const result = [];
-    for (let i = 0; i < weights.length; i += chunkSize) {
-        result.push(weights.slice(i, i + chunkSize));
+    // Target per row
+    const totalWeight = weights.reduce((a, b) => a + b, 0);
+    const target = totalWeight / k;
+
+    const partitions: number[][] = [];
+    let currentPartition: number[] = [];
+    let currentSum = 0;
+
+    for (let i = 0; i < weights.length; i++) {
+        const w = weights[i];
+
+        // If we are on the last row allowed, dump rest
+        if (partitions.length === k - 1) {
+            currentPartition.push(w);
+            continue;
+        }
+
+        // Check if adding w exceeds target significantly
+        // If currentSum is already decent, and adding w explodes it...
+
+        if (currentSum + w > target && currentPartition.length > 0) {
+            // Check deviations
+            const diffKeep = Math.abs((currentSum + w) - target);
+            const diffSplit = Math.abs(currentSum - target);
+
+            if (diffKeep > diffSplit) {
+                // Better to split now
+                partitions.push(currentPartition);
+                currentPartition = [w];
+                currentSum = w;
+                continue;
+            }
+        }
+
+        currentPartition.push(w);
+        currentSum += w;
     }
-    return result;
+
+    if (currentPartition.length > 0) {
+        partitions.push(currentPartition);
+    }
+
+    return partitions;
 }
 
 /**
@@ -138,6 +175,8 @@ function getLinearPartition(weights: number[], k: number): number[][] {
  * @param containerAspectRatio Width / Height of the target area (page)
  */
 export function generateSmartJustifiedLayout(photos: Photo[], containerAspectRatio: number): AdvancedTemplate {
+    console.log('[SmartLayout] Generating', { photoCount: photos.length, containerAspectRatio });
+
     if (photos.length === 0) {
         return generateJustifiedLayout(photos, 1);
     }
@@ -161,9 +200,13 @@ export function generateSmartJustifiedLayout(photos: Photo[], containerAspectRat
 
     let optimalRows = Math.round(Math.sqrt(totalPhotoAspectRatio / containerAspectRatio));
 
+    console.log('[SmartLayout] Calculation', { totalPhotoAspectRatio, optimalRowsRaw: Math.sqrt(totalPhotoAspectRatio / containerAspectRatio), rounded: optimalRows });
+
     // Clamp rows
     // Min 1. Max equal to photo count (1 photo per row).
     optimalRows = Math.max(1, Math.min(photos.length, optimalRows));
+
+    console.log('[SmartLayout] Using Rows:', optimalRows);
 
     // 3. Generate layout with this row count
     // Reuse the base logic but update the ID/Name
