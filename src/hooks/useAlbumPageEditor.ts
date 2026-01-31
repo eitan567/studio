@@ -399,6 +399,35 @@ export function useAlbumPageEditor({
     }, [setAlbumPages]);
 
     const handleDropPhoto = useCallback((pageId: string, targetPhotoId: string, droppedPhotoId: string, sourceInfo?: { pageId: string; photoId: string }) => {
+        // Handle Multi-Photo Drop (Dynamic Justified Layout)
+        if (targetPhotoId === '__REPLACE_ALL__') {
+            try {
+                const photoIds = JSON.parse(droppedPhotoId);
+                if (Array.isArray(photoIds)) {
+                    setAlbumPages(prevPages => prevPages.map(page => {
+                        if (page.id === pageId) {
+                            const newPhotos = photoIds
+                                .map(id => allPhotosRef.current.find(p => p.id === id))
+                                .filter((p): p is Photo => !!p);
+
+                            if (newPhotos.length > 0) {
+                                return {
+                                    ...page,
+                                    photos: newPhotos,
+                                    layout: 'dynamic-justified'
+                                };
+                            }
+                        }
+                        return page;
+                    }));
+                    return;
+                }
+            } catch (e) {
+                // Not JSON or single photo dropped on background?
+                // Fallthrough to regular logic if parsing fails (though unlikely if invoked with __REPLACE_ALL__)
+            }
+        }
+
         // Handle album-to-album swap (CTRL+drag between frames)
         if (sourceInfo) {
             // Skip if trying to swap with itself

@@ -7,6 +7,7 @@ import { EmptyPhotoSlot } from '../album-editor/empty-photo-slot';
 import { ShapeRegion } from './shape-region';
 import { rotateGridTemplate, rotateAdvancedTemplate, RotationAngle } from '@/lib/template-rotation';
 import { SuggestionFan } from '../album-editor/suggestion-fan';
+import { generateJustifiedLayout } from '@/lib/justified-layout-util';
 
 // Parse layout ID to extract base template and rotation
 function parseLayoutId(layoutId: string): { baseId: string; rotation: RotationAngle } {
@@ -82,6 +83,11 @@ const PageLayoutComponent = ({
     let advancedTemplate = isAdvancedTemplate
         ? foundTemplate as any // Found in templateSource as advanced
         : (!foundTemplate ? advancedTemplates.find(t => t.id === layout) : null);
+
+    // Dynamic Layout Generation (Justified)
+    if (layout === 'dynamic-justified') {
+        advancedTemplate = generateJustifiedLayout(photos, 2);
+    }
 
     // Apply rotation to advanced template if needed
     if (advancedTemplate && rotation !== 0) {
@@ -248,6 +254,13 @@ const PageLayoutComponent = ({
                                         onDropPhoto(page.id, photo.id, albumPhotoId, { pageId: sourcePageId, photoId: albumPhotoId });
                                     }
                                 } else {
+                                    // Handle Multi-Drop (Justified)
+                                    const selectedPhotoIds = e.dataTransfer.getData('selectedPhotoIds');
+                                    if (selectedPhotoIds) {
+                                        onDropPhoto(page.id, '__REPLACE_ALL__', selectedPhotoIds);
+                                        return;
+                                    }
+
                                     // Gallery Drop
                                     const droppedPhotoId = e.dataTransfer.getData('photoId');
                                     const targetId = photo?.id || `__INSERT_AT__${actualIndex}`;
@@ -326,6 +339,13 @@ const PageLayoutComponent = ({
                                             // Passing sourceInfo triggers the move behavior
                                             onDropPhoto(page.id, `__INSERT_AT__${actualIndex}`, albumPhotoId, { pageId: sourcePageId, photoId: albumPhotoId });
                                         } else {
+                                            // Handle Multi-Drop (Justified)
+                                            const selectedPhotoIds = e.dataTransfer.getData('selectedPhotoIds');
+                                            if (selectedPhotoIds) {
+                                                onDropPhoto(page.id, '__REPLACE_ALL__', selectedPhotoIds);
+                                                return;
+                                            }
+
                                             // Regular Gallery Drop
                                             const droppedPhotoId = e.dataTransfer.getData('photoId');
                                             if (droppedPhotoId) {
@@ -366,6 +386,13 @@ const PageLayoutComponent = ({
                                         onDropPhoto(page.id, photo.id, albumPhotoId, { pageId: sourcePageId, photoId: albumPhotoId });
                                     }
                                 } else {
+                                    // Handle Multi-Drop (Justified)
+                                    const selectedPhotoIds = e.dataTransfer.getData('selectedPhotoIds');
+                                    if (selectedPhotoIds) {
+                                        onDropPhoto(page.id, '__REPLACE_ALL__', selectedPhotoIds);
+                                        return;
+                                    }
+
                                     // Regular gallery drop
                                     const droppedPhotoId = e.dataTransfer.getData('photoId');
                                     if (droppedPhotoId && droppedPhotoId !== photo.id) {

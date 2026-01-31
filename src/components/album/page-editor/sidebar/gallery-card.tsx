@@ -85,7 +85,8 @@ const GalleryPhotoItemComponent = ({
     style,
     onDimensionsLoaded,
     priority, // Destructure priority
-    isHighlighted
+    isHighlighted,
+    onDragStart
 }: {
     photo: Photo;
     usage?: { count: number; pages: number[] };
@@ -101,6 +102,7 @@ const GalleryPhotoItemComponent = ({
     onDimensionsLoaded?: (id: string, width: number, height: number) => void;
     priority?: boolean;
     isHighlighted?: boolean;
+    onDragStart?: (e: React.DragEvent, photoId: string) => void;
 }) => {
     const isUsed = !!usage;
     const hasWarning = usage && usage.count > 1;
@@ -109,7 +111,10 @@ const GalleryPhotoItemComponent = ({
     const handleDragStart = useCallback((e: React.DragEvent) => {
         // photo.isUploading check REMOVED to allow optimistic dragging
         e.dataTransfer.setData('photoId', photo.id);
-    }, [photo.id]);
+        if (onDragStart) {
+            onDragStart(e, photo.id);
+        }
+    }, [photo.id, onDragStart]);
 
     // Simple handlers
     const handleMouseEnter = useCallback(() => onSetActiveBubbleId(photo.id), [photo.id, onSetActiveBubbleId]);
@@ -276,6 +281,7 @@ const GalleryPhotoItem = React.memo(GalleryPhotoItemComponent, (prev, next) => {
     if (prev.isActiveBubble !== next.isActiveBubble) return false;
     if (prev.multiSelectMode !== next.multiSelectMode) return false;
     if (prev.isHighlighted !== next.isHighlighted) return false;
+    // onDragStart is a function, ignore diff or check ref equality (usually stable)
 
     // Check usage object deeply-ish
     const prevUsage = prev.usage;
@@ -427,6 +433,12 @@ const VirtualGalleryContent = React.forwardRef(({
                                     onDelete={(id) => onDeletePhotos([id])}
                                     onRemoveFromAlbum={(id) => onRemovePhotosFromAlbum([id])}
                                     onDimensionsLoaded={onDimensionsLoaded}
+                                    onDragStart={(e, id) => {
+                                        if (selectedPhotos.has(id)) {
+                                            const ids = Array.from(selectedPhotos);
+                                            e.dataTransfer.setData('selectedPhotoIds', JSON.stringify(ids));
+                                        }
+                                    }}
                                     style={{
                                         height: `${row.height}px`,
                                         width: `${photoPixelWidth}px`,
