@@ -821,6 +821,12 @@ export const AlbumCover = ({
     const backEndPercent = (singlePageW / fullWidth) * 100; // Where back cover ends
     const frontStartPercent = ((singlePageW + spineWidth) / fullWidth) * 100; // Where front cover starts
 
+    // Calculate aspect ratio for smart layout
+    const singlePageRatio = configW / configH;
+    const spreadRatio = ((singlePageW * 2) + spineWidth) / BASE_PAGE_PX; // Approximation using calculated px values
+    const aspectRatio = isFullSpread ? spreadRatio : singlePageRatio;
+
+
     // --- Render Content Helper ---
     const renderContent = () => (
         <>
@@ -887,6 +893,7 @@ export const AlbumCover = ({
                             previousPagePhotos={previousPagePhotos}
                             priority={priority}
                             chronologicalIndex={chronologicalIndex}
+                            aspectRatio={aspectRatio}
                         />
                     </div>
                 </div>
@@ -928,6 +935,7 @@ export const AlbumCover = ({
                                 previousPagePhotos={previousPagePhotos}
                                 priority={priority}
                                 chronologicalIndex={chronologicalIndex}
+                                aspectRatio={singlePageRatio}
                             />
                         </div>
                     </div>
@@ -993,6 +1001,7 @@ export const AlbumCover = ({
                                 previousPagePhotos={previousPagePhotos}
                                 priority={priority}
                                 chronologicalIndex={chronologicalIndex}
+                                aspectRatio={singlePageRatio}
                             />
                         </div>
                     </div>

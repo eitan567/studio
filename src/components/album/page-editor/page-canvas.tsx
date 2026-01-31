@@ -398,6 +398,17 @@ const PageToolbar = ({
                                         if (page.isCover) onUpdateCoverLayout?.(page.id, 'back', newLayout);
                                         else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'left', newLayout) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id }), left: newLayout } });
                                     }}><RotateCw className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Rotate Layout</TooltipContent></Tooltip>
+                                    {/* Smart Layout Toggle (Left/Back) */}
+                                    {(parseLayoutId(page.isCover ? page.coverLayouts?.back || '' : page.spreadLayouts?.left || '').baseId.startsWith('dynamic-justified')) && (
+                                        <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative h-8 w-8" onClick={() => {
+                                            const currentLayoutId = page.isCover ? page.coverLayouts?.back : page.spreadLayouts?.left;
+                                            const { baseId, rotation } = parseLayoutId(currentLayoutId || '');
+                                            const nextBaseId = baseId === 'dynamic-justified' ? 'dynamic-justified-smart' : 'dynamic-justified';
+                                            const newLayout = rotation === 0 ? nextBaseId : `${nextBaseId}_r${rotation}`;
+                                            if (page.isCover) onUpdateCoverLayout?.(page.id, 'back', newLayout);
+                                            else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'left', newLayout) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id }), left: newLayout } });
+                                        }}><Wand2 className={cn("h-4 w-4", parseLayoutId(page.isCover ? page.coverLayouts?.back || '' : page.spreadLayouts?.left || '').baseId === 'dynamic-justified-smart' && "text-primary fill-primary/20")} /></Button></TooltipTrigger><TooltipContent>Toggle Smart Fill</TooltipContent></Tooltip>
+                                    )}
                                     <div className="h-4 w-px bg-border mx-1" />
                                     <DropdownMenu>
                                         <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">{page.isCover ? "Front" : "Page 2"}</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>{page.isCover ? "Front Cover Layout" : "Page 2 Layout"}</TooltipContent></Tooltip>
@@ -421,6 +432,17 @@ const PageToolbar = ({
                                         if (page.isCover) onUpdateCoverLayout?.(page.id, 'front', newLayout);
                                         else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'right', newLayout) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id }), right: newLayout } });
                                     }}><RotateCw className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Rotate Layout</TooltipContent></Tooltip>
+                                    {/* Smart Layout Toggle (Right/Front) */}
+                                    {(parseLayoutId(page.isCover ? page.coverLayouts?.front || '1-full' : page.spreadLayouts?.right || '1-full').baseId.startsWith('dynamic-justified')) && (
+                                        <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative h-8 w-8" onClick={() => {
+                                            const currentLayoutId = page.isCover ? page.coverLayouts?.front : page.spreadLayouts?.right;
+                                            const { baseId, rotation } = parseLayoutId(currentLayoutId || '1-full');
+                                            const nextBaseId = baseId === 'dynamic-justified' ? 'dynamic-justified-smart' : 'dynamic-justified';
+                                            const newLayout = rotation === 0 ? nextBaseId : `${nextBaseId}_r${rotation}`;
+                                            if (page.isCover) onUpdateCoverLayout?.(page.id, 'front', newLayout);
+                                            else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'right', newLayout) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id }), right: newLayout } });
+                                        }}><Wand2 className={cn("h-4 w-4", parseLayoutId(page.isCover ? page.coverLayouts?.front || '1-full' : page.spreadLayouts?.right || '1-full').baseId === 'dynamic-justified-smart' && "text-primary fill-primary/20")} /></Button></TooltipTrigger><TooltipContent>Toggle Smart Fill</TooltipContent></Tooltip>
+                                    )}
                                 </>
                             ) : (
                                 <>
@@ -449,6 +471,16 @@ const PageToolbar = ({
                                         </TooltipTrigger>
                                         <TooltipContent>Rotate Layout 90°</TooltipContent>
                                     </Tooltip>
+                                    {/* Smart Layout Toggle (Full) */}
+                                    {(parseLayoutId(page.layout || '1-full').baseId.startsWith('dynamic-justified')) && (
+                                        <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative" onClick={() => {
+                                            const { baseId, rotation } = parseLayoutId(page.layout || '1-full');
+                                            const nextBaseId = baseId === 'dynamic-justified' ? 'dynamic-justified-smart' : 'dynamic-justified';
+                                            const newLayout = rotation === 0 ? nextBaseId : `${nextBaseId}_r${rotation}`;
+                                            if (page.isCover) onUpdateCoverLayout?.(page.id, 'full', newLayout);
+                                            else onUpdateLayout(page.id, newLayout);
+                                        }}><Wand2 className={cn("h-4 w-4", parseLayoutId(page.layout || '1-full').baseId === 'dynamic-justified-smart' && "text-primary fill-primary/20")} /></Button></TooltipTrigger><TooltipContent>Toggle Smart Fill</TooltipContent></Tooltip>
+                                    )}
                                 </>
                             )}
                         </div>
@@ -513,6 +545,15 @@ const PageToolbar = ({
                             const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
                             onUpdateLayout(page.id, newLayout);
                         }}><RotateCw className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Rotate Layout</TooltipContent></Tooltip>
+                        {/* Smart Layout Toggle (Single Page) */}
+                        {(parseLayoutId(page.layout || '1-full').baseId.startsWith('dynamic-justified')) && (
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative" onClick={() => {
+                                const { baseId, rotation } = parseLayoutId(page.layout || '1-full');
+                                const nextBaseId = baseId === 'dynamic-justified' ? 'dynamic-justified-smart' : 'dynamic-justified';
+                                const newLayout = rotation === 0 ? nextBaseId : `${nextBaseId}_r${rotation}`;
+                                onUpdateLayout(page.id, newLayout);
+                            }}><Wand2 className={cn("h-4 w-4", parseLayoutId(page.layout || '1-full').baseId === 'dynamic-justified-smart' && "text-primary fill-primary/20")} /></Button></TooltipTrigger><TooltipContent>Toggle Smart Fill</TooltipContent></Tooltip>
+                        )}
                         {page.isCover && (
                             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className={cn(showSpineSettings && "text-primary bg-primary/10")} onClick={() => setShowSpineSettings(!showSpineSettings)}><Settings2 className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Show Title Settings</TooltipContent></Tooltip>
                         )}

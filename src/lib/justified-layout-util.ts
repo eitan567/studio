@@ -129,3 +129,49 @@ function getLinearPartition(weights: number[], k: number): number[][] {
     }
     return result;
 }
+
+/**
+ * Smartly generates a justified layout that attempts to fill the container's aspect ratio.
+ * It calculates the optimal number of rows (k) such that the resulting block aspect ratio matches the container.
+ * 
+ * @param photos List of photos to arrange
+ * @param containerAspectRatio Width / Height of the target area (page)
+ */
+export function generateSmartJustifiedLayout(photos: Photo[], containerAspectRatio: number): AdvancedTemplate {
+    if (photos.length === 0) {
+        return generateJustifiedLayout(photos, 1);
+    }
+
+    // 1. Calculate Total Aspect Ratio based on photos
+    // Assume average AR of 1.5 if missing dims
+    const totalPhotoAspectRatio = photos.reduce((sum, p) => {
+        const ar = (p.width && p.height) ? p.width / p.height : 1.5;
+        return sum + ar;
+    }, 0);
+
+    // 2. Determine Optimal Row Count
+    // Use the approximation k = sqrt(totalPhotoAspectRatio / containerAspectRatio)
+    // This assumes rows will have roughly balanced aspect ratios.
+    // If we assume balanced rows, RowAR_i ≈ totalPhotoAspectRatio / k.
+    // Resulting Layout Aspect Ratio = RowAR_i / k ≈ totalPhotoAspectRatio / k^2.
+    // We want LayoutAR ≈ containerAspectRatio.
+    // => totalPhotoAspectRatio / k^2 ≈ containerAspectRatio
+    // => k^2 ≈ totalPhotoAspectRatio / containerAspectRatio
+    // => k ≈ sqrt(totalPhotoAspectRatio / containerAspectRatio)
+
+    let optimalRows = Math.round(Math.sqrt(totalPhotoAspectRatio / containerAspectRatio));
+
+    // Clamp rows
+    // Min 1. Max equal to photo count (1 photo per row).
+    optimalRows = Math.max(1, Math.min(photos.length, optimalRows));
+
+    // 3. Generate layout with this row count
+    // Reuse the base logic but update the ID/Name
+    const baseLayout = generateJustifiedLayout(photos, optimalRows);
+
+    return {
+        ...baseLayout,
+        id: 'dynamic-justified-smart',
+        name: 'Smart Justified'
+    };
+}

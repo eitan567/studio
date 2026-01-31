@@ -414,7 +414,8 @@ export function useAlbumPageEditor({
                                 return {
                                     ...page,
                                     photos: newPhotos,
-                                    layout: 'dynamic-justified'
+                                    layout: 'dynamic-justified',
+                                    spreadMode: undefined // Reset to full spread mode for dynamic layouts
                                 };
                             }
                         }

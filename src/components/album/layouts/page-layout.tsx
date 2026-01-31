@@ -7,7 +7,7 @@ import { EmptyPhotoSlot } from '../album-editor/empty-photo-slot';
 import { ShapeRegion } from './shape-region';
 import { rotateGridTemplate, rotateAdvancedTemplate, RotationAngle } from '@/lib/template-rotation';
 import { SuggestionFan } from '../album-editor/suggestion-fan';
-import { generateJustifiedLayout } from '@/lib/justified-layout-util';
+import { generateJustifiedLayout, generateSmartJustifiedLayout } from '@/lib/justified-layout-util';
 
 // Parse layout ID to extract base template and rotation
 function parseLayoutId(layoutId: string): { baseId: string; rotation: RotationAngle } {
@@ -40,6 +40,7 @@ export interface PageLayoutProps {
     previousPagePhotos?: Photo[];
     priority?: boolean;
     chronologicalIndex?: Record<string, number>;
+    aspectRatio?: number;
 }
 
 const PageLayoutComponent = ({
@@ -59,7 +60,8 @@ const PageLayoutComponent = ({
     allPhotos = [],
     previousPagePhotos = [],
     priority = false, // Default to false
-    chronologicalIndex
+    chronologicalIndex,
+    aspectRatio
 }: PageLayoutProps) => {
     const { gridTemplates, advancedTemplates } = useTemplates();
     const effectiveTemplateSource = templateSource || gridTemplates;
@@ -87,6 +89,11 @@ const PageLayoutComponent = ({
     // Dynamic Layout Generation (Justified)
     if (layout === 'dynamic-justified') {
         advancedTemplate = generateJustifiedLayout(photos, 2);
+    }
+    // Dynamic Layout Generation (Smart Justified)
+    else if (layout === 'dynamic-justified-smart') {
+        // Default to 1.5 if no aspect ratio provided (standard 3:2 landscape)
+        advancedTemplate = generateSmartJustifiedLayout(photos, aspectRatio || 1.5);
     }
 
     // Apply rotation to advanced template if needed
