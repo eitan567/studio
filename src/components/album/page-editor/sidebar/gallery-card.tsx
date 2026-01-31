@@ -622,13 +622,15 @@ const PhotoGalleryCardComponent = ({
         : justifiedRows;
 
     const toggleSelection = (id: string) => {
-        const newSelected = new Set(selectedPhotos);
-        if (newSelected.has(id)) {
-            newSelected.delete(id);
-        } else {
-            newSelected.add(id);
-        }
-        setSelectedPhotos(newSelected);
+        setSelectedPhotos(prev => {
+            const newSelected = new Set(prev);
+            if (newSelected.has(id)) {
+                newSelected.delete(id);
+            } else {
+                newSelected.add(id);
+            }
+            return newSelected;
+        });
     };
 
     const handleSelectAll = (checked: boolean) => {
