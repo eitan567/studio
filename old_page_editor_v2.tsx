@@ -716,15 +716,15 @@ export function PageEditor({ albumId }: PageEditorProps) {
             setIsExporting(true);
             toast({ title: "Starting Export", description: "Preparing your images..." });
           }}
-          onExportProgress={(current, total) => {
+          onExportProgress={(current: any, total: any) => {
             // Optional: Update toast or state if we want detailed progress
-            // toast({ title: "Exporting", description: `Processing page ${current} of ${total}` });
+            toast({ title: "Exporting", description: `Processing page ${current} of ${total}` });
           }}
           onExportComplete={() => {
             setIsExporting(false);
             toast({ title: "Export Complete", description: "Your download should start shortly." });
           }}
-          onExportError={(err) => {
+          onExportError={(err: any) => {
             setIsExporting(false);
             toast({ title: "Export Failed", description: "Something went wrong.", variant: "destructive" });
           }}

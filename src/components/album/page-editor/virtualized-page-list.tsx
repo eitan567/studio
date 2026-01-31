@@ -195,7 +195,7 @@ function NavigationControls({
     };
 
     return (
-        <div className="absolute right-6 top-1/2 -translate-y-1/2 translate-x-1/2 z-40 flex flex-col gap-4 w-8">
+        <div className="absolute right-8 top-1/2 -translate-y-1/2 translate-x-1/2 z-40 flex flex-col gap-4 w-8">
             <div className="flex flex-col items-center gap-2 bg-background/90 backdrop-blur-sm p-1.5 rounded-full shadow-lg border">
                 <TooltipProvider>
                     <Tooltip>
@@ -284,7 +284,7 @@ function ScrollToTopButton({ onScrollToTop, scrollOffset }: { onScrollToTop: () 
             variant="secondary"
             size="icon"
             className={cn(
-                "absolute bottom-6 right-0 z-49 rounded-full shadow-lg transition-all duration-300",
+                "absolute bottom-6 right-2 z-49 rounded-full shadow-lg transition-all duration-300",
                 isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10 pointer-events-none"
             )}
             onClick={onScrollToTop}

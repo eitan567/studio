@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual'; // NEW
 import {
     Loader2,
@@ -332,8 +332,8 @@ const VirtualGalleryContent = React.forwardRef(({
     const count = displayRows.length;
     // Gap is now handled via padding on the row wrapper
     const gap = 2;
-    // Match the safety buffer used in justifiedRows calculation (12px padding)
-    const usableWidth = Math.max(100, containerWidth - 12);
+    // Match the justifiedRows calculation padding (ScrollArea pr-4 + pl-1 = 20px)
+    const usableWidth = Math.max(100, containerWidth - 20);
 
     const virtualizer = useVirtualizer({
         count,
@@ -343,6 +343,11 @@ const VirtualGalleryContent = React.forwardRef(({
         },
         overscan: 20
     });
+
+    // Force remeasure when displayRows change to prevent stale heights
+    useLayoutEffect(() => {
+        virtualizer.measure();
+    }, [displayRows, containerWidth, virtualizer]);
 
     // Expose scrollToPhoto via ref
     React.useImperativeHandle(ref, () => ({
@@ -550,12 +555,12 @@ const PhotoGalleryCardComponent = ({
     // Invalidate row cache immediately when mode or photos change to prevent stale layouts
     // Done in render to avoid 1-frame flicker before useEffect runs
     const lastModeRef = useRef(isSingleColumn);
-    const lastPhotosLenRef = useRef(filteredPhotos.length);
+    const lastPhotosRef = useRef(effectivePhotos);
 
-    if (lastModeRef.current !== isSingleColumn || lastPhotosLenRef.current !== filteredPhotos.length) {
+    if (lastModeRef.current !== isSingleColumn || lastPhotosRef.current !== effectivePhotos) {
         cachedRowsRef.current = [];
         lastModeRef.current = isSingleColumn;
-        lastPhotosLenRef.current = filteredPhotos.length;
+        lastPhotosRef.current = effectivePhotos;
     }
 
     // Justified Layout Calculation
@@ -563,7 +568,8 @@ const PhotoGalleryCardComponent = ({
         if (containerWidth === 0) return []; // Wait for measurement
 
         // UNIFIED PADDING CONSTANT: Must match VirtualGalleryContent logic
-        const padding = 12;
+        // Updated to 20px to match ScrollArea pr-4 (16px) + pl-1 (4px)
+        const padding = 20;
         const effectiveWidth = Math.max(100, containerWidth - padding);
 
         const gap = 2;
@@ -880,7 +886,7 @@ const PhotoGalleryCardComponent = ({
                     ) : (
                         <ScrollArea
                             viewportRef={photoScrollRef}
-                            className="h-full w-full mr-4 py-1"
+                            className="h-full w-full pr-4 pl-1 py-1"
                             thumbClassName="min-h-[50px]"
                         >
                             <VirtualGalleryContent
