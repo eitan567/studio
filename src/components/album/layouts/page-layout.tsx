@@ -88,10 +88,12 @@ const PageLayoutComponent = ({
 
     // Dynamic Layout Generation (Justified)
     if (layout === 'dynamic-justified') {
+        console.log('[PageLayout] Generating standard justified layout for', photos.length, 'photos');
         advancedTemplate = generateJustifiedLayout(photos, 2);
     }
     // Dynamic Layout Generation (Smart Justified)
     else if (layout === 'dynamic-justified-smart') {
+        console.log('[PageLayout] Generating SMART justified layout for', photos.length, 'photos, aspectRatio:', aspectRatio);
         // Default to 1.5 if no aspect ratio provided (standard 3:2 landscape)
         advancedTemplate = generateSmartJustifiedLayout(photos, aspectRatio || 1.5);
     }

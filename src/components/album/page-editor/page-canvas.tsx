@@ -370,7 +370,7 @@ const PageToolbar = ({
                         </div>
 
                         {/* Integrated Actions */}
-                        {renderLayoutCycleButtons()}
+                        {isFull && renderLayoutCycleButtons()}
                         {renderCommonActions()}
 
                         <div className="flex items-center gap-1">
@@ -405,8 +405,21 @@ const PageToolbar = ({
                                             const { baseId, rotation } = parseLayoutId(currentLayoutId || '');
                                             const nextBaseId = baseId === 'dynamic-justified' ? 'dynamic-justified-smart' : 'dynamic-justified';
                                             const newLayout = rotation === 0 ? nextBaseId : `${nextBaseId}_r${rotation}`;
-                                            if (page.isCover) onUpdateCoverLayout?.(page.id, 'back', newLayout);
-                                            else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'left', newLayout) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id }), left: newLayout } });
+                                            if (page.isCover) {
+                                                onUpdateCoverLayout?.(page.id, 'back', newLayout);
+                                            } else {
+                                                // CRITICAL: Update BOTH spreadLayouts AND page.layout
+                                                // page.layout is what full spread mode uses for rendering
+                                                onUpdatePage?.({
+                                                    ...page,
+                                                    layout: newLayout,
+                                                    spreadLayouts: {
+                                                        ...(page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id }),
+                                                        left: newLayout,
+                                                        right: newLayout
+                                                    }
+                                                });
+                                            }
                                         }}><Wand2 className={cn("h-4 w-4", parseLayoutId(page.isCover ? page.coverLayouts?.back || '' : page.spreadLayouts?.left || '').baseId === 'dynamic-justified-smart' && "text-primary fill-primary/20")} /></Button></TooltipTrigger><TooltipContent>Toggle Smart Fill</TooltipContent></Tooltip>
                                     )}
                                     <div className="h-4 w-px bg-border mx-1" />
@@ -440,8 +453,21 @@ const PageToolbar = ({
                                             // Simple robust toggle
                                             const nextBaseId = baseId.includes('smart') ? 'dynamic-justified' : 'dynamic-justified-smart';
                                             const newLayout = rotation === 0 ? nextBaseId : `${nextBaseId}_r${rotation}`;
-                                            if (page.isCover) onUpdateCoverLayout?.(page.id, 'front', newLayout);
-                                            else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'right', newLayout) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id }), right: newLayout } });
+                                            if (page.isCover) {
+                                                onUpdateCoverLayout?.(page.id, 'front', newLayout);
+                                            } else {
+                                                // CRITICAL: Update BOTH spreadLayouts AND page.layout
+                                                // page.layout is what full spread mode uses for rendering
+                                                onUpdatePage?.({
+                                                    ...page,
+                                                    layout: newLayout,
+                                                    spreadLayouts: {
+                                                        ...(page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id }),
+                                                        left: newLayout,
+                                                        right: newLayout
+                                                    }
+                                                });
+                                            }
                                         }}><Wand2 className={cn("h-4 w-4", parseLayoutId(page.isCover ? page.coverLayouts?.front || '1-full' : page.spreadLayouts?.right || '1-full').baseId === 'dynamic-justified-smart' && "text-primary fill-primary/20")} /></Button></TooltipTrigger><TooltipContent>Toggle Smart Fill</TooltipContent></Tooltip>
                                     )}
                                 </>
