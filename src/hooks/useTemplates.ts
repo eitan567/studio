@@ -1,24 +1,23 @@
 /**
- * useTemplates Hook
+ * useTemplates Hook - Unified Template System
  * 
- * Centralized hook for accessing templates in React components.
- * Uses the templates-cache module which loads from Supabase DB
- * with in-memory caching and static fallback.
+ * All templates are now AdvancedTemplate with regions.
+ * Provides centralized access to templates in React components.
  */
 
 import { useMemo, useEffect, useState } from 'react';
 import {
-    getGridTemplatesSync,
-    getAdvancedTemplatesSync,
+    getTemplatesSync,
     getCoverTemplatesSync,
     preloadCache,
-    GridTemplate
+    AdvancedTemplate
 } from '@/lib/templates-cache';
-import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { useSettings } from '@/hooks/use-settings';
 
 // Re-export types for convenience
-export type { GridTemplate, AdvancedTemplate };
+export type { AdvancedTemplate };
+// Legacy alias
+export type GridTemplate = AdvancedTemplate;
 
 /**
  * Hook to access all templates (cached/DB-backed)
@@ -36,100 +35,107 @@ export function useTemplates() {
 
     const { settings } = useSettings();
 
-    const gridTemplates = useMemo(() => {
-        const raw = getGridTemplatesSync();
-        const visible = settings?.visibleTemplateCategories?.includes('grid') ? raw : [];
-        return visible.filter(t => !settings?.hiddenTemplateIds?.includes(t.id));
-    }, [trigger, settings?.visibleTemplateCategories, settings?.hiddenTemplateIds]);
+    // All templates - unified
+    const allRawTemplates = useMemo(() => getTemplatesSync(), [trigger]);
+    const rawCoverTemplates = useMemo(() => getCoverTemplatesSync(), [trigger]);
 
-    // Raw templates for lookups (unfiltered so existing albums still work)
-    const rawAdvancedTemplates = useMemo(() => getAdvancedTemplatesSync(), [trigger]);
+    // Filter by visibility settings
+    const templates = useMemo(() => {
+        // Show all if 'grid' or 'advanced' categories are visible
+        const showGrid = settings?.visibleTemplateCategories?.includes('grid');
+        const showAdvanced = settings?.visibleTemplateCategories?.includes('advanced');
 
-    const advancedTemplates = useMemo(() => {
-        const visible = settings?.visibleTemplateCategories?.includes('advanced') ? rawAdvancedTemplates : [];
-        return visible.filter(t => !settings?.hiddenTemplateIds?.includes(t.id));
-    }, [rawAdvancedTemplates, settings?.visibleTemplateCategories, settings?.hiddenTemplateIds]);
+        if (!showGrid && !showAdvanced) return [];
+
+        return allRawTemplates.filter(t => {
+            if (settings?.hiddenTemplateIds?.includes(t.id)) return false;
+            // Filter by category
+            if (t.category === 'grid' && !showGrid) return false;
+            if (t.category !== 'grid' && !showAdvanced) return false;
+            return true;
+        });
+    }, [allRawTemplates, settings?.visibleTemplateCategories, settings?.hiddenTemplateIds]);
 
     const coverTemplates = useMemo(() => {
-        const raw = getCoverTemplatesSync();
-        const visible = settings?.visibleTemplateCategories?.includes('cover') ? raw : [];
+        const visible = settings?.visibleTemplateCategories?.includes('cover')
+            ? rawCoverTemplates
+            : [];
         return visible.filter(t => !settings?.hiddenTemplateIds?.includes(t.id));
-    }, [trigger, settings?.visibleTemplateCategories, settings?.hiddenTemplateIds]);
+    }, [rawCoverTemplates, settings?.visibleTemplateCategories, settings?.hiddenTemplateIds]);
 
-    // Combined templates for dropdowns
-    const allTemplates = useMemo(() => [
-        ...gridTemplates,
-        ...advancedTemplates
-    ], [gridTemplates, advancedTemplates]);
+    // advancedTemplates = templates that are NOT grid (for backward compatibility)
+    const advancedTemplates = useMemo(() => {
+        return templates.filter(t => t.category !== 'grid');
+    }, [templates]);
 
-    const allCoverTemplates = useMemo(() => [
-        ...coverTemplates,
-        ...advancedTemplates
-    ], [coverTemplates, advancedTemplates]);
+    // gridTemplates = only templates with category 'grid' (mutually exclusive with advancedTemplates)
+    const gridTemplates = useMemo(() => {
+        return templates.filter(t => t.category === 'grid');
+    }, [templates]);
 
     return {
+        // Unified templates
+        templates,
+        allTemplates: templates,
+
+        // Legacy aliases for compatibility
         gridTemplates,
         advancedTemplates,
         coverTemplates,
-        rawGridTemplates: getGridTemplatesSync(),
-        rawAdvancedTemplates: getAdvancedTemplatesSync(),
-        rawCoverTemplates: getCoverTemplatesSync(),
-        allTemplates,
-        allCoverTemplates,
 
-        // Utility functions (should use RAW templates to support existing albums even if setting is off)
+        // Raw (unfiltered) for lookups
+        rawGridTemplates: allRawTemplates,
+        rawAdvancedTemplates: allRawTemplates,
+        rawCoverTemplates,
+
+        // Combined templates for dropdowns
+        allCoverTemplates: coverTemplates,
+
+        // Utility functions
         findTemplate: (id: string) => {
-            const baseId = id.replace(/-r\d+$/, ''); // Remove rotation suffix
-            return gridTemplates.find(t => t.id === baseId)
-                || rawAdvancedTemplates.find(t => t.id === baseId);
+            const baseId = id.replace(/_r\d+$/, ''); // Remove rotation suffix
+            return allRawTemplates.find(t => t.id === baseId);
         },
 
+        // Legacy aliases
         findGridTemplate: (id: string) => {
-            const baseId = id.replace(/-r\d+$/, '');
-            return gridTemplates.find(t => t.id === baseId)
-                || getGridTemplatesSync().find(t => t.id === baseId)
-                || getGridTemplatesSync()[0];
+            const baseId = id.replace(/_r\d+$/, '');
+            return allRawTemplates.find(t => t.id === baseId) || allRawTemplates[0];
         },
 
         findAdvancedTemplate: (id: string) => {
-            const baseId = id.replace(/-r\d+$/, '');
-            return rawAdvancedTemplates.find(t => t.id === baseId);
+            const baseId = id.replace(/_r\d+$/, '');
+            return allRawTemplates.find(t => t.id === baseId);
         },
 
         findCoverTemplate: (id: string) => {
-            const baseId = id.replace(/-r\d+$/, '');
-            return coverTemplates.find(t => t.id === baseId)
-                || rawAdvancedTemplates.find(t => t.id === baseId);
+            const baseId = id.replace(/_r\d+$/, '');
+            return rawCoverTemplates.find(t => t.id === baseId);
         },
 
-        defaultGridTemplate: gridTemplates[0] || getGridTemplatesSync()[0],
-        defaultCoverTemplate: coverTemplates[0] || getCoverTemplatesSync()[0],
+        defaultGridTemplate: templates[0] || allRawTemplates[0],
+        defaultCoverTemplate: coverTemplates[0] || rawCoverTemplates[0],
     };
 }
 
 // Static exports for non-React contexts (sync versions)
-export const LAYOUT_TEMPLATES = getGridTemplatesSync();
+export const LAYOUT_TEMPLATES = getTemplatesSync();
 export const COVER_TEMPLATES = getCoverTemplatesSync();
-export const ADVANCED_TEMPLATES = getAdvancedTemplatesSync();
+export const ADVANCED_TEMPLATES = getTemplatesSync();
 
 /**
  * Get photo count from any template type
- * Works with GridTemplate, AdvancedTemplate, or any object with photoCount/grid/regions
+ * Uses regions.length for all templates now
  */
-export function getPhotoCount(template: GridTemplate | AdvancedTemplate | null | undefined): number {
+export function getPhotoCount(template: AdvancedTemplate | null | undefined): number {
     if (!template) return 1;
 
-    // Explicit photoCount property (AdvancedTemplate or GridTemplate with photoCount)
+    // Explicit photoCount property
     if ('photoCount' in template && typeof template.photoCount === 'number') {
         return template.photoCount;
     }
 
-    // Grid templates: count grid items
-    if ('grid' in template && Array.isArray(template.grid)) {
-        return template.grid.length;
-    }
-
-    // Advanced templates with regions
+    // Count regions
     if ('regions' in template && Array.isArray(template.regions)) {
         return template.regions.length;
     }
@@ -141,47 +147,25 @@ export function getPhotoCount(template: GridTemplate | AdvancedTemplate | null |
  * Get templates for a page based on whether it's a cover
  */
 export function getTemplatesForPage(isCover: boolean) {
-    const grid = getGridTemplatesSync();
+    const templates = getTemplatesSync();
     const cover = getCoverTemplatesSync();
-    const advanced = getAdvancedTemplatesSync();
 
-    return isCover
-        ? [...cover, ...advanced]
-        : [...grid, ...advanced];
+    return isCover ? cover : templates;
 }
 
 /**
- * Find a template by ID (works for both grid and advanced)
+ * Find a template by ID
  */
 export function findTemplateById(id: string) {
-    const baseId = id.replace(/-r\d+$/, '');
-    const grid = getGridTemplatesSync();
-    const advanced = getAdvancedTemplatesSync();
-
-    return grid.find(t => t.id === baseId) || advanced.find(t => t.id === baseId);
+    const baseId = id.replace(/_r\d+$/, '');
+    const templates = getTemplatesSync();
+    return templates.find(t => t.id === baseId);
 }
 
 /**
- * Get template photo count
+ * Get template photo count by ID
  */
 export function getTemplatePhotoCount(templateId: string): number {
     const template = findTemplateById(templateId);
-    if (!template) return 1;
-
-    // Grid templates have grid array length
-    if ('grid' in template && template.grid) {
-        return template.grid.length;
-    }
-
-    // Advanced templates have photoCount property
-    if ('photoCount' in template && typeof template.photoCount === 'number') {
-        return template.photoCount;
-    }
-
-    // Advanced templates with regions
-    if ('regions' in template && Array.isArray(template.regions)) {
-        return template.regions.length;
-    }
-
-    return 1;
+    return getPhotoCount(template);
 }

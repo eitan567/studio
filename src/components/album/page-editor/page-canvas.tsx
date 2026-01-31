@@ -35,8 +35,7 @@ import { AlbumCover } from '../book-view/album-cover';
 // Assuming parent handles opening the overlay since it's a modal over everything
 
 // --- HELPER TYPES ---
-type TemplateWithGrid = { id: string; name: string; photoCount?: number; grid: string[] };
-type TemplateUnion = TemplateWithGrid | AdvancedTemplate;
+// All templates now use AdvancedTemplate with regions
 
 // --- HELPERS ---
 
@@ -113,26 +112,17 @@ const TemplateThumbnail = ({
     isSelected,
     onSelect
 }: {
-    template: TemplateUnion;
+    template: AdvancedTemplate;
     isSelected: boolean;
     onSelect: (templateId: string) => void;
 }) => {
     const renderPreview = () => {
-        if ('grid' in template) {
-            return (
-                <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
-                    {template.grid.map((gridClass, i) => (
-                        <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
-                    ))}
-                </div>
-            );
-        } else {
-            return (
-                <div className="w-full h-16 bg-muted relative overflow-hidden">
-                    {renderAdvancedTemplatePreview(template as AdvancedTemplate)}
-                </div>
-            );
-        }
+        // All templates now use regions
+        return (
+            <div className="w-full h-16 bg-muted relative overflow-hidden">
+                {renderAdvancedTemplatePreview(template)}
+            </div>
+        );
     };
 
     return (
@@ -292,15 +282,15 @@ const PageToolbar = ({
 }: any) => {
     const { gridTemplates, coverTemplates, advancedTemplates, findTemplate, defaultGridTemplate } = useTemplates();
 
-    const filterTemplates = (templates: TemplateUnion[], category: 'grid' | 'cover' | 'advanced') => {
+    const filterTemplates = (templates: AdvancedTemplate[], category: 'grid' | 'cover' | 'advanced') => {
         if (visibleTemplateCategories && !visibleTemplateCategories.includes(category)) return [];
         if (allowedTemplateIds && allowedTemplateIds.length > 0) return templates.filter(t => allowedTemplateIds.includes(t.id));
         return templates;
     };
 
-    const filteredGridTemplates = filterTemplates(gridTemplates, 'grid') as TemplateWithGrid[];
-    const filteredCoverTemplates = filterTemplates(coverTemplates, 'cover') as TemplateWithGrid[];
-    const filteredAdvancedTemplates = filterTemplates(advancedTemplates, 'advanced') as AdvancedTemplate[];
+    const filteredGridTemplates = filterTemplates(gridTemplates, 'grid');
+    const filteredCoverTemplates = filterTemplates(coverTemplates, 'cover');
+    const filteredAdvancedTemplates = filterTemplates(advancedTemplates, 'advanced');
 
     const [showSpineSettings, setShowSpineSettings] = useState(false);
     const isCoverOrSpread = page.isCover || page.type === 'spread';
@@ -379,7 +369,7 @@ const PageToolbar = ({
                                     <DropdownMenu>
                                         <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">{page.isCover ? "Back" : "Page 1"}</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>{page.isCover ? "Back Cover Layout" : "Page 1 Layout"}</TooltipContent></Tooltip>
                                         <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-96 overflow-y-auto">
-                                            {(page.isCover ? [...filteredCoverTemplates, ...filteredAdvancedTemplates] : [...filteredGridTemplates, ...filteredAdvancedTemplates]).map(template => (
+                                            {(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates]).map(template => (
                                                 <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.back || '' : page.spreadLayouts?.left || '').baseId === template.id} onSelect={(templateId) => {
                                                     const currentLayoutId = page.isCover ? page.coverLayouts?.back : page.spreadLayouts?.left;
                                                     const { rotation } = parseLayoutId(currentLayoutId || '');
@@ -426,7 +416,7 @@ const PageToolbar = ({
                                     <DropdownMenu>
                                         <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">{page.isCover ? "Front" : "Page 2"}</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>{page.isCover ? "Front Cover Layout" : "Page 2 Layout"}</TooltipContent></Tooltip>
                                         <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-96 overflow-y-auto">
-                                            {(page.isCover ? [...filteredCoverTemplates, ...filteredAdvancedTemplates] : [...filteredGridTemplates, ...filteredAdvancedTemplates]).map(template => (
+                                            {(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates]).map(template => (
                                                 <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.front || '1-full' : page.spreadLayouts?.right || '1-full').baseId === template.id} onSelect={(templateId) => {
                                                     const currentLayoutId = page.isCover ? page.coverLayouts?.front : page.spreadLayouts?.right;
                                                     const { rotation } = parseLayoutId(currentLayoutId || '1-full');
@@ -476,7 +466,7 @@ const PageToolbar = ({
                                     <DropdownMenu>
                                         <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">Layout</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>Spread Layout</TooltipContent></Tooltip>
                                         <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-96 overflow-y-auto">
-                                            {(page.isCover ? [...filteredCoverTemplates, ...filteredAdvancedTemplates] : [...filteredGridTemplates, ...filteredAdvancedTemplates]).map(template => (
+                                            {(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates]).map(template => (
                                                 <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.layout || '1-full').baseId === template.id} onSelect={(templateId) => {
                                                     const { rotation } = parseLayoutId(page.layout || '1-full');
                                                     const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
@@ -764,18 +754,18 @@ export const PageCanvas = React.memo(({
     const { toast } = useToast();
     const [isInteracting, setIsInteracting] = useState(false);
 
-    const filterTemplates = (templates: TemplateUnion[], category: 'grid' | 'cover' | 'advanced') => {
+    const filterTemplates = (templates: AdvancedTemplate[], category: 'grid' | 'cover' | 'advanced') => {
         if (visibleTemplateCategories && !visibleTemplateCategories.includes(category)) return [];
         if (allowedTemplateIds && allowedTemplateIds.length > 0) return templates.filter(t => allowedTemplateIds.includes(t.id));
         return templates;
     };
 
-    const filteredGridTemplates = filterTemplates(gridTemplates, 'grid') as TemplateWithGrid[];
-    const filteredCoverTemplates = filterTemplates(coverTemplates, 'cover') as TemplateWithGrid[];
-    const filteredAdvancedTemplates = filterTemplates(advancedTemplates, 'advanced') as AdvancedTemplate[];
+    const filteredGridTemplates = filterTemplates(gridTemplates, 'grid');
+    const filteredCoverTemplates = filterTemplates(coverTemplates, 'cover');
+    const filteredAdvancedTemplates = filterTemplates(advancedTemplates, 'advanced');
 
     const cycleLayoutByPhotoCount = useCallback((targetPhotoCount: number) => {
-        const templatesWithCount = (page.isCover ? [...filteredCoverTemplates, ...filteredAdvancedTemplates] : [...filteredGridTemplates, ...filteredAdvancedTemplates])
+        const templatesWithCount = (page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates])
             .filter(t => getPhotoCount(t) === targetPhotoCount);
 
         if (templatesWithCount.length === 0) return;

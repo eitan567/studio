@@ -177,8 +177,7 @@ const SpineEffectOverlay = () => {
 
 
 // Template Thumbnail - simple static preview for selection
-type TemplateWithGrid = { id: string; name: string; photoCount?: number; grid: string[] };
-type TemplateUnion = TemplateWithGrid | AdvancedTemplate;
+// All templates now use AdvancedTemplate with regions
 
 // Parse layout ID to extract base template and rotation (same as in page-layout.tsx)
 function parseLayoutId(layoutId: string): { baseId: string; rotation: RotationAngle } {
@@ -196,27 +195,17 @@ const TemplateThumbnail = ({
   isSelected,
   onSelect
 }: {
-  template: TemplateUnion;
+  template: AdvancedTemplate;
   isSelected: boolean;
   onSelect: (templateId: string) => void;
 }) => {
-  // Render static preview (no rotation - rotation is handled in toolbar)
+  // Render static preview using regions
   const renderPreview = () => {
-    if ('grid' in template) {
-      return (
-        <div className="w-full h-16 bg-muted grid grid-cols-12 grid-rows-12 gap-0.5 p-0.5">
-          {template.grid.map((gridClass, i) => (
-            <div key={i} className={cn('bg-primary/20 rounded-sm', gridClass)} />
-          ))}
-        </div>
-      );
-    } else {
-      return (
-        <div className="w-full h-16 bg-muted relative overflow-hidden">
-          {renderAdvancedTemplatePreview(template as AdvancedTemplate)}
-        </div>
-      );
-    }
+    return (
+      <div className="w-full h-16 bg-muted relative overflow-hidden">
+        {renderAdvancedTemplatePreview(template)}
+      </div>
+    );
   };
 
   return (
@@ -534,7 +523,7 @@ const PageToolbar = ({
   } = useTemplates();
 
   // FILTER TEMPLATES
-  const filterTemplates = (templates: TemplateUnion[], category: 'grid' | 'cover' | 'advanced') => {
+  const filterTemplates = (templates: AdvancedTemplate[], category: 'grid' | 'cover' | 'advanced') => {
     // 1. Category Check
     if (visibleTemplateCategories && !visibleTemplateCategories.includes(category)) {
       return [];
@@ -546,9 +535,9 @@ const PageToolbar = ({
     return templates;
   };
 
-  const filteredGridTemplates = filterTemplates(gridTemplates, 'grid') as TemplateWithGrid[];
-  const filteredCoverTemplates = filterTemplates(coverTemplates, 'cover') as TemplateWithGrid[];
-  const filteredAdvancedTemplates = filterTemplates(advancedTemplates, 'advanced') as AdvancedTemplate[];
+  const filteredGridTemplates = filterTemplates(gridTemplates, 'grid');
+  const filteredCoverTemplates = filterTemplates(coverTemplates, 'cover');
+  const filteredAdvancedTemplates = filterTemplates(advancedTemplates, 'advanced');
 
   const [isDeleting, setIsDeleting] = useState(false);
   const [showSpineSettings, setShowSpineSettings] = useState(false);
@@ -643,7 +632,7 @@ const PageToolbar = ({
 
                     <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-96 overflow-y-auto">
                       {(page.isCover
-                        ? [...filteredCoverTemplates, ...filteredAdvancedTemplates]
+                        ? filteredCoverTemplates
                         : [...filteredGridTemplates, ...filteredAdvancedTemplates]
                       ).map(template => (
                         <TemplateThumbnail
@@ -726,7 +715,7 @@ const PageToolbar = ({
                     {/* For Pages: Combine Layout Templates + Advanced Templates */}
                     <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-96 overflow-y-auto">
                       {(page.isCover
-                        ? [...filteredCoverTemplates, ...filteredAdvancedTemplates]
+                        ? filteredCoverTemplates
                         : [...filteredGridTemplates, ...filteredAdvancedTemplates]
                       ).map(template => (
                         <TemplateThumbnail
@@ -802,7 +791,7 @@ const PageToolbar = ({
                     <TooltipContent>Spread Layout</TooltipContent>
                   </Tooltip>
                   <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-96 overflow-y-auto">
-                    {(page.isCover ? [...filteredCoverTemplates, ...filteredAdvancedTemplates] : [...filteredGridTemplates, ...filteredAdvancedTemplates]).map(template => (
+                    {(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates]).map(template => (
                       <TemplateThumbnail
                         key={template.id}
                         template={template}

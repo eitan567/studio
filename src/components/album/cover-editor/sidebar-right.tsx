@@ -369,10 +369,19 @@ export const SidebarRight = ({ page, onUpdatePage, activeView, onSetActiveView, 
                                                 }}
                                                 title={t.name}
                                             >
-                                                {/* Mini representation of grid */}
-                                                <div className="w-full h-full grid gap-0.5" style={{ gridTemplateColumns: 'repeat(12, 1fr)', gridTemplateRows: 'repeat(12, 1fr)' }}>
-                                                    {t.grid.map((area, i) => (
-                                                        <div key={i} className={cn("bg-muted-foreground/20 rounded-[1px]", area)} />
+                                                {/* Mini representation using regions */}
+                                                <div className="w-full h-full relative">
+                                                    {t.regions?.map((region, i) => (
+                                                        <div
+                                                            key={i}
+                                                            className="absolute bg-muted-foreground/20 rounded-[1px]"
+                                                            style={{
+                                                                left: `${region.bounds.x}%`,
+                                                                top: `${region.bounds.y}%`,
+                                                                width: `${region.bounds.width}%`,
+                                                                height: `${region.bounds.height}%`,
+                                                            }}
+                                                        />
                                                     ))}
                                                 </div>
                                             </div>

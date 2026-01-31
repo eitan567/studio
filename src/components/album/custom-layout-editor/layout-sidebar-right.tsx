@@ -98,15 +98,18 @@ export const LayoutSidebarRight = ({
                                 )}
                                 title={template.name}
                             >
-                                {/* Mini grid preview */}
-                                <div className="w-full h-full grid grid-cols-12 grid-rows-12 gap-0.5">
-                                    {template.grid.map((gridClass, idx) => (
+                                {/* Mini regions preview */}
+                                <div className="w-full h-full relative">
+                                    {template.regions?.map((region, idx) => (
                                         <div
                                             key={idx}
-                                            className={cn(
-                                                "bg-muted-foreground/20 rounded-sm",
-                                                gridClass
-                                            )}
+                                            className="absolute bg-muted-foreground/20 rounded-sm"
+                                            style={{
+                                                left: `${region.bounds.x}%`,
+                                                top: `${region.bounds.y}%`,
+                                                width: `${region.bounds.width}%`,
+                                                height: `${region.bounds.height}%`,
+                                            }}
                                         />
                                     ))}
                                 </div>

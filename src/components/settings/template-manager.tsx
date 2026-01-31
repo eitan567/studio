@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useTemplates, GridTemplate, AdvancedTemplate } from '@/hooks/useTemplates';
+import { useTemplates, AdvancedTemplate } from '@/hooks/useTemplates';
 import { UserSettings } from '../settings-provider';
 import { cn } from '@/lib/utils';
 import { Check, X } from 'lucide-react';
@@ -99,7 +99,7 @@ export function TemplateManager({ settings, onUpdate }: TemplateManagerProps) {
 
     const renderTemplateList = (
         title: string,
-        templates: (GridTemplate | AdvancedTemplate)[],
+        templates: AdvancedTemplate[],
         layoutType: 'grid' | 'cover' | 'advanced'
     ) => {
         if (templates.length === 0) return null;
@@ -131,18 +131,10 @@ export function TemplateManager({ settings, onUpdate }: TemplateManagerProps) {
                                     "bg-muted border border-border/50", // Base box style
                                     isHidden ? "opacity-50" : ""
                                 )}>
-                                    {/* Render Logic */}
-                                    {'grid' in template ? (
-                                        <div className="w-full h-full grid grid-cols-12 grid-rows-12 gap-0.5 p-1">
-                                            {template.grid.map((gridClass, i) => (
-                                                <div key={i} className={cn('bg-primary/20 rounded-[1px]', gridClass)} />
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="w-full h-full relative">
-                                            {renderAdvancedTemplatePreview(template as AdvancedTemplate)}
-                                        </div>
-                                    )}
+                                    {/* Render Logic - All templates now use regions */}
+                                    <div className="w-full h-full relative">
+                                        {renderAdvancedTemplatePreview(template)}
+                                    </div>
 
                                     {/* Selection Indicator Overlay */}
                                     <div className={cn(
