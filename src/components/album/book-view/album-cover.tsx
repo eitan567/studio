@@ -767,6 +767,13 @@ export const AlbumCover = ({
 
     // FIX: For dynamic layouts, we want ALL photos, not just the template count
     const isDynamicBack = backBaseId.startsWith('dynamic-justified');
+    console.log('[AlbumCover] DEBUG:', {
+        backLayoutId,
+        backBaseId,
+        isDynamicBack,
+        'page.photos.length': page.photos?.length,
+        'page.spreadLayouts': page.spreadLayouts
+    });
     const backPhotoCount = isDynamicBack
         ? (page.photos?.length || 0)
         : (backTemplate ? getPhotoCount(backTemplate) : 0);

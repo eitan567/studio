@@ -83,6 +83,22 @@ export function useAlbumPageEditor({
                 if (page.id !== pageId) return page;
 
                 const { baseId } = parseLayoutId(newLayoutId);
+                console.log('[updatePageLayout] Called with:', { pageId, newLayoutId, baseId, currentPhotosLength: page.photos?.length });
+
+                // Dynamic layouts generate their template based on photos
+                // DON'T truncate photos for dynamic layouts!
+                if (baseId.startsWith('dynamic-justified')) {
+                    return {
+                        ...page,
+                        layout: newLayoutId,
+                        // CRITICAL: Also update spreadLayouts so album-cover.tsx sees the new layout
+                        spreadLayouts: {
+                            left: newLayoutId,
+                            right: newLayoutId
+                        }
+                    };
+                }
+
                 const newTemplate = findTemplate(baseId);
                 if (!newTemplate) return page;
 
@@ -152,6 +168,17 @@ export function useAlbumPageEditor({
 
                 if (side === 'full') {
                     const { baseId: baseLayoutId } = parseLayoutId(newLayout);
+
+                    // CRITICAL: Dynamic layouts should preserve all photos - don't truncate!
+                    if (baseLayoutId.startsWith('dynamic-justified')) {
+                        console.log('[handleUpdateCoverLayout] Dynamic layout - PRESERVING photos:', page.photos?.length);
+                        return {
+                            ...page,
+                            layout: newLayout
+                            // Keep photos unchanged!
+                        };
+                    }
+
                     const template = findCoverTemplate(baseLayoutId) || defaultCoverTemplate;
                     const requiredPhotos = getPhotoCount(template);
                     let currentPhotos = [...page.photos];
@@ -186,6 +213,19 @@ export function useAlbumPageEditor({
 
                 const { baseId: frontBaseId } = parseLayoutId(frontLayout);
                 const { baseId: backBaseId } = parseLayoutId(backLayout);
+
+                // CRITICAL: Dynamic layouts should preserve all photos - don't truncate!
+                if (frontBaseId.startsWith('dynamic-justified') || backBaseId.startsWith('dynamic-justified')) {
+                    return {
+                        ...page,
+                        coverLayouts: {
+                            front: frontLayout,
+                            back: backLayout
+                        }
+                        // Keep photos unchanged!
+                    };
+                }
+
                 const frontTemplate = findCoverTemplate(frontBaseId) || defaultCoverTemplate;
                 const backTemplate = findCoverTemplate(backBaseId) || defaultCoverTemplate;
 
@@ -235,6 +275,19 @@ export function useAlbumPageEditor({
 
                 const { baseId: leftBaseId } = parseLayoutId(leftLayout);
                 const { baseId: rightBaseId } = parseLayoutId(rightLayout);
+
+                // CRITICAL: Dynamic layouts should preserve all photos - don't do any truncation!
+                if (leftBaseId.startsWith('dynamic-justified') || rightBaseId.startsWith('dynamic-justified')) {
+                    return {
+                        ...page,
+                        spreadLayouts: {
+                            left: leftLayout,
+                            right: rightLayout
+                        }
+                        // Keep photos unchanged!
+                    };
+                }
+
                 const leftTemplate = findTemplate(leftBaseId) || defaultGridTemplate;
                 const rightTemplate = findTemplate(rightBaseId) || defaultGridTemplate;
 

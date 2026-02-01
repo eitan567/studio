@@ -65,6 +65,7 @@ const PageLayoutComponent = ({
 
     const photos = overridePhotos || page.photos;
     const rawLayout = overrideLayout || page.layout;
+    console.log('[PageLayout] DEBUG received:', { overrideLayout, 'page.layout': page.layout, rawLayout, photosLength: photos.length });
 
     // Parse rotation from layout ID
     const { baseId: layout, rotation } = parseLayoutId(rawLayout);

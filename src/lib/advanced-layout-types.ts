@@ -48,6 +48,10 @@ export interface LayoutRegion {
 
     // Optional label for the region (e.g., "Main Photo", "Accent")
     label?: string;
+
+    // When true, the photo should use object-fit: contain instead of cover
+    // This preserves the photo's natural aspect ratio without cropping
+    preserveAspectRatio?: boolean;
 }
 
 // Template categories

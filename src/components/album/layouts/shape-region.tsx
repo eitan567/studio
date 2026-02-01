@@ -181,6 +181,7 @@ export const ShapeRegion = ({
                 photoId={photo.id}
                 priority={priority}
                 chronologicalIndex={chronologicalIndex}
+                preserveAspectRatio={region.preserveAspectRatio}
             />
         );
     };

@@ -494,6 +494,7 @@ const PageToolbar = ({
                                             const { baseId, rotation } = parseLayoutId(page.layout || '1-full');
                                             const nextBaseId = baseId === 'dynamic-justified' ? 'dynamic-justified-smart' : 'dynamic-justified';
                                             const newLayout = rotation === 0 ? nextBaseId : `${nextBaseId}_r${rotation}`;
+                                            console.log('[SmartFillToggle] Clicked!', { pageId: page.id, currentLayout: page.layout, newLayout, photosCount: page.photos?.length });
                                             if (page.isCover) onUpdateCoverLayout?.(page.id, 'full', newLayout);
                                             else onUpdateLayout(page.id, newLayout);
                                         }}><Wand2 className={cn("h-4 w-4", parseLayoutId(page.layout || '1-full').baseId === 'dynamic-justified-smart' && "text-primary fill-primary/20")} /></Button></TooltipTrigger><TooltipContent>Toggle Smart Fill</TooltipContent></Tooltip>

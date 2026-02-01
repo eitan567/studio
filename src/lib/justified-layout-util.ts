@@ -168,8 +168,13 @@ function getLinearPartition(weights: number[], k: number): number[][] {
 }
 
 /**
- * Smartly generates a justified layout that attempts to fill the container's aspect ratio.
- * It calculates the optimal number of rows (k) such that the resulting block aspect ratio matches the container.
+ * Smartly generates a justified layout that preserves photo aspect ratios.
+ * 
+ * Algorithm:
+ * 1. Try different row configurations
+ * 2. For each configuration, calculate scaled dimensions that fill width exactly
+ * 3. Choose the configuration that best matches the container height
+ * 4. All photos maintain their natural aspect ratios (no cropping)
  * 
  * @param photos List of photos to arrange
  * @param containerAspectRatio Width / Height of the target area (page)
@@ -181,40 +186,165 @@ export function generateSmartJustifiedLayout(photos: Photo[], containerAspectRat
         return generateJustifiedLayout(photos, 1);
     }
 
-    // 1. Calculate Total Aspect Ratio based on photos
-    // Assume average AR of 1.5 if missing dims
-    const totalPhotoAspectRatio = photos.reduce((sum, p) => {
-        const ar = (p.width && p.height) ? p.width / p.height : 1.5;
-        return sum + ar;
-    }, 0);
+    // Calculate aspect ratios (assume 1.5 if missing dimensions)
+    const aspectRatios = photos.map(p => (p.width && p.height) ? p.width / p.height : 1.5);
 
-    // 2. Determine Optimal Row Count
-    // Use the approximation k = sqrt(totalPhotoAspectRatio / containerAspectRatio)
-    // This assumes rows will have roughly balanced aspect ratios.
-    // If we assume balanced rows, RowAR_i ≈ totalPhotoAspectRatio / k.
-    // Resulting Layout Aspect Ratio = RowAR_i / k ≈ totalPhotoAspectRatio / k^2.
-    // We want LayoutAR ≈ containerAspectRatio.
-    // => totalPhotoAspectRatio / k^2 ≈ containerAspectRatio
-    // => k^2 ≈ totalPhotoAspectRatio / containerAspectRatio
-    // => k ≈ sqrt(totalPhotoAspectRatio / containerAspectRatio)
+    console.log('[SmartLayout] Photo aspect ratios:', aspectRatios);
 
-    let optimalRows = Math.round(Math.sqrt(totalPhotoAspectRatio / containerAspectRatio));
+    // Try different number of rows and find the best fit
+    const maxRows = Math.min(photos.length, 6); // Max 6 rows
+    let bestLayout: { rows: number[][], totalHeight: number, error: number } | null = null;
+    let bestRowHeights: number[] = [];
 
-    console.log('[SmartLayout] Calculation', { totalPhotoAspectRatio, optimalRowsRaw: Math.sqrt(totalPhotoAspectRatio / containerAspectRatio), rounded: optimalRows });
+    for (let numRows = 1; numRows <= maxRows; numRows++) {
+        const rowPartition = linearPartitionForAspectRatios(aspectRatios, numRows);
 
-    // Clamp rows
-    // Min 1. Max equal to photo count (1 photo per row).
-    optimalRows = Math.max(1, Math.min(photos.length, optimalRows));
+        let totalHeightPercent = 0;
+        const currentHeightMap: number[] = [];
 
-    console.log('[SmartLayout] Using Rows:', optimalRows);
+        for (const rowAspects of rowPartition) {
+            const rowAspectSum = rowAspects.reduce((a, b) => a + b, 0);
+            const rowHeightPercent = (containerAspectRatio / rowAspectSum) * 100;
+            currentHeightMap.push(rowHeightPercent);
+            totalHeightPercent += rowHeightPercent;
+        }
 
-    // 3. Generate layout with this row count
-    // Reuse the base logic but update the ID/Name
-    const baseLayout = generateJustifiedLayout(photos, optimalRows);
+        // Find configuration closest to 100%
+        // We prefer slightly UNDER (positive error) so we can stretch the last row
+        // rather than OVER (negative error) which forces shrinking everything
+        const error = Math.abs(100 - totalHeightPercent);
+
+        // Bonus: if it's slightly under (85-100%), it's ideal for stretching last row
+        const isIdealUnderflow = totalHeightPercent > 85 && totalHeightPercent < 100;
+        const weightedError = isIdealUnderflow ? error * 0.5 : error;
+
+        console.log('[SmartLayout] Trying rows:', numRows, { totalHeightPercent, error, weightedError });
+
+        if (!bestLayout || weightedError < bestLayout.error) {
+            bestLayout = { rows: rowPartition, totalHeight: totalHeightPercent, error: weightedError };
+            bestRowHeights = currentHeightMap;
+        }
+    }
+
+    if (!bestLayout) {
+        return generateJustifiedLayout(photos, 1);
+    }
+
+    console.log('[SmartLayout] Best layout:', {
+        numRows: bestLayout.rows.length,
+        totalHeight: bestLayout.totalHeight,
+        error: bestLayout.error
+    });
+
+    // Generate the actual layout regions
+    // FLEX FILL STRATEGY:
+    // - If totalHeight < 100%: Strech LAST row to fill (only last row gets cropped)
+    // - If totalHeight > 100%: Scale everything down uniformly (minimal crop on all)
+
+    const regions: LayoutRegion[] = [];
+    let currentY = 0;
+    const isUnderflow = bestLayout.totalHeight < 100;
+    const numRows = bestLayout.rows.length;
+
+    for (let rowIndex = 0; rowIndex < numRows; rowIndex++) {
+        const rowAspects = bestLayout.rows[rowIndex];
+        const rowAspectSum = rowAspects.reduce((a, b) => a + b, 0);
+        const isLastRow = rowIndex === numRows - 1;
+
+        let rowHeight: number;
+
+        if (isUnderflow && isLastRow) {
+            // STRETCH last row to fill remaining space
+            rowHeight = 100 - currentY;
+            console.log('[SmartLayout] Stretching last row to fill:', rowHeight.toFixed(1) + '%');
+        } else if (!isUnderflow) {
+            // Scale all rows uniformly to fit 100%
+            const scaleFactor = 100 / bestLayout.totalHeight;
+            // Use optimal height calculated earlier
+            rowHeight = bestRowHeights[rowIndex] * scaleFactor;
+        } else {
+            // Natural height for non-last rows in underflow case
+            rowHeight = bestRowHeights[rowIndex];
+        }
+
+        let currentX = 0;
+
+        for (const ar of rowAspects) {
+            const widthPercent = (ar / rowAspectSum) * 100;
+
+            regions.push({
+                id: uuidv4(),
+                shape: 'rect',
+                bounds: {
+                    x: currentX,
+                    y: currentY,
+                    width: widthPercent,
+                    height: rowHeight
+                },
+                zIndex: 10
+            });
+
+            currentX += widthPercent;
+        }
+
+        currentY += rowHeight;
+    }
 
     return {
-        ...baseLayout,
         id: 'dynamic-justified-smart',
-        name: 'Smart Justified'
+        name: 'Smart Justified',
+        category: 'custom',
+        photoCount: photos.length,
+        regions
     };
 }
+
+/**
+ * Linear partition algorithm optimized for balanced aspect ratio sums.
+ * Returns array of arrays, where each inner array contains the aspect ratios for that row.
+ */
+function linearPartitionForAspectRatios(aspectRatios: number[], k: number): number[][] {
+    if (k <= 0) return [];
+    if (k >= aspectRatios.length) return aspectRatios.map(ar => [ar]);
+    if (k === 1) return [aspectRatios];
+
+    const n = aspectRatios.length;
+    const totalSum = aspectRatios.reduce((a, b) => a + b, 0);
+    const targetPerRow = totalSum / k;
+
+    // Greedy partition that tries to balance sums
+    const partitions: number[][] = [];
+    let currentPartition: number[] = [];
+    let currentSum = 0;
+
+    for (let i = 0; i < n; i++) {
+        const ar = aspectRatios[i];
+
+        // If this is the last partition, add everything remaining
+        if (partitions.length === k - 1) {
+            currentPartition.push(ar);
+            continue;
+        }
+
+        // Decide whether to add to current partition or start new one
+        const withoutThis = Math.abs(currentSum - targetPerRow);
+        const withThis = Math.abs(currentSum + ar - targetPerRow);
+
+        if (currentPartition.length > 0 && withoutThis < withThis && partitions.length < k - 1) {
+            // Better to start a new partition
+            partitions.push(currentPartition);
+            currentPartition = [ar];
+            currentSum = ar;
+        } else {
+            currentPartition.push(ar);
+            currentSum += ar;
+        }
+    }
+
+    if (currentPartition.length > 0) {
+        partitions.push(currentPartition);
+    }
+
+    return partitions;
+}
+

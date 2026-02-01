@@ -19,6 +19,8 @@ interface PhotoRendererProps {
   photoId?: string;
   priority?: boolean;
   chronologicalIndex?: Record<string, number>;
+  // When true, use object-fit: contain instead of cover (no cropping)
+  preserveAspectRatio?: boolean;
 }
 
 // Using memo to prevent re-rendering of all photos when only one is being updated
@@ -32,7 +34,8 @@ export const PhotoRenderer = memo(function PhotoRenderer({
   pageId,
   photoId,
   priority = false,
-  chronologicalIndex
+  chronologicalIndex,
+  preserveAspectRatio = false
 }: PhotoRendererProps) {
   const { scrollToGallery } = useAlbumEditor();
   const containerRef = useRef<HTMLDivElement>(null);
