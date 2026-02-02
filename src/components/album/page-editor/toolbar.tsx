@@ -160,10 +160,12 @@ export function AlbumEditorToolbar({
                     <BookOpen className="h-4 w-4" />
                     <span className="hidden sm:inline">Book View</span>
                 </Button>
-                <Button variant="outline" className="gap-2 bg-background" onClick={onOpenCustomLayout}>
-                    <Layout className="h-4 w-4" />
-                    <span className="hidden sm:inline">Custom Layout</span>
-                </Button>
+                {isAdmin && (
+                    <Button variant="outline" className="gap-2 bg-background border-amber-200 hover:bg-amber-50 dark:border-amber-900/50 dark:hover:bg-amber-950/30" onClick={onOpenCustomLayout}>
+                        <Layout className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                        <span className="hidden sm:inline">Custom Layout</span>
+                    </Button>
+                )}
                 <div className="h-4 w-px bg-border mx-1" />
                 <Button variant="ghost" size="sm" className="gap-2" onClick={onExportImages} disabled={isExporting}>
                     {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileImage className="h-4 w-4" />}
@@ -181,6 +183,6 @@ export function AlbumEditorToolbar({
                 <div className="h-4 w-px bg-border mx-1" />
                 <UserNav showSettingsLink={false} />
             </div>
-        </div>
+        </div >
     );
 }

@@ -4,11 +4,12 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Layout, Sparkles, Loader2 } from 'lucide-react';
+import { Layout, Sparkles, Loader2, Pencil, Square, Circle, Trash2, Play } from 'lucide-react';
 import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
 import { AdvancedTemplate, LayoutRegion } from '@/lib/advanced-layout-types';
-import { aiGenerateLayout } from '@/ai/ai-generate-layout';
 import { cn } from '@/lib/utils';
+
+export type ToolMode = 'select' | 'pencil' | 'freehand' | 'rect' | 'circle';
 
 interface LayoutSidebarLeftProps {
     onSave: () => void;
@@ -17,6 +18,11 @@ interface LayoutSidebarLeftProps {
     onSelectAdvancedTemplate: (template: AdvancedTemplate) => void;
     customTemplates?: AdvancedTemplate[];
     onAddTemplate?: (template: AdvancedTemplate) => void;
+    // New Props for Vector Tools
+    toolMode: ToolMode;
+    onToolChange: (mode: ToolMode) => void;
+    onClearStrokes: () => void;
+    onProcessLayout: () => void;
 }
 
 // Render a single region as SVG element
@@ -133,42 +139,17 @@ export const LayoutSidebarLeft = ({
     selectedAdvancedTemplate,
     onSelectAdvancedTemplate,
     customTemplates = [],
-    onAddTemplate
+    onAddTemplate,
+    toolMode,
+    onToolChange,
+    onClearStrokes,
+    onProcessLayout
 }: LayoutSidebarLeftProps) => {
     const { advancedTemplates } = useTemplates();
-    const [aiPrompt, setAiPrompt] = useState('');
-    const [photoCount, setPhotoCount] = useState(4);
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const handleGenerateLayout = async () => {
-        if (!aiPrompt.trim()) return;
 
-        setIsGenerating(true);
-        setError(null);
-
-        try {
-            const result = await aiGenerateLayout({
-                prompt: aiPrompt,
-                photoCount,
-            });
-
-            if (result.success && result.template) {
-                const newTemplate = result.template as AdvancedTemplate;
-                // Add to persistent storage
-                onAddTemplate?.(newTemplate);
-                // Also select it
-                onSelectAdvancedTemplate(newTemplate);
-                setAiPrompt('');
-            } else {
-                setError(result.error || 'Failed to generate layout');
-            }
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Unknown error');
-        } finally {
-            setIsGenerating(false);
-        }
-    };
 
     return (
         <div className="h-full z-20 flex bg-background">
@@ -182,44 +163,61 @@ export const LayoutSidebarLeft = ({
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                    {/* AI Generation Section */}
+                    {/* Vector Tools Section */}
                     <div className="space-y-3">
                         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                            AI Generation
+                            Vector Tools
                         </Label>
-                        <Input
-                            placeholder="Describe your layout..."
-                            value={aiPrompt}
-                            onChange={(e) => setAiPrompt(e.target.value)}
-                            className="text-sm"
-                        />
-                        <div className="flex items-center gap-2">
-                            <Label className="text-xs text-muted-foreground">Photos:</Label>
-                            <Input
-                                type="number"
-                                min={1}
-                                max={12}
-                                value={photoCount}
-                                onChange={(e) => setPhotoCount(Number(e.target.value))}
-                                className="w-16 h-8 text-sm"
-                            />
+                        <div className="grid grid-cols-2 gap-2">
+                            <Button
+                                variant={toolMode === 'select' ? "default" : "outline"}
+                                className="justify-start gap-2 h-9"
+                                onClick={() => onToolChange('select')}
+                            >
+                                <Layout className="h-4 w-4" /> Select
+                            </Button>
+                            <Button
+                                variant={toolMode === 'pencil' ? "default" : "outline"}
+                                className="justify-start gap-2 h-9"
+                                onClick={() => onToolChange('pencil')}
+                            >
+                                <Pencil className="h-4 w-4" /> Line
+                            </Button>
+                            <Button
+                                variant={toolMode === 'freehand' ? "default" : "outline"}
+                                className="justify-start gap-2 h-9"
+                                onClick={() => onToolChange('freehand')}
+                            >
+                                <Pencil className="h-4 w-4" /> Free
+                            </Button>
+                            <Button
+                                variant={toolMode === 'rect' ? "default" : "outline"}
+                                className="justify-start gap-2 h-9"
+                                onClick={() => onToolChange('rect')}
+                            >
+                                <Square className="h-4 w-4" /> Rect
+                            </Button>
+                            <Button
+                                variant={toolMode === 'circle' ? "default" : "outline"}
+                                className="justify-start gap-2 h-9"
+                                onClick={() => onToolChange('circle')}
+                            >
+                                <Circle className="h-4 w-4" /> Circle
+                            </Button>
                         </div>
-                        <Button
-                            variant="outline"
-                            className="w-full gap-2"
-                            onClick={handleGenerateLayout}
-                            disabled={isGenerating || !aiPrompt.trim()}
-                        >
-                            {isGenerating ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                <Sparkles className="h-4 w-4" />
-                            )}
-                            {isGenerating ? 'Generating...' : 'Generate with AI'}
-                        </Button>
-                        {error && (
-                            <p className="text-xs text-destructive">{error}</p>
-                        )}
+
+                        {/* Actions */}
+                        <div className="pt-2 grid grid-cols-2 gap-2">
+                            <Button variant="secondary" size="sm" onClick={onClearStrokes} className="text-red-500 hover:text-red-600">
+                                <Trash2 className="h-4 w-4 mr-2" /> Clear All
+                            </Button>
+                            <Button size="sm" onClick={onProcessLayout} className="bg-green-600 hover:bg-green-700">
+                                <Play className="h-4 w-4 mr-2" /> Process
+                            </Button>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground italic text-center pt-1">
+                            Draw lines to split the page. Click 'Process' to convert to frames.
+                        </p>
                     </div>
 
                     {/* Custom Templates */}

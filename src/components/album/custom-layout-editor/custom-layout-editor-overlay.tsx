@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AlbumPage, AlbumConfig } from '@/lib/types';
-import { LayoutSidebarLeft } from './layout-sidebar-left';
+import { LayoutSidebarLeft, ToolMode } from './layout-sidebar-left';
 import { LayoutSidebarRight } from './layout-sidebar-right';
 import { LayoutCanvas } from './layout-canvas';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,9 @@ import { Check, X, Layout } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
 import { AdvancedTemplate } from '@/lib/advanced-layout-types';
+import { Sheet } from '@/components/ui/sheet';
+import { cn } from '@/lib/utils';
+import { processLayoutGeometry, Segment } from '@/lib/layout-geometry';
 
 interface CustomLayoutEditorOverlayProps {
     onClose: () => void;
@@ -164,6 +167,58 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         setDummyPage(page);
     };
 
+    // VECTOR TOOLS STATE
+    const [toolMode, setToolMode] = useState<ToolMode>('select');
+    const [strokes, setStrokes] = useState<Segment[]>([]);
+
+    // Process the drawn strokes into regions
+    const handleProcessLayout = useCallback(() => {
+        if (strokes.length === 0) return;
+
+        // Calculate aspect ratio to pass to geometry engine
+        let configW = 20;
+        let configH = 20;
+        if (config?.size) {
+            const parts = config.size.split('x').map(Number);
+            if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+                configW = parts[0];
+                configH = parts[1];
+            }
+        }
+        // logical width is 2 * width if in split spread mode (which is our constant for logical units)
+        // or just aspect ratio * 100 since height is 100
+        const logicalWidthUnits = (configW * 2 / configH) * 100;
+
+        // Use the photo gap from config to determine shrinkage
+        const gap = typeof config?.photoGap === 'string' ? parseFloat(config.photoGap) : (config?.photoGap || 0);
+
+        // Core Geometry Calculation - Pass the aspect-ratio aware width!
+        const newRegions = processLayoutGeometry(strokes, gap, logicalWidthUnits);
+
+        // Update or Create Template
+        const targetTemplate: AdvancedTemplate = selectedAdvancedTemplate || {
+            id: uuidv4(),
+            name: 'Custom Template',
+            category: 'custom',
+            regions: [],
+            photoCount: 0,
+            isCustom: true,
+            createdBy: 'user'
+        };
+
+        const updated: AdvancedTemplate = {
+            ...targetTemplate,
+            regions: newRegions,
+            photoCount: newRegions.length
+        };
+
+        handleSelectAdvancedTemplate(updated);
+
+        // Auto-switch back to select mode to see results
+        setToolMode('select');
+        setStrokes([]);
+    }, [strokes, config?.size, config?.photoGap, selectedAdvancedTemplate, handleSelectAdvancedTemplate]);
+
     return (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-8">
             <div className="w-full h-full max-w-[1800px] bg-background border shadow-2xl rounded-xl flex overflow-hidden">
@@ -175,6 +230,11 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                     onSelectAdvancedTemplate={handleSelectAdvancedTemplate}
                     customTemplates={customTemplates}
                     onAddTemplate={onAddTemplate}
+                    // New Vector Props
+                    toolMode={toolMode}
+                    onToolChange={setToolMode}
+                    onClearStrokes={() => setStrokes([])}
+                    onProcessLayout={handleProcessLayout}
                 />
 
                 {/* 2. Main Content Area (Canvas) */}
@@ -185,6 +245,9 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         <div className="flex items-center gap-3">
                             <Layout className="h-5 w-5 text-primary" />
                             <span className="font-semibold">Custom Layout Editor</span>
+                            <span className="text-xs text-muted-foreground ml-2 border-l pl-2">
+                                Mode: <span className="font-medium text-foreground uppercase">{toolMode}</span>
+                            </span>
                         </div>
 
                         <div className="text-sm text-muted-foreground">
@@ -206,6 +269,10 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             }}
                             onUpdatePage={handleUpdatePage}
                             advancedTemplate={selectedAdvancedTemplate}
+                            // Vector Props
+                            toolMode={toolMode}
+                            strokes={strokes}
+                            onUpdateStrokes={setStrokes}
                         />
                     </div>
 
