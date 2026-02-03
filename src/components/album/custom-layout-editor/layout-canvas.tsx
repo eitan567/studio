@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { AlbumPage, AlbumConfig, PhotoPanAndZoom, Photo } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { PageLayout } from '../layouts/page-layout';
@@ -33,12 +33,18 @@ export const LayoutCanvas = ({
     const { findGridTemplate, defaultGridTemplate } = useTemplates();
     const wrapperRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLDivElement>(null);
+    const interactionRef = useRef<HTMLDivElement>(null);
 
     // --- STATE ---
     const [scale, setScale] = useState(1);
     const [isDrawing, setIsDrawing] = useState(false);
     const [currentStroke, setCurrentStroke] = useState<Segment | null>(null);
     const [currentPath, setCurrentPath] = useState<Point[]>([]);
+
+    // Refs for real-time drawing data (unaffected by React render cycle delays)
+    const currentPathRef = useRef<Point[]>([]);
+    const currentStrokeRef = useRef<Segment | null>(null);
+    const isDrawingRef = useRef(false);
 
     // --- CONFIG & DIMENSIONS ---
     const BASE_PAGE_PX = 450;
@@ -95,17 +101,60 @@ export const LayoutCanvas = ({
         return () => observer.disconnect();
     }, [logicalWidth, logicalHeight]);
 
+    // --- GLOBAL MOUSE LISTENERS ---
+    useEffect(() => {
+        if (!isDrawing) return;
+
+        const handleGlobalMouseMove = (e: MouseEvent) => {
+            const rect = interactionRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            const current = getPointFromEvent(e.clientX, e.clientY, rect);
+            if (!current) return;
+
+            if (toolMode === 'freehand') {
+                const prev = currentPathRef.current;
+                const last = prev[prev.length - 1];
+                if (last) {
+                    const dx = current[0] - last[0];
+                    const dy = current[1] - last[1];
+                    if (dx * dx + dy * dy > 0.05) {
+                        currentPathRef.current = [...prev, current];
+                        setCurrentPath(currentPathRef.current);
+                    }
+                } else {
+                    currentPathRef.current = [current];
+                    setCurrentPath(currentPathRef.current);
+                }
+            } else {
+                currentStrokeRef.current = currentStrokeRef.current ? { ...currentStrokeRef.current, p2: current } : null;
+                setCurrentStroke(currentStrokeRef.current);
+            }
+        };
+
+        const handleGlobalMouseUp = () => {
+            handleFinalizeDrawing();
+        };
+
+        window.addEventListener('mousemove', handleGlobalMouseMove);
+        window.addEventListener('mouseup', handleGlobalMouseUp);
+
+        return () => {
+            window.removeEventListener('mousemove', handleGlobalMouseMove);
+            window.removeEventListener('mouseup', handleGlobalMouseUp);
+        };
+    }, [isDrawing, toolMode]);
+
 
     // --- SNAP LOGIC ---
     const SNAP_THRESHOLD = 2.5; // 2.5% of canvas size
 
-    const snapPoint = (p: Point, activeStrokes: Segment[]): Point => {
+    const snapPoint = (p: Point, activeStrokes: Segment[], maxX: number): Point => {
         let bestP = [...p] as Point;
         let minDesc = SNAP_THRESHOLD * SNAP_THRESHOLD; // Squared distance
 
         // 1. Snap to Borders
         if (Math.abs(p[0] - 0) < SNAP_THRESHOLD) bestP[0] = 0;
-        if (Math.abs(p[0] - 100) < SNAP_THRESHOLD) bestP[0] = 100;
+        if (Math.abs(p[0] - maxX) < SNAP_THRESHOLD) bestP[0] = maxX;
         if (Math.abs(p[1] - 0) < SNAP_THRESHOLD) bestP[1] = 0;
         if (Math.abs(p[1] - 100) < SNAP_THRESHOLD) bestP[1] = 100;
 
@@ -126,25 +175,19 @@ export const LayoutCanvas = ({
     };
 
     // --- DRAWING HANDLERS ---
-    const getPoint = (e: React.MouseEvent<HTMLDivElement>): Point | null => {
-        const rect = e.currentTarget.getBoundingClientRect();
+    const getPointFromEvent = (clientX: number, clientY: number, rect: DOMRect): Point | null => {
         if (!rect.width || !rect.height) return null;
 
         // Calculate relative position within the container (0 to 1)
-        const relX = (e.clientX - rect.left) / rect.width;
-        const relY = (e.clientY - rect.top) / rect.height;
+        // Clamp to 0-1 to ensure coordinates stay within the page even if mouse leaves
+        const relX = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        const relY = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
 
-        // Convert to 0-100 logical units, BUT we must respect the container's aspect ratio
-        // to prevent warping. The geometry engine assumes a 1:1 unit scale.
-        // So 1 unit in X must be the same physical distance as 1 unit in Y.
-
-        // We Use 100 as the "base" for the Height (y is always 0-100)
-        // And x will be 0 to (100 * aspectRatio)
         const aspectRatio = logicalWidth / logicalHeight;
         let x = relX * 100 * aspectRatio;
         let y = relY * 100;
 
-        // SNAP TO EDGES (Adjusted for aspect ratio)
+        // SNAP TO EDGES
         const EDGE_SNAP = 1.5;
         const maxX = 100 * aspectRatio;
         if (x < EDGE_SNAP) x = 0;
@@ -152,88 +195,89 @@ export const LayoutCanvas = ({
         if (y < EDGE_SNAP) y = 0;
         if (y > 100 - EDGE_SNAP) y = 100;
 
-        const p: Point = [
-            Math.max(0, Math.min(maxX, x)),
-            Math.max(0, Math.min(100, y))
-        ];
-
-        return toolMode === 'freehand' ? p : snapPoint(p, strokes);
+        const p: Point = [x, y];
+        return toolMode === 'freehand' ? p : snapPoint(p, strokes, maxX);
     };
 
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
         if (toolMode === 'select' || !onUpdateStrokes) return;
 
-        const start = getPoint(e);
+        const rect = e.currentTarget.getBoundingClientRect();
+        const start = getPointFromEvent(e.clientX, e.clientY, rect);
         if (!start) return;
 
         setIsDrawing(true);
+        isDrawingRef.current = true;
+
         if (toolMode === 'freehand') {
+            currentPathRef.current = [start];
             setCurrentPath([start]);
+            currentStrokeRef.current = null;
             setCurrentStroke(null);
         } else {
-            setCurrentStroke({ p1: start, p2: start });
+            const stroke = { p1: start, p2: start };
+            currentStrokeRef.current = stroke;
+            setCurrentStroke(stroke);
+            currentPathRef.current = [];
             setCurrentPath([]);
         }
     };
 
-    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (!isDrawing) return;
-        const current = getPoint(e);
-        if (!current) return;
-
-        if (toolMode === 'freehand') {
-            const last = currentPath[currentPath.length - 1];
-            if (last) {
-                const dx = current[0] - last[0];
-                const dy = current[1] - last[1];
-                if (dx * dx + dy * dy > 0.05) {
-                    setCurrentPath([...currentPath, current]);
-                }
-            }
-        } else if (currentStroke) {
-            setCurrentStroke({ ...currentStroke, p2: current });
-        }
-    };
-
-    const handleMouseUp = () => {
-        if (!isDrawing || !onUpdateStrokes) return;
+    const handleFinalizeDrawing = useCallback(() => {
+        if (!isDrawingRef.current || !onUpdateStrokes) return;
 
         let newSegments: Segment[] = [];
+        const path = currentPathRef.current;
+        const stroke = currentStrokeRef.current;
 
-        if (toolMode === 'freehand' && currentPath.length > 1) {
-            for (let i = 0; i < currentPath.length - 1; i++) {
-                newSegments.push({ p1: currentPath[i], p2: currentPath[i + 1] });
+        if (toolMode === 'freehand' && path.length > 1) {
+            for (let i = 0; i < path.length - 1; i++) {
+                newSegments.push({ p1: path[i], p2: path[i + 1] });
             }
-        } else if (currentStroke && (Math.abs(currentStroke.p1[0] - currentStroke.p2[0]) > 0.1 || Math.abs(currentStroke.p1[1] - currentStroke.p2[1]) > 0.1)) {
+        } else if (stroke && (Math.abs(stroke.p1[0] - stroke.p2[0]) > 0.1 || Math.abs(stroke.p1[1] - stroke.p2[1]) > 0.1)) {
+            const rect = interactionRef.current?.getBoundingClientRect();
+            const aspectRatio = logicalWidth / logicalHeight;
+            const maxX = 100 * aspectRatio;
+
             if (toolMode === 'rect') {
-                const x1 = Math.min(currentStroke.p1[0], currentStroke.p2[0]);
-                const y1 = Math.min(currentStroke.p1[1], currentStroke.p2[1]);
-                const x2 = Math.max(currentStroke.p1[0], currentStroke.p2[0]);
-                const y2 = Math.max(currentStroke.p1[1], currentStroke.p2[1]);
+                const x1 = Math.min(stroke.p1[0], stroke.p2[0]);
+                const y1 = Math.min(stroke.p1[1], stroke.p2[1]);
+                const x2 = Math.max(stroke.p1[0], stroke.p2[0]);
+                const y2 = Math.max(stroke.p1[1], stroke.p2[1]);
+
+                // Construct points and snap them to the boundary to be safe
+                const pts: Point[] = [
+                    snapPoint([x1, y1], [], maxX),
+                    snapPoint([x2, y1], [], maxX),
+                    snapPoint([x2, y2], [], maxX),
+                    snapPoint([x1, y2], [], maxX)
+                ];
+
                 newSegments = [
-                    { p1: [x1, y1], p2: [x2, y1] },
-                    { p1: [x2, y1], p2: [x2, y2] },
-                    { p1: [x2, y2], p2: [x1, y2] },
-                    { p1: [x1, y2], p2: [x1, y1] }
+                    { p1: pts[0], p2: pts[1] },
+                    { p1: pts[1], p2: pts[2] },
+                    { p1: pts[2], p2: pts[3] },
+                    { p1: pts[3], p2: pts[0] }
                 ];
             } else if (toolMode === 'circle') {
-                const cx = (currentStroke.p1[0] + currentStroke.p2[0]) / 2;
-                const cy = (currentStroke.p1[1] + currentStroke.p2[1]) / 2;
-                const rx = Math.abs(currentStroke.p2[0] - currentStroke.p1[0]) / 2;
-                const ry = Math.abs(currentStroke.p2[1] - currentStroke.p1[1]) / 2;
+                const cx = (stroke.p1[0] + stroke.p2[0]) / 2;
+                const cy = (stroke.p1[1] + stroke.p2[1]) / 2;
+                const rx = Math.abs(stroke.p2[0] - stroke.p1[0]) / 2;
+                const ry = Math.abs(stroke.p2[1] - stroke.p1[1]) / 2;
 
-                const steps = 128; // Increased for "Smooth Circle" feel
+                const steps = 128;
                 const poly: Point[] = [];
                 for (let i = 0; i < steps; i++) {
                     const angle = (Math.PI * 2 * i) / steps;
-                    // Support independent rx and ry for true ellipses
-                    poly.push([cx + rx * Math.cos(angle), cy + ry * Math.sin(angle)]);
+                    const p: Point = [cx + rx * Math.cos(angle), cy + ry * Math.sin(angle)];
+                    // SNAP EVERY CIRCLE POINT TO THE PAGE BOUNDARY
+                    poly.push(snapPoint(p, [], maxX));
                 }
                 for (let i = 0; i < steps; i++) {
                     newSegments.push({ p1: poly[i], p2: poly[(i + 1) % steps] });
                 }
             } else {
-                newSegments = [currentStroke];
+                newSegments = [stroke];
             }
         }
 
@@ -242,9 +286,12 @@ export const LayoutCanvas = ({
         }
 
         setIsDrawing(false);
+        isDrawingRef.current = false;
         setCurrentStroke(null);
+        currentStrokeRef.current = null;
         setCurrentPath([]);
-    };
+        currentPathRef.current = [];
+    }, [isDrawing, toolMode, strokes, onUpdateStrokes]);
 
     return (
         <div
@@ -269,20 +316,18 @@ export const LayoutCanvas = ({
                   used by processLayoutGeometry and AdvancedTemplate regions.
                 */}
                 <div
+                    ref={interactionRef}
                     className={cn(
                         "absolute inset-0 z-10",
                         toolMode !== 'select' && "cursor-crosshair"
                     )}
                     style={{
-                        padding: 0, // No padding here, we use margin to shift the whole thing
+                        padding: 0,
                         margin: `${pageMargin}px`,
                         width: logicalWidth - (pageMargin * 2),
                         height: logicalHeight - (pageMargin * 2)
                     }}
                     onMouseDown={handleMouseDown}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                    onMouseLeave={handleMouseUp}
                 >
                     {/* Content Layer (Non-interactive during drawing) */}
                     <div className={cn("absolute inset-0 w-full h-full", toolMode !== 'select' && "pointer-events-none")}>
