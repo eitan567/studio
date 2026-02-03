@@ -289,7 +289,8 @@ CREATE TABLE IF NOT EXISTS "public"."templates" (
     "created_at" timestamp with time zone DEFAULT "now"(),
     "updated_at" timestamp with time zone DEFAULT "now"(),
     "type_id" integer,
-    "category_id" integer
+    "category_id" integer,
+    "description" "text"
 );
 
 

@@ -80,6 +80,10 @@ export interface AdvancedTemplate {
 
     // Optional description
     description?: string;
+
+    // Page settings for custom templates (used when template was created)
+    _pageMargin?: number;
+    _photoGap?: number;
 }
 
 // Helper type for creating clip-path CSS

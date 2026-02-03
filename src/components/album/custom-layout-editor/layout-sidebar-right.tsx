@@ -177,13 +177,13 @@ export const LayoutSidebarRight = ({
                                 className="w-16 h-7 text-xs text-center"
                                 value={cornerRadius}
                                 min={0}
-                                max={50}
-                                onChange={(e) => onCornerRadiusChange(Math.max(0, Math.min(50, Number(e.target.value))))}
+                                max={20}
+                                onChange={(e) => onCornerRadiusChange(Math.max(0, Math.min(20, Number(e.target.value))))}
                             />
                         </div>
                         <Slider
                             min={0}
-                            max={50}
+                            max={20}
                             step={1}
                             value={[cornerRadius]}
                             onValueChange={(vals) => onCornerRadiusChange(vals[0])}

@@ -10,7 +10,9 @@ import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
 import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { Sheet } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
-import { processLayoutGeometry, Segment } from '@/lib/layout-geometry';
+import { processLayoutGeometry, Segment, Point } from '@/lib/layout-geometry';
+import { createClient } from '@/lib/supabase';
+import { invalidateCache } from '@/lib/templates-cache';
 
 interface CustomLayoutEditorOverlayProps {
     onClose: () => void;
@@ -21,6 +23,9 @@ interface CustomLayoutEditorOverlayProps {
 
 export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, onAddTemplate }: CustomLayoutEditorOverlayProps) => {
     const { findGridTemplate, defaultGridTemplate } = useTemplates();
+
+    // Local state for created templates (starts empty)
+    const [createdTemplates, setCreatedTemplates] = useState<AdvancedTemplate[]>([]);
 
     // Create a dummy page with empty or sample photo slots
     const createDummyPage = (layoutId: string, useDummy: boolean = false): AlbumPage => {
@@ -59,20 +64,26 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 left: layoutId,
                 right: layoutId
             },
-            photoGap: 10,
-            pageMargin: 10
+            photoGap: photoGap,
+            pageMargin: pageMargin
         };
     };
 
 
     const [selectedLayout, setSelectedLayout] = useState('4-grid');
     const [spreadMode, setSpreadMode] = useState<'full' | 'split'>('split');
-    const [photoGap, setPhotoGap] = useState(10);
-    const [pageMargin, setPageMargin] = useState(10);
-    const [cornerRadius, setCornerRadius] = useState(0);
+    const [photoGap, setPhotoGap] = useState(() => config?.photoGap ?? 2);
+    const [pageMargin, setPageMargin] = useState(() => config?.pageMargin ?? 0);
+    const [cornerRadius, setCornerRadius] = useState(() => config?.cornerRadius ?? 0);
     const [useDummyPhotos, setUseDummyPhotos] = useState(true);
     const [dummyPage, setDummyPage] = useState<AlbumPage>(() => createDummyPage('4-grid', true));
     const [selectedAdvancedTemplate, setSelectedAdvancedTemplate] = useState<AdvancedTemplate | null>(null);
+
+    // VECTOR TOOLS STATE
+    const [toolMode, setToolMode] = useState<ToolMode>('select');
+    const [strokes, setStrokes] = useState<Segment[]>([]);
+    const [currentStroke, setCurrentStroke] = useState<Segment | null>(null);
+    const [currentPath, setCurrentPath] = useState<Point[]>([]);
 
     // Handle advanced template selection
     const handleSelectAdvancedTemplate = (template: AdvancedTemplate) => {
@@ -102,8 +113,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             ...prev,
             photos,
             layout: template.id,
-            photoGap,
-            pageMargin,
+            photoGap: photoGap,
+            pageMargin: pageMargin,
             spreadMode
         }));
     };
@@ -154,8 +165,59 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         setCornerRadius(radius);
     };
 
-    const handleSave = () => {
-        // For now, just close - future: save custom layout template
+    const handleSave = async () => {
+        // Save all created templates to Supabase
+        if (createdTemplates.length > 0) {
+            try {
+                const supabase = createClient();
+
+                // Get current user
+                const { data: { user } } = await supabase.auth.getUser();
+                const userId = user?.id || 'anonymous';
+
+                // Prepare templates for insertion
+                const templatesToInsert = createdTemplates.map(template => ({
+                    id: template.id,
+                    name: template.name,
+                    category_id: 1, // Will be set based on category
+                    photo_count: template.photoCount,
+                    regions: template.regions,
+                    created_by: userId,
+                    is_system: false,
+                    is_active: true,
+                    sort_order: 999,
+                    // Store page settings as JSON in description or separate field
+                    description: JSON.stringify({
+                        _pageMargin: template._pageMargin,
+                        _photoGap: template._photoGap
+                    })
+                }));
+
+                // Upsert templates into Supabase
+                const { error } = await supabase
+                    .from('templates')
+                    .upsert(templatesToInsert, { onConflict: 'id' });
+
+                if (error) {
+                    console.error('Error saving templates:', error);
+                    throw error;
+                }
+
+                // Invalidate cache so templates are reloaded
+                invalidateCache();
+
+                console.log('Templates saved successfully to Supabase');
+            } catch (error) {
+                console.error('Failed to save templates to Supabase:', error);
+                // Continue closing even if save fails - user can retry
+            }
+        }
+
+        // Call parent callback if provided
+        if (onAddTemplate && createdTemplates.length > 0) {
+            createdTemplates.forEach(template => onAddTemplate(template));
+        }
+
         onClose();
     };
 
@@ -167,9 +229,15 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         setDummyPage(page);
     };
 
-    // VECTOR TOOLS STATE
-    const [toolMode, setToolMode] = useState<ToolMode>('select');
-    const [strokes, setStrokes] = useState<Segment[]>([]);
+    // Clear strokes and reset canvas for new template creation
+    const handleClearAll = useCallback(() => {
+        setStrokes([]);
+        setCurrentStroke(null);
+        setCurrentPath([]);
+        // Clear the selected template so user can create a new one
+        setSelectedAdvancedTemplate(null);
+        setToolMode('select');
+    }, []);
 
     // Process the drawn strokes into regions
     const handleProcessLayout = useCallback(() => {
@@ -189,35 +257,52 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         // or just aspect ratio * 100 since height is 100
         const logicalWidthUnits = (configW * 2 / configH) * 100;
 
-        // Use the photo gap from config to determine shrinkage
-        const gap = typeof config?.photoGap === 'string' ? parseFloat(config.photoGap) : (config?.photoGap || 0);
+        // Core Geometry Calculation - Pass gap=0 so regions fill the entire page
+        // The gap will be applied when the template is used in the album, not during creation
+        const newRegions = processLayoutGeometry(strokes, 0, logicalWidthUnits);
 
-        // Core Geometry Calculation - Pass the aspect-ratio aware width!
-        const newRegions = processLayoutGeometry(strokes, gap, logicalWidthUnits);
+        // Generate a unique name for the new template
+        const templateCount = createdTemplates.length + 1;
 
         // Update or Create Template
         const targetTemplate: AdvancedTemplate = selectedAdvancedTemplate || {
             id: uuidv4(),
-            name: 'Custom Template',
+            name: `Custom Template ${templateCount}`,
             category: 'custom',
             regions: [],
             photoCount: 0,
             isCustom: true,
-            createdBy: 'user'
+            createdBy: 'user',
+            _pageMargin: pageMargin,
+            _photoGap: photoGap
         };
 
         const updated: AdvancedTemplate = {
             ...targetTemplate,
             regions: newRegions,
-            photoCount: newRegions.length
+            photoCount: newRegions.length,
+            _pageMargin: pageMargin,
+            _photoGap: photoGap
         };
 
+        // Add to local created templates (avoid duplicates)
+        setCreatedTemplates(prev => {
+            const existingIndex = prev.findIndex(t => t.id === updated.id);
+            if (existingIndex >= 0) {
+                const newTemplates = [...prev];
+                newTemplates[existingIndex] = updated;
+                return newTemplates;
+            }
+            return [...prev, updated];
+        });
+
+        // Select the updated template
         handleSelectAdvancedTemplate(updated);
 
         // Auto-switch back to select mode to see results
         setToolMode('select');
         setStrokes([]);
-    }, [strokes, config?.size, config?.photoGap, selectedAdvancedTemplate, handleSelectAdvancedTemplate]);
+    }, [strokes, config?.size, selectedAdvancedTemplate, handleSelectAdvancedTemplate, createdTemplates.length, pageMargin, photoGap]);
 
     return (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-8">
@@ -228,12 +313,12 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                     onCancel={handleCancel}
                     selectedAdvancedTemplate={selectedAdvancedTemplate}
                     onSelectAdvancedTemplate={handleSelectAdvancedTemplate}
-                    customTemplates={customTemplates}
+                    customTemplates={createdTemplates}
                     onAddTemplate={onAddTemplate}
                     // New Vector Props
                     toolMode={toolMode}
                     onToolChange={setToolMode}
-                    onClearStrokes={() => setStrokes([])}
+                    onClearStrokes={handleClearAll}
                     onProcessLayout={handleProcessLayout}
                 />
 

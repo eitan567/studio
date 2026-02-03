@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Layout, Sparkles, Loader2, Pencil, Square, Circle, Trash2, Play } from 'lucide-react';
-import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
+import { Layout, Pencil, Square, Circle, Trash2, Play, ImageOff } from 'lucide-react';
+import { getPhotoCount } from '@/hooks/useTemplates';
 import { AdvancedTemplate, LayoutRegion } from '@/lib/advanced-layout-types';
 import { cn } from '@/lib/utils';
 
@@ -145,12 +144,6 @@ export const LayoutSidebarLeft = ({
     onClearStrokes,
     onProcessLayout
 }: LayoutSidebarLeftProps) => {
-    const { advancedTemplates } = useTemplates();
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-
-
     return (
         <div className="h-full z-20 flex bg-background">
             <div className="w-72 bg-background flex flex-col border-r shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] transition-all duration-300">
@@ -220,12 +213,21 @@ export const LayoutSidebarLeft = ({
                         </p>
                     </div>
 
-                    {/* Custom Templates */}
-                    {customTemplates.length > 0 && (
-                        <div className="space-y-3">
-                            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                My Templates
-                            </Label>
+                    {/* Custom Templates - My Templates (created during this session) */}
+                    <div className="space-y-3">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                            My Templates
+                        </Label>
+
+                        {customTemplates.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-8 px-4 text-center border-2 border-dashed border-muted-foreground/20 rounded-lg bg-muted/10">
+                                <ImageOff className="h-8 w-8 text-muted-foreground/50 mb-2" />
+                                <p className="text-xs text-muted-foreground">
+                                    No templates yet.<br />
+                                    Draw on the canvas and click <span className="font-medium">Process</span> to create your first template.
+                                </p>
+                            </div>
+                        ) : (
                             <div className="grid grid-cols-2 gap-2">
                                 {customTemplates.map((template) => (
                                     <button
@@ -249,50 +251,17 @@ export const LayoutSidebarLeft = ({
                                     </button>
                                 ))}
                             </div>
-                        </div>
-                    )}
-
-                    {/* Advanced Templates */}
-                    <div className="space-y-3">
-                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                            Template Gallery
-                        </Label>
-                        <div className="grid grid-cols-2 gap-2">
-                            {advancedTemplates.map((template) => (
-                                <button
-                                    key={template.id}
-                                    onClick={() => onSelectAdvancedTemplate(template)}
-                                    className={cn(
-                                        "aspect-square rounded-lg border-2 p-1 transition-all hover:border-primary/50 relative overflow-hidden bg-muted/30",
-                                        selectedAdvancedTemplate?.id === template.id
-                                            ? "border-primary ring-2 ring-primary/20"
-                                            : "border-muted-foreground/20"
-                                    )}
-                                    title={`${template.name} (${template.photoCount} photos)`}
-                                >
-                                    {/* SVG Preview */}
-                                    <TemplatePreview
-                                        template={template}
-                                        isSelected={selectedAdvancedTemplate?.id === template.id}
-                                    />
-
-                                    {/* Label */}
-                                    <span className="absolute bottom-0 left-0 right-0 text-[9px] text-center bg-background/90 py-1 font-medium truncate px-1">
-                                        {template.name}
-                                    </span>
-                                </button>
-                            ))}
-                        </div>
+                        )}
                     </div>
-                </div>
 
-                {/* Info Footer */}
-                <div className="p-4 border-t bg-muted/20">
-                    <p className="text-xs text-muted-foreground text-center">
-                        {selectedAdvancedTemplate
-                            ? `${selectedAdvancedTemplate.name} • ${getPhotoCount(selectedAdvancedTemplate)} photos`
-                            : 'Select a template'}
-                    </p>
+                    {/* Info Footer */}
+                    <div className="p-4 border-t bg-muted/20">
+                        <p className="text-xs text-muted-foreground text-center">
+                            {selectedAdvancedTemplate
+                                ? `${selectedAdvancedTemplate.name} • ${getPhotoCount(selectedAdvancedTemplate)} photos`
+                                : 'Select a template'}
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>

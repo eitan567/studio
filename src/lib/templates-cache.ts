@@ -31,6 +31,7 @@ export interface DBTemplate {
     is_system?: boolean;
     is_active?: boolean;
     sort_order?: number;
+    description?: string;
 }
 
 // Unified cache storage
@@ -180,6 +181,22 @@ function convertGridToAdvanced(dbTemplate: DBTemplate): AdvancedTemplate {
 }
 
 /**
+ * Parse description JSON to extract template settings
+ */
+function parseTemplateDescription(description?: string): { _pageMargin?: number; _photoGap?: number } {
+    if (!description) return {};
+    try {
+        const parsed = JSON.parse(description);
+        return {
+            _pageMargin: typeof parsed._pageMargin === 'number' ? parsed._pageMargin : undefined,
+            _photoGap: typeof parsed._photoGap === 'number' ? parsed._photoGap : undefined
+        };
+    } catch {
+        return {};
+    }
+}
+
+/**
  * Initialize the cache from Supabase
  */
 async function initializeCache(): Promise<void> {
@@ -212,6 +229,9 @@ async function initializeCache(): Promise<void> {
         if (data && data.length > 0) {
             // Convert ALL templates to AdvancedTemplate format
             const mappedTemplates = data.map((t: DBTemplate) => {
+                // Parse description for page settings
+                const descSettings = parseTemplateDescription(t.description);
+
                 // If template has valid regions already, use them directly
                 if (t.regions && Array.isArray(t.regions) && t.regions.length > 0) {
                     return {
@@ -221,7 +241,9 @@ async function initializeCache(): Promise<void> {
                         photoCount: t.photo_count || t.regions.length,
                         regions: t.regions,
                         createdBy: t.created_by as AdvancedTemplate['createdBy'],
-                        isCustom: t.created_by === 'user'
+                        isCustom: t.created_by === 'user',
+                        _pageMargin: descSettings._pageMargin,
+                        _photoGap: descSettings._photoGap
                     };
                 }
 
@@ -240,7 +262,9 @@ async function initializeCache(): Promise<void> {
                     photoCount: t.photo_count || 1,
                     regions: [],
                     createdBy: t.created_by as AdvancedTemplate['createdBy'],
-                    isCustom: t.created_by === 'user'
+                    isCustom: t.created_by === 'user',
+                    _pageMargin: descSettings._pageMargin,
+                    _photoGap: descSettings._photoGap
                 };
             });
 
