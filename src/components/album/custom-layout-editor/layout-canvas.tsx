@@ -55,6 +55,7 @@ export const LayoutCanvas = ({
     const [transformMode, setTransformMode] = useState<TransformMode>('none');
     const [resizeHandle, setResizeHandle] = useState<number | null>(null);
     const [selectionBox, setSelectionBox] = useState<{ start: Point; end: Point } | null>(null);
+    const [cursorMode, setCursorMode] = useState<string>('default');
 
     // Preview state for shapes being drawn
     const [previewShape, setPreviewShape] = useState<{ type: 'rect' | 'circle'; points: Point[] } | null>(null);
@@ -72,8 +73,9 @@ export const LayoutCanvas = ({
         origPoints: Point[];
         bbox: ShapeData['bbox'];
         startObb?: ShapeData['obb'];
-        // Map of shape index -> original points (for multi-move)
-        multiShapes?: Map<number, Point[]>;
+        affectedStrokeIndices?: Set<number>;
+        isDuplicating?: boolean;
+        initialAltKey?: boolean;
     } | null>(null);
 
     // --- UTILS ---
@@ -401,7 +403,8 @@ export const LayoutCanvas = ({
                 // Rotation Handles
                 const rotHandles = getRotationHandles(shape.obb);
                 for (let i = 0; i < 4; i++) {
-                    if (distance(point, rotHandles[i]) < 10) {
+                    // Strict hit radius matching visual size (1.6) + small margin
+                    if (distance(point, rotHandles[i]) < 2.0) {
                         setTransformMode('rotate');
                         isRotatingRef.current = true;
                         dragStartRef.current = { point, origPoints: shape.polygon, bbox: shape.bbox, startObb: shape.obb };
@@ -411,8 +414,11 @@ export const LayoutCanvas = ({
 
                 // Resize Handles
                 const handles = getResizeHandles(shape.obb);
+                // Strict hit radius matching visual size (1.2) + small margin
+                const hitRadius = 1.5;
+
                 for (let i = 0; i < 8; i++) {
-                    if (distance(point, handles[i]) < 8) {
+                    if (distance(point, handles[i]) < hitRadius) {
                         setResizeHandle(i);
                         setTransformMode('resize');
                         isRotatingRef.current = false;
@@ -450,23 +456,25 @@ export const LayoutCanvas = ({
 
             setTransformMode('move');
             isRotatingRef.current = false;
+            setCursorMode('grabbing');
 
-            // Store original points for ALL selected shapes (for group move)
-            const multiShapes = new Map<number, Point[]>();
+            // Prepare for move/duplicate: Identify all strokes involved
+            const affectedIndices = new Set<number>();
             newSelection.forEach(idx => {
-                if (shapes[idx]) {
-                    multiShapes.set(idx, shapes[idx].polygon);
+                const s = shapes[idx];
+                if (s) {
+                    s.indices.forEach(si => affectedIndices.add(si));
                 }
             });
 
-            // For compatibility, dragStartRef mostly stores the "primary" or clicked shape stats,
-            // but we add 'multiShapes' for the move logic.
             dragStartRef.current = {
                 point,
                 origPoints: shapes[foundIdx].polygon,
                 bbox: shapes[foundIdx].bbox,
                 startObb: shapes[foundIdx].obb,
-                multiShapes
+                affectedStrokeIndices: affectedIndices,
+                initialAltKey: e.altKey,
+                isDuplicating: false
             };
 
         } else {
@@ -543,9 +551,74 @@ export const LayoutCanvas = ({
             return;
         }
 
-        // Transform mode
-        if (transformMode === 'none' || !dragStartRef.current) return;
+        // Transform mode logic & Cursor Feedback
+        if (transformMode === 'none') {
+            // Hover Logic for Cursor Feedback
+            if (toolMode === 'select') {
+                let newCursor = 'default';
+                const shapes = shapesRef.current;
+                const primaryIdx = selectedShapeIndices.length === 1 ? selectedShapeIndices[0] : null;
 
+                if (primaryIdx !== null) {
+                    const shape = shapes[primaryIdx];
+                    if (shape) {
+                        // Check Rotation Handles
+                        const rotHandles = getRotationHandles(shape.obb);
+                        let overRot = false;
+                        for (let i = 0; i < 4; i++) {
+                            if (distance(point, rotHandles[i]) < 2.0) {
+                                overRot = true;
+                                break;
+                            }
+                        }
+                        if (overRot) {
+                            newCursor = 'alias';
+                        } else {
+                            // Check Resize Handles
+                            const handles = getResizeHandles(shape.obb);
+                            let overResize = false;
+                            for (let i = 0; i < 8; i++) {
+                                if (distance(point, handles[i]) < 1.5) {
+                                    overResize = true;
+                                    break;
+                                }
+                            }
+                            if (overResize) {
+                                newCursor = 'pointer';
+                            } else {
+                                // Check Shape Body (for move)
+                                let overShape = false;
+                                for (let i = shapes.length - 1; i >= 0; i--) {
+                                    const bbox = shapes[i].bbox;
+                                    if (point[0] >= bbox.minX && point[0] <= bbox.maxX &&
+                                        point[1] >= bbox.minY && point[1] <= bbox.maxY) {
+                                        overShape = true;
+                                        break;
+                                    }
+                                }
+                                if (overShape) newCursor = 'grab';
+                            }
+                        }
+                    }
+                } else {
+                    // Check Shape Body (No selection or multi-selection)
+                    let overShape = false;
+                    for (let i = shapes.length - 1; i >= 0; i--) {
+                        const bbox = shapes[i].bbox;
+                        if (point[0] >= bbox.minX && point[0] <= bbox.maxX &&
+                            point[1] >= bbox.minY && point[1] <= bbox.maxY) {
+                            overShape = true;
+                            break;
+                        }
+                    }
+                    if (overShape) newCursor = 'grab';
+                }
+                if (cursorMode !== newCursor) setCursorMode(newCursor);
+            }
+            if (!dragStartRef.current) return;
+        }
+
+        if (!dragStartRef.current) return;
         const start = dragStartRef.current;
 
         // Multi-Move Logic
@@ -554,20 +627,36 @@ export const LayoutCanvas = ({
             const dy = point[1] - start.point[1];
 
             if (distance(point, start.point) > 0.5) {
-                // Determine affected strokes (union of all selected shapes)
-                const shapes = shapesRef.current;
-                const affectedIndices = new Set<number>();
+                let currentStrokes = strokes;
+                let indicesToMove = start.affectedStrokeIndices || new Set<number>();
 
-                selectedShapeIndices.forEach(shapeIdx => {
-                    const shape = shapes[shapeIdx];
-                    if (shape) {
-                        shape.indices.forEach(idx => affectedIndices.add(idx));
+                // Duplication Logic (Alt + Drag)
+                if (start.initialAltKey && !start.isDuplicating) {
+                    start.isDuplicating = true;
+                    const clones: Segment[] = [];
+                    const newIndices = new Set<number>();
+                    let nextIdx = strokes.length;
+
+                    // Clone strokes
+                    if (start.affectedStrokeIndices) {
+                        start.affectedStrokeIndices.forEach(idx => {
+                            if (strokes[idx]) {
+                                clones.push({ ...strokes[idx] });
+                                newIndices.add(nextIdx++);
+                            }
+                        });
                     }
-                });
 
-                if (affectedIndices.size > 0) {
-                    const newStrokes = strokes.map((s, i) => {
-                        if (affectedIndices.has(i)) {
+                    if (clones.length > 0) {
+                        currentStrokes = [...strokes, ...clones];
+                        indicesToMove = newIndices;
+                        start.affectedStrokeIndices = newIndices; // Point to new clones for future moves
+                    }
+                }
+
+                if (indicesToMove.size > 0) {
+                    const newStrokes = currentStrokes.map((s, i) => {
+                        if (indicesToMove.has(i)) {
                             return { p1: [s.p1[0] + dx, s.p1[1] + dy] as Point, p2: [s.p2[0] + dx, s.p2[1] + dy] as Point };
                         }
                         return s;
@@ -804,8 +893,14 @@ export const LayoutCanvas = ({
             >
                 <div
                     ref={interactionRef}
-                    className={cn("absolute inset-0 z-10", toolMode === 'select' ? "cursor-default" : "cursor-crosshair")}
-                    style={{ padding: 0, margin: `${pageMargin}px`, width: logicalWidth - pageMargin * 2, height: logicalHeight - pageMargin * 2 }}
+                    className={cn("absolute inset-0 z-10", toolMode === 'select' ? "" : "cursor-crosshair")}
+                    style={{
+                        padding: 0,
+                        margin: `${pageMargin}px`,
+                        width: logicalWidth - pageMargin * 2,
+                        height: logicalHeight - pageMargin * 2,
+                        cursor: toolMode === 'select' ? cursorMode : undefined
+                    }}
                     onMouseDown={toolMode === 'select' ? handleSelectMouseDown : handleMouseDown}
                     onMouseMove={handleMouseMove}
                     onMouseUp={handleMouseUp}
