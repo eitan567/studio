@@ -107,6 +107,7 @@ export const LayoutCanvas = ({
         strokeMapping?: Map<number, { p1: number; p2: number }>;
         mirrorPartnerIndex?: number;
         affectedMirrorIndices?: Set<number>;
+        mirrorStrokeMapping?: Map<number, { p1: number; p2: number }>;
     } | null>(null);
 
     // --- UTILS ---
@@ -446,6 +447,38 @@ export const LayoutCanvas = ({
                     }
                 });
 
+                // Match Mirror Logic
+                let mirrorPartnerIdx: number | undefined;
+                let mirrorStrokeMapping: Map<number, { p1: number; p2: number }> | undefined;
+
+                if (isMirrorMode && coordinateAspect) {
+                    const totalWidth = 100 * coordinateAspect;
+                    const mirrorX = totalWidth - shape.obb.center[0];
+                    const mirrorY = shape.obb.center[1];
+
+                    mirrorPartnerIdx = shapes.findIndex((s, idx) => {
+                        if (idx === primaryIdx) return false;
+                        const d = Math.sqrt(Math.pow(s.obb.center[0] - mirrorX, 2) + Math.pow(s.obb.center[1] - mirrorY, 2));
+                        return d < 5.0 && Math.abs(s.obb.width - shape.obb.width) < 1;
+                    });
+
+                    if (mirrorPartnerIdx !== -1) {
+                        // Compute Mirror Mapping
+                        const mShape = shapes[mirrorPartnerIdx];
+                        mirrorStrokeMapping = new Map();
+                        mShape.indices.forEach(idx => {
+                            const s = strokes[idx];
+                            const idx1 = mShape.polygon.findIndex(p => distance(p, s.p1) < 0.1);
+                            const idx2 = mShape.polygon.findIndex(p => distance(p, s.p2) < 0.1);
+                            if (idx1 >= 0 && idx2 >= 0) {
+                                mirrorStrokeMapping!.set(idx, { p1: idx1, p2: idx2 });
+                            }
+                        });
+                    } else {
+                        mirrorPartnerIdx = undefined;
+                    }
+                }
+
                 // Rotation Handles
                 const rotHandles = getRotationHandles(shape.obb);
                 for (let i = 0; i < 4; i++) {
@@ -453,7 +486,10 @@ export const LayoutCanvas = ({
                     if (distance(point, rotHandles[i]) < 2.0) {
                         setTransformMode('rotate');
                         isRotatingRef.current = true;
-                        dragStartRef.current = { point, origPoints: shape.polygon, bbox: shape.bbox, startObb: shape.obb, strokeMapping };
+                        dragStartRef.current = {
+                            point, origPoints: shape.polygon, bbox: shape.bbox, startObb: shape.obb, strokeMapping,
+                            mirrorPartnerIndex: mirrorPartnerIdx, mirrorStrokeMapping
+                        };
                         return;
                     }
                 }
@@ -468,7 +504,10 @@ export const LayoutCanvas = ({
                         setResizeHandle(i);
                         setTransformMode('resize');
                         isRotatingRef.current = false;
-                        dragStartRef.current = { point, origPoints: shape.polygon, bbox: shape.bbox, startObb: shape.obb, strokeMapping };
+                        dragStartRef.current = {
+                            point, origPoints: shape.polygon, bbox: shape.bbox, startObb: shape.obb, strokeMapping,
+                            mirrorPartnerIndex: mirrorPartnerIdx, mirrorStrokeMapping
+                        };
                         return;
                     }
                 }
@@ -825,63 +864,107 @@ export const LayoutCanvas = ({
                 setIsSymmetric(symmetric);
             }
 
-            // Min Size Constraint (20px)
-            const minSize = 20;
+            // Min Size Constraint (20px) -> Changed to 2 units for safety
+            const minSize = 2;
             const currentW = Math.abs(baseW * scaleU);
             const currentH = Math.abs(baseH * scaleV);
 
-            if (currentW < minSize) {
-                scaleU = (minSize / baseW) * (scaleU < 0 ? -1 : 1);
-            }
-            if (currentH < minSize) {
-                scaleV = (minSize / baseH) * (scaleV < 0 ? -1 : 1);
-            }
+            if (currentW < minSize) scaleU = (minSize / baseW) * (scaleU < 0 ? -1 : 1);
+            if (currentH < minSize) scaleV = (minSize / baseH) * (scaleV < 0 ? -1 : 1);
 
-            const newPoints = origPoints.map((p) => {
-                const localP = transformPointToLocal(p, startObb.center, startObb.angle);
-                const scaledLocalP: Point = [
-                    oppHandleLocal[0] + (localP[0] - oppHandleLocal[0]) * scaleU,
-                    oppHandleLocal[1] + (localP[1] - oppHandleLocal[1]) * scaleV
+            // Apply to Primary
+            const newStrokes = [...strokes];
+
+            // Recompute all polygon points in local then world space
+            const newPolyLocal = origPoints.map(p => {
+                const pl = transformPointToLocal(p, startObb.center, startObb.angle);
+                // Resize in local space relative to pivot (opp handle)
+                const plNew: Point = [
+                    oppHandleLocal[0] + (pl[0] - oppHandleLocal[0]) * scaleU,
+                    oppHandleLocal[1] + (pl[1] - oppHandleLocal[1]) * scaleV
                 ];
-                return transformPointToWorld(scaledLocalP, startObb.center, startObb.angle);
+                return plNew;
             });
 
-            const newStrokes = strokes.map((s, i) => {
-                // Robust mapping from drag start
-                const mapping = start.strokeMapping?.get(i);
-                if (mapping) {
-                    return { p1: newPoints[mapping.p1] as Point, p2: newPoints[mapping.p2] as Point };
-                }
-                return s;
+            // Transform back to world
+            const newPolyWorld = newPolyLocal.map(p => transformPointToWorld(p, startObb.center, startObb.angle));
+
+            // Update Primary Strokes
+            start.strokeMapping?.forEach((vIndices, sIdx) => {
+                newStrokes[sIdx] = {
+                    p1: newPolyWorld[vIndices.p1],
+                    p2: newPolyWorld[vIndices.p2]
+                };
             });
+
+            // Mirror Logic for Resize
+            if (start.mirrorPartnerIndex !== undefined && coordinateAspect) {
+                const mirrorShape = shapesRef.current[start.mirrorPartnerIndex];
+                if (mirrorShape && mirrorShape.indices.length === shape.indices.length) {
+                    const totalWidth = 100 * coordinateAspect;
+                    // Mirror the NEW Primary Points
+                    const mirroredPoints = newPolyWorld.map(p => [totalWidth - p[0], p[1]] as Point);
+
+                    // Apply to Mirror Strokes
+                    // We iterate mirrorShape indices directly
+                    mirrorShape.indices.forEach(mirrorSIdx => {
+                        const mapping = start.mirrorStrokeMapping?.get(mirrorSIdx);
+                        if (mapping) {
+                            newStrokes[mirrorSIdx] = {
+                                p1: mirroredPoints[mapping.p1], // Assumes vertex order alignment
+                                p2: mirroredPoints[mapping.p2]
+                            };
+                        }
+                    });
+                }
+            }
+
             onUpdateStrokes(newStrokes);
 
         } else if (transformMode === 'rotate' && selectedShapeIndices.length === 1) {
             const shape = shapesRef.current[selectedShapeIndices[0]];
             if (!shape) return;
 
-            const startObb = start.startObb;
-            const origPoints = start.origPoints;
-            // Use OBB center for rotation
-            const origBbox = start.bbox;
-            const center = startObb ? startObb.center : [origBbox.centerX, origBbox.centerY];
+            const center = start.startObb?.center || [start.bbox.centerX, start.bbox.centerY] as Point;
+            const startAngle = Math.atan2(start.point[1] - center[1], start.point[0] - center[0]);
+            const currentAngle = Math.atan2(point[1] - center[1], point[0] - center[0]);
+            const dTheta = currentAngle - startAngle;
 
-            const angle = Math.atan2(point[1] - center[1], point[0] - center[0]) -
-                Math.atan2(start.point[1] - center[1], start.point[0] - center[0]);
+            const newStrokes = [...strokes];
+            const newPolyWorld: Point[] = [];
 
-            if (Math.abs(angle) > 0.005) {
-                const newPoints = origPoints.map((p) => rotatePoint(p, center as Point, angle));
+            // Apply Rotate to Primary
+            const poly = start.origPoints.map(p => rotatePoint(p, center, dTheta));
+            poly.forEach(p => newPolyWorld.push(p));
 
-                const newStrokes = strokes.map((s, i) => {
-                    // Robust mapping from drag start
-                    const mapping = start.strokeMapping?.get(i);
-                    if (mapping) {
-                        return { p1: newPoints[mapping.p1] as Point, p2: newPoints[mapping.p2] as Point };
-                    }
-                    return s;
-                });
-                onUpdateStrokes(newStrokes);
+            start.strokeMapping?.forEach((vIndices, sIdx) => {
+                newStrokes[sIdx] = {
+                    p1: newPolyWorld[vIndices.p1],
+                    p2: newPolyWorld[vIndices.p2]
+                };
+            });
+
+            // Mirror Logic for Rotate
+            if (start.mirrorPartnerIndex !== undefined && coordinateAspect) {
+                const mirrorShape = shapesRef.current[start.mirrorPartnerIndex];
+                if (mirrorShape && mirrorShape.indices.length === shape.indices.length) {
+                    const totalWidth = 100 * coordinateAspect;
+                    // Mirror the NEW Primary Points
+                    const mirroredPoints = newPolyWorld.map(p => [totalWidth - p[0], p[1]] as Point);
+
+                    mirrorShape.indices.forEach(mirrorSIdx => {
+                        const mapping = start.mirrorStrokeMapping?.get(mirrorSIdx);
+                        if (mapping) {
+                            newStrokes[mirrorSIdx] = {
+                                p1: mirroredPoints[mapping.p1],
+                                p2: mirroredPoints[mapping.p2]
+                            };
+                        }
+                    });
+                }
             }
+
+            onUpdateStrokes(newStrokes);
         }
     };
 
