@@ -1,0 +1,32 @@
+old_page_editor.tsx(28,29): error TS2307: Cannot find module '../album-editor/album-editor' or its corresponding type declarations.
+old_page_editor.tsx(29,37): error TS2307: Cannot find module '../album-editor/context' or its corresponding type declarations.
+old_page_editor.tsx(30,33): error TS2307: Cannot find module '../book-view/book-view-overlay' or its corresponding type declarations.
+old_page_editor.tsx(64,39): error TS2307: Cannot find module '../shared/ai-background-generator' or its corresponding type declarations.
+old_page_editor.tsx(65,49): error TS2307: Cannot find module '../shared/album-exporter' or its corresponding type declarations.
+old_page_editor.tsx(66,43): error TS2307: Cannot find module '../custom-layout-editor/custom-layout-editor-overlay' or its corresponding type declarations.
+old_page_editor.tsx(74,35): error TS2307: Cannot find module '../shared/scroll-to-top-button' or its corresponding type declarations.
+old_page_editor.tsx(75,33): error TS2307: Cannot find module './sidebar/config-card' or its corresponding type declarations.
+old_page_editor.tsx(76,34): error TS2307: Cannot find module './sidebar/gallery-card' or its corresponding type declarations.
+old_page_editor.tsx(77,36): error TS2307: Cannot find module './toolbar' or its corresponding type declarations.
+old_page_editor.tsx(686,30): error TS7006: Parameter 'current' implicitly has an 'any' type.
+old_page_editor.tsx(686,39): error TS7006: Parameter 'total' implicitly has an 'any' type.
+old_page_editor.tsx(694,27): error TS7006: Parameter 'err' implicitly has an 'any' type.
+old_page_editor_v2.tsx(24,29): error TS2307: Cannot find module '../album-editor/album-editor' or its corresponding type declarations.
+old_page_editor_v2.tsx(25,37): error TS2307: Cannot find module '../album-editor/context' or its corresponding type declarations.
+old_page_editor_v2.tsx(26,33): error TS2307: Cannot find module '../book-view/book-view-overlay' or its corresponding type declarations.
+old_page_editor_v2.tsx(60,39): error TS2307: Cannot find module '../shared/ai-background-generator' or its corresponding type declarations.
+old_page_editor_v2.tsx(61,49): error TS2307: Cannot find module '../shared/album-exporter' or its corresponding type declarations.
+old_page_editor_v2.tsx(62,43): error TS2307: Cannot find module '../custom-layout-editor/custom-layout-editor-overlay' or its corresponding type declarations.
+old_page_editor_v2.tsx(70,35): error TS2307: Cannot find module '../shared/scroll-to-top-button' or its corresponding type declarations.
+old_page_editor_v2.tsx(71,33): error TS2307: Cannot find module './sidebar/config-card' or its corresponding type declarations.
+old_page_editor_v2.tsx(72,34): error TS2307: Cannot find module './sidebar/gallery-card' or its corresponding type declarations.
+old_page_editor_v2.tsx(73,36): error TS2307: Cannot find module './toolbar' or its corresponding type declarations.
+scripts/seed-templates.ts(60,17): error TS2339: Property 'grid' does not exist on type 'AdvancedTemplate'.
+scripts/seed-templates.ts(61,24): error TS2339: Property 'grid' does not exist on type 'AdvancedTemplate'.
+scripts/seed-templates.ts(72,17): error TS2339: Property 'grid' does not exist on type 'AdvancedTemplate'.
+scripts/seed-templates.ts(73,24): error TS2339: Property 'grid' does not exist on type 'AdvancedTemplate'.
+src/components/album/custom-layout-editor/layout-canvas.tsx(559,79): error TS2345: Argument of type 'number[]' is not assignable to parameter of type 'Point'.
+  Target requires 2 element(s) but source may have fewer.
+src/components/ui/calendar.tsx(57,9): error TS2353: Object literal may only specify known properties, and 'IconLeft' does not exist in type 'Partial<CustomComponents>'.
+src/components/ui/calendar.tsx(57,22): error TS7031: Binding element 'className' implicitly has an 'any' type.
+src/components/ui/calendar.tsx(60,23): error TS7031: Binding element 'className' implicitly has an 'any' type.

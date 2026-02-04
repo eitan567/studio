@@ -24,6 +24,13 @@ interface ShapeData {
     indices: number[];
     polygon: Point[];
     bbox: { minX: number; minY: number; maxX: number; maxY: number; centerX: number; centerY: number; width: number; height: number };
+    obb: {
+        center: Point;
+        width: number;
+        height: number;
+        angle: number;
+        minX: number; maxX: number; minY: number; maxY: number;
+    };
 }
 
 export const LayoutCanvas = ({
@@ -55,7 +62,7 @@ export const LayoutCanvas = ({
     const currentPathRef = useRef<Point[]>([]);
     const currentStrokeRef = useRef<Segment | null>(null);
     const isDrawingRef = useRef(false);
-    const dragStartRef = useRef<{ point: Point; origPoints: Point[]; bbox: ShapeData['bbox'] } | null>(null);
+    const dragStartRef = useRef<{ point: Point; origPoints: Point[]; bbox: ShapeData['bbox']; startObb?: ShapeData['obb'] } | null>(null);
 
     // --- UTILS ---
     const getBoundingBox = (polygon: Point[]) => {
@@ -69,12 +76,97 @@ export const LayoutCanvas = ({
         return { minX, minY, maxX, maxY, centerX: (minX + maxX) / 2, centerY: (minY + maxY) / 2, width: maxX - minX, height: maxY - minY };
     };
 
+    const getSmartBBox = (points: Point[]): ShapeData['obb'] => {
+        if (points.length < 3) {
+            const bbox = getBoundingBox(points);
+            return {
+                center: [bbox.centerX, bbox.centerY],
+                width: bbox.width,
+                height: bbox.height,
+                angle: 0,
+                minX: bbox.minX, maxX: bbox.maxX, minY: bbox.minY, maxY: bbox.maxY
+            };
+        }
+
+        let minArea = Infinity;
+        let bestObb: ShapeData['obb'] | null = null;
+
+        const edges = [];
+        for (let i = 0; i < points.length; i++) {
+            const p1 = points[i];
+            const p2 = points[(i + 1) % points.length];
+            edges.push({ p1, p2 });
+        }
+
+        for (const edge of edges) {
+            const dx = edge.p2[0] - edge.p1[0];
+            const dy = edge.p2[1] - edge.p1[1];
+            const angle = Math.atan2(dy, dx);
+
+            // Rotate points by -angle to align edge with X axis
+            let minU = Infinity, maxU = -Infinity;
+            let minV = Infinity, maxV = -Infinity;
+
+            const cos = Math.cos(-angle);
+            const sin = Math.sin(-angle);
+
+            for (const p of points) {
+                const u = p[0] * cos - p[1] * sin;
+                const v = p[0] * sin + p[1] * cos;
+                minU = Math.min(minU, u);
+                maxU = Math.max(maxU, u);
+                minV = Math.min(minV, v);
+                maxV = Math.max(maxV, v);
+            }
+
+            const area = (maxU - minU) * (maxV - minV);
+            if (area < minArea) {
+                minArea = area;
+                const width = maxU - minU;
+                const height = maxV - minV;
+                const centerU = (minU + maxU) / 2;
+                const centerV = (minV + maxV) / 2;
+
+                // Rotate center back
+                const cx = centerU * Math.cos(angle) - centerV * Math.sin(angle);
+                const cy = centerU * Math.sin(angle) + centerV * Math.cos(angle);
+
+                bestObb = {
+                    center: [cx, cy],
+                    width,
+                    height,
+                    angle,
+                    minX: minU, maxX: maxU, minY: minV, maxY: maxV
+                };
+            }
+        }
+        return bestObb!;
+    };
+
     const rotatePoint = (p: Point, center: Point, angle: number): Point => {
         const cos = Math.cos(angle);
         const sin = Math.sin(angle);
         const dx = p[0] - center[0];
         const dy = p[1] - center[1];
         return [center[0] + dx * cos - dy * sin, center[1] + dx * sin + dy * cos] as Point;
+    };
+
+    // Inverse rotation (rotate point about origin 0,0 by -angle, or treat as changing basis)
+    const transformPointToLocal = (p: Point, center: Point, angle: number): Point => {
+        const dx = p[0] - center[0];
+        const dy = p[1] - center[1];
+        const cos = Math.cos(-angle);
+        const sin = Math.sin(-angle);
+        return [dx * cos - dy * sin, dx * sin + dy * cos];
+    };
+
+    const transformPointToWorld = (localP: Point, center: Point, angle: number): Point => {
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        return [
+            center[0] + localP[0] * cos - localP[1] * sin,
+            center[1] + localP[0] * sin + localP[1] * cos
+        ];
     };
 
     const distance = (p1: Point, p2: Point): number => Math.sqrt(Math.pow(p1[0] - p2[0], 2) + Math.pow(p1[1] - p2[1], 2));
@@ -132,7 +224,7 @@ export const LayoutCanvas = ({
             });
 
             const polygon = Array.from(pointSet.values());
-            shapes.push({ indices: component, polygon, bbox: getBoundingBox(polygon) });
+            shapes.push({ indices: component, polygon, bbox: getBoundingBox(polygon), obb: getSmartBBox(polygon) });
         }
 
         shapesRef.current = shapes;
@@ -188,16 +280,31 @@ export const LayoutCanvas = ({
         return [relX * 100 * aspectRatio, relY * 100] as Point;
     };
 
-    const getResizeHandles = (bbox: ShapeData['bbox']): Point[] => [
-        [bbox.minX, bbox.minY] as Point,      // 0: top-left
-        [bbox.centerX, bbox.minY] as Point,    // 1: top
-        [bbox.maxX, bbox.minY] as Point,       // 2: top-right
-        [bbox.maxX, bbox.centerY] as Point,    // 3: right
-        [bbox.maxX, bbox.maxY] as Point,       // 4: bottom-right
-        [bbox.centerX, bbox.maxY] as Point,     // 5: bottom
-        [bbox.minX, bbox.maxY] as Point,       // 6: bottom-left
-        [bbox.minX, bbox.centerY] as Point,    // 7: left
-    ];
+    const getResizeHandles = (obb: ShapeData['obb']): Point[] => {
+        const { minX, maxX, minY, maxY, center, angle } = obb;
+        // Local coordinates of handles relative to center
+        // We need to map them to world space
+        // Handles: 0:TL, 1:T, 2:TR, 3:R, 4:BR, 5:B, 6:BL, 7:L
+        const handlesLocal: Point[] = [
+            [minX, minY],        // TL (relative to the rotated basis origin, effectively)
+            [(minX + maxX) / 2, minY], // T
+            [maxX, minY],        // TR
+            [maxX, (minY + maxY) / 2], // R
+            [maxX, maxY],        // BR
+            [(minX + maxX) / 2, maxY], // B
+            [minX, maxY],        // BL
+            [minX, (minY + maxY) / 2]  // L
+        ];
+
+        return handlesLocal.map(p => {
+            const u = p[0];
+            const v = p[1];
+            // Rotate back by +angle
+            const x = u * Math.cos(angle) - v * Math.sin(angle);
+            const y = u * Math.sin(angle) + v * Math.cos(angle);
+            return [x, y] as Point;
+        });
+    };
 
     const handleMouseDown = (e: React.MouseEvent) => {
         if (toolMode === 'select' || !onUpdateStrokes) return;
@@ -232,20 +339,49 @@ export const LayoutCanvas = ({
         if (selectedShapeIndex !== null) {
             const shape = shapes[selectedShapeIndex];
             if (shape) {
-                const handles = getResizeHandles(shape.bbox);
+                const handles = getResizeHandles(shape.obb);
                 for (let i = 0; i < 8; i++) {
                     if (distance(point, handles[i]) < 8) {
                         setResizeHandle(i);
                         setTransformMode('resize');
-                        dragStartRef.current = { point, origPoints: shape.polygon, bbox: shape.bbox };
+                        // Store the OBB state at start of drag
+                        dragStartRef.current = {
+                            point,
+                            origPoints: shape.polygon,
+                            bbox: shape.bbox, // keep for compat
+                            startObb: shape.obb // New: Keep original OBB for stable resizing
+                        };
                         return;
                     }
                 }
                 // Check rotation handle
-                const rotHandle: Point = [shape.bbox.centerX, shape.bbox.minY - 15];
+                // Position relative to OBB: Top Center, then offset upwards in local Y (which is minV direction)
+                // obb.minY is the 'top' in local space.
+                // center U is (minX+maxX)/2
+                const topCenterLocal: Point = [(shape.obb.minX + shape.obb.maxX) / 2, shape.obb.minY];
+                // Offset by -15 units in local V direction (up)
+                // Actually in local space (u,v), 'up' depends on how we view it, but V axis?
+                // Visual 'up' relative to the box.
+                // Let's just take topCenterWorld and move 15 units along the 'up' vector of the box.
+                // Up vector world = (0, -1) rotated by angle?
+                // Box angle 0 -> Up is (0, -1).
+                // Box angle 90 -> Up is (-1, 0).
+                // So vector is (-sin(a), -cos(a))? No.
+                // Angle is angle of X axis. Y axis is X + 90.
+                // We want to move 'outwards' from Top.
+                // Top is at minY.
+                // Vector pointing 'out' from Top is -Y axis (0, -1) in local.
+                // Rotate (0, -15) by angle.
+                const cx = topCenterLocal[0];
+                const cy = topCenterLocal[1] - 15; // Local offset
+                const rotHandleX = cx * Math.cos(shape.obb.angle) - cy * Math.sin(shape.obb.angle);
+                const rotHandleY = cx * Math.sin(shape.obb.angle) + cy * Math.cos(shape.obb.angle);
+
+                const rotHandle: Point = [rotHandleX, rotHandleY];
+
                 if (distance(point, rotHandle) < 10) {
                     setTransformMode('rotate');
-                    dragStartRef.current = { point, origPoints: shape.polygon, bbox: shape.bbox };
+                    dragStartRef.current = { point, origPoints: shape.polygon, bbox: shape.bbox, startObb: shape.obb };
                     return;
                 }
             }
@@ -265,7 +401,7 @@ export const LayoutCanvas = ({
         if (foundIdx >= 0) {
             setSelectedShapeIndex(foundIdx);
             setTransformMode('move');
-            dragStartRef.current = { point, origPoints: shapes[foundIdx].polygon, bbox: shapes[foundIdx].bbox };
+            dragStartRef.current = { point, origPoints: shapes[foundIdx].polygon, bbox: shapes[foundIdx].bbox, startObb: shapes[foundIdx].obb };
         } else {
             setSelectedShapeIndex(null);
             setTransformMode('none');
@@ -355,60 +491,71 @@ export const LayoutCanvas = ({
             const shape = shapesRef.current[selectedShapeIndex];
             if (!shape) return;
 
-            const handles = getResizeHandles(origBbox);
+            // USE OBB logic for resize
+            const startObb = start.startObb;
+            if (!startObb) return;
+
+            // Local Mouse Point (u, v)
+            const localMouse = transformPointToLocal(point, [0, 0], startObb.angle);
+            // Local Handle Orig (u, v)
+            const handles = getResizeHandles(startObb).map(h => transformPointToLocal(h, [0, 0], startObb.angle));
+
             const oppHandles = [4, 5, 6, 7, 0, 1, 2, 3];
             const oppIdx = oppHandles[resizeHandle!];
-            const oppHandle = handles[oppIdx];
-            const currHandle = handles[resizeHandle!];
+            const oppHandleLocal = handles[oppIdx];
+            const currHandleLocal = handles[resizeHandle!];
 
-            // Calculate scale factors - single axis for edge handles
-            let scaleX: number, scaleY: number;
+            // Calculate scale in local space
+            let scaleU = 1, scaleV = 1;
 
-            // Handle types: corner (0,2,4,6) vs edge (1,3,5,7)
             const isCorner = [0, 2, 4, 6].includes(resizeHandle!);
-            const isTopBottom = [1, 5].includes(resizeHandle!);  // top=1, bottom=5
-            const isLeftRight = [3, 7].includes(resizeHandle!);  // right=3, left=7
+            const isTopBottom = [1, 5].includes(resizeHandle!);
+            const isLeftRight = [3, 7].includes(resizeHandle!);
+
+            const dimU = currHandleLocal[0] - oppHandleLocal[0];
+            const dimV = currHandleLocal[1] - oppHandleLocal[1];
 
             if (isCorner) {
-                scaleX = (point[0] - oppHandle[0]) / (currHandle[0] - oppHandle[0] || 1);
-                scaleY = (point[1] - oppHandle[1]) / (currHandle[1] - oppHandle[1] || 1);
+                scaleU = Math.abs(dimU) > 0.001 ? (localMouse[0] - oppHandleLocal[0]) / dimU : 1;
+                scaleV = Math.abs(dimV) > 0.001 ? (localMouse[1] - oppHandleLocal[1]) / dimV : 1;
             } else if (isTopBottom) {
-                // Scale only Y, X stays same
-                scaleX = 1;
-                scaleY = (point[1] - oppHandle[1]) / (currHandle[1] - oppHandle[1] || 1);
+                scaleV = Math.abs(dimV) > 0.001 ? (localMouse[1] - oppHandleLocal[1]) / dimV : 1;
             } else if (isLeftRight) {
-                // Scale only X, Y stays same
-                scaleX = (point[0] - oppHandle[0]) / (currHandle[0] - oppHandle[0] || 1);
-                scaleY = 1;
-            } else {
-                scaleX = 1;
-                scaleY = 1;
+                scaleU = Math.abs(dimU) > 0.001 ? (localMouse[0] - oppHandleLocal[0]) / dimU : 1;
             }
 
-            const newPoints = origPoints.map((p: Point) => [
-                oppHandle[0] + (p[0] - oppHandle[0]) * scaleX,
-                oppHandle[1] + (p[1] - oppHandle[1]) * scaleY
-            ] as Point);
+            const newPoints = origPoints.map((p: Point) => {
+                const localP = transformPointToLocal(p, [0, 0], startObb.angle);
+                const scaledLocalP: Point = [
+                    oppHandleLocal[0] + (localP[0] - oppHandleLocal[0]) * scaleU,
+                    oppHandleLocal[1] + (localP[1] - oppHandleLocal[1]) * scaleV
+                ];
+                return transformPointToWorld(scaledLocalP, [0, 0], startObb.angle);
+            });
 
             const newStrokes = strokes.map((s, i) => {
                 if (!shape.indices.includes(i)) return s;
                 const idx1 = shape.polygon.findIndex((p: Point) => distance(p, s.p1) < 0.5);
                 const idx2 = shape.polygon.findIndex((p: Point) => distance(p, s.p2) < 0.5);
                 if (idx1 >= 0 && idx2 >= 0) {
-                    return { p1: newPoints[idx1], p2: newPoints[idx2] };
+                    return { p1: newPoints[idx1] as Point, p2: newPoints[idx2] as Point };
                 }
                 return s;
             });
             onUpdateStrokes(newStrokes);
+
         } else if (transformMode === 'rotate') {
             const shape = selectedShapeIndex !== null ? shapesRef.current[selectedShapeIndex] : null;
             if (!shape) return;
 
-            const angle = Math.atan2(point[1] - origBbox.centerY, point[0] - origBbox.centerX) -
-                Math.atan2(start.point[1] - origBbox.centerY, start.point[0] - origBbox.centerX);
+            // Use OBB center for rotation
+            const startObb = start.startObb;
+            const center = startObb ? startObb.center : [origBbox.centerX, origBbox.centerY];
+
+            const angle = Math.atan2(point[1] - center[1], point[0] - center[0]) -
+                Math.atan2(start.point[1] - center[1], start.point[0] - center[0]);
 
             if (Math.abs(angle) > 0.005) {
-                const center: Point = [origBbox.centerX, origBbox.centerY];
                 const newPoints = origPoints.map((p: Point) => rotatePoint(p, center, angle));
 
                 const newStrokes = strokes.map((s, i) => {
@@ -416,12 +563,11 @@ export const LayoutCanvas = ({
                     const idx1 = shape.polygon.findIndex((p: Point) => distance(p, s.p1) < 0.5);
                     const idx2 = shape.polygon.findIndex((p: Point) => distance(p, s.p2) < 0.5);
                     if (idx1 >= 0 && idx2 >= 0) {
-                        return { p1: newPoints[idx1], p2: newPoints[idx2] };
+                        return { p1: newPoints[idx1] as Point, p2: newPoints[idx2] as Point };
                     }
                     return s;
                 });
                 onUpdateStrokes(newStrokes);
-                dragStartRef.current = { ...start, point };
             }
         }
     };
@@ -551,15 +697,46 @@ export const LayoutCanvas = ({
                     {/* Selection Handles */}
                     {selectedShape && (
                         <svg className="absolute inset-0 z-50 overflow-visible" style={{ pointerEvents: 'none' }} viewBox={`0 0 ${100 * (logicalWidth / logicalHeight)} 100`} preserveAspectRatio="none">
-                            <rect x={selectedShape.bbox.minX} y={selectedShape.bbox.minY}
-                                width={selectedShape.bbox.width} height={selectedShape.bbox.height}
-                                fill="none" stroke="#3b82f6" strokeWidth="0.5" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-                            {getResizeHandles(selectedShape.bbox).map((h, i) => (
-                                <rect key={i} x={h[0] - 3} y={h[1] - 3} width={6} height={6} fill="white" stroke="#3b82f6" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
+                            {/* Rotated Rect */}
+                            <polygon
+                                points={getResizeHandles(selectedShape.obb)
+                                    .filter((_, i) => [0, 2, 4, 6].includes(i)) // corners only for the rect polygon
+                                    .map(p => `${p[0]},${p[1]}`)
+                                    .join(' ')}
+                                fill="none" stroke="#3b82f6" strokeWidth="0.5" strokeDasharray="3 3" vectorEffect="non-scaling-stroke"
+                            />
+
+                            {/* Resize Handles */}
+                            {getResizeHandles(selectedShape.obb).map((h, i) => (
+                                <rect key={i}
+                                    x={h[0] - 3} y={h[1] - 3}
+                                    width={6} height={6}
+                                    fill="white" stroke="#3b82f6" strokeWidth="0.5"
+                                    vectorEffect="non-scaling-stroke"
+                                    transform={`rotate(${selectedShape.obb.angle * 180 / Math.PI}, ${h[0]}, ${h[1]})`}
+                                />
                             ))}
-                            <line x1={selectedShape.bbox.centerX} y1={selectedShape.bbox.minY} x2={selectedShape.bbox.centerX} y2={selectedShape.bbox.minY - 15}
-                                stroke="#3b82f6" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
-                            <circle cx={selectedShape.bbox.centerX} cy={selectedShape.bbox.minY - 15} r={5} fill="white" stroke="#3b82f6" strokeWidth="0.5" />
+
+                            {/* Rotation Handle */}
+                            {(() => {
+                                const obb = selectedShape.obb;
+                                const handles = getResizeHandles(obb); // 0-7, 1 is Top
+                                const topMid = handles[1];
+
+                                // Calculate handle position (offset from topMid by 15 units in local "up" direction)
+                                const cx = (obb.minX + obb.maxX) / 2;
+                                const cy = obb.minY - 15; // Local offset
+                                const rx = cx * Math.cos(obb.angle) - cy * Math.sin(obb.angle);
+                                const ry = cx * Math.sin(obb.angle) + cy * Math.cos(obb.angle);
+
+                                return (
+                                    <>
+                                        <line x1={topMid[0]} y1={topMid[1]} x2={rx} y2={ry}
+                                            stroke="#3b82f6" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
+                                        <circle cx={rx} cy={ry} r={5} fill="white" stroke="#3b82f6" strokeWidth="0.5" />
+                                    </>
+                                );
+                            })()}
                         </svg>
                     )}
                 </div>
