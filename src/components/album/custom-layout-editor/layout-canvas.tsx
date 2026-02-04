@@ -308,7 +308,7 @@ export const LayoutCanvas = ({
 
     const getRotationHandles = (obb: ShapeData['obb']): Point[] => {
         const { minX, maxX, minY, maxY, angle } = obb;
-        const offset = 25;
+        const offset = 12.5;
 
         // Corners in local space
         // TL, TR, BR, BL
@@ -320,38 +320,18 @@ export const LayoutCanvas = ({
         ];
 
         return cornersLocal.map(p => {
-            // Apply offset in world space direction relative to rotation? 
-            // The remote code does: createRotateControl(-0.5, -0.5, -25, -25)
-            // effective x = (width * -0.5) + (-25)
-            // So it's just local coordinate + offset.
-
-            // Wait, standard Fabric controls offset is in screen pixels, usually unrotated?
-            // "getActionHandler: rotationWithSnapping"
-
-            // Let's emulate "Local point pushed out by offset".
-            // Point in local space:
-            const u = p.u; // + (p.ox / scale? No, keep it simple pixels)
+            // Apply offset in world space
+            const u = p.u;
             const v = p.v;
-
-            // To make it consistent with zoom, we might need to handle scale. 
-            // But for now let's apply the offset in the local rotated frame.
 
             // Rotate the corner point to world
             const wx = u * Math.cos(angle) - v * Math.sin(angle);
             const wy = u * Math.sin(angle) + v * Math.cos(angle);
 
-            // Now add the offset vector rotated by angle? 
-            // The remote project offsets are -25, -25. That's diagonal.
-            // If we want them to stick 'out' from the corner, we should rotate the offset vector too.
+            // Rotate the offset vector
             const dox = p.ox * Math.cos(angle) - p.oy * Math.sin(angle);
             const doy = p.ox * Math.sin(angle) + p.oy * Math.cos(angle);
 
-            // Note: The remote offset seems to be screen space in Fabric? 
-            // "offsetX/offsetY: Additional offset from the control position"
-            // Fabric controls render: translate(left, top) -> this is world pos of control.
-            // The control position itself is corner + offset.
-
-            // Let's try rotating the offset vector so it stays relative to the shape orientation.
             return [wx + dox, wy + doy] as Point;
         });
     };
@@ -508,15 +488,20 @@ export const LayoutCanvas = ({
             const dx = point[0] - start.point[0];
             const dy = point[1] - start.point[1];
             if (distance(point, start.point) > 0.5) {
-                const newStrokes = strokes.map((s, i) => {
-                    const shape = shapesRef.current.find(sh => sh.indices.includes(i));
-                    if (shape && shape.polygon.some(p => distance(p, s.p1) < 0.5)) {
-                        return { p1: [s.p1[0] + dx, s.p1[1] + dy] as Point, p2: [s.p2[0] + dx, s.p2[1] + dy] as Point };
-                    }
-                    return s;
-                });
-                onUpdateStrokes(newStrokes);
-                dragStartRef.current = { ...start, point };
+                // BUG FIX: Only move strokes belonging to the selected shape
+                const currentShape = selectedShapeIndex !== null ? shapesRef.current[selectedShapeIndex] : null;
+
+                if (currentShape) {
+                    const newStrokes = strokes.map((s, i) => {
+                        // Only move strokes that are part of the selected shape's indices
+                        if (currentShape.indices.includes(i)) {
+                            return { p1: [s.p1[0] + dx, s.p1[1] + dy] as Point, p2: [s.p2[0] + dx, s.p2[1] + dy] as Point };
+                        }
+                        return s;
+                    });
+                    onUpdateStrokes(newStrokes);
+                    dragStartRef.current = { ...start, point };
+                }
             }
         } else if (transformMode === 'resize' && selectedShapeIndex !== null) {
             const shape = shapesRef.current[selectedShapeIndex];
@@ -749,7 +734,7 @@ export const LayoutCanvas = ({
                                             <line x1={corner[0] - h[0]} y1={corner[1] - h[1]} x2={0} y2={0} stroke="#ec4899" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
                                         )
                                     })()}
-                                    <circle r={4} fill="#ec4899" stroke="white" strokeWidth="1" vectorEffect="non-scaling-stroke" cursor="crosshair" />
+                                    <circle r={1.6} fill="#ec4899" stroke="white" strokeWidth="1" vectorEffect="non-scaling-stroke" cursor="crosshair" />
                                 </g>
                             ))}
 
@@ -761,7 +746,7 @@ export const LayoutCanvas = ({
                                 return (
                                     <circle key={i}
                                         cx={h[0]} cy={h[1]}
-                                        r={3}
+                                        r={1.2}
                                         fill="white" stroke="#3b82f6" strokeWidth="0.5"
                                         vectorEffect="non-scaling-stroke"
                                         transform={`rotate(${selectedShape.obb.angle * 180 / Math.PI}, ${h[0]}, ${h[1]})`}
