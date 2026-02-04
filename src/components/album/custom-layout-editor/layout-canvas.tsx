@@ -60,9 +60,11 @@ export const LayoutCanvas = ({
     const [isSymmetric, setIsSymmetric] = useState(false);
 
     // Refs
+    // Refs
     const currentPathRef = useRef<Point[]>([]);
     const currentStrokeRef = useRef<Segment | null>(null);
     const isDrawingRef = useRef(false);
+    const isRotatingRef = useRef(false);
     const dragStartRef = useRef<{ point: Point; origPoints: Point[]; bbox: ShapeData['bbox']; startObb?: ShapeData['obb'] } | null>(null);
 
     // --- UTILS ---
@@ -77,7 +79,7 @@ export const LayoutCanvas = ({
         return { minX, minY, maxX, maxY, centerX: (minX + maxX) / 2, centerY: (minY + maxY) / 2, width: maxX - minX, height: maxY - minY };
     };
 
-    const getSmartBBox = (points: Point[]): ShapeData['obb'] => {
+    const getSmartBBox = (points: Point[], preferredAngle?: number): ShapeData['obb'] => {
         if (points.length < 3) {
             const bbox = getBoundingBox(points);
             return {
@@ -89,27 +91,11 @@ export const LayoutCanvas = ({
             };
         }
 
-        let minArea = Infinity;
-        let bestObb: ShapeData['obb'] | null = null;
-
-        const edges = [];
-        for (let i = 0; i < points.length; i++) {
-            const p1 = points[i];
-            const p2 = points[(i + 1) % points.length];
-            edges.push({ p1, p2 });
-        }
-
-        for (const edge of edges) {
-            const dx = edge.p2[0] - edge.p1[0];
-            const dy = edge.p2[1] - edge.p1[1];
-            const angle = Math.atan2(dy, dx);
-
-            // Rotate points by -angle to align edge with X axis
+        const computeOBBAtAngle = (rad: number) => {
+            const cos = Math.cos(-rad);
+            const sin = Math.sin(-rad);
             let minU = Infinity, maxU = -Infinity;
             let minV = Infinity, maxV = -Infinity;
-
-            const cos = Math.cos(-angle);
-            const sin = Math.sin(-angle);
 
             for (const p of points) {
                 const u = p[0] * cos - p[1] * sin;
@@ -120,27 +106,52 @@ export const LayoutCanvas = ({
                 maxV = Math.max(maxV, v);
             }
 
-            const area = (maxU - minU) * (maxV - minV);
-            if (area < minArea) {
-                minArea = area;
-                const width = maxU - minU;
-                const height = maxV - minV;
-                const centerU = (minU + maxU) / 2;
-                const centerV = (minV + maxV) / 2;
+            const width = maxU - minU;
+            const height = maxV - minV;
+            const area = width * height;
+            const centerU = (minU + maxU) / 2;
+            const centerV = (minV + maxV) / 2;
 
-                // Rotate center back
-                const cx = centerU * Math.cos(angle) - centerV * Math.sin(angle);
-                const cy = centerU * Math.sin(angle) + centerV * Math.cos(angle);
+            // Rotate center back
+            const cx = centerU * Math.cos(rad) - centerV * Math.sin(rad);
+            const cy = centerU * Math.sin(rad) + centerV * Math.cos(rad);
 
-                bestObb = {
-                    center: [cx, cy],
-                    width,
-                    height,
-                    angle,
-                    minX: minU, maxX: maxU, minY: minV, maxY: maxV
-                };
+            return {
+                center: [cx, cy] as Point,
+                width,
+                height,
+                angle: rad,
+                minX: minU, maxX: maxU, minY: minV, maxY: maxV,
+                area
+            };
+        };
+
+        let minArea = Infinity;
+        let bestObb: (ShapeData['obb'] & { area: number }) | null = null;
+
+        // 1. Check angles from edges
+        for (let i = 0; i < points.length; i++) {
+            const p1 = points[i];
+            const p2 = points[(i + 1) % points.length];
+            const dx = p2[0] - p1[0];
+            const dy = p2[1] - p1[1];
+            const angle = Math.atan2(dy, dx);
+
+            const obb = computeOBBAtAngle(angle);
+            if (obb.area < minArea - 0.001) { // small tolerance for float noise
+                minArea = obb.area;
+                bestObb = obb;
             }
         }
+
+        // 2. Check preferred angle (Stability check)
+        if (preferredAngle !== undefined && bestObb) {
+            const prefObb = computeOBBAtAngle(preferredAngle);
+            if (prefObb.area <= minArea * 1.01) {
+                return prefObb;
+            }
+        }
+
         return bestObb!;
     };
 
@@ -152,7 +163,6 @@ export const LayoutCanvas = ({
         return [center[0] + dx * cos - dy * sin, center[1] + dx * sin + dy * cos] as Point;
     };
 
-    // Inverse rotation (rotate point about origin 0,0 by -angle, or treat as changing basis)
     const transformPointToLocal = (p: Point, center: Point, angle: number): Point => {
         const dx = p[0] - center[0];
         const dy = p[1] - center[1];
@@ -225,7 +235,19 @@ export const LayoutCanvas = ({
             });
 
             const polygon = Array.from(pointSet.values());
-            shapes.push({ indices: component, polygon, bbox: getBoundingBox(polygon), obb: getSmartBBox(polygon) });
+
+            // Try to find matching previous shape to preserve angle
+            let preferredAngle: number | undefined;
+            if (shapesRef.current) {
+                const prev = shapesRef.current.find(s =>
+                    s.indices.length === component.length &&
+                    s.indices.every((val, idx) => val === component[idx])
+                );
+                // Only preserve angle if NOT currently rotating
+                if (prev && !isRotatingRef.current) preferredAngle = prev.obb.angle;
+            }
+
+            shapes.push({ indices: component, polygon, bbox: getBoundingBox(polygon), obb: getSmartBBox(polygon, preferredAngle) });
         }
 
         shapesRef.current = shapes;
@@ -280,21 +302,17 @@ export const LayoutCanvas = ({
         const aspectRatio = logicalWidth / logicalHeight;
         return [relX * 100 * aspectRatio, relY * 100] as Point;
     };
-
     const getResizeHandles = (obb: ShapeData['obb']): Point[] => {
         const { minX, maxX, minY, maxY, angle } = obb;
-        // Local coordinates of handles relative to center
-        // We need to map them to world space
-        // Handles: 0:TL, 1:T, 2:TR, 3:R, 4:BR, 5:B, 6:BL, 7:L
-        const handlesLocal: Point[] = [
-            [minX, minY],        // TL
-            [(minX + maxX) / 2, minY], // T
-            [maxX, minY],        // TR
-            [maxX, (minY + maxY) / 2], // R
-            [maxX, maxY],        // BR
-            [(minX + maxX) / 2, maxY], // B
-            [minX, maxY],        // BL
-            [minX, (minY + maxY) / 2]  // L
+        const handlesLocal = [
+            [minX, minY], // 0: TL
+            [(minX + maxX) / 2, minY], // 1: T
+            [maxX, minY], // 2: TR
+            [maxX, (minY + maxY) / 2], // 3: R
+            [maxX, maxY], // 4: BR
+            [(minX + maxX) / 2, maxY], // 5: B
+            [minX, maxY], // 6: BL
+            [minX, (minY + maxY) / 2]  // 7: L
         ];
 
         return handlesLocal.map(p => {
@@ -375,6 +393,7 @@ export const LayoutCanvas = ({
                 for (let i = 0; i < 4; i++) {
                     if (distance(point, rotHandles[i]) < 10) { // Hit radius
                         setTransformMode('rotate');
+                        isRotatingRef.current = true; // Set rotation flag
                         dragStartRef.current = { point, origPoints: shape.polygon, bbox: shape.bbox, startObb: shape.obb };
                         return;
                     }
@@ -386,6 +405,7 @@ export const LayoutCanvas = ({
                     if (distance(point, handles[i]) < 8) {
                         setResizeHandle(i);
                         setTransformMode('resize');
+                        isRotatingRef.current = false; // Ensure rotation flag is false for resize
                         // Store the OBB state at start of drag
                         dragStartRef.current = {
                             point,
@@ -413,10 +433,12 @@ export const LayoutCanvas = ({
         if (foundIdx >= 0) {
             setSelectedShapeIndex(foundIdx);
             setTransformMode('move');
+            isRotatingRef.current = false; // Ensure rotation flag is false for move
             dragStartRef.current = { point, origPoints: shapes[foundIdx].polygon, bbox: shapes[foundIdx].bbox, startObb: shapes[foundIdx].obb };
         } else {
             setSelectedShapeIndex(null);
             setTransformMode('none');
+            isRotatingRef.current = false; // Ensure rotation flag is false if no shape selected
         }
     };
 
@@ -541,36 +563,34 @@ export const LayoutCanvas = ({
                 scaleU = Math.abs(dimU) > 0.001 ? (localMouse[0] - oppHandleLocal[0]) / dimU : 1;
             }
 
-            // Symmetry Check & Snap
+            // Symmetry Check & Snap (Only for Corners)
             const baseW = startObb.maxX - startObb.minX;
             const baseH = startObb.maxY - startObb.minY;
-            const currW = baseW * Math.abs(scaleU);
-            const currH = baseH * Math.abs(scaleV);
 
-            const snapThreshold = 10;
-            const symmetric = Math.abs(currW - currH) < snapThreshold;
+            // Calculate temp dimensions for check
+            let symmetric = false;
 
-            if (symmetric) {
-                // Determine target size (average or max)
-                const targetSize = (currW + currH) / 2;
+            if (isCorner) {
+                const currW = baseW * Math.abs(scaleU);
+                const currH = baseH * Math.abs(scaleV);
+                const snapThreshold = 10;
 
-                // Adjust scales to achieve targetSize
-                if (isCorner) {
+                if (Math.abs(currW - currH) < snapThreshold) {
+                    symmetric = true;
+                    const targetSize = (currW + currH) / 2;
+
+                    // Adjust scales to achieve targetSize
+                    // Epsilon: Make Height slightly larger to stabilize OBB angle 
+                    // (prevent "perfect circle" ambiguity in getSmartBBox)
+                    const epsilon = 1.001;
+
                     scaleU = (targetSize / baseW) * (scaleU < 0 ? -1 : 1);
-                    scaleV = (targetSize / baseH) * (scaleV < 0 ? -1 : 1);
-                } else if (isTopBottom) {
-                    // Dragging vertical edge -> adjust HEIGHT to match WIDTH
-                    // baseW is constant. targetH = scaled baseW (conceptually square means H=W)
-                    // Actually, if we are snapping Top/Bottom, we are changing Height.
-                    // The WIDTH is fixed at baseW * scaleU (scaleU=1).
-                    // So we want Height = Width.
-                    // newH = baseH * scaleV = baseW
-                    scaleV = (baseW / baseH) * (scaleV < 0 ? -1 : 1);
-                } else if (isLeftRight) {
-                    // Dragging horizontal edge -> adjust WIDTH to match HEIGHT
-                    // newW = baseH
-                    scaleU = (baseH / baseW) * (scaleU < 0 ? -1 : 1);
+                    scaleV = (targetSize * epsilon / baseH) * (scaleV < 0 ? -1 : 1);
                 }
+            }
+
+            if (symmetric !== isSymmetric) {
+                setIsSymmetric(symmetric);
             }
 
             if (symmetric !== isSymmetric) {
