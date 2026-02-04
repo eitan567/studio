@@ -16,6 +16,7 @@ interface LayoutCanvasProps {
     toolMode?: ToolMode;
     strokes?: Segment[];
     onUpdateStrokes?: (strokes: Segment[]) => void;
+    isMirrorMode?: boolean;
 }
 
 type TransformMode = 'none' | 'move' | 'resize' | 'rotate';
@@ -40,7 +41,8 @@ export const LayoutCanvas = ({
     advancedTemplate,
     toolMode = 'select',
     strokes = [],
-    onUpdateStrokes
+    onUpdateStrokes,
+    isMirrorMode = false
 }: LayoutCanvasProps) => {
     const wrapperRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLDivElement>(null);
@@ -846,6 +848,14 @@ export const LayoutCanvas = ({
             }
 
             if (newSegments.length > 0) {
+                if (isMirrorMode && coordinateAspect) {
+                    const totalWidth = 100 * coordinateAspect;
+                    const mirroredSegments = newSegments.map(s => ({
+                        p1: [totalWidth - s.p1[0], s.p1[1]] as Point,
+                        p2: [totalWidth - s.p2[0], s.p2[1]] as Point
+                    }));
+                    newSegments = [...newSegments, ...mirroredSegments];
+                }
                 onUpdateStrokes([...strokes, ...newSegments]);
             }
         }
@@ -1027,7 +1037,15 @@ export const LayoutCanvas = ({
                                 <polyline points={currentPath.map(p => `${p[0]},${p[1]}`).join(' ')} fill="none" stroke="red" strokeWidth="0.75" strokeDasharray="1 1" vectorEffect="non-scaling-stroke" />
                             )}
                             {previewShape && (
-                                <polygon points={previewShape.points.map(p => `${p[0]},${p[1]}`).join(' ')} fill="rgba(255,0,0,0.1)" stroke="red" strokeWidth="0.75" strokeDasharray="2 2" vectorEffect="non-scaling-stroke" />
+                                <>
+                                    <polygon points={previewShape.points.map(p => `${p[0]},${p[1]}`).join(' ')} fill="rgba(255,0,0,0.1)" stroke="red" strokeWidth="0.75" strokeDasharray="2 2" vectorEffect="non-scaling-stroke" />
+                                    {isMirrorMode && (
+                                        <polygon
+                                            points={previewShape.points.map(p => `${(100 * coordinateAspect) - p[0]},${p[1]}`).join(' ')}
+                                            fill="rgba(255,0,0,0.1)" stroke="red" strokeWidth="0.75" strokeDasharray="2 2" vectorEffect="non-scaling-stroke"
+                                        />
+                                    )}
+                                </>
                             )}
                             {/* Selection Box */}
                             {selectionBox && (

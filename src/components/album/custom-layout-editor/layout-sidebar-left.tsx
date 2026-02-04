@@ -3,7 +3,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Layout, Pencil, Square, Circle, Trash2, Play, ImageOff } from 'lucide-react';
+import { Layout, Pencil, Square, Circle, Trash2, Play, ImageOff, FlipHorizontal } from 'lucide-react';
 import { getPhotoCount } from '@/hooks/useTemplates';
 import { AdvancedTemplate, LayoutRegion } from '@/lib/advanced-layout-types';
 import { cn } from '@/lib/utils';
@@ -22,6 +22,8 @@ interface LayoutSidebarLeftProps {
     onToolChange: (mode: ToolMode) => void;
     onClearStrokes: () => void;
     onProcessLayout: () => void;
+    isMirrorMode: boolean;
+    onToggleMirrorMode: () => void;
 }
 
 // Render a single region as SVG element
@@ -142,7 +144,9 @@ export const LayoutSidebarLeft = ({
     toolMode,
     onToolChange,
     onClearStrokes,
-    onProcessLayout
+    onProcessLayout,
+    isMirrorMode,
+    onToggleMirrorMode
 }: LayoutSidebarLeftProps) => {
     return (
         <div className="h-full z-20 flex bg-background">
@@ -196,6 +200,13 @@ export const LayoutSidebarLeft = ({
                                 onClick={() => onToolChange('circle')}
                             >
                                 <Circle className="h-4 w-4" /> Circle
+                            </Button>
+                            <Button
+                                variant={isMirrorMode ? "default" : "outline"}
+                                className="justify-start gap-2 h-9"
+                                onClick={onToggleMirrorMode}
+                            >
+                                <FlipHorizontal className="h-4 w-4" /> Mirror
                             </Button>
                         </div>
 

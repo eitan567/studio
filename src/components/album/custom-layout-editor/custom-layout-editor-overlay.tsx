@@ -84,6 +84,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const [strokes, setStrokes] = useState<Segment[]>([]);
     const [currentStroke, setCurrentStroke] = useState<Segment | null>(null);
     const [currentPath, setCurrentPath] = useState<Point[]>([]);
+    const [isMirrorMode, setIsMirrorMode] = useState(false);
 
     // Handle advanced template selection
     const handleSelectAdvancedTemplate = (template: AdvancedTemplate) => {
@@ -320,6 +321,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                     onToolChange={setToolMode}
                     onClearStrokes={handleClearAll}
                     onProcessLayout={handleProcessLayout}
+                    isMirrorMode={isMirrorMode}
+                    onToggleMirrorMode={() => setIsMirrorMode(!isMirrorMode)}
                 />
 
                 {/* 2. Main Content Area (Canvas) */}
@@ -358,6 +361,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             toolMode={toolMode}
                             strokes={strokes}
                             onUpdateStrokes={setStrokes}
+                            isMirrorMode={isMirrorMode}
                         />
                     </div>
 
