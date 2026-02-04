@@ -679,20 +679,18 @@ export const LayoutCanvas = ({
                     const newIndices = new Set<number>();
                     let nextIdx = strokes.length;
 
-                    // Clone strokes
-                    if (start.affectedStrokeIndices) {
-                        start.affectedStrokeIndices.forEach(idx => {
-                            if (strokes[idx]) {
-                                clones.push({ ...strokes[idx] });
-                                newIndices.add(nextIdx++);
-                            }
-                        });
-                    }
+                    start.affectedStrokeIndices?.forEach(idx => {
+                        if (strokes[idx]) {
+                            clones.push({ ...strokes[idx] });
+                            newIndices.add(nextIdx++);
+                        }
+                    });
 
                     if (clones.length > 0) {
                         currentStrokes = [...strokes, ...clones];
                         indicesToMove = newIndices;
                         start.affectedStrokeIndices = newIndices; // Point to new clones for future moves
+                        setSelectedShapeIndices([]); // Clear selection of original
                     }
                 }
 
@@ -910,6 +908,39 @@ export const LayoutCanvas = ({
                     const newStrokes = strokes.filter((_, i) => !strokesToRemove.has(i));
                     onUpdateStrokes(newStrokes);
                     setSelectedShapeIndices([]);
+                }
+            } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                if (selectedShapeIndices.length > 0 && onUpdateStrokes) {
+                    e.preventDefault();
+                    // Nudge amount: 0.2 units (approx 1-2 pixels)
+                    const delta = e.shiftKey ? 2.0 : 0.2;
+                    let dx = 0;
+                    let dy = 0;
+
+                    if (e.key === 'ArrowUp') dy = -delta;
+                    if (e.key === 'ArrowDown') dy = delta;
+                    if (e.key === 'ArrowLeft') dx = -delta;
+                    if (e.key === 'ArrowRight') dx = delta;
+
+                    const shapes = shapesRef.current;
+                    const indicesToMove = new Set<number>();
+
+                    selectedShapeIndices.forEach(idx => {
+                        const shape = shapes[idx];
+                        if (shape) {
+                            shape.indices.forEach(sIdx => indicesToMove.add(sIdx));
+                        }
+                    });
+
+                    if (indicesToMove.size > 0) {
+                        const newStrokes = strokes.map((s, i) => {
+                            if (indicesToMove.has(i)) {
+                                return { p1: [s.p1[0] + dx, s.p1[1] + dy] as Point, p2: [s.p2[0] + dx, s.p2[1] + dy] as Point };
+                            }
+                            return s;
+                        });
+                        onUpdateStrokes(newStrokes);
+                    }
                 }
             } else if (e.key === 'Escape') {
                 setSelectedShapeIndices([]);
