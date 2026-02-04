@@ -220,27 +220,7 @@ export const LayoutCanvas = ({
 
     const distance = (p1: Point, p2: Point): number => Math.sqrt(Math.pow(p1[0] - p2[0], 2) + Math.pow(p1[1] - p2[1], 2));
 
-    const calculateShapeAngles = (points: Point[]) => {
-        if (points.length < 3) return [];
-        const angles = [];
-        for (let i = 0; i < points.length; i++) {
-            const p1 = points[(i - 1 + points.length) % points.length];
-            const p2 = points[i];
-            const p3 = points[(i + 1) % points.length];
 
-            const v1 = [p1[0] - p2[0], p1[1] - p2[1]];
-            const v2 = [p3[0] - p2[0], p3[1] - p2[1]];
-
-            const dot = v1[0] * v2[0] + v1[1] * v2[1];
-            const mag1 = Math.sqrt(v1[0] * v1[0] + v1[1] * v1[1]);
-            const mag2 = Math.sqrt(v2[0] * v2[0] + v2[1] * v2[1]);
-
-            // Should be 90 for rect
-            let angle = Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2)))) * (180 / Math.PI);
-            angles.push(angle);
-        }
-        return angles;
-    };
 
     // --- SHAPE DETECTION ---
     const shapesRef = useRef<ShapeData[]>([]);
@@ -953,7 +933,7 @@ export const LayoutCanvas = ({
             >
                 <div
                     ref={interactionRef}
-                    className={cn("absolute inset-0 z-10 border border-blue-500", toolMode === 'select' ? "" : "cursor-crosshair")}
+                    className={cn("absolute inset-0 z-10", toolMode === 'select' ? "" : "cursor-crosshair")}
                     style={{
                         padding: 0,
                         margin: `${pageMargin}px`,
@@ -999,7 +979,7 @@ export const LayoutCanvas = ({
 
                     {/* Vector Overlay */}
                     {(strokes.length > 0 || currentStroke || currentPath.length > 0 || previewShape) && (
-                        <svg className="absolute inset-0 z-50 overflow-visible border border-red-500" style={{ pointerEvents: 'none' }} viewBox={`0 0 ${100 * coordinateAspect} 100`} preserveAspectRatio="xMidYMid meet">
+                        <svg className="absolute inset-0 z-50 overflow-visible" style={{ pointerEvents: 'none' }} viewBox={`0 0 ${100 * coordinateAspect} 100`} preserveAspectRatio="xMidYMid meet">
                             {strokes.map((s, i) => {
                                 // Check if this stroke belongs to ANY selected shape
                                 const isSelected = selectedShapeIndices.some(idx => {
@@ -1036,22 +1016,7 @@ export const LayoutCanvas = ({
                     )}
 
                     {/* Shape Info Overlay for Verification */}
-                    {primaryShape && !isDrawing && (
-                        <div className="absolute top-2 right-2 bg-black/75 text-white text-[10px] p-2 rounded pointer-events-none z-50 flex flex-col gap-1 shadow-md backdrop-blur-sm border border-white/10">
-                            <div className="flex justify-between gap-4">
-                                <span className="text-gray-400">Size:</span>
-                                <span className="font-mono">{Math.round(primaryShape.obb.width)} x {Math.round(primaryShape.obb.height)}</span>
-                            </div>
-                            <div className="flex justify-between gap-4">
-                                <span className="text-gray-400">Angles:</span>
-                                <span className="font-mono">{calculateShapeAngles(primaryShape.polygon).map(a => Math.round(a) + '°').join(' ')}</span>
-                            </div>
-                            <div className="flex justify-between gap-4">
-                                <span className="text-gray-400">Aspect:</span>
-                                <span className="font-mono">{coordinateAspect.toFixed(3)}</span>
-                            </div>
-                        </div>
-                    )}
+
 
                     {/* Selection Handles (Only show if ONE shape is selected) */}
                     {primaryShape && (
