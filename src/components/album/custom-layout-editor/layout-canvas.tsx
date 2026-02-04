@@ -57,6 +57,7 @@ export const LayoutCanvas = ({
 
     // Preview state for shapes being drawn
     const [previewShape, setPreviewShape] = useState<{ type: 'rect' | 'circle'; points: Point[] } | null>(null);
+    const [isSymmetric, setIsSymmetric] = useState(false);
 
     // Refs
     const currentPathRef = useRef<Point[]>([]);
@@ -540,6 +541,42 @@ export const LayoutCanvas = ({
                 scaleU = Math.abs(dimU) > 0.001 ? (localMouse[0] - oppHandleLocal[0]) / dimU : 1;
             }
 
+            // Symmetry Check & Snap
+            const baseW = startObb.maxX - startObb.minX;
+            const baseH = startObb.maxY - startObb.minY;
+            const currW = baseW * Math.abs(scaleU);
+            const currH = baseH * Math.abs(scaleV);
+
+            const snapThreshold = 10;
+            const symmetric = Math.abs(currW - currH) < snapThreshold;
+
+            if (symmetric) {
+                // Determine target size (average or max)
+                const targetSize = (currW + currH) / 2;
+
+                // Adjust scales to achieve targetSize
+                if (isCorner) {
+                    scaleU = (targetSize / baseW) * (scaleU < 0 ? -1 : 1);
+                    scaleV = (targetSize / baseH) * (scaleV < 0 ? -1 : 1);
+                } else if (isTopBottom) {
+                    // Dragging vertical edge -> adjust HEIGHT to match WIDTH
+                    // baseW is constant. targetH = scaled baseW (conceptually square means H=W)
+                    // Actually, if we are snapping Top/Bottom, we are changing Height.
+                    // The WIDTH is fixed at baseW * scaleU (scaleU=1).
+                    // So we want Height = Width.
+                    // newH = baseH * scaleV = baseW
+                    scaleV = (baseW / baseH) * (scaleV < 0 ? -1 : 1);
+                } else if (isLeftRight) {
+                    // Dragging horizontal edge -> adjust WIDTH to match HEIGHT
+                    // newW = baseH
+                    scaleU = (baseH / baseW) * (scaleU < 0 ? -1 : 1);
+                }
+            }
+
+            if (symmetric !== isSymmetric) {
+                setIsSymmetric(symmetric);
+            }
+
             const newPoints = origPoints.map((p) => {
                 const localP = transformPointToLocal(p, startObb.center, startObb.angle);
                 const scaledLocalP: Point = [
@@ -618,6 +655,7 @@ export const LayoutCanvas = ({
         setPreviewShape(null);
         setTransformMode('none');
         setResizeHandle(null);
+        setIsSymmetric(false);
         dragStartRef.current = null;
     };
 
@@ -719,7 +757,11 @@ export const LayoutCanvas = ({
                                     .filter((_, i) => [0, 2, 4, 6].includes(i)) // corners only for the rect polygon
                                     .map(p => `${p[0]},${p[1]}`)
                                     .join(' ')}
-                                fill="none" stroke="#3b82f6" strokeWidth="0.5" strokeDasharray="3 3" vectorEffect="non-scaling-stroke"
+                                fill="none"
+                                stroke={isSymmetric ? "#10b981" : "#3b82f6"}
+                                strokeWidth={isSymmetric ? "2" : "0.5"}
+                                strokeDasharray={isSymmetric ? "none" : "3 3"}
+                                vectorEffect="non-scaling-stroke"
                             />
 
                             {/* Rotation Handles (Pink Circles at Corners, Offset) */}
