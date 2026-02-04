@@ -281,12 +281,12 @@ export const LayoutCanvas = ({
     };
 
     const getResizeHandles = (obb: ShapeData['obb']): Point[] => {
-        const { minX, maxX, minY, maxY, center, angle } = obb;
+        const { minX, maxX, minY, maxY, angle } = obb;
         // Local coordinates of handles relative to center
         // We need to map them to world space
         // Handles: 0:TL, 1:T, 2:TR, 3:R, 4:BR, 5:B, 6:BL, 7:L
         const handlesLocal: Point[] = [
-            [minX, minY],        // TL (relative to the rotated basis origin, effectively)
+            [minX, minY],        // TL
             [(minX + maxX) / 2, minY], // T
             [maxX, minY],        // TR
             [maxX, (minY + maxY) / 2], // R
@@ -303,6 +303,56 @@ export const LayoutCanvas = ({
             const x = u * Math.cos(angle) - v * Math.sin(angle);
             const y = u * Math.sin(angle) + v * Math.cos(angle);
             return [x, y] as Point;
+        });
+    };
+
+    const getRotationHandles = (obb: ShapeData['obb']): Point[] => {
+        const { minX, maxX, minY, maxY, angle } = obb;
+        const offset = 25;
+
+        // Corners in local space
+        // TL, TR, BR, BL
+        const cornersLocal: { u: number, v: number, ox: number, oy: number }[] = [
+            { u: minX, v: minY, ox: -offset, oy: -offset }, // TL
+            { u: maxX, v: minY, ox: offset, oy: -offset },  // TR
+            { u: maxX, v: maxY, ox: offset, oy: offset },   // BR
+            { u: minX, v: maxY, ox: -offset, oy: offset }   // BL
+        ];
+
+        return cornersLocal.map(p => {
+            // Apply offset in world space direction relative to rotation? 
+            // The remote code does: createRotateControl(-0.5, -0.5, -25, -25)
+            // effective x = (width * -0.5) + (-25)
+            // So it's just local coordinate + offset.
+
+            // Wait, standard Fabric controls offset is in screen pixels, usually unrotated?
+            // "getActionHandler: rotationWithSnapping"
+
+            // Let's emulate "Local point pushed out by offset".
+            // Point in local space:
+            const u = p.u; // + (p.ox / scale? No, keep it simple pixels)
+            const v = p.v;
+
+            // To make it consistent with zoom, we might need to handle scale. 
+            // But for now let's apply the offset in the local rotated frame.
+
+            // Rotate the corner point to world
+            const wx = u * Math.cos(angle) - v * Math.sin(angle);
+            const wy = u * Math.sin(angle) + v * Math.cos(angle);
+
+            // Now add the offset vector rotated by angle? 
+            // The remote project offsets are -25, -25. That's diagonal.
+            // If we want them to stick 'out' from the corner, we should rotate the offset vector too.
+            const dox = p.ox * Math.cos(angle) - p.oy * Math.sin(angle);
+            const doy = p.ox * Math.sin(angle) + p.oy * Math.cos(angle);
+
+            // Note: The remote offset seems to be screen space in Fabric? 
+            // "offsetX/offsetY: Additional offset from the control position"
+            // Fabric controls render: translate(left, top) -> this is world pos of control.
+            // The control position itself is corner + offset.
+
+            // Let's try rotating the offset vector so it stays relative to the shape orientation.
+            return [wx + dox, wy + doy] as Point;
         });
     };
 
@@ -339,6 +389,17 @@ export const LayoutCanvas = ({
         if (selectedShapeIndex !== null) {
             const shape = shapes[selectedShapeIndex];
             if (shape) {
+                // 1. Rotation Handles (Check first as they are further out)
+                const rotHandles = getRotationHandles(shape.obb);
+                for (let i = 0; i < 4; i++) {
+                    if (distance(point, rotHandles[i]) < 10) { // Hit radius
+                        setTransformMode('rotate');
+                        dragStartRef.current = { point, origPoints: shape.polygon, bbox: shape.bbox, startObb: shape.obb };
+                        return;
+                    }
+                }
+
+                // 2. Resize Handles
                 const handles = getResizeHandles(shape.obb);
                 for (let i = 0; i < 8; i++) {
                     if (distance(point, handles[i]) < 8) {
@@ -353,36 +414,6 @@ export const LayoutCanvas = ({
                         };
                         return;
                     }
-                }
-                // Check rotation handle
-                // Position relative to OBB: Top Center, then offset upwards in local Y (which is minV direction)
-                // obb.minY is the 'top' in local space.
-                // center U is (minX+maxX)/2
-                const topCenterLocal: Point = [(shape.obb.minX + shape.obb.maxX) / 2, shape.obb.minY];
-                // Offset by -15 units in local V direction (up)
-                // Actually in local space (u,v), 'up' depends on how we view it, but V axis?
-                // Visual 'up' relative to the box.
-                // Let's just take topCenterWorld and move 15 units along the 'up' vector of the box.
-                // Up vector world = (0, -1) rotated by angle?
-                // Box angle 0 -> Up is (0, -1).
-                // Box angle 90 -> Up is (-1, 0).
-                // So vector is (-sin(a), -cos(a))? No.
-                // Angle is angle of X axis. Y axis is X + 90.
-                // We want to move 'outwards' from Top.
-                // Top is at minY.
-                // Vector pointing 'out' from Top is -Y axis (0, -1) in local.
-                // Rotate (0, -15) by angle.
-                const cx = topCenterLocal[0];
-                const cy = topCenterLocal[1] - 15; // Local offset
-                const rotHandleX = cx * Math.cos(shape.obb.angle) - cy * Math.sin(shape.obb.angle);
-                const rotHandleY = cx * Math.sin(shape.obb.angle) + cy * Math.cos(shape.obb.angle);
-
-                const rotHandle: Point = [rotHandleX, rotHandleY];
-
-                if (distance(point, rotHandle) < 10) {
-                    setTransformMode('rotate');
-                    dragStartRef.current = { point, origPoints: shape.polygon, bbox: shape.bbox, startObb: shape.obb };
-                    return;
                 }
             }
         }
@@ -496,9 +527,9 @@ export const LayoutCanvas = ({
             if (!startObb) return;
 
             // Local Mouse Point (u, v)
-            const localMouse = transformPointToLocal(point, [0, 0], startObb.angle);
+            const localMouse = transformPointToLocal(point, startObb.center, startObb.angle);
             // Local Handle Orig (u, v)
-            const handles = getResizeHandles(startObb).map(h => transformPointToLocal(h, [0, 0], startObb.angle));
+            const handles = getResizeHandles(startObb).map(h => transformPointToLocal(h, startObb.center, startObb.angle));
 
             const oppHandles = [4, 5, 6, 7, 0, 1, 2, 3];
             const oppIdx = oppHandles[resizeHandle!];
@@ -524,13 +555,13 @@ export const LayoutCanvas = ({
                 scaleU = Math.abs(dimU) > 0.001 ? (localMouse[0] - oppHandleLocal[0]) / dimU : 1;
             }
 
-            const newPoints = origPoints.map((p: Point) => {
-                const localP = transformPointToLocal(p, [0, 0], startObb.angle);
+            const newPoints = origPoints.map((p) => {
+                const localP = transformPointToLocal(p, startObb.center, startObb.angle);
                 const scaledLocalP: Point = [
                     oppHandleLocal[0] + (localP[0] - oppHandleLocal[0]) * scaleU,
                     oppHandleLocal[1] + (localP[1] - oppHandleLocal[1]) * scaleV
                 ];
-                return transformPointToWorld(scaledLocalP, [0, 0], startObb.angle);
+                return transformPointToWorld(scaledLocalP, startObb.center, startObb.angle);
             });
 
             const newStrokes = strokes.map((s, i) => {
@@ -556,7 +587,7 @@ export const LayoutCanvas = ({
                 Math.atan2(start.point[1] - center[1], start.point[0] - center[0]);
 
             if (Math.abs(angle) > 0.005) {
-                const newPoints = origPoints.map((p: Point) => rotatePoint(p, center, angle));
+                const newPoints = origPoints.map((p) => rotatePoint(p, center as Point, angle));
 
                 const newStrokes = strokes.map((s, i) => {
                     if (!shape.indices.includes(i)) return s;
@@ -697,7 +728,7 @@ export const LayoutCanvas = ({
                     {/* Selection Handles */}
                     {selectedShape && (
                         <svg className="absolute inset-0 z-50 overflow-visible" style={{ pointerEvents: 'none' }} viewBox={`0 0 ${100 * (logicalWidth / logicalHeight)} 100`} preserveAspectRatio="none">
-                            {/* Rotated Rect */}
+                            {/* Rotated Rect Outline */}
                             <polygon
                                 points={getResizeHandles(selectedShape.obb)
                                     .filter((_, i) => [0, 2, 4, 6].includes(i)) // corners only for the rect polygon
@@ -706,37 +737,37 @@ export const LayoutCanvas = ({
                                 fill="none" stroke="#3b82f6" strokeWidth="0.5" strokeDasharray="3 3" vectorEffect="non-scaling-stroke"
                             />
 
-                            {/* Resize Handles */}
-                            {getResizeHandles(selectedShape.obb).map((h, i) => (
-                                <rect key={i}
-                                    x={h[0] - 3} y={h[1] - 3}
-                                    width={6} height={6}
-                                    fill="white" stroke="#3b82f6" strokeWidth="0.5"
-                                    vectorEffect="non-scaling-stroke"
-                                    transform={`rotate(${selectedShape.obb.angle * 180 / Math.PI}, ${h[0]}, ${h[1]})`}
-                                />
+                            {/* Rotation Handles (Pink Circles at Corners, Offset) */}
+                            {getRotationHandles(selectedShape.obb).map((h, i) => (
+                                <g key={`rot-${i}`} transform={`translate(${h[0]}, ${h[1]})`}>
+                                    {/* Connector Line from Corner to Rot Handle */}
+                                    {(() => {
+                                        // Find corresponding corner
+                                        const cornerIdx = [0, 2, 4, 6][i]; // TL, TR, BR, BL
+                                        const corner = getResizeHandles(selectedShape.obb)[cornerIdx];
+                                        return (
+                                            <line x1={corner[0] - h[0]} y1={corner[1] - h[1]} x2={0} y2={0} stroke="#ec4899" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
+                                        )
+                                    })()}
+                                    <circle r={4} fill="#ec4899" stroke="white" strokeWidth="1" vectorEffect="non-scaling-stroke" cursor="crosshair" />
+                                </g>
                             ))}
 
-                            {/* Rotation Handle */}
-                            {(() => {
-                                const obb = selectedShape.obb;
-                                const handles = getResizeHandles(obb); // 0-7, 1 is Top
-                                const topMid = handles[1];
-
-                                // Calculate handle position (offset from topMid by 15 units in local "up" direction)
-                                const cx = (obb.minX + obb.maxX) / 2;
-                                const cy = obb.minY - 15; // Local offset
-                                const rx = cx * Math.cos(obb.angle) - cy * Math.sin(obb.angle);
-                                const ry = cx * Math.sin(obb.angle) + cy * Math.cos(obb.angle);
-
+                            {/* Resize Handles (Circles) */}
+                            {getResizeHandles(selectedShape.obb).map((h, i) => {
+                                // Style: Corners are Blue, Sides are White (or keep all valid?)
+                                // Remote used different colors for different things. 
+                                // Let's stick to standard blue for resize, but make them circles.
                                 return (
-                                    <>
-                                        <line x1={topMid[0]} y1={topMid[1]} x2={rx} y2={ry}
-                                            stroke="#3b82f6" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
-                                        <circle cx={rx} cy={ry} r={5} fill="white" stroke="#3b82f6" strokeWidth="0.5" />
-                                    </>
+                                    <circle key={i}
+                                        cx={h[0]} cy={h[1]}
+                                        r={3}
+                                        fill="white" stroke="#3b82f6" strokeWidth="0.5"
+                                        vectorEffect="non-scaling-stroke"
+                                        transform={`rotate(${selectedShape.obb.angle * 180 / Math.PI}, ${h[0]}, ${h[1]})`}
+                                    />
                                 );
-                            })()}
+                            })}
                         </svg>
                     )}
                 </div>
