@@ -105,6 +105,8 @@ export const LayoutCanvas = ({
         isDuplicating?: boolean;
         initialAltKey?: boolean;
         strokeMapping?: Map<number, { p1: number; p2: number }>;
+        mirrorPartnerIndex?: number;
+        affectedMirrorIndices?: Set<number>;
     } | null>(null);
 
     // --- UTILS ---
@@ -511,6 +513,25 @@ export const LayoutCanvas = ({
                 }
             });
 
+            // Detect Mirror Partner (only if single selection)
+            let mirrorPartnerIdx: number | undefined;
+            if (isMirrorMode && newSelection.length === 1 && coordinateAspect) {
+                const totalWidth = 100 * coordinateAspect;
+                const currentShape = shapes[foundIdx];
+                const mirrorX = totalWidth - currentShape.obb.center[0];
+                const mirrorY = currentShape.obb.center[1];
+
+                // Find shape close to mirror position
+                mirrorPartnerIdx = shapes.findIndex((s, idx) => {
+                    if (idx === foundIdx) return false;
+                    const d = Math.sqrt(Math.pow(s.obb.center[0] - mirrorX, 2) + Math.pow(s.obb.center[1] - mirrorY, 2));
+                    // Tolerance 2 units
+                    return d < 2.0 && Math.abs(s.obb.width - currentShape.obb.width) < 1 && Math.abs(s.obb.height - currentShape.obb.height) < 1;
+                });
+
+                if (mirrorPartnerIdx === -1) mirrorPartnerIdx = undefined;
+            }
+
             dragStartRef.current = {
                 point,
                 origPoints: shapes[foundIdx].polygon,
@@ -518,7 +539,8 @@ export const LayoutCanvas = ({
                 startObb: shapes[foundIdx].obb,
                 affectedStrokeIndices: affectedIndices,
                 initialAltKey: e.altKey,
-                isDuplicating: false
+                isDuplicating: false,
+                mirrorPartnerIndex: mirrorPartnerIdx
             };
 
         } else {
@@ -674,37 +696,69 @@ export const LayoutCanvas = ({
                 let currentStrokes = strokes;
                 let indicesToMove = start.affectedStrokeIndices || new Set<number>();
 
+                // Determine Mirror Indices (Lazy load if not yet in ref)
+                let indicesToMirror = start.affectedMirrorIndices || new Set<number>();
+                if (indicesToMirror.size === 0 && start.mirrorPartnerIndex !== undefined) {
+                    const mirrorShape = shapesRef.current[start.mirrorPartnerIndex];
+                    if (mirrorShape) {
+                        mirrorShape.indices.forEach(idx => indicesToMirror.add(idx));
+                    }
+                }
+
                 // Duplication Logic (Alt + Drag)
                 if (start.initialAltKey && !start.isDuplicating) {
                     start.isDuplicating = true;
                     const clones: Segment[] = [];
                     const newIndices = new Set<number>();
+                    const newMirrorIndices = new Set<number>();
                     let nextIdx = strokes.length;
 
-                    start.affectedStrokeIndices?.forEach(idx => {
+                    // Clone Primary
+                    indicesToMove.forEach(idx => {
                         if (strokes[idx]) {
                             clones.push({ ...strokes[idx] });
                             newIndices.add(nextIdx++);
                         }
                     });
 
+                    // Clone Mirror
+                    indicesToMirror.forEach(idx => {
+                        if (strokes[idx]) {
+                            clones.push({ ...strokes[idx] });
+                            newMirrorIndices.add(nextIdx++);
+                        }
+                    });
+
                     if (clones.length > 0) {
                         currentStrokes = [...strokes, ...clones];
                         indicesToMove = newIndices;
-                        start.affectedStrokeIndices = newIndices; // Point to new clones for future moves
+                        indicesToMirror = newMirrorIndices;
+
+                        // Update ref to track the NEW clones
+                        start.affectedStrokeIndices = newIndices;
+                        start.affectedMirrorIndices = newMirrorIndices;
                         setSelectedShapeIndices([]); // Clear selection of original
                     }
                 }
 
-                if (indicesToMove.size > 0) {
+                if (indicesToMove.size > 0 || indicesToMirror.size > 0) {
                     const newStrokes = currentStrokes.map((s, i) => {
                         if (indicesToMove.has(i)) {
                             return { p1: [s.p1[0] + dx, s.p1[1] + dy] as Point, p2: [s.p2[0] + dx, s.p2[1] + dy] as Point };
                         }
+                        if (indicesToMirror.has(i)) {
+                            // Mirror move: -dx (horizontal flip), +dy (same vertical)
+                            return { p1: [s.p1[0] - dx, s.p1[1] + dy] as Point, p2: [s.p2[0] - dx, s.p2[1] + dy] as Point };
+                        }
                         return s;
                     });
                     onUpdateStrokes(newStrokes);
-                    dragStartRef.current = { ...start, point };
+                    // Persist the potentially updated indices (if lazy loaded or duped)
+                    dragStartRef.current = {
+                        ...start,
+                        point,
+                        affectedMirrorIndices: indicesToMirror
+                    };
                 }
             }
         } else if (transformMode === 'resize' && selectedShapeIndices.length === 1) {
