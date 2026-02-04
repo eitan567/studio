@@ -46,6 +46,32 @@ export const LayoutCanvas = ({
     const canvasRef = useRef<HTMLDivElement>(null);
     const interactionRef = useRef<HTMLDivElement>(null);
 
+    // --- CONFIG & DIMENSIONS ---
+    const BASE_PAGE_PX = 450;
+    let configW = 20, configH = 20;
+    if (config?.size) {
+        const parts = config.size.split('x').map(Number);
+        if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+            configW = parts[0];
+            configH = parts[1];
+        }
+    }
+
+    const pxPerUnit = BASE_PAGE_PX / configH;
+    const pageW_px = configW * pxPerUnit;
+    const pageH_px = BASE_PAGE_PX;
+    const isFull = page.spreadMode === 'full';
+    const logicalWidth = pageW_px * 2;
+    const logicalHeight = pageH_px;
+    const photoGap = page.photoGap ?? config?.photoGap ?? 0;
+    const pageMargin = page.pageMargin ?? config?.pageMargin ?? 0;
+    const backgroundColor = config?.backgroundColor || '#ffffff';
+
+    // FIX: Aspect Ratio for corrections
+    const innerLogicalWidth = logicalWidth - pageMargin * 2;
+    const innerLogicalHeight = logicalHeight - pageMargin * 2;
+    const coordinateAspect = innerLogicalWidth / innerLogicalHeight;
+
     // --- STATE ---
     const [scale, setScale] = useState(1);
     const [isDrawing, setIsDrawing] = useState(false);
@@ -76,6 +102,7 @@ export const LayoutCanvas = ({
         affectedStrokeIndices?: Set<number>;
         isDuplicating?: boolean;
         initialAltKey?: boolean;
+        strokeMapping?: Map<number, { p1: number; p2: number }>;
     } | null>(null);
 
     // --- UTILS ---
@@ -193,6 +220,28 @@ export const LayoutCanvas = ({
 
     const distance = (p1: Point, p2: Point): number => Math.sqrt(Math.pow(p1[0] - p2[0], 2) + Math.pow(p1[1] - p2[1], 2));
 
+    const calculateShapeAngles = (points: Point[]) => {
+        if (points.length < 3) return [];
+        const angles = [];
+        for (let i = 0; i < points.length; i++) {
+            const p1 = points[(i - 1 + points.length) % points.length];
+            const p2 = points[i];
+            const p3 = points[(i + 1) % points.length];
+
+            const v1 = [p1[0] - p2[0], p1[1] - p2[1]];
+            const v2 = [p3[0] - p2[0], p3[1] - p2[1]];
+
+            const dot = v1[0] * v2[0] + v1[1] * v2[1];
+            const mag1 = Math.sqrt(v1[0] * v1[0] + v1[1] * v1[1]);
+            const mag2 = Math.sqrt(v2[0] * v2[0] + v2[1] * v2[1]);
+
+            // Should be 90 for rect
+            let angle = Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2)))) * (180 / Math.PI);
+            angles.push(angle);
+        }
+        return angles;
+    };
+
     // --- SHAPE DETECTION ---
     const shapesRef = useRef<ShapeData[]>([]);
 
@@ -266,27 +315,6 @@ export const LayoutCanvas = ({
 
     useEffect(() => { detectShapes(strokes); }, [strokes, detectShapes]);
 
-    // --- CONFIG ---
-    const BASE_PAGE_PX = 450;
-    let configW = 20, configH = 20;
-    if (config?.size) {
-        const parts = config.size.split('x').map(Number);
-        if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-            configW = parts[0];
-            configH = parts[1];
-        }
-    }
-
-    const pxPerUnit = BASE_PAGE_PX / configH;
-    const pageW_px = configW * pxPerUnit;
-    const pageH_px = BASE_PAGE_PX;
-    const isFull = page.spreadMode === 'full';
-    const logicalWidth = pageW_px * 2;
-    const logicalHeight = pageH_px;
-    const photoGap = page.photoGap ?? config?.photoGap ?? 0;
-    const pageMargin = page.pageMargin ?? config?.pageMargin ?? 0;
-    const backgroundColor = config?.backgroundColor || '#ffffff';
-
     // --- AUTO-SCALE ---
     useEffect(() => {
         if (!wrapperRef.current) return;
@@ -306,13 +334,7 @@ export const LayoutCanvas = ({
     }, [logicalWidth, logicalHeight]);
 
     // --- MOUSE HANDLERS ---
-    const getPointFromEvent = (clientX: number, clientY: number, rect: DOMRect): Point | null => {
-        if (!rect.width || !rect.height) return null;
-        const relX = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-        const relY = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
-        const aspectRatio = logicalWidth / logicalHeight;
-        return [relX * 100 * aspectRatio, relY * 100] as Point;
-    };
+
     const getResizeHandles = (obb: ShapeData['obb']): Point[] => {
         const { minX, maxX, minY, maxY, angle } = obb;
         const handlesLocal = [
@@ -366,6 +388,34 @@ export const LayoutCanvas = ({
         });
     };
 
+    // Updated to use coordinateAspect based on inner drawing area to prevent skew
+    const getPointFromEvent = (clientX: number, clientY: number, rect: DOMRect) => {
+        if (!rect.width || !rect.height) return null;
+
+        const domRatio = rect.width / rect.height;
+        let drawWidth = rect.width;
+        let drawHeight = rect.height;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        // "meet" logic:
+        // If DOM is wider than Content (domRatio > coordinateAspect) -> Pillarbox (Left/Right bars)
+        // If DOM is taller than Content (domRatio < coordinateAspect) -> Letterbox (Top/Bottom bars)
+
+        if (domRatio > coordinateAspect) {
+            drawWidth = drawHeight * coordinateAspect;
+            offsetX = (rect.width - drawWidth) / 2;
+        } else if (domRatio < coordinateAspect) {
+            drawHeight = drawWidth / coordinateAspect;
+            offsetY = (rect.height - drawHeight) / 2;
+        }
+
+        const x = (clientX - rect.left - offsetX) / drawWidth * (100 * coordinateAspect);
+        const y = (clientY - rect.top - offsetY) / drawHeight * 100;
+
+        return [x, y] as Point;
+    };
+
     const handleMouseDown = (e: React.MouseEvent) => {
         if (toolMode === 'select' || !onUpdateStrokes) return;
         const rect = e.currentTarget.getBoundingClientRect();
@@ -400,6 +450,18 @@ export const LayoutCanvas = ({
         if (primaryIdx !== null) {
             const shape = shapes[primaryIdx];
             if (shape) {
+                // Compute Stroke Mapping for Rigid Transformation
+                const strokeMapping = new Map<number, { p1: number; p2: number }>();
+                shape.indices.forEach(idx => {
+                    const s = strokes[idx];
+                    // Using very small epsilon to match exact vertices
+                    const idx1 = shape.polygon.findIndex(p => distance(p, s.p1) < 0.1);
+                    const idx2 = shape.polygon.findIndex(p => distance(p, s.p2) < 0.1);
+                    if (idx1 >= 0 && idx2 >= 0) {
+                        strokeMapping.set(idx, { p1: idx1, p2: idx2 });
+                    }
+                });
+
                 // Rotation Handles
                 const rotHandles = getRotationHandles(shape.obb);
                 for (let i = 0; i < 4; i++) {
@@ -407,7 +469,7 @@ export const LayoutCanvas = ({
                     if (distance(point, rotHandles[i]) < 2.0) {
                         setTransformMode('rotate');
                         isRotatingRef.current = true;
-                        dragStartRef.current = { point, origPoints: shape.polygon, bbox: shape.bbox, startObb: shape.obb };
+                        dragStartRef.current = { point, origPoints: shape.polygon, bbox: shape.bbox, startObb: shape.obb, strokeMapping };
                         return;
                     }
                 }
@@ -422,7 +484,7 @@ export const LayoutCanvas = ({
                         setResizeHandle(i);
                         setTransformMode('resize');
                         isRotatingRef.current = false;
-                        dragStartRef.current = { point, origPoints: shape.polygon, bbox: shape.bbox, startObb: shape.obb };
+                        dragStartRef.current = { point, origPoints: shape.polygon, bbox: shape.bbox, startObb: shape.obb, strokeMapping };
                         return;
                     }
                 }
@@ -751,11 +813,10 @@ export const LayoutCanvas = ({
             });
 
             const newStrokes = strokes.map((s, i) => {
-                if (!shape.indices.includes(i)) return s;
-                const idx1 = shape.polygon.findIndex((p: Point) => distance(p, s.p1) < 0.5);
-                const idx2 = shape.polygon.findIndex((p: Point) => distance(p, s.p2) < 0.5);
-                if (idx1 >= 0 && idx2 >= 0) {
-                    return { p1: newPoints[idx1] as Point, p2: newPoints[idx2] as Point };
+                // Robust mapping from drag start
+                const mapping = start.strokeMapping?.get(i);
+                if (mapping) {
+                    return { p1: newPoints[mapping.p1] as Point, p2: newPoints[mapping.p2] as Point };
                 }
                 return s;
             });
@@ -778,11 +839,10 @@ export const LayoutCanvas = ({
                 const newPoints = origPoints.map((p) => rotatePoint(p, center as Point, angle));
 
                 const newStrokes = strokes.map((s, i) => {
-                    if (!shape.indices.includes(i)) return s;
-                    const idx1 = shape.polygon.findIndex((p: Point) => distance(p, s.p1) < 0.5);
-                    const idx2 = shape.polygon.findIndex((p: Point) => distance(p, s.p2) < 0.5);
-                    if (idx1 >= 0 && idx2 >= 0) {
-                        return { p1: newPoints[idx1] as Point, p2: newPoints[idx2] as Point };
+                    // Robust mapping from drag start
+                    const mapping = start.strokeMapping?.get(i);
+                    if (mapping) {
+                        return { p1: newPoints[mapping.p1] as Point, p2: newPoints[mapping.p2] as Point };
                     }
                     return s;
                 });
@@ -888,12 +948,12 @@ export const LayoutCanvas = ({
         <div ref={wrapperRef} className="w-full h-full bg-muted/20 overflow-hidden relative flex items-center justify-center select-none">
             <div
                 ref={canvasRef}
-                style={{ width: logicalWidth, height: logicalHeight, transform: `scale(${scale})`, backgroundColor, border: '1px solid #ccc' }}
-                className="relative overflow-hidden"
+                style={{ width: logicalWidth, height: logicalHeight, transform: `scale(${scale})`, backgroundColor }}
+                className="relative overflow-hidden ring-1 ring-gray-300"
             >
                 <div
                     ref={interactionRef}
-                    className={cn("absolute inset-0 z-10", toolMode === 'select' ? "" : "cursor-crosshair")}
+                    className={cn("absolute inset-0 z-10 border border-blue-500", toolMode === 'select' ? "" : "cursor-crosshair")}
                     style={{
                         padding: 0,
                         margin: `${pageMargin}px`,
@@ -939,7 +999,7 @@ export const LayoutCanvas = ({
 
                     {/* Vector Overlay */}
                     {(strokes.length > 0 || currentStroke || currentPath.length > 0 || previewShape) && (
-                        <svg className="absolute inset-0 z-50 overflow-visible" style={{ pointerEvents: 'none' }} viewBox={`0 0 ${100 * (logicalWidth / logicalHeight)} 100`} preserveAspectRatio="none">
+                        <svg className="absolute inset-0 z-50 overflow-visible border border-red-500" style={{ pointerEvents: 'none' }} viewBox={`0 0 ${100 * coordinateAspect} 100`} preserveAspectRatio="xMidYMid meet">
                             {strokes.map((s, i) => {
                                 // Check if this stroke belongs to ANY selected shape
                                 const isSelected = selectedShapeIndices.some(idx => {
@@ -975,9 +1035,27 @@ export const LayoutCanvas = ({
                         </svg>
                     )}
 
+                    {/* Shape Info Overlay for Verification */}
+                    {primaryShape && !isDrawing && (
+                        <div className="absolute top-2 right-2 bg-black/75 text-white text-[10px] p-2 rounded pointer-events-none z-50 flex flex-col gap-1 shadow-md backdrop-blur-sm border border-white/10">
+                            <div className="flex justify-between gap-4">
+                                <span className="text-gray-400">Size:</span>
+                                <span className="font-mono">{Math.round(primaryShape.obb.width)} x {Math.round(primaryShape.obb.height)}</span>
+                            </div>
+                            <div className="flex justify-between gap-4">
+                                <span className="text-gray-400">Angles:</span>
+                                <span className="font-mono">{calculateShapeAngles(primaryShape.polygon).map(a => Math.round(a) + '°').join(' ')}</span>
+                            </div>
+                            <div className="flex justify-between gap-4">
+                                <span className="text-gray-400">Aspect:</span>
+                                <span className="font-mono">{coordinateAspect.toFixed(3)}</span>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Selection Handles (Only show if ONE shape is selected) */}
                     {primaryShape && (
-                        <svg className="absolute inset-0 z-50 overflow-visible" style={{ pointerEvents: 'none' }} viewBox={`0 0 ${100 * (logicalWidth / logicalHeight)} 100`} preserveAspectRatio="none">
+                        <svg className="absolute inset-0 z-50 overflow-visible" style={{ pointerEvents: 'none' }} viewBox={`0 0 ${100 * coordinateAspect} 100`} preserveAspectRatio="xMidYMid meet">
                             {/* Rotated Rect Outline */}
                             <polygon
                                 points={getResizeHandles(primaryShape.obb)
