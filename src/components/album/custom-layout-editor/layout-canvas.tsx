@@ -51,9 +51,10 @@ export const LayoutCanvas = ({
     const [isDrawing, setIsDrawing] = useState(false);
     const [currentStroke, setCurrentStroke] = useState<Segment | null>(null);
     const [currentPath, setCurrentPath] = useState<Point[]>([]);
-    const [selectedShapeIndex, setSelectedShapeIndex] = useState<number | null>(null);
+    const [selectedShapeIndices, setSelectedShapeIndices] = useState<number[]>([]);
     const [transformMode, setTransformMode] = useState<TransformMode>('none');
     const [resizeHandle, setResizeHandle] = useState<number | null>(null);
+    const [selectionBox, setSelectionBox] = useState<{ start: Point; end: Point } | null>(null);
 
     // Preview state for shapes being drawn
     const [previewShape, setPreviewShape] = useState<{ type: 'rect' | 'circle'; points: Point[] } | null>(null);
@@ -65,7 +66,15 @@ export const LayoutCanvas = ({
     const currentStrokeRef = useRef<Segment | null>(null);
     const isDrawingRef = useRef(false);
     const isRotatingRef = useRef(false);
-    const dragStartRef = useRef<{ point: Point; origPoints: Point[]; bbox: ShapeData['bbox']; startObb?: ShapeData['obb'] } | null>(null);
+    // Modified to support multi-selection move
+    const dragStartRef = useRef<{
+        point: Point;
+        origPoints: Point[];
+        bbox: ShapeData['bbox'];
+        startObb?: ShapeData['obb'];
+        // Map of shape index -> original points (for multi-move)
+        multiShapes?: Map<number, Point[]>;
+    } | null>(null);
 
     // --- UTILS ---
     const getBoundingBox = (polygon: Point[]) => {
@@ -383,62 +392,90 @@ export const LayoutCanvas = ({
         if (!point) return;
 
         const shapes = shapesRef.current;
+        const primaryIdx = selectedShapeIndices.length === 1 ? selectedShapeIndices[0] : null;
 
-        // Check resize handles
-        if (selectedShapeIndex !== null) {
-            const shape = shapes[selectedShapeIndex];
+        // 1. Check Resize/Rotate Handles (Only if exactly one shape is selected)
+        if (primaryIdx !== null) {
+            const shape = shapes[primaryIdx];
             if (shape) {
-                // 1. Rotation Handles (Check first as they are further out)
+                // Rotation Handles
                 const rotHandles = getRotationHandles(shape.obb);
                 for (let i = 0; i < 4; i++) {
-                    if (distance(point, rotHandles[i]) < 10) { // Hit radius
+                    if (distance(point, rotHandles[i]) < 10) {
                         setTransformMode('rotate');
-                        isRotatingRef.current = true; // Set rotation flag
+                        isRotatingRef.current = true;
                         dragStartRef.current = { point, origPoints: shape.polygon, bbox: shape.bbox, startObb: shape.obb };
                         return;
                     }
                 }
 
-                // 2. Resize Handles
+                // Resize Handles
                 const handles = getResizeHandles(shape.obb);
                 for (let i = 0; i < 8; i++) {
                     if (distance(point, handles[i]) < 8) {
                         setResizeHandle(i);
                         setTransformMode('resize');
-                        isRotatingRef.current = false; // Ensure rotation flag is false for resize
-                        // Store the OBB state at start of drag
-                        dragStartRef.current = {
-                            point,
-                            origPoints: shape.polygon,
-                            bbox: shape.bbox, // keep for compat
-                            startObb: shape.obb // New: Keep original OBB for stable resizing
-                        };
+                        isRotatingRef.current = false;
+                        dragStartRef.current = { point, origPoints: shape.polygon, bbox: shape.bbox, startObb: shape.obb };
                         return;
                     }
                 }
             }
         }
 
-        // Find shape by bbox
+        // 2. Check Shape Hit
         let foundIdx = -1;
+        // Check in reverse order (topmost first)
         for (let i = shapes.length - 1; i >= 0; i--) {
             const bbox = shapes[i].bbox;
             if (point[0] >= bbox.minX - 3 && point[0] <= bbox.maxX + 3 &&
                 point[1] >= bbox.minY - 3 && point[1] <= bbox.maxY + 3) {
+                // Polygon check could be more precise, but bbox is okay for selection
                 foundIdx = i;
                 break;
             }
         }
 
         if (foundIdx >= 0) {
-            setSelectedShapeIndex(foundIdx);
+            // Clicked on a shape
+            let newSelection = [...selectedShapeIndices];
+
+            // If strictly new selection (clicked shape not currently selected), select ONLY it
+            // (Unless we add Shift key support later)
+            if (!newSelection.includes(foundIdx)) {
+                newSelection = [foundIdx];
+                setSelectedShapeIndices(newSelection);
+            }
+            // If clicked shape IS selected, we keep the group selection to allow moving the group.
+
             setTransformMode('move');
-            isRotatingRef.current = false; // Ensure rotation flag is false for move
-            dragStartRef.current = { point, origPoints: shapes[foundIdx].polygon, bbox: shapes[foundIdx].bbox, startObb: shapes[foundIdx].obb };
+            isRotatingRef.current = false;
+
+            // Store original points for ALL selected shapes (for group move)
+            const multiShapes = new Map<number, Point[]>();
+            newSelection.forEach(idx => {
+                if (shapes[idx]) {
+                    multiShapes.set(idx, shapes[idx].polygon);
+                }
+            });
+
+            // For compatibility, dragStartRef mostly stores the "primary" or clicked shape stats,
+            // but we add 'multiShapes' for the move logic.
+            dragStartRef.current = {
+                point,
+                origPoints: shapes[foundIdx].polygon,
+                bbox: shapes[foundIdx].bbox,
+                startObb: shapes[foundIdx].obb,
+                multiShapes
+            };
+
         } else {
-            setSelectedShapeIndex(null);
-            setTransformMode('none');
-            isRotatingRef.current = false; // Ensure rotation flag is false if no shape selected
+            // Clicked on empty space -> Start Selection Box
+            setSelectedShapeIndices([]); // Clear selection
+            setSelectionBox({ start: point, end: point });
+            setTransformMode('none'); // We'll handle box update in mouseMove, maybe distinct mode?
+            // Actually, let's use a flag or check selectionBox !== null
+            isRotatingRef.current = false;
         }
     };
 
@@ -500,24 +537,37 @@ export const LayoutCanvas = ({
             return;
         }
 
+        // Selection Box Update
+        if (selectionBox && transformMode === 'none') {
+            setSelectionBox({ ...selectionBox, end: point });
+            return;
+        }
+
         // Transform mode
         if (transformMode === 'none' || !dragStartRef.current) return;
 
         const start = dragStartRef.current;
-        const origPoints = start.origPoints;
-        const origBbox = start.bbox;
 
+        // Multi-Move Logic
         if (transformMode === 'move') {
             const dx = point[0] - start.point[0];
             const dy = point[1] - start.point[1];
-            if (distance(point, start.point) > 0.5) {
-                // BUG FIX: Only move strokes belonging to the selected shape
-                const currentShape = selectedShapeIndex !== null ? shapesRef.current[selectedShapeIndex] : null;
 
-                if (currentShape) {
+            if (distance(point, start.point) > 0.5) {
+                // Determine affected strokes (union of all selected shapes)
+                const shapes = shapesRef.current;
+                const affectedIndices = new Set<number>();
+
+                selectedShapeIndices.forEach(shapeIdx => {
+                    const shape = shapes[shapeIdx];
+                    if (shape) {
+                        shape.indices.forEach(idx => affectedIndices.add(idx));
+                    }
+                });
+
+                if (affectedIndices.size > 0) {
                     const newStrokes = strokes.map((s, i) => {
-                        // Only move strokes that are part of the selected shape's indices
-                        if (currentShape.indices.includes(i)) {
+                        if (affectedIndices.has(i)) {
                             return { p1: [s.p1[0] + dx, s.p1[1] + dy] as Point, p2: [s.p2[0] + dx, s.p2[1] + dy] as Point };
                         }
                         return s;
@@ -526,12 +576,13 @@ export const LayoutCanvas = ({
                     dragStartRef.current = { ...start, point };
                 }
             }
-        } else if (transformMode === 'resize' && selectedShapeIndex !== null) {
-            const shape = shapesRef.current[selectedShapeIndex];
+        } else if (transformMode === 'resize' && selectedShapeIndices.length === 1) {
+            // Single Shape Resize
+            const shape = shapesRef.current[selectedShapeIndices[0]];
             if (!shape) return;
 
-            // USE OBB logic for resize
             const startObb = start.startObb;
+            const origPoints = start.origPoints; // This should be correct for single shape
             if (!startObb) return;
 
             // Local Mouse Point (u, v)
@@ -577,13 +628,9 @@ export const LayoutCanvas = ({
 
                 if (Math.abs(currW - currH) < snapThreshold) {
                     symmetric = true;
+                    // ... (existing symmetry logic) ...
                     const targetSize = (currW + currH) / 2;
-
-                    // Adjust scales to achieve targetSize
-                    // Epsilon: Make Height slightly larger to stabilize OBB angle 
-                    // (prevent "perfect circle" ambiguity in getSmartBBox)
                     const epsilon = 1.001;
-
                     scaleU = (targetSize / baseW) * (scaleU < 0 ? -1 : 1);
                     scaleV = (targetSize * epsilon / baseH) * (scaleV < 0 ? -1 : 1);
                 }
@@ -593,8 +640,16 @@ export const LayoutCanvas = ({
                 setIsSymmetric(symmetric);
             }
 
-            if (symmetric !== isSymmetric) {
-                setIsSymmetric(symmetric);
+            // Min Size Constraint (20px)
+            const minSize = 20;
+            const currentW = Math.abs(baseW * scaleU);
+            const currentH = Math.abs(baseH * scaleV);
+
+            if (currentW < minSize) {
+                scaleU = (minSize / baseW) * (scaleU < 0 ? -1 : 1);
+            }
+            if (currentH < minSize) {
+                scaleV = (minSize / baseH) * (scaleV < 0 ? -1 : 1);
             }
 
             const newPoints = origPoints.map((p) => {
@@ -617,12 +672,14 @@ export const LayoutCanvas = ({
             });
             onUpdateStrokes(newStrokes);
 
-        } else if (transformMode === 'rotate') {
-            const shape = selectedShapeIndex !== null ? shapesRef.current[selectedShapeIndex] : null;
+        } else if (transformMode === 'rotate' && selectedShapeIndices.length === 1) {
+            const shape = shapesRef.current[selectedShapeIndices[0]];
             if (!shape) return;
 
-            // Use OBB center for rotation
             const startObb = start.startObb;
+            const origPoints = start.origPoints;
+            // Use OBB center for rotation
+            const origBbox = start.bbox;
             const center = startObb ? startObb.center : [origBbox.centerX, origBbox.centerY];
 
             const angle = Math.atan2(point[1] - center[1], point[0] - center[0]) -
@@ -666,6 +723,28 @@ export const LayoutCanvas = ({
             }
         }
 
+        // Finalize Selection Box
+        if (selectionBox) {
+            const shapes = shapesRef.current;
+            const boxMinX = Math.min(selectionBox.start[0], selectionBox.end[0]);
+            const boxMaxX = Math.max(selectionBox.start[0], selectionBox.end[0]);
+            const boxMinY = Math.min(selectionBox.start[1], selectionBox.end[1]);
+            const boxMaxY = Math.max(selectionBox.start[1], selectionBox.end[1]);
+
+            // Find shapes intersecting the selection box
+            const indices: number[] = [];
+            shapes.forEach((shape, i) => {
+                const s = shape.bbox;
+                // AABB Intersection Test
+                const overlaps = !(boxMaxX < s.minX || boxMinX > s.maxX || boxMaxY < s.minY || boxMinY > s.maxY);
+                if (overlaps) {
+                    indices.push(i);
+                }
+            });
+            setSelectedShapeIndices(indices);
+            setSelectionBox(null);
+        }
+
         setIsDrawing(false);
         isDrawingRef.current = false;
         setCurrentStroke(null);
@@ -681,25 +760,40 @@ export const LayoutCanvas = ({
 
     // Keyboard handler
     useEffect(() => {
-        if (toolMode !== 'select' || selectedShapeIndex === null || !onUpdateStrokes) return;
+        if (toolMode !== 'select' || selectedShapeIndices.length === 0 || !onUpdateStrokes) return;
+
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Delete' || e.key === 'Backspace') {
                 e.preventDefault();
-                const shape = shapesRef.current[selectedShapeIndex];
-                if (shape) {
-                    const newStrokes = strokes.filter((_, i) => !shape.indices.includes(i));
+
+                // Identify all strokes to remove
+                const shapes = shapesRef.current;
+                const strokesToRemove = new Set<number>();
+
+                selectedShapeIndices.forEach(idx => {
+                    const shape = shapes[idx];
+                    if (shape) {
+                        shape.indices.forEach(sIdx => strokesToRemove.add(sIdx));
+                    }
+                });
+
+                if (strokesToRemove.size > 0) {
+                    const newStrokes = strokes.filter((_, i) => !strokesToRemove.has(i));
                     onUpdateStrokes(newStrokes);
-                    setSelectedShapeIndex(null);
+                    setSelectedShapeIndices([]);
                 }
             } else if (e.key === 'Escape') {
-                setSelectedShapeIndex(null);
+                setSelectedShapeIndices([]);
+                setSelectionBox(null);
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [toolMode, selectedShapeIndex, strokes, onUpdateStrokes]);
+    }, [toolMode, selectedShapeIndices, strokes, onUpdateStrokes]);
 
-    const selectedShape = selectedShapeIndex !== null ? shapesRef.current[selectedShapeIndex] : null;
+    // Derived state for rendering
+    const primaryShapeIndex = selectedShapeIndices.length === 1 ? selectedShapeIndices[0] : null;
+    const primaryShape = primaryShapeIndex !== null ? shapesRef.current[primaryShapeIndex] : null;
 
     return (
         <div ref={wrapperRef} className="w-full h-full bg-muted/20 overflow-hidden relative flex items-center justify-center select-none">
@@ -752,7 +846,11 @@ export const LayoutCanvas = ({
                     {(strokes.length > 0 || currentStroke || currentPath.length > 0 || previewShape) && (
                         <svg className="absolute inset-0 z-50 overflow-visible" style={{ pointerEvents: 'none' }} viewBox={`0 0 ${100 * (logicalWidth / logicalHeight)} 100`} preserveAspectRatio="none">
                             {strokes.map((s, i) => {
-                                const isSelected = selectedShape?.indices.includes(i);
+                                // Check if this stroke belongs to ANY selected shape
+                                const isSelected = selectedShapeIndices.some(idx => {
+                                    const shape = shapesRef.current[idx];
+                                    return shape && shape.indices.includes(i);
+                                });
                                 return (
                                     <line key={i} x1={s.p1[0]} y1={s.p1[1]} x2={s.p2[0]} y2={s.p2[1]}
                                         stroke={isSelected ? "#3b82f6" : "black"} strokeWidth={isSelected ? "0.75" : "0.5"}
@@ -765,15 +863,29 @@ export const LayoutCanvas = ({
                             {previewShape && (
                                 <polygon points={previewShape.points.map(p => `${p[0]},${p[1]}`).join(' ')} fill="rgba(255,0,0,0.1)" stroke="red" strokeWidth="0.75" strokeDasharray="2 2" vectorEffect="non-scaling-stroke" />
                             )}
+                            {/* Selection Box */}
+                            {selectionBox && (
+                                <rect
+                                    x={Math.min(selectionBox.start[0], selectionBox.end[0])}
+                                    y={Math.min(selectionBox.start[1], selectionBox.end[1])}
+                                    width={Math.abs(selectionBox.end[0] - selectionBox.start[0])}
+                                    height={Math.abs(selectionBox.end[1] - selectionBox.start[1])}
+                                    fill="rgba(59, 130, 246, 0.1)"
+                                    stroke="#3b82f6"
+                                    strokeWidth="0.5"
+                                    strokeDasharray="2 2"
+                                    vectorEffect="non-scaling-stroke"
+                                />
+                            )}
                         </svg>
                     )}
 
-                    {/* Selection Handles */}
-                    {selectedShape && (
+                    {/* Selection Handles (Only show if ONE shape is selected) */}
+                    {primaryShape && (
                         <svg className="absolute inset-0 z-50 overflow-visible" style={{ pointerEvents: 'none' }} viewBox={`0 0 ${100 * (logicalWidth / logicalHeight)} 100`} preserveAspectRatio="none">
                             {/* Rotated Rect Outline */}
                             <polygon
-                                points={getResizeHandles(selectedShape.obb)
+                                points={getResizeHandles(primaryShape.obb)
                                     .filter((_, i) => [0, 2, 4, 6].includes(i)) // corners only for the rect polygon
                                     .map(p => `${p[0]},${p[1]}`)
                                     .join(' ')}
@@ -785,13 +897,13 @@ export const LayoutCanvas = ({
                             />
 
                             {/* Rotation Handles (Pink Circles at Corners, Offset) */}
-                            {getRotationHandles(selectedShape.obb).map((h, i) => (
+                            {getRotationHandles(primaryShape.obb).map((h, i) => (
                                 <g key={`rot-${i}`} transform={`translate(${h[0]}, ${h[1]})`}>
                                     {/* Connector Line from Corner to Rot Handle */}
                                     {(() => {
                                         // Find corresponding corner
                                         const cornerIdx = [0, 2, 4, 6][i]; // TL, TR, BR, BL
-                                        const corner = getResizeHandles(selectedShape.obb)[cornerIdx];
+                                        const corner = getResizeHandles(primaryShape.obb)[cornerIdx];
                                         return (
                                             <line x1={corner[0] - h[0]} y1={corner[1] - h[1]} x2={0} y2={0} stroke="#ec4899" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
                                         )
@@ -801,7 +913,7 @@ export const LayoutCanvas = ({
                             ))}
 
                             {/* Resize Handles (Circles) */}
-                            {getResizeHandles(selectedShape.obb).map((h, i) => {
+                            {getResizeHandles(primaryShape.obb).map((h, i) => {
                                 // Style: Corners are Blue, Sides are White (or keep all valid?)
                                 // Remote used different colors for different things. 
                                 // Let's stick to standard blue for resize, but make them circles.
@@ -811,7 +923,7 @@ export const LayoutCanvas = ({
                                         r={1.2}
                                         fill="white" stroke="#3b82f6" strokeWidth="0.5"
                                         vectorEffect="non-scaling-stroke"
-                                        transform={`rotate(${selectedShape.obb.angle * 180 / Math.PI}, ${h[0]}, ${h[1]})`}
+                                        transform={`rotate(${primaryShape.obb.angle * 180 / Math.PI}, ${h[0]}, ${h[1]})`}
                                     />
                                 );
                             })}
