@@ -13,6 +13,7 @@ import {
     AdvancedTemplate
 } from '@/lib/templates-cache';
 import { useSettings } from '@/hooks/use-settings';
+import { parseLayoutId } from '@/lib/layout-id-utils';
 
 // Re-export types for convenience
 export type { AdvancedTemplate };
@@ -48,7 +49,10 @@ export function useTemplates() {
         if (!showGrid && !showAdvanced) return [];
 
         return allRawTemplates.filter(t => {
-            if (settings?.hiddenTemplateIds?.includes(t.id)) return false;
+            // Robust string comparison for hidden IDs
+            const tid = String(t.id);
+            if (settings?.hiddenTemplateIds?.some(hid => String(hid).trim() === tid)) return false;
+
             // Filter by category
             if (t.category === 'grid' && !showGrid) return false;
             if (t.category !== 'grid' && !showAdvanced) return false;
@@ -60,7 +64,10 @@ export function useTemplates() {
         const visible = settings?.visibleTemplateCategories?.includes('cover')
             ? rawCoverTemplates
             : [];
-        return visible.filter(t => !settings?.hiddenTemplateIds?.includes(t.id));
+        return visible.filter(t => {
+            const tid = String(t.id);
+            return !settings?.hiddenTemplateIds?.some(hid => String(hid).trim() === tid);
+        });
     }, [rawCoverTemplates, settings?.visibleTemplateCategories, settings?.hiddenTemplateIds]);
 
     // advancedTemplates = templates that are NOT grid (for backward compatibility)
@@ -92,25 +99,29 @@ export function useTemplates() {
         allCoverTemplates: coverTemplates,
 
         // Utility functions
-        findTemplate: (id: string) => {
-            const baseId = id.replace(/_r\d+$/, ''); // Remove rotation suffix
-            return allRawTemplates.find(t => t.id === baseId);
+        findTemplate: (id: string | number | null | undefined) => {
+            if (id == null) return undefined;
+            const { baseId } = parseLayoutId(id);
+            return allRawTemplates.find(t => String(t.id) === String(baseId));
         },
 
         // Legacy aliases
-        findGridTemplate: (id: string) => {
-            const baseId = id.replace(/_r\d+$/, '');
-            return allRawTemplates.find(t => t.id === baseId) || allRawTemplates[0];
+        findGridTemplate: (id: string | number | null | undefined) => {
+            if (id == null) return allRawTemplates[0];
+            const { baseId } = parseLayoutId(id);
+            return allRawTemplates.find(t => String(t.id) === String(baseId)) || allRawTemplates[0];
         },
 
-        findAdvancedTemplate: (id: string) => {
-            const baseId = id.replace(/_r\d+$/, '');
-            return allRawTemplates.find(t => t.id === baseId);
+        findAdvancedTemplate: (id: string | number | null | undefined) => {
+            if (id == null) return undefined;
+            const { baseId } = parseLayoutId(id);
+            return allRawTemplates.find(t => String(t.id) === String(baseId));
         },
 
-        findCoverTemplate: (id: string) => {
-            const baseId = id.replace(/_r\d+$/, '');
-            return rawCoverTemplates.find(t => t.id === baseId);
+        findCoverTemplate: (id: string | number | null | undefined) => {
+            if (id == null) return undefined;
+            const { baseId } = parseLayoutId(id);
+            return rawCoverTemplates.find(t => String(t.id) === String(baseId));
         },
 
         defaultGridTemplate: templates[0] || allRawTemplates[0],
@@ -156,16 +167,17 @@ export function getTemplatesForPage(isCover: boolean) {
 /**
  * Find a template by ID
  */
-export function findTemplateById(id: string) {
-    const baseId = id.replace(/_r\d+$/, '');
+export function findTemplateById(id: string | number | null | undefined) {
+    if (id == null) return undefined;
+    const { baseId } = parseLayoutId(id);
     const templates = getTemplatesSync();
-    return templates.find(t => t.id === baseId);
+    return templates.find(t => String(t.id) === String(baseId));
 }
 
 /**
  * Get template photo count by ID
  */
-export function getTemplatePhotoCount(templateId: string): number {
+export function getTemplatePhotoCount(templateId: string | number): number {
     const template = findTemplateById(templateId);
     return getPhotoCount(template);
 }

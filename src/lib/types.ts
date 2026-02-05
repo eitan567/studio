@@ -65,12 +65,12 @@ export type AlbumPage = {
   id: string; // Unique ID for each page
   type: 'single' | 'spread';
   photos: Photo[];
-  layout: string; // e.g., '1', '2', '4', '6'
+  layout: string | number; // e.g., '1', '2', '4', '6' or numeric 1..14
   isCover?: boolean;
   backgroundImage?: string; // Override background image for this specific page
   coverLayouts?: {
-    front: string;
-    back: string;
+    front: string | number;
+    back: string | number;
   };
   spineText?: string;
   spineWidth?: number;
@@ -107,8 +107,8 @@ export type AlbumPage = {
   // Spread Settings for regular pages
   spreadMode?: 'full' | 'split';
   spreadLayouts?: {
-    left: string;
-    right: string;
+    left: string | number;
+    right: string | number;
   };
 };
 

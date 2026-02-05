@@ -18,7 +18,8 @@ export interface GridTemplate extends AdvancedTemplate { }
 
 // Internal DB Row Type (Reflects Joined Data)
 export interface DBTemplate {
-    id: string;
+    id: string | number;
+    slug?: string;
     name: string;
     type_id: number;
     category_id: number;
@@ -27,12 +28,11 @@ export interface DBTemplate {
     photo_count: number;
     grid?: string[];
     regions?: AdvancedTemplate['regions'];
-    created_by?: string;
-    is_system?: boolean;
+    // Simplified: removed created_by and is_system checks
     is_active?: boolean;
     sort_order?: number;
     description?: string;
-    classification_type_id?: number;
+    // Keep template_classification for type classification
     template_classification?: { code: string };
 }
 
@@ -177,8 +177,8 @@ function convertGridToAdvanced(dbTemplate: DBTemplate): AdvancedTemplate {
         category: 'grid',
         photoCount: dbTemplate.photo_count || regions.length,
         regions,
-        createdBy: dbTemplate.created_by as AdvancedTemplate['createdBy'],
-        isCustom: dbTemplate.created_by === 'user'
+        createdBy: 'system' as AdvancedTemplate['createdBy'],
+        isCustom: false
     };
 }
 
@@ -216,8 +216,8 @@ async function initializeCache(): Promise<void> {
         // Force cache refresh by invalidating before query
         cacheExpiry = 0;
 
-        // Fetch all active templates with Joins
-        const { data, error } = await supabase
+        // Fetch all active templates with joins
+        const { data: templatesData, error } = await supabase
             .from('templates')
             .select(`
                 *,
@@ -230,37 +230,66 @@ async function initializeCache(): Promise<void> {
 
         if (error) throw error;
 
+        const data = templatesData;
+
         if (data && data.length > 0) {
+            logger.info(`[Templates] Found ${data.length} templates in DB`);
+
             // Convert ALL templates to AdvancedTemplate format
             const mappedTemplates = data.map((t: DBTemplate) => {
+                logger.debug(`[Templates] Processing template: ${t.id}`);
+
                 // Parse description for page settings
                 const descSettings = parseTemplateDescription(t.description);
                 const typeCode = t.template_type?.code;
 
-                // Ensure settings are available for all conversion paths
+                // Simplified template - removed created_by and is_system checks
                 const baseTemplate = {
                     id: t.id,
                     name: t.name,
                     category: (t.template_category?.code?.toLowerCase() || 'grid') as AdvancedTemplate['category'],
-                    createdBy: (t.created_by === 'system' || !t.created_by ? 'system' : 'user') as AdvancedTemplate['createdBy'],
-                    isCustom: t.created_by !== 'system' && !!t.created_by,
-                    // Use joined classification code if available, fallback to description
+                    createdBy: 'system' as AdvancedTemplate['createdBy'],
+                    isCustom: false,
+                    // Use template_classification code if available
                     type: (t.template_classification?.code?.toLowerCase() || descSettings.type) as AdvancedTemplate['type'],
                     _pageMargin: descSettings._pageMargin,
-                    _photoGap: descSettings._photoGap
+                    _photoGap: descSettings._photoGap,
                 };
 
+                // Safely parse regions if it's a string (in case Supabase returns JSON as string)
+                let regions = t.regions;
+                if (typeof regions === 'string') {
+                    try {
+                        regions = JSON.parse(regions);
+                    } catch (e) {
+                        logger.error('Failed to parse regions JSON', e);
+                        regions = [];
+                    }
+                }
+
                 // If template has valid regions already, use them directly
-                if (t.regions && Array.isArray(t.regions) && t.regions.length > 0) {
+                if (regions && Array.isArray(regions) && regions.length > 0) {
                     return {
                         ...baseTemplate,
-                        photoCount: t.photo_count || t.regions.length,
-                        regions: t.regions
+                        photoCount: t.photo_count || regions.length,
+                        regions: regions
                     };
                 }
 
+                // Safely parse grid if it's a string
+                let gridClasses = t.grid;
+                if (typeof gridClasses === 'string') {
+                    try {
+                        gridClasses = JSON.parse(gridClasses);
+                    } catch (e) {
+                        gridClasses = [];
+                    }
+                }
+
                 // If it's old GRID type without regions, convert it
-                if (typeCode === 'GRID' || (!typeCode && t.grid)) {
+                if (typeCode === 'GRID' || (!typeCode && gridClasses)) {
+                    // Update t.grid locally for the conversion function
+                    t.grid = gridClasses;
                     const converted = convertGridToAdvanced(t);
                     return {
                         ...baseTemplate,
@@ -270,18 +299,21 @@ async function initializeCache(): Promise<void> {
                 }
 
                 // Fallback for templates without regions
-                return {
+                const template = {
                     ...baseTemplate,
                     photoCount: t.photo_count || 1,
                     regions: []
                 };
+
+                return template;
             });
 
-            // Deduplicate by ID (keep first occurrence)
+            // Deduplicate by ID
             const seenIds = new Map<string, AdvancedTemplate>();
             for (const template of mappedTemplates) {
-                if (!seenIds.has(template.id)) {
-                    seenIds.set(template.id, template);
+                const sId = String(template.id);
+                if (!seenIds.has(sId)) {
+                    seenIds.set(sId, template);
                 }
             }
             templatesCache = Array.from(seenIds.values());

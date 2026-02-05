@@ -61,8 +61,8 @@ export const AdvancedPageLayout = ({
 /**
  * Helper to find an advanced template by ID
  */
-export function findAdvancedTemplate(id: string): AdvancedTemplate | undefined {
-    return ADVANCED_TEMPLATES.find(t => t.id === id);
+export function findAdvancedTemplate(id: string | number): AdvancedTemplate | undefined {
+    return ADVANCED_TEMPLATES.find(t => String(t.id) === String(id));
 }
 
 /**

@@ -341,7 +341,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                     if (isSplit) {
                                         const leftLayoutId = page.spreadLayouts?.left || LAYOUT_TEMPLATES[0].id;
                                         const rightLayoutId = page.spreadLayouts?.right || LAYOUT_TEMPLATES[0].id; // unused for slice, but good for consistency
-                                        const leftTemplate = LAYOUT_TEMPLATES.find(t => t.id === leftLayoutId) || ADVANCED_TEMPLATES.find(t => t.id === leftLayoutId) || LAYOUT_TEMPLATES[0];
+                                        const leftTemplate = LAYOUT_TEMPLATES.find(t => String(t.id) === String(leftLayoutId)) || ADVANCED_TEMPLATES.find(t => String(t.id) === String(leftLayoutId)) || LAYOUT_TEMPLATES[0];
                                         const leftPhotos = page.photos.slice(0, getPhotoCount(leftTemplate));
                                         const rightPhotos = page.photos.slice(getPhotoCount(leftTemplate));
 

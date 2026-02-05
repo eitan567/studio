@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Album } from '@/lib/types';
 import { useSettings } from '@/hooks/use-settings';
+import { useTemplates } from '@/hooks/useTemplates';
 
 
 interface CreateAlbumDialogProps {
@@ -39,6 +40,7 @@ export function CreateAlbumDialog({ children, albumToEdit, onAlbumUpdated, onAlb
     const router = useRouter();
     const { toast } = useToast();
     const { settings, liveSettings, refreshSettings } = useSettings();
+    const { defaultGridTemplate } = useTemplates();
     const [isSettingsRefreshing, setIsSettingsRefreshing] = useState(false);
     const { user } = useAuth(); // Added for user?.id in path
 
@@ -118,7 +120,7 @@ export function CreateAlbumDialog({ children, albumToEdit, onAlbumUpdated, onAlb
 
             logger.info('CREATING ALBUM. Verified Cache Values (liveSettings):', {
                 size: liveSettings.defaultAlbumSize, // Assuming watchedValues.size maps to this
-                layout: '1-full', // This was not in the original payload, adding as per instruction
+                layout: defaultGridTemplate?.id || '', // Dynamic fallback
                 config: {
                     photoGap: liveSettings.defaultPhotoGap,
                     pageMargin: liveSettings.defaultPageMargin,

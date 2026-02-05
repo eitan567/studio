@@ -52,7 +52,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LAYOUT_TEMPLATES, COVER_TEMPLATES, ADVANCED_TEMPLATES } from '@/hooks/useTemplates';
+import { LAYOUT_TEMPLATES, COVER_TEMPLATES, ADVANCED_TEMPLATES, useTemplates } from '@/hooks/useTemplates';
 import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -93,6 +93,7 @@ type ConfigFormData = z.infer<typeof configSchema>;
 
 export function PageEditor({ albumId }: PageEditorProps) {
   const { settings, liveSettings, isLoaded: isSettingsLoaded } = useSettings();
+  const { defaultCoverTemplate } = useTemplates();
   // Album persistence hook
   const {
     album,
@@ -283,7 +284,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
     setAllPhotos,
     updateThumbnail: (url) => {
       updatePages(albumPages.map(page =>
-        page.isCover && page.coverLayouts?.front === '1-full' && (!page.photos[0] || !page.photos[0].src)
+        page.isCover && page.coverLayouts?.front === (defaultCoverTemplate?.id || '') && (!page.photos[0] || !page.photos[0].src)
           ? { ...page, photos: [{ ...page.photos[0], src: url }] }
           : page
       ));

@@ -3,16 +3,10 @@ import { AlbumPage, CoverText, CoverImage, AlbumConfig, Photo, PhotoPanAndZoom }
 import { cn } from '@/lib/utils';
 import { PageLayout } from '../layouts/page-layout';
 import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
-import { useSettings } from '@/hooks/use-settings'; // Added useSettings import
+import { useSettings } from '@/hooks/use-settings';
+import { parseLayoutId } from '@/lib/layout-id-utils';
+import { RotationAngle } from '@/lib/template-rotation';
 
-// Helper to parse layout ID and extract base ID (without rotation suffix)
-function parseLayoutId(layoutId: string): { baseId: string; rotation: number } {
-    const match = layoutId.match(/^(.+?)(_r(90|180|270))?$/);
-    if (!match) return { baseId: layoutId, rotation: 0 };
-    const baseId = match[1];
-    const rotation = match[3] ? parseInt(match[3], 10) : 0;
-    return { baseId, rotation };
-}
 
 // --- Types ---
 
@@ -740,12 +734,12 @@ export const AlbumCover = ({
     const isFront = activeView === 'front';
     const isBack = activeView === 'back';
     const backLayoutId = page.isCover
-        ? (page.coverLayouts?.back || defaultCoverTemplate?.id || '1-full')
-        : (page.spreadLayouts?.left || defaultGridTemplate?.id || '1-full');
+        ? (page.coverLayouts?.back || defaultCoverTemplate?.id || '')
+        : (page.spreadLayouts?.left || defaultGridTemplate?.id || '');
 
     const frontLayoutId = page.isCover
-        ? (page.coverLayouts?.front || defaultCoverTemplate?.id || '1-full')
-        : (page.spreadLayouts?.right || defaultGridTemplate?.id || '1-full');
+        ? (page.coverLayouts?.front || defaultCoverTemplate?.id || '')
+        : (page.spreadLayouts?.right || defaultGridTemplate?.id || '');
 
     // Parse layout IDs
     const { baseId: backBaseId } = parseLayoutId(backLayoutId);
@@ -755,18 +749,18 @@ export const AlbumCover = ({
 
     // Dynamic layouts on cover MUST always be full spread
     // This allows robust handling even if coverType update lags slightly
-    const isDynamicLayout = backBaseId.startsWith('dynamic-justified') || frontBaseId.startsWith('dynamic-justified');
+    const isDynamicLayout = String(backBaseId).startsWith('dynamic-justified') || String(frontBaseId).startsWith('dynamic-justified');
     const isFullSpread = page.isCover
         ? (page.coverType === 'full' || isDynamicLayout)
         : (page.spreadMode !== 'split' || isDynamicLayout);
 
-    const backTemplate = templateSource.find(t => t.id === backBaseId) || templateSource[0] || defaultCoverTemplate || defaultGridTemplate;
-    const frontTemplate = templateSource.find(t => t.id === frontBaseId) || templateSource[0] || defaultCoverTemplate || defaultGridTemplate;
+    const backTemplate = templateSource.find(t => String(t.id) === String(backBaseId)) || templateSource[0] || defaultCoverTemplate || defaultGridTemplate;
+    const frontTemplate = templateSource.find(t => String(t.id) === String(frontBaseId)) || templateSource[0] || defaultCoverTemplate || defaultGridTemplate;
 
     // Check if backTemplate is undefined properly? No, default to [0] fixes it.
 
     // FIX: For dynamic layouts, we want ALL photos, not just the template count
-    const isDynamicBack = backBaseId.startsWith('dynamic-justified');
+    const isDynamicBack = String(backBaseId).startsWith('dynamic-justified');
     console.log('[AlbumCover] DEBUG:', {
         backLayoutId,
         backBaseId,
@@ -780,7 +774,7 @@ export const AlbumCover = ({
 
     // Front photo count logic usually for split pages.
     // If full spread dynamic, frontPhotoCount doesn't matter much if we use backLayout for full.
-    const isDynamicFront = frontBaseId.startsWith('dynamic-justified');
+    const isDynamicFront = String(frontBaseId).startsWith('dynamic-justified');
     const frontPhotoCount = isDynamicFront
         ? (page.photos?.length || 0)
         : (frontTemplate ? getPhotoCount(frontTemplate) : 0);
@@ -902,7 +896,7 @@ export const AlbumCover = ({
                             page={page}
                             photoGap={photoGap}
                             overridePhotos={page.photos}
-                            overrideLayout={page.layout || (page.isCover ? defaultCoverTemplate.id : defaultGridTemplate.id)}
+                            overrideLayout={String(page.layout || (page.isCover ? defaultCoverTemplate.id : defaultGridTemplate.id))}
                             templateSource={page.isCover ? [...coverTemplates, ...advancedTemplates] as any : [...gridTemplates, ...advancedTemplates] as any}
                             onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
                             onInteractionChange={onInteractionChange || (() => { })}
@@ -944,7 +938,7 @@ export const AlbumCover = ({
                                 // Use backPhotos (first chunk) for Back Cover OR Left Page
                                 overridePhotos={backPhotos}
                                 // Use Left Layout for regular pages, Back Layout for covers
-                                overrideLayout={page.isCover ? backLayoutId : (page.spreadLayouts?.left || defaultGridTemplate.id)}
+                                overrideLayout={String(page.isCover ? backLayoutId : (page.spreadLayouts?.left || defaultGridTemplate.id))}
                                 templateSource={page.isCover ? [...coverTemplates, ...advancedTemplates] as any : [...gridTemplates, ...advancedTemplates] as any}
                                 onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
                                 onInteractionChange={onInteractionChange || (() => { })}
@@ -1010,7 +1004,7 @@ export const AlbumCover = ({
                                 // Use frontPhotos (second chunk) for Front Cover OR Right Page
                                 overridePhotos={frontPhotos}
                                 // Use Right Layout for regular pages, Front Layout for covers
-                                overrideLayout={page.isCover ? frontLayoutId : (page.spreadLayouts?.right || defaultGridTemplate.id)}
+                                overrideLayout={String(page.isCover ? frontLayoutId : (page.spreadLayouts?.right || defaultGridTemplate.id))}
                                 templateSource={page.isCover ? [...coverTemplates, ...advancedTemplates] as any : [...gridTemplates, ...advancedTemplates] as any}
                                 onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
                                 onInteractionChange={onInteractionChange || (() => { })}

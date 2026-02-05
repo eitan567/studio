@@ -4,19 +4,10 @@ import { AlbumPage, Photo, PhotoPanAndZoom } from '@/lib/types';
 import { useTemplates, AdvancedTemplate } from '@/hooks/useTemplates';
 import { ShapeRegion } from './shape-region';
 import { rotateAdvancedTemplate, RotationAngle } from '@/lib/template-rotation';
+import { parseLayoutId } from '@/lib/layout-id-utils';
 import { SuggestionFan } from '../album-editor/suggestion-fan';
 import { generateJustifiedLayout, generateSmartJustifiedLayout } from '@/lib/justified-layout-util';
 
-// Parse layout ID to extract base template and rotation
-function parseLayoutId(layoutId: string): { baseId: string; rotation: RotationAngle } {
-    const rotationMatch = layoutId.match(/_r(90|180|270)$/);
-    if (rotationMatch) {
-        const rotation = parseInt(rotationMatch[1]) as RotationAngle;
-        const baseId = layoutId.replace(/_r(90|180|270)$/, '');
-        return { baseId, rotation };
-    }
-    return { baseId: layoutId, rotation: 0 };
-}
 
 export interface PageLayoutProps {
     page: AlbumPage;
@@ -25,7 +16,7 @@ export interface PageLayoutProps {
     onInteractionChange: (isInteracting: boolean) => void;
     onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string, sourceInfo?: { pageId: string; photoId: string }) => void;
     overridePhotos?: Photo[];
-    overrideLayout?: string;
+    overrideLayout?: string | number;
     templateSource?: AdvancedTemplate[];
     useSimpleImage?: boolean;
     photoIndexOffset?: number;
@@ -71,7 +62,7 @@ const PageLayoutComponent = ({
     const { baseId: layout, rotation } = parseLayoutId(rawLayout);
 
     // Find the template
-    let template = effectiveTemplateSource.find(t => t.id === layout);
+    let template = effectiveTemplateSource.find(t => String(t.id) === String(layout));
 
     // Dynamic Layout Generation (Justified)
     if (layout === 'dynamic-justified') {

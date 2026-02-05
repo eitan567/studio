@@ -21,7 +21,7 @@ export function useAlbumGeneration({
     randomSeed,
     settings
 }: UseAlbumGenerationProps) {
-    const { gridTemplates, coverTemplates, rawGridTemplates, rawCoverTemplates } = useTemplates();
+    const { gridTemplates, coverTemplates, rawGridTemplates, rawCoverTemplates, defaultGridTemplate, defaultCoverTemplate } = useTemplates();
     const { toast } = useToast();
 
     // Use settings directly from props
@@ -51,9 +51,9 @@ export function useAlbumGeneration({
                 id: 'cover',
                 type: 'spread',
                 photos: [emptyPhoto()],
-                layout: defaultCoverType === 'full' ? '1-full' : 'cover',
+                layout: defaultCoverType === 'full' ? (defaultCoverTemplate?.id || '') : 'cover',
                 isCover: true,
-                coverLayouts: { front: '1-full', back: '1-full' },
+                coverLayouts: { front: defaultCoverTemplate?.id || '', back: defaultCoverTemplate?.id || '' },
                 coverType: defaultCoverType,
                 spineText: settings.defaultSpineText,
                 spineWidth: settings.defaultSpineWidth,
@@ -71,23 +71,23 @@ export function useAlbumGeneration({
                 id: uuidv4(),
                 type: 'single',
                 photos: [emptyPhoto()],
-                layout: '1-full'
+                layout: defaultGridTemplate?.id || ''
             },
             // Double spread (empty)
             {
                 id: uuidv4(),
                 type: 'spread',
                 photos: [emptyPhoto(), emptyPhoto()],
-                layout: '2-horizontal',
+                layout: 'spread', // Changed from 2-horizontal to generic spread layout handle if applicable, or dynamic
                 spreadMode: defaultCoverType,
-                spreadLayouts: { left: '1-full', right: '1-full' }
+                spreadLayouts: { left: defaultGridTemplate?.id || '', right: defaultGridTemplate?.id || '' }
             },
             // Last single page (left side)
             {
                 id: uuidv4(),
                 type: 'single',
                 photos: [emptyPhoto()],
-                layout: '1-full'
+                layout: defaultGridTemplate?.id || ''
             }
         ];
 
@@ -175,8 +175,8 @@ export function useAlbumGeneration({
             randomCoverType = settings.autoFillLayoutMode;
         }
 
-        let coverLayoutShim = { front: '4-mosaic-1', back: '4-mosaic-1' };
-        let fullCoverLayout = '1-full';
+        let coverLayoutShim = { front: '', back: '' };
+        let fullCoverLayout = '';
         let coverPhotos: Photo[] = [];
 
         // Filter templates based on max photos setting
@@ -188,11 +188,15 @@ export function useAlbumGeneration({
         // Fallback if no templates match filter - use raw templates to ensure we ALWAYs have something
         const availableCoverTemplates = validCoverTemplates.length > 0 ? validCoverTemplates : rawCoverTemplates;
 
+        // DYNAMIC LOOKUP: Find standard 1-photo and 2-photo templates
+        const singlePhotoTemplate = gridTemplates.find(t => getPhotoCount(t) === 1) || gridTemplates[0];
+        const twoPhotoTemplate = gridTemplates.find(t => getPhotoCount(t) === 2) || singlePhotoTemplate;
+
         if (randomCoverType === 'split') {
             const frontTemplate = availableCoverTemplates[Math.floor(Math.random() * availableCoverTemplates.length)];
             const backTemplate = availableCoverTemplates[Math.floor(Math.random() * availableCoverTemplates.length)];
 
-            coverLayoutShim = { front: frontTemplate.id, back: backTemplate.id };
+            coverLayoutShim = { front: String(frontTemplate.id), back: String(backTemplate.id) };
             const totalCoverPhotos = getPhotoCount(frontTemplate) + getPhotoCount(backTemplate);
 
             for (let i = 0; i < totalCoverPhotos; i++) {
@@ -213,7 +217,7 @@ export function useAlbumGeneration({
             }
         } else {
             const fullTemplate = availableCoverTemplates[Math.floor(Math.random() * availableCoverTemplates.length)];
-            fullCoverLayout = fullTemplate.id;
+            fullCoverLayout = String(fullTemplate.id);
             const requiredCount = getPhotoCount(fullTemplate);
 
             for (let i = 0; i < requiredCount; i++) {
@@ -261,7 +265,7 @@ export function useAlbumGeneration({
                 id: uuidv4(),
                 type: 'single',
                 photos: firstPagePhotos.map(p => ({ ...p, id: uuidv4(), originalId: p.id, remoteUrl: p.remoteUrl, panAndZoom: defaultPanAndZoom })),
-                layout: '1-full'
+                layout: defaultGridTemplate?.id || ''
             });
         }
 
@@ -330,8 +334,8 @@ export function useAlbumGeneration({
                     layout: 'cover', // This is just a placeholder/container layout name? Or does it matter? Usually for split spreads the layout prop on the page itself is less used than spreadLayouts
                     spreadMode: 'split',
                     spreadLayouts: {
-                        left: leftTemplate.id,
-                        right: rightTemplate.id
+                        left: String(leftTemplate.id),
+                        right: String(rightTemplate.id)
                     }
                 });
 
@@ -372,7 +376,7 @@ export function useAlbumGeneration({
                     id: uuidv4(),
                     type: 'spread',
                     photos: pagePhotos,
-                    layout: selectedTemplate.id,
+                    layout: String(selectedTemplate.id),
                     spreadMode: 'full'
                 });
             }
@@ -384,7 +388,7 @@ export function useAlbumGeneration({
                 id: uuidv4(),
                 type: 'single',
                 photos: [{ ...lastPagePhoto, id: uuidv4(), originalId: lastPagePhoto.id, remoteUrl: lastPagePhoto.remoteUrl, panAndZoom: defaultPanAndZoom }],
-                layout: '1-full'
+                layout: defaultGridTemplate?.id || ''
             });
         } else if (newPages.length > 1) {
             const firstPagePhoto = newPages[1]?.photos?.[0];
@@ -393,7 +397,7 @@ export function useAlbumGeneration({
                     id: uuidv4(),
                     type: 'single',
                     photos: [{ ...firstPagePhoto, id: uuidv4(), originalId: firstPagePhoto.originalId || firstPagePhoto.id, panAndZoom: defaultPanAndZoom }],
-                    layout: '1-full'
+                    layout: defaultGridTemplate?.id || ''
                 });
             }
         }

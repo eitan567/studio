@@ -1,37 +1,61 @@
--- System Logic Update Script
--- Purpose: Update core system definitions (Roles, Templates) without affecting users or personal data.
--- Use this for: Updating template layouts or adding new roles to an existing database.
--- Safety: Uses session_replication_role = replica and ON CONFLICT DO NOTHING.
+CREATE TABLE IF NOT EXISTS "public"."templates" (
+    "id" integer NOT NULL,
+    "name" "text" NOT NULL,
+    "photo_count" integer NOT NULL,
+    "grid" "jsonb",
+    "regions" "jsonb",
+    "created_by" uuid,
+    "is_system" boolean DEFAULT true,
+    "is_active" boolean DEFAULT true,
+    "sort_order" integer DEFAULT 0,
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    "type_id" integer,
+    "category_id" integer,
+    "classification_type_id" integer,
+    "description" text
+);
 
-SET session_replication_role = replica;
 
--- 1. USER ROLES
-INSERT INTO "public"."user_roles" ("id", "code", "description") VALUES
-  (1, 'ADMIN', 'Administrator with full access'),
-  (2, 'USER', 'Standard user'),
-  (3, 'GUEST', 'Guest user with limited access')
-ON CONFLICT (id) DO NOTHING;
+ALTER TABLE "public"."templates" OWNER TO "postgres";
 
--- 2. TEMPLATE CATEGORIES
-INSERT INTO "public"."template_categories" ("id", "code", "label") VALUES
-  (1, 'GRID', 'Grid'),
-  (2, 'GEOMETRIC', 'Geometric'),
-  (3, 'ARTISTIC', 'Artistic'),
-  (4, 'DIAGONAL', 'Diagonal'),
-  (5, 'CUSTOM', 'Custom')
-ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO "public"."template_types" ("id", "code", "description") VALUES
-  (1, 'GRID', 'Standard grid layouts'),
-  (2, 'ADVANCED', 'Advanced layouts')
-ON CONFLICT (id) DO NOTHING;
+COMMENT ON TABLE "public"."templates" IS 'Layout templates for album pages - cached in application memory';
 
--- 4. TEMPLATE CLASSIFICATIONS
-INSERT INTO "public"."template_classifications" ("id", "code", "label") VALUES
-  (1, 'SINGLE', 'Single Page'),
-  (2, 'SPREAD', 'Double Page Spread'),
-  (3, 'BOTH', 'Both')
-ON CONFLICT (id) DO NOTHING;
+
+ALTER TABLE ONLY "public"."templates"
+    ADD CONSTRAINT "templates_pkey" PRIMARY KEY ("id");
+
+CREATE INDEX "idx_templates_active" ON "public"."templates" USING "btree" ("is_active");
+
+
+
+CREATE INDEX "idx_templates_category_id" ON "public"."templates" USING "btree" ("category_id");
+
+
+
+CREATE INDEX "idx_templates_classification_type_id" ON "public"."templates" USING "btree" ("classification_type_id");
+
+ALTER TABLE ONLY "public"."templates"
+    ADD CONSTRAINT "templates_category_id_fkey" FOREIGN KEY ("category_id") REFERENCES "public"."template_categories"("id");
+
+
+
+ALTER TABLE ONLY "public"."templates"
+    ADD CONSTRAINT "templates_type_id_fkey" FOREIGN KEY ("type_id") REFERENCES "public"."template_types"("id");
+
+
+
+ALTER TABLE ONLY "public"."templates"
+    ADD CONSTRAINT "templates_classification_type_id_fkey" FOREIGN KEY ("classification_type_id") REFERENCES "public"."template_classifications"("id");
+
+
+CREATE POLICY "Anyone can read active templates" ON "public"."templates" FOR SELECT USING (("is_active" = true));
+
+CREATE POLICY "Service role can modify templates" ON "public"."templates" USING (true) WITH CHECK (true);
+
+ALTER TABLE "public"."templates" ENABLE ROW LEVEL SECURITY;
+
 
 -- 5. TEMPLATES
 INSERT INTO public.templates (id, name, photo_count, grid, regions, created_by, is_system, is_active, sort_order, created_at, updated_at, type_id, category_id, classification_type_id, description) VALUES

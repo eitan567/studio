@@ -182,34 +182,68 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 const userId = user?.id || 'anonymous';
 
                 // Prepare templates for insertion
-                const templatesToInsert = createdTemplates.map(template => ({
-                    id: template.id,
-                    name: template.name,
-                    category_id: 5, // CUSTOM category
-                    photo_count: template.photoCount,
-                    regions: template.regions,
-                    created_by: userId,
-                    is_system: false,
-                    is_active: true,
-                    sort_order: 999,
-                    type: template.type, // Dedicated classification column
-                    // Store page settings as JSON in description for redundancy/backwards compat
-                    description: JSON.stringify({
-                        _pageMargin: template._pageMargin,
-                        _photoGap: template._photoGap,
-                        type: template.type
-                    })
-                }));
+                const templatesToInsert = createdTemplates.map(template => {
+                    const isNew = typeof template.id === 'string' && template.id.includes('-'); // uuid check
 
-                // Upsert templates into Supabase
-                const { error } = await supabase
-                    .from('templates')
-                    .upsert(templatesToInsert, { onConflict: 'id' });
+                    // Map type to classification_type_id
+                    let classification_id = 3; // default BOTH
+                    if (template.type === 'single') classification_id = 1;
+                    if (template.type === 'spread') classification_id = 2;
 
-                if (error) {
-                    console.error('Error saving templates:', error);
-                    throw error;
+                    return {
+                        ...(isNew ? {} : { id: template.id }), // Omit ID for new templates so DB generates it
+                        name: template.name,
+                        category_id: 5, // CUSTOM category
+                        photo_count: template.photoCount,
+                        regions: template.regions,
+                        created_by: userId === 'anonymous' ? null : userId,
+                        is_system: false,
+                        is_active: true,
+                        sort_order: 999,
+                        classification_type_id: classification_id,
+                        description: null // No longer saving JSON here
+                    };
+                });
+
+                // Since some might be new (no ID) and some updates, we might need separate calls
+                // or use a logic that works for both. 
+                // If we want auto-increment, we use insert for new ones and update for existing.
+
+                const newTemplates = templatesToInsert.filter(t => !t.id);
+                const existingTemplates = templatesToInsert.filter(t => t.id);
+
+                if (newTemplates.length > 0) {
+                    const { data: insertedData, error: insertError } = await supabase
+                        .from('templates')
+                        .insert(newTemplates)
+                        .select();
+
+                    if (insertError) throw insertError;
+
+                    // Update the local state with the returned IDs from DB
+                    if (insertedData) {
+                        setCreatedTemplates(prev => {
+                            const updated = [...prev];
+                            insertedData.forEach((dbT: any) => {
+                                // Match by name and regions or something since we don't have ID matching easily
+                                // Better: we only have one 'createdTemplates' usually
+                                if (updated.length === 1 && insertedData.length === 1) {
+                                    updated[0].id = dbT.id;
+                                }
+                            });
+                            return updated;
+                        });
+                    }
                 }
+
+                if (existingTemplates.length > 0) {
+                    const { error: updateError } = await supabase
+                        .from('templates')
+                        .upsert(existingTemplates, { onConflict: 'id' });
+
+                    if (updateError) throw updateError;
+                }
+                console.log('Templates saved successfully to Supabase');
 
                 // Invalidate cache so templates are reloaded
                 invalidateCache();

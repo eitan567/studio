@@ -169,7 +169,7 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos, isC
 
     const handleDropPhoto = (pageId: string, targetPhotoId: string, droppedPhotoId: string) => {
         if (!allPhotos) return;
-        const droppedPhoto = allPhotos.find(p => p.id === droppedPhotoId);
+        const droppedPhoto = allPhotos.find(p => String(p.id) === String(droppedPhotoId));
         if (!droppedPhoto) return;
 
         // Transactional update on localPage

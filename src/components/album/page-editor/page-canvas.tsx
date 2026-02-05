@@ -27,6 +27,7 @@ import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { rotateGridTemplate, rotateAdvancedTemplate, getNextRotation, RotationAngle } from '@/lib/template-rotation';
+import { parseLayoutId } from '@/lib/layout-id-utils';
 import { useSettings } from '@/hooks/use-settings';
 import { useAlbumEditor } from '../album-editor/context';
 import { useToast } from '@/hooks/use-toast';
@@ -39,15 +40,6 @@ import { AlbumCover } from '../book-view/album-cover';
 
 // --- HELPERS ---
 
-function parseLayoutId(layoutId: string): { baseId: string; rotation: RotationAngle } {
-    const rotationMatch = layoutId.match(/_r(90|180|270)$/);
-    if (rotationMatch) {
-        const rotation = parseInt(rotationMatch[1]) as RotationAngle;
-        const baseId = layoutId.replace(/_r(90|180|270)$/, '');
-        return { baseId, rotation };
-    }
-    return { baseId: layoutId, rotation: 0 };
-}
 
 const renderAdvancedTemplatePreview = (template: AdvancedTemplate) => {
     const sortedRegions = [...template.regions].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
@@ -127,7 +119,7 @@ const TemplateThumbnail = ({
 
     return (
         <DropdownMenuItem
-            onSelect={() => onSelect(template.id)}
+            onSelect={() => onSelect(String(template.id))}
             className={cn("p-0 focus:bg-accent/50 rounded-md cursor-pointer", isSelected && "ring-2 ring-primary")}
         >
             <div className="w-24 h-24 p-1 flex flex-col items-center">
@@ -280,11 +272,11 @@ const PageToolbar = ({
     page, pageNumber, displayLabel, canDelete = true, onDeletePage, onUpdateLayout, onUpdateSpreadLayout, onUpdateCoverLayout, onUpdateCoverType, onUpdateSpineText, onUpdateSpineSettings, onUpdateTitleSettings, onDownloadPage, onUpdatePage, toast, viewMode, onToggleViewMode, visibleTemplateCategories, allowedTemplateIds,
     onCycleLayout, onEnhanceWithAi, onUndo, onOpenEditor // New props
 }: any) => {
-    const { gridTemplates, coverTemplates, advancedTemplates, findTemplate, defaultGridTemplate } = useTemplates();
+    const { gridTemplates, coverTemplates, advancedTemplates, findTemplate, defaultGridTemplate, defaultCoverTemplate } = useTemplates();
 
     const filterTemplates = (templates: AdvancedTemplate[], category: 'grid' | 'cover' | 'advanced') => {
         if (visibleTemplateCategories && !visibleTemplateCategories.includes(category)) return [];
-        if (allowedTemplateIds && allowedTemplateIds.length > 0) return templates.filter(t => allowedTemplateIds.includes(t.id));
+        if (allowedTemplateIds && allowedTemplateIds.length > 0) return templates.filter(t => allowedTemplateIds.includes(String(t.id)));
         return templates;
     };
 
@@ -299,7 +291,7 @@ const PageToolbar = ({
             // Priority 2: System templates without explicit type
             // Usually old GRID templates. Default to 'spread' for them or match by ID pattern if needed.
             if (t.createdBy === 'system') {
-                return type === 'spread'; // Or return true if you want them everywhere
+                return true; // Available in both views by default for flexibility
             }
 
             // Priority 3: Custom templates must have a type to show up
@@ -319,7 +311,7 @@ const PageToolbar = ({
     const renderLayoutCycleButtons = () => (
         <div className="flex items-center gap-0.5 border-r pr-2 mr-2">
             {[1, 2, 3, 4, 5, 6].map(count => {
-                const { baseId } = parseLayoutId(page.layout || '1-full');
+                const { baseId } = parseLayoutId(page.layout || defaultGridTemplate?.id || '');
                 const currentTemplate = findTemplate(baseId);
                 const currentCount = currentTemplate ? getPhotoCount(currentTemplate) : 0;
                 const isActive = currentCount === count;
@@ -389,96 +381,83 @@ const PageToolbar = ({
                                         <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">{page.isCover ? "Back" : "Page 1"}</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>{page.isCover ? "Back Cover Layout" : "Page 1 Layout"}</TooltipContent></Tooltip>
                                         <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
                                             {filterByType(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates], 'single').map(template => (
-                                                <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.back || '' : page.spreadLayouts?.left || '').baseId === template.id} onSelect={(templateId) => {
+                                                <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.back || defaultCoverTemplate?.id || '' : page.spreadLayouts?.left || defaultGridTemplate?.id || '').baseId === template.id} onSelect={(templateId) => {
                                                     const currentLayoutId = page.isCover ? page.coverLayouts?.back : page.spreadLayouts?.left;
-                                                    const { rotation } = parseLayoutId(currentLayoutId || '');
+                                                    const { rotation } = parseLayoutId(currentLayoutId || defaultGridTemplate?.id || '');
                                                     const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
-                                                    if (page.isCover) onUpdateCoverLayout?.(page.id, 'back', finalId);
-                                                    else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'left', finalId) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id }), left: finalId } });
+                                                    if (page.isCover) onUpdateCoverLayout?.(page.id, 'back', String(finalId));
+                                                    else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'left', String(finalId)) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate?.id || '', right: defaultGridTemplate?.id || '' }), left: String(finalId) } });
                                                 }} />
                                             ))}
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                     <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative h-8 w-8" onClick={() => {
                                         const currentLayoutId = page.isCover ? page.coverLayouts?.back : page.spreadLayouts?.left;
-                                        const { baseId, rotation } = parseLayoutId(currentLayoutId || '1-full');
+                                        const { baseId, rotation } = parseLayoutId(currentLayoutId || defaultGridTemplate?.id || '');
                                         const newRotation = getNextRotation(rotation);
                                         const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
-                                        if (page.isCover) onUpdateCoverLayout?.(page.id, 'back', newLayout);
-                                        else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'left', newLayout) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id }), left: newLayout } });
+                                        if (page.isCover) onUpdateCoverLayout?.(page.id, 'back', String(newLayout));
+                                        else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'left', String(newLayout)) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate?.id || '', right: defaultGridTemplate?.id || '' }), left: String(newLayout) } });
                                     }}><RotateCw className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Rotate Layout</TooltipContent></Tooltip>
                                     {/* Smart Layout Toggle (Left/Back) */}
-                                    {(parseLayoutId(page.isCover ? page.coverLayouts?.back || '' : page.spreadLayouts?.left || '').baseId.startsWith('dynamic-justified')) && (
+                                    {(String(parseLayoutId(page.isCover ? page.coverLayouts?.back || defaultCoverTemplate?.id || '' : page.spreadLayouts?.left || defaultGridTemplate?.id || '').baseId).startsWith('dynamic-justified')) && (
                                         <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative h-8 w-8" onClick={() => {
                                             const currentLayoutId = page.isCover ? page.coverLayouts?.back : page.spreadLayouts?.left;
-                                            const { baseId, rotation } = parseLayoutId(currentLayoutId || '');
+                                            const { baseId, rotation } = parseLayoutId(currentLayoutId || defaultGridTemplate?.id || '');
                                             const nextBaseId = baseId === 'dynamic-justified' ? 'dynamic-justified-smart' : 'dynamic-justified';
                                             const newLayout = rotation === 0 ? nextBaseId : `${nextBaseId}_r${rotation}`;
                                             if (page.isCover) {
-                                                onUpdateCoverLayout?.(page.id, 'back', newLayout);
+                                                onUpdateCoverLayout?.(page.id, 'back', String(newLayout));
                                             } else {
                                                 // CRITICAL: Update BOTH spreadLayouts AND page.layout
                                                 // page.layout is what full spread mode uses for rendering
                                                 onUpdatePage?.({
                                                     ...page,
-                                                    layout: newLayout,
+                                                    layout: String(newLayout),
                                                     spreadLayouts: {
-                                                        ...(page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id }),
-                                                        left: newLayout,
-                                                        right: newLayout
+                                                        ...(page.spreadLayouts || { left: defaultGridTemplate?.id || '', right: defaultGridTemplate?.id || '' }),
+                                                        left: String(newLayout),
+                                                        right: String(newLayout)
                                                     }
                                                 });
                                             }
-                                        }}><Wand2 className={cn("h-4 w-4", parseLayoutId(page.isCover ? page.coverLayouts?.back || '' : page.spreadLayouts?.left || '').baseId === 'dynamic-justified-smart' && "text-primary fill-primary/20")} /></Button></TooltipTrigger><TooltipContent>Toggle Smart Fill</TooltipContent></Tooltip>
+                                        }}><Wand2 className={cn("h-4 w-4", parseLayoutId(page.isCover ? page.coverLayouts?.back || defaultCoverTemplate?.id || '' : page.spreadLayouts?.left || defaultGridTemplate?.id || '').baseId === 'dynamic-justified-smart' && "text-primary fill-primary/20")} /></Button></TooltipTrigger><TooltipContent>Toggle Smart Fill</TooltipContent></Tooltip>
                                     )}
                                     <div className="h-4 w-px bg-border mx-1" />
                                     <DropdownMenu>
                                         <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">{page.isCover ? "Front" : "Page 2"}</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>{page.isCover ? "Front Cover Layout" : "Page 2 Layout"}</TooltipContent></Tooltip>
                                         <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
                                             {filterByType(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates], 'single').map(template => (
-                                                <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.front || '1-full' : page.spreadLayouts?.right || '1-full').baseId === template.id} onSelect={(templateId) => {
+                                                <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.front || defaultCoverTemplate?.id || '' : page.spreadLayouts?.right || defaultGridTemplate?.id || '').baseId === template.id} onSelect={(templateId) => {
                                                     const currentLayoutId = page.isCover ? page.coverLayouts?.front : page.spreadLayouts?.right;
-                                                    const { rotation } = parseLayoutId(currentLayoutId || '1-full');
+                                                    const { rotation } = parseLayoutId(currentLayoutId || defaultGridTemplate?.id || '');
                                                     const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
-                                                    if (page.isCover) onUpdateCoverLayout?.(page.id, 'front', finalId);
-                                                    else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'right', finalId) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id }), right: finalId } });
+                                                    if (page.isCover) onUpdateCoverLayout?.(page.id, 'front', String(finalId));
+                                                    else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'right', String(finalId)) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate?.id || '', right: defaultGridTemplate?.id || '' }), right: String(finalId) } });
                                                 }} />
                                             ))}
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                     <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative h-8 w-8" onClick={() => {
                                         const currentLayoutId = page.isCover ? page.coverLayouts?.front : page.spreadLayouts?.right;
-                                        const { baseId, rotation } = parseLayoutId(currentLayoutId || '1-full');
+                                        const { baseId, rotation } = parseLayoutId(currentLayoutId || defaultGridTemplate?.id || '');
                                         const newRotation = getNextRotation(rotation);
                                         const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
-                                        if (page.isCover) onUpdateCoverLayout?.(page.id, 'front', newLayout);
-                                        else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'right', newLayout) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id }), right: newLayout } });
+                                        if (page.isCover) onUpdateCoverLayout?.(page.id, 'front', String(newLayout));
+                                        else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'right', String(newLayout)) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate?.id || '', right: defaultGridTemplate?.id || '' }), right: String(newLayout) } });
                                     }}><RotateCw className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Rotate Layout</TooltipContent></Tooltip>
                                     {/* Smart Layout Toggle (Right/Front) */}
-                                    {(parseLayoutId(page.isCover ? page.coverLayouts?.front || '1-full' : page.spreadLayouts?.right || '1-full').baseId.startsWith('dynamic-justified')) && (
+                                    {(String(parseLayoutId(page.isCover ? page.coverLayouts?.front || defaultCoverTemplate?.id || '' : page.spreadLayouts?.right || defaultGridTemplate?.id || '').baseId).startsWith('dynamic-justified')) && (
                                         <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative h-8 w-8" onClick={() => {
                                             const currentLayoutId = page.isCover ? page.coverLayouts?.front : page.spreadLayouts?.right;
-                                            const { baseId, rotation } = parseLayoutId(currentLayoutId || '1-full');
-                                            // Simple robust toggle
-                                            const nextBaseId = baseId.includes('smart') ? 'dynamic-justified' : 'dynamic-justified-smart';
+                                            const { baseId, rotation } = parseLayoutId(currentLayoutId || defaultGridTemplate?.id || '');
+                                            const nextBaseId = baseId === 'dynamic-justified' ? 'dynamic-justified-smart' : 'dynamic-justified';
                                             const newLayout = rotation === 0 ? nextBaseId : `${nextBaseId}_r${rotation}`;
-                                            if (page.isCover) {
-                                                onUpdateCoverLayout?.(page.id, 'front', newLayout);
-                                            } else {
-                                                // CRITICAL: Update BOTH spreadLayouts AND page.layout
-                                                // page.layout is what full spread mode uses for rendering
-                                                onUpdatePage?.({
-                                                    ...page,
-                                                    layout: newLayout,
-                                                    spreadLayouts: {
-                                                        ...(page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id }),
-                                                        left: newLayout,
-                                                        right: newLayout
-                                                    }
-                                                });
-                                            }
-                                        }}><Wand2 className={cn("h-4 w-4", parseLayoutId(page.isCover ? page.coverLayouts?.front || '1-full' : page.spreadLayouts?.right || '1-full').baseId === 'dynamic-justified-smart' && "text-primary fill-primary/20")} /></Button></TooltipTrigger><TooltipContent>Toggle Smart Fill</TooltipContent></Tooltip>
+                                            if (page.isCover) onUpdateCoverLayout?.(page.id, 'front', String(newLayout));
+                                            else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'right', String(newLayout)) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate?.id || '', right: defaultGridTemplate?.id || '' }), right: String(newLayout) } });
+                                        }}><Wand2 className={cn("h-4 w-4", parseLayoutId(page.isCover ? page.coverLayouts?.front || defaultCoverTemplate?.id || '' : page.spreadLayouts?.right || defaultGridTemplate?.id || '').baseId === 'dynamic-justified-smart' && "text-primary fill-primary/20")} /></Button></TooltipTrigger><TooltipContent>Toggle Smart Fill</TooltipContent></Tooltip>
                                     )}
+
                                 </>
                             ) : (
                                 <>
@@ -486,11 +465,11 @@ const PageToolbar = ({
                                         <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">Layout</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>Spread Layout</TooltipContent></Tooltip>
                                         <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
                                             {filterByType(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates], 'spread').map(template => (
-                                                <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.layout || '1-full').baseId === template.id} onSelect={(templateId) => {
-                                                    const { rotation } = parseLayoutId(page.layout || '1-full');
+                                                <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.layout || defaultGridTemplate?.id || '').baseId === template.id} onSelect={(templateId) => {
+                                                    const { rotation } = parseLayoutId(page.layout || defaultGridTemplate?.id || '');
                                                     const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
-                                                    if (page.isCover) onUpdateCoverLayout?.(page.id, 'full', finalId);
-                                                    else onUpdateLayout(page.id, finalId);
+                                                    if (page.isCover) onUpdateCoverLayout?.(page.id, 'full', String(finalId));
+                                                    else onUpdateLayout(page.id, String(finalId));
                                                 }} />
                                             ))}
                                         </DropdownMenuContent>
@@ -498,25 +477,25 @@ const PageToolbar = ({
                                     <Tooltip>
                                         <TooltipTrigger asChild>
                                             <Button variant="ghost" size="icon" className="relative" onClick={() => {
-                                                const { baseId, rotation } = parseLayoutId(page.layout || '1-full');
+                                                const { baseId, rotation } = parseLayoutId(page.layout || defaultGridTemplate?.id || '');
                                                 const newRotation = getNextRotation(rotation);
                                                 const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
-                                                if (page.isCover) onUpdateCoverLayout?.(page.id, 'full', newLayout);
-                                                else onUpdateLayout(page.id, newLayout);
+                                                if (page.isCover) onUpdateCoverLayout?.(page.id, 'full', String(newLayout));
+                                                else onUpdateLayout(page.id, String(newLayout));
                                             }}><RotateCw className="h-4 w-4" /></Button>
                                         </TooltipTrigger>
                                         <TooltipContent>Rotate Layout 90°</TooltipContent>
                                     </Tooltip>
                                     {/* Smart Layout Toggle (Full) */}
-                                    {(parseLayoutId(page.layout || '1-full').baseId.startsWith('dynamic-justified')) && (
+                                    {(String(parseLayoutId(page.layout || defaultGridTemplate?.id || '').baseId).startsWith('dynamic-justified')) && (
                                         <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative" onClick={() => {
-                                            const { baseId, rotation } = parseLayoutId(page.layout || '1-full');
+                                            const { baseId, rotation } = parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '');
                                             const nextBaseId = baseId === 'dynamic-justified' ? 'dynamic-justified-smart' : 'dynamic-justified';
                                             const newLayout = rotation === 0 ? nextBaseId : `${nextBaseId}_r${rotation}`;
-                                            console.log('[SmartFillToggle] Clicked!', { pageId: page.id, currentLayout: page.layout, newLayout, photosCount: page.photos?.length });
-                                            if (page.isCover) onUpdateCoverLayout?.(page.id, 'full', newLayout);
-                                            else onUpdateLayout(page.id, newLayout);
-                                        }}><Wand2 className={cn("h-4 w-4", parseLayoutId(page.layout || '1-full').baseId === 'dynamic-justified-smart' && "text-primary fill-primary/20")} /></Button></TooltipTrigger><TooltipContent>Toggle Smart Fill</TooltipContent></Tooltip>
+                                            console.log('[SmartFillToggle] Clicked!', { pageId: page.id, currentLayout: page.layout, newLayout: String(newLayout), photosCount: page.photos?.length });
+                                            if (page.isCover) onUpdateCoverLayout?.(page.id, 'full', String(newLayout));
+                                            else onUpdateLayout(page.id, String(newLayout));
+                                        }}><Wand2 className={cn("h-4 w-4", parseLayoutId(page.layout || defaultGridTemplate?.id || '').baseId === 'dynamic-justified-smart' && "text-primary fill-primary/20")} /></Button></TooltipTrigger><TooltipContent>Toggle Smart Fill</TooltipContent></Tooltip>
                                     )}
                                 </>
                             )}
@@ -570,28 +549,28 @@ const PageToolbar = ({
                             <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><LayoutTemplate className="h-5 w-5" /></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>Page Layout</TooltipContent></Tooltip>
                             <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
                                 {filterByType([...gridTemplates, ...advancedTemplates], 'single').map(template => (
-                                    <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.layout || '1-full').baseId === template.id} onSelect={(templateId) => {
-                                        const { rotation } = parseLayoutId(page.layout || '1-full');
+                                    <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '').baseId === template.id} onSelect={(templateId) => {
+                                        const { rotation } = parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '');
                                         const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
-                                        onUpdateLayout(page.id, finalId);
+                                        onUpdateLayout(page.id, String(finalId));
                                     }} />
                                 ))}
                             </DropdownMenuContent>
                         </DropdownMenu>
                         <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative" onClick={() => {
-                            const { baseId, rotation } = parseLayoutId(page.layout || '1-full');
+                            const { baseId, rotation } = parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '');
                             const newRotation = getNextRotation(rotation);
                             const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
-                            onUpdateLayout(page.id, newLayout);
+                            onUpdateLayout(page.id, String(newLayout));
                         }}><RotateCw className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Rotate Layout</TooltipContent></Tooltip>
                         {/* Smart Layout Toggle (Single Page) */}
-                        {(parseLayoutId(page.layout || '1-full').baseId.startsWith('dynamic-justified')) && (
+                        {(String(parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '').baseId).startsWith('dynamic-justified')) && (
                             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative" onClick={() => {
-                                const { baseId, rotation } = parseLayoutId(page.layout || '1-full');
+                                const { baseId, rotation } = parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '');
                                 const nextBaseId = baseId === 'dynamic-justified' ? 'dynamic-justified-smart' : 'dynamic-justified';
                                 const newLayout = rotation === 0 ? nextBaseId : `${nextBaseId}_r${rotation}`;
-                                onUpdateLayout(page.id, newLayout);
-                            }}><Wand2 className={cn("h-4 w-4", parseLayoutId(page.layout || '1-full').baseId === 'dynamic-justified-smart' && "text-primary fill-primary/20")} /></Button></TooltipTrigger><TooltipContent>Toggle Smart Fill</TooltipContent></Tooltip>
+                                onUpdateLayout(page.id, String(newLayout));
+                            }}><Wand2 className={cn("h-4 w-4", parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '').baseId === 'dynamic-justified-smart' && "text-primary fill-primary/20")} /></Button></TooltipTrigger><TooltipContent>Toggle Smart Fill</TooltipContent></Tooltip>
                         )}
                         {page.isCover && (
                             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className={cn(showSpineSettings && "text-primary bg-primary/10")} onClick={() => setShowSpineSettings(!showSpineSettings)}><Settings2 className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Show Title Settings</TooltipContent></Tooltip>
@@ -600,22 +579,24 @@ const PageToolbar = ({
                         <div className="mx-1 h-6 w-px bg-border" />
                         <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className={cn("text-destructive hover:bg-destructive/10 hover:text-destructive", !canDelete && "opacity-50 cursor-not-allowed")} onClick={() => canDelete && onDeletePage(page.id)} disabled={!canDelete}><Trash2 className="h-5 w-5" /></Button></TooltipTrigger><TooltipContent>{canDelete ? "Delete Page" : "Cannot delete first/last page"}</TooltipContent></Tooltip>
                     </div>
-                    {showSpineSettings && (
-                        <div className="mt-2 p-3 bg-background border rounded-lg shadow-xl space-y-4 animate-in slide-in-from-top-2 duration-200 w-full">
-                            <div className="space-y-3 p-3 bg-muted/30 rounded-md border border-border/50 max-w-lg mx-auto">
-                                <div className="flex items-center gap-2 mb-1"><div className="w-1.5 h-4 bg-orange-500 rounded-full" /><h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Title Properties</h4></div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1.5 col-span-2"><Label className="text-[10px] font-medium uppercase text-muted-foreground">Display Title</Label><Input value={page.titleText || ''} onChange={(e) => onUpdateTitleSettings?.(page.id, { text: e.target.value })} placeholder="Page Title..." className="h-7 text-xs px-2" /></div>
-                                    <div className="space-y-1.5"><div className="flex justify-between items-center"><Label className="text-[10px] font-medium uppercase text-muted-foreground">Size</Label><span className="text-[10px] font-bold font-mono">{page.titleFontSize ?? 24}px</span></div><Slider value={[page.titleFontSize ?? 24]} min={8} max={120} step={1} onValueChange={(val) => onUpdateTitleSettings?.(page.id, { fontSize: val[0] })} /></div>
-                                    <div className="space-y-1.5"><Label className="text-[10px] font-medium uppercase text-muted-foreground">Color</Label><div className="flex items-center gap-2"><SpineColorPicker value={page.titleColor || '#000000'} onChange={(color) => onUpdateTitleSettings?.(page.id, { color })} disableAlpha={true} /><span className="text-[10px] text-muted-foreground font-mono truncate">{page.titleColor || '#000000'}</span></div></div>
-                                    <div className="space-y-1.5 col-span-2"><Label className="text-[10px] font-medium uppercase text-muted-foreground">Font Family</Label><div className="flex flex-wrap gap-1">{AVAILABLE_FONTS.slice(0, 8).map(font => (<Button key={font} variant={page.titleFontFamily === font ? "default" : "outline"} size="sm" className="h-6 px-2 text-[10px]" onClick={() => onUpdateTitleSettings?.(page.id, { fontFamily: font })}>{font}</Button>))}</div></div>
+                    {
+                        showSpineSettings && (
+                            <div className="mt-2 p-3 bg-background border rounded-lg shadow-xl space-y-4 animate-in slide-in-from-top-2 duration-200 w-full">
+                                <div className="space-y-3 p-3 bg-muted/30 rounded-md border border-border/50 max-w-lg mx-auto">
+                                    <div className="flex items-center gap-2 mb-1"><div className="w-1.5 h-4 bg-orange-500 rounded-full" /><h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Title Properties</h4></div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1.5 col-span-2"><Label className="text-[10px] font-medium uppercase text-muted-foreground">Display Title</Label><Input value={page.titleText || ''} onChange={(e) => onUpdateTitleSettings?.(page.id, { text: e.target.value })} placeholder="Page Title..." className="h-7 text-xs px-2" /></div>
+                                        <div className="space-y-1.5"><div className="flex justify-between items-center"><Label className="text-[10px] font-medium uppercase text-muted-foreground">Size</Label><span className="text-[10px] font-bold font-mono">{page.titleFontSize ?? 24}px</span></div><Slider value={[page.titleFontSize ?? 24]} min={8} max={120} step={1} onValueChange={(val) => onUpdateTitleSettings?.(page.id, { fontSize: val[0] })} /></div>
+                                        <div className="space-y-1.5"><Label className="text-[10px] font-medium uppercase text-muted-foreground">Color</Label><div className="flex items-center gap-2"><SpineColorPicker value={page.titleColor || '#000000'} onChange={(color) => onUpdateTitleSettings?.(page.id, { color })} disableAlpha={true} /><span className="text-[10px] text-muted-foreground font-mono truncate">{page.titleColor || '#000000'}</span></div></div>
+                                        <div className="space-y-1.5 col-span-2"><Label className="text-[10px] font-medium uppercase text-muted-foreground">Font Family</Label><div className="flex flex-wrap gap-1">{AVAILABLE_FONTS.slice(0, 8).map(font => (<Button key={font} variant={page.titleFontFamily === font ? "default" : "outline"} size="sm" className="h-6 px-2 text-[10px]" onClick={() => onUpdateTitleSettings?.(page.id, { fontFamily: font })}>{font}</Button>))}</div></div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
-                </div>
-            </TooltipProvider>
-        </div>
+                        )
+                    }
+                </div >
+            </TooltipProvider >
+        </div >
     );
 };
 
@@ -769,14 +750,14 @@ export const PageCanvas = React.memo(({
     priority = false, // Default to false
     chronologicalIndex,
 }: PageCanvasProps & { previousPagePhotos?: Photo[]; displayLabel?: string }) => {
-    const { gridTemplates, coverTemplates, advancedTemplates, findTemplate, defaultGridTemplate } = useTemplates();
+    const { gridTemplates, coverTemplates, advancedTemplates, findTemplate, defaultGridTemplate, defaultCoverTemplate } = useTemplates();
     const { previewPhotoGap, previewPageMargin, previewCornerRadius } = useAlbumEditor();
     const { toast } = useToast();
     const [isInteracting, setIsInteracting] = useState(false);
 
     const filterTemplates = (templates: AdvancedTemplate[], category: 'grid' | 'cover' | 'advanced') => {
         if (visibleTemplateCategories && !visibleTemplateCategories.includes(category)) return [];
-        if (allowedTemplateIds && allowedTemplateIds.length > 0) return templates.filter(t => allowedTemplateIds.includes(t.id));
+        if (allowedTemplateIds && allowedTemplateIds.length > 0) return templates.filter(t => allowedTemplateIds.includes(String(t.id)));
         return templates;
     };
 
@@ -790,16 +771,16 @@ export const PageCanvas = React.memo(({
 
         if (templatesWithCount.length === 0) return;
 
-        const { baseId } = parseLayoutId(page.layout || '1-full');
-        const currentIndex = templatesWithCount.findIndex(t => t.id === baseId);
+        const { baseId } = parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '');
+        const currentIndex = templatesWithCount.findIndex(t => String(t.id) === String(baseId));
         const nextIndex = (currentIndex + 1) % templatesWithCount.length;
         const nextTemplate = templatesWithCount[nextIndex];
 
-        const { rotation } = parseLayoutId(page.layout || '1-full');
+        const { rotation } = parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '');
         const finalId = rotation === 0 ? nextTemplate.id : `${nextTemplate.id}_r${rotation}`;
 
-        if (page.isCover) onUpdateCoverLayout?.(page.id, 'full', finalId);
-        else onUpdateLayout(page.id, finalId);
+        if (page.isCover) onUpdateCoverLayout?.(page.id, 'full', String(finalId));
+        else onUpdateLayout(page.id, String(finalId));
     }, [page, filteredCoverTemplates, filteredAdvancedTemplates, filteredGridTemplates, onUpdateCoverLayout, onUpdateLayout]);
 
     // Calculate info for label

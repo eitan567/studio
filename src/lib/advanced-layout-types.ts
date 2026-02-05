@@ -59,7 +59,7 @@ export type TemplateCategory = 'grid' | 'geometric' | 'artistic' | 'diagonal' | 
 
 // Complete advanced template definition
 export interface AdvancedTemplate {
-    id: string;
+    id: string | number;
     name: string;
     category: TemplateCategory;
     type?: 'single' | 'spread' | 'both';
@@ -74,7 +74,7 @@ export interface AdvancedTemplate {
     isCustom?: boolean;
 
     // Who created this template
-    createdBy?: 'system' | 'user' | 'ai';
+    createdBy: 'system' | 'user' | 'ai';
 
     // Optional thumbnail preview (data URL or path)
     thumbnail?: string;

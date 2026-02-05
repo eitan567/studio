@@ -32,6 +32,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { rotateGridTemplate, rotateAdvancedTemplate, getNextRotation, RotationAngle } from '@/lib/template-rotation';
 import { useSettings } from '@/hooks/use-settings';
+import { parseLayoutId } from '@/lib/layout-id-utils';
 
 // Helper function to render a clean preview of an advanced template
 // Uses CSS positioned divs to match the style of grid-based templates
@@ -179,16 +180,6 @@ const SpineEffectOverlay = () => {
 // Template Thumbnail - simple static preview for selection
 // All templates now use AdvancedTemplate with regions
 
-// Parse layout ID to extract base template and rotation (same as in page-layout.tsx)
-function parseLayoutId(layoutId: string): { baseId: string; rotation: RotationAngle } {
-  const rotationMatch = layoutId.match(/_r(90|180|270)$/);
-  if (rotationMatch) {
-    const rotation = parseInt(rotationMatch[1]) as RotationAngle;
-    const baseId = layoutId.replace(/_r(90|180|270)$/, '');
-    return { baseId, rotation };
-  }
-  return { baseId: layoutId, rotation: 0 };
-}
 
 const TemplateThumbnail = ({
   template,
@@ -210,7 +201,7 @@ const TemplateThumbnail = ({
 
   return (
     <DropdownMenuItem
-      onSelect={() => onSelect(template.id)}
+      onSelect={() => onSelect(String(template.id))}
       className={cn(
         "p-0 focus:bg-accent/50 rounded-md cursor-pointer",
         isSelected && "ring-2 ring-primary"
@@ -519,7 +510,8 @@ const PageToolbar = ({
     gridTemplates,
     coverTemplates,
     advancedTemplates,
-    defaultGridTemplate
+    defaultGridTemplate,
+    defaultCoverTemplate
   } = useTemplates();
 
   // FILTER TEMPLATES
@@ -530,7 +522,7 @@ const PageToolbar = ({
     }
     // 2. ID Check (if provided and not empty)
     if (allowedTemplateIds && allowedTemplateIds.length > 0) {
-      return templates.filter(t => allowedTemplateIds.includes(t.id));
+      return templates.filter(t => allowedTemplateIds.includes(String(t.id)));
     }
     return templates;
   };
@@ -638,20 +630,21 @@ const PageToolbar = ({
                         <TemplateThumbnail
                           key={template.id}
                           template={template}
-                          isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.back || '' : page.spreadLayouts?.left || '').baseId === template.id}
+                          isSelected={String(parseLayoutId(page.isCover ? page.coverLayouts?.back || '' : page.spreadLayouts?.left || '').baseId) === String(template.id)}
                           onSelect={(templateId) => {
                             // When selecting a new template, preserve current rotation if any
                             const currentLayoutId = page.isCover ? page.coverLayouts?.back : page.spreadLayouts?.left;
                             const { rotation } = parseLayoutId(currentLayoutId || '');
                             const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
                             if (page.isCover) {
-                              onUpdateCoverLayout?.(page.id, 'back', finalId);
+                              onUpdateCoverLayout?.(page.id, 'back', String(finalId));
                             } else {
                               if (onUpdateSpreadLayout) {
-                                onUpdateSpreadLayout(page.id, 'left', finalId);
+                                onUpdateSpreadLayout(page.id, 'left', String(finalId));
                               } else {
-                                const currentLayouts = page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id };
-                                onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, left: finalId } });
+                                const defaultId = defaultGridTemplate?.id || '';
+                                const currentLayouts = page.spreadLayouts || { left: defaultId, right: defaultId };
+                                onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, left: String(finalId) } });
                               }
                             }
                           }}
@@ -668,25 +661,26 @@ const PageToolbar = ({
                         className="relative h-8 w-8"
                         onClick={() => {
                           const currentLayoutId = page.isCover ? page.coverLayouts?.back : page.spreadLayouts?.left;
-                          const { baseId, rotation } = parseLayoutId(currentLayoutId || '1-full');
+                          const { baseId, rotation } = parseLayoutId(currentLayoutId || defaultGridTemplate?.id || '');
                           const newRotation = getNextRotation(rotation);
                           const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
                           if (page.isCover) {
-                            onUpdateCoverLayout?.(page.id, 'back', newLayout);
+                            onUpdateCoverLayout?.(page.id, 'back', String(newLayout));
                           } else {
                             if (onUpdateSpreadLayout) {
-                              onUpdateSpreadLayout(page.id, 'left', newLayout);
+                              onUpdateSpreadLayout(page.id, 'left', String(newLayout));
                             } else {
-                              const currentLayouts = page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id };
-                              onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, left: newLayout } });
+                              const defaultId = defaultGridTemplate?.id || '';
+                              const currentLayouts = page.spreadLayouts || { left: defaultId, right: defaultId };
+                              onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, left: String(newLayout) } });
                             }
                           }
                         }}
                       >
                         <RotateCw className="h-4 w-4" />
-                        {parseLayoutId(page.isCover ? page.coverLayouts?.back || '1-full' : page.spreadLayouts?.left || '1-full').rotation !== 0 && (
+                        {parseLayoutId(page.isCover ? page.coverLayouts?.back || defaultCoverTemplate?.id || '' : page.spreadLayouts?.left || defaultGridTemplate?.id || '').rotation !== 0 && (
                           <span className="absolute -top-2 -right-2 text-[9px] bg-primary text-primary-foreground px-1 rounded">
-                            {parseLayoutId(page.isCover ? page.coverLayouts?.back || '1-full' : page.spreadLayouts?.left || '1-full').rotation}°
+                            {parseLayoutId(page.isCover ? page.coverLayouts?.back || defaultCoverTemplate?.id || '' : page.spreadLayouts?.left || defaultGridTemplate?.id || '').rotation}°
                           </span>
                         )}
                       </Button>
@@ -721,19 +715,20 @@ const PageToolbar = ({
                         <TemplateThumbnail
                           key={template.id}
                           template={template}
-                          isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.front || '1-full' : page.spreadLayouts?.right || '1-full').baseId === template.id}
+                          isSelected={String(parseLayoutId(page.isCover ? page.coverLayouts?.front || defaultCoverTemplate?.id || '' : page.spreadLayouts?.right || defaultGridTemplate?.id || '').baseId) === String(template.id)}
                           onSelect={(templateId) => {
                             const currentLayoutId = page.isCover ? page.coverLayouts?.front : page.spreadLayouts?.right;
-                            const { rotation } = parseLayoutId(currentLayoutId || '1-full');
+                            const { rotation } = parseLayoutId(currentLayoutId || defaultGridTemplate?.id || '');
                             const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
                             if (page.isCover) {
-                              onUpdateCoverLayout?.(page.id, 'front', finalId);
+                              onUpdateCoverLayout?.(page.id, 'front', String(finalId));
                             } else {
                               if (onUpdateSpreadLayout) {
-                                onUpdateSpreadLayout(page.id, 'right', finalId);
+                                onUpdateSpreadLayout(page.id, 'right', String(finalId));
                               } else {
-                                const currentLayouts = page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id };
-                                onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, right: finalId } });
+                                const defaultId = defaultGridTemplate?.id || '';
+                                const currentLayouts = page.spreadLayouts || { left: defaultId, right: defaultId };
+                                onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, right: String(finalId) } });
                               }
                             }
                           }}
@@ -750,25 +745,26 @@ const PageToolbar = ({
                         className="relative h-8 w-8"
                         onClick={() => {
                           const currentLayoutId = page.isCover ? page.coverLayouts?.front : page.spreadLayouts?.right;
-                          const { baseId, rotation } = parseLayoutId(currentLayoutId || '1-full');
+                          const { baseId, rotation } = parseLayoutId(currentLayoutId || defaultGridTemplate?.id || '');
                           const newRotation = getNextRotation(rotation);
                           const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
                           if (page.isCover) {
-                            onUpdateCoverLayout?.(page.id, 'front', newLayout);
+                            onUpdateCoverLayout?.(page.id, 'front', String(newLayout));
                           } else {
                             if (onUpdateSpreadLayout) {
-                              onUpdateSpreadLayout(page.id, 'right', newLayout);
+                              onUpdateSpreadLayout(page.id, 'right', String(newLayout));
                             } else {
-                              const currentLayouts = page.spreadLayouts || { left: defaultGridTemplate.id, right: defaultGridTemplate.id };
-                              onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, right: newLayout } });
+                              const defaultId = defaultGridTemplate?.id || '';
+                              const currentLayouts = page.spreadLayouts || { left: defaultId, right: defaultId };
+                              onUpdatePage?.({ ...page, spreadLayouts: { ...currentLayouts, right: String(newLayout) } });
                             }
                           }
                         }}
                       >
                         <RotateCw className="h-4 w-4" />
-                        {parseLayoutId(page.isCover ? page.coverLayouts?.front || '1-full' : page.spreadLayouts?.right || '1-full').rotation !== 0 && (
+                        {parseLayoutId(page.isCover ? page.coverLayouts?.front || defaultCoverTemplate?.id || '' : page.spreadLayouts?.right || defaultGridTemplate?.id || '').rotation !== 0 && (
                           <span className="absolute -top-2 -right-2 text-[9px] bg-primary text-primary-foreground px-1 rounded">
-                            {parseLayoutId(page.isCover ? page.coverLayouts?.front || '1-full' : page.spreadLayouts?.right || '1-full').rotation}°
+                            {parseLayoutId(page.isCover ? page.coverLayouts?.front || defaultCoverTemplate?.id || '' : page.spreadLayouts?.right || defaultGridTemplate?.id || '').rotation}°
                           </span>
                         )}
                       </Button>
@@ -795,14 +791,14 @@ const PageToolbar = ({
                       <TemplateThumbnail
                         key={template.id}
                         template={template}
-                        isSelected={parseLayoutId(page.layout || '1-full').baseId === template.id}
+                        isSelected={String(parseLayoutId(page.layout || defaultGridTemplate?.id || '').baseId) === String(template.id)}
                         onSelect={(templateId) => {
-                          const { rotation } = parseLayoutId(page.layout || '1-full');
+                          const { rotation } = parseLayoutId(page.layout || defaultGridTemplate?.id || '');
                           const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
                           if (page.isCover) {
-                            onUpdateCoverLayout?.(page.id, 'full', finalId);
+                            onUpdateCoverLayout?.(page.id, 'full', String(finalId));
                           } else {
-                            onUpdateLayout(page.id, finalId);
+                            onUpdateLayout(page.id, String(finalId));
                           }
                         }}
                       />
@@ -821,20 +817,20 @@ const PageToolbar = ({
                     size="icon"
                     className="relative"
                     onClick={() => {
-                      const { baseId, rotation } = parseLayoutId(page.layout || '1-full');
+                      const { baseId, rotation } = parseLayoutId(page.layout || defaultGridTemplate?.id || '');
                       const newRotation = getNextRotation(rotation);
                       const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
                       if (page.isCover) {
-                        onUpdateCoverLayout?.(page.id, 'full', newLayout);
+                        onUpdateCoverLayout?.(page.id, 'full', String(newLayout));
                       } else {
-                        onUpdateLayout(page.id, newLayout);
+                        onUpdateLayout(page.id, String(newLayout));
                       }
                     }}
                   >
                     <RotateCw className="h-4 w-4" />
-                    {parseLayoutId(page.layout || '1-full').rotation !== 0 && (
+                    {parseLayoutId(page.layout || defaultGridTemplate?.id || '').rotation !== 0 && (
                       <span className="absolute -top-2 -right-2 text-[9px] bg-primary text-primary-foreground px-1 rounded">
-                        {parseLayoutId(page.layout || '1-full').rotation}°
+                        {parseLayoutId(page.layout || defaultGridTemplate?.id || '').rotation}°
                       </span>
                     )}
                   </Button>
@@ -854,13 +850,13 @@ const PageToolbar = ({
                     const hasTemplates = templatesWithCount.length > 0;
 
                     // Get current template to check if it matches this count
-                    const { baseId } = parseLayoutId(page.layout || '1-full');
-                    const currentTemplate = allTemplatesForPage.find(t => t.id === baseId);
+                    const { baseId } = parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '');
+                    const currentTemplate = allTemplatesForPage.find(t => String(t.id) === String(baseId));
                     const currentCount = currentTemplate ? getPhotoCount(currentTemplate) : 0;
                     const isActive = currentCount === photoCount;
 
                     // Find current index within templates of this count
-                    const currentIndex = templatesWithCount.findIndex(t => t.id === baseId);
+                    const currentIndex = templatesWithCount.findIndex(t => String(t.id) === String(baseId));
 
                     return (
                       <Tooltip key={photoCount}>
@@ -883,9 +879,9 @@ const PageToolbar = ({
                               }
 
                               const nextTemplate = templatesWithCount[nextIndex];
-                              const { rotation } = parseLayoutId(page.layout || '1-full');
+                              const { rotation } = parseLayoutId(page.layout || defaultGridTemplate?.id || '');
                               const finalId = rotation === 0 ? nextTemplate.id : `${nextTemplate.id}_r${rotation}`;
-                              onUpdateLayout(page.id, finalId);
+                              onUpdateLayout(page.id, String(finalId));
                             }}
                           >
                             {photoCount}
@@ -1071,11 +1067,11 @@ const PageToolbar = ({
                   <TemplateThumbnail
                     key={template.id}
                     template={template}
-                    isSelected={parseLayoutId(page.layout || '1-full').baseId === template.id}
+                    isSelected={String(parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '').baseId) === String(template.id)}
                     onSelect={(templateId) => {
-                      const { rotation } = parseLayoutId(page.layout || '1-full');
+                      const { rotation } = parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '');
                       const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
-                      onUpdateLayout(page.id, finalId);
+                      onUpdateLayout(page.id, String(finalId));
                     }}
                   />
                 ))}
@@ -1095,14 +1091,14 @@ const PageToolbar = ({
                     logger.debug('RotateButton: New rotation:', newRotation);
                     const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
                     logger.debug('RotateButton: New layout ID:', newLayout);
-                    onUpdateLayout(page.id, newLayout);
+                    onUpdateLayout(page.id, String(newLayout));
                   }}
                   className="relative"
                 >
                   <RotateCw className="h-4 w-4" />
-                  {parseLayoutId(page.layout || '1-full').rotation !== 0 && (
+                  {parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '').rotation !== 0 && (
                     <span className="absolute -top-2 -right-2 text-[9px] bg-primary text-primary-foreground px-1 rounded">
-                      {parseLayoutId(page.layout || '1-full').rotation}°
+                      {parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '').rotation}°
                     </span>
                   )}
                 </Button>

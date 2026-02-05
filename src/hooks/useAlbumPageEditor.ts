@@ -3,17 +3,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
 import { AlbumPage, Photo, PhotoPanAndZoom } from '@/lib/types';
 import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
+import { parseLayoutId } from '@/lib/layout-id-utils';
 
-// Helper to parse layout ID
-function parseLayoutId(layoutId: string): { baseId: string; rotation: number } {
-    const rotationMatch = layoutId.match(/_r(90|180|270)$/);
-    if (rotationMatch) {
-        const rotation = parseInt(rotationMatch[1]);
-        const baseId = layoutId.replace(/_r(90|180|270)$/, '');
-        return { baseId, rotation };
-    }
-    return { baseId: layoutId, rotation: 0 };
-}
 
 interface UseAlbumPageEditorProps {
     setAlbumPages: React.Dispatch<React.SetStateAction<AlbumPage[]>>;
@@ -61,8 +52,12 @@ export function useAlbumPageEditor({
         const newSpread: AlbumPage = {
             id: uuidv4(),
             type: 'spread',
-            photos: [createEmptyPhoto(), createEmptyPhoto(), createEmptyPhoto(), createEmptyPhoto()],
-            layout: '4-grid'
+            photos: [createEmptyPhoto(), createEmptyPhoto()],
+            layout: defaultGridTemplate?.id || '',
+            spreadLayouts: {
+                left: defaultGridTemplate?.id || '',
+                right: defaultGridTemplate?.id || ''
+            }
         };
 
         setAlbumPages(prev => {
@@ -87,7 +82,7 @@ export function useAlbumPageEditor({
 
                 // Dynamic layouts generate their template based on photos
                 // DON'T truncate photos for dynamic layouts!
-                if (baseId.startsWith('dynamic-justified')) {
+                if (String(baseId).startsWith('dynamic-justified')) {
                     return {
                         ...page,
                         layout: newLayoutId,
@@ -170,7 +165,7 @@ export function useAlbumPageEditor({
                     const { baseId: baseLayoutId } = parseLayoutId(newLayout);
 
                     // CRITICAL: Dynamic layouts should preserve all photos - don't truncate!
-                    if (baseLayoutId.startsWith('dynamic-justified')) {
+                    if (String(baseLayoutId).startsWith('dynamic-justified')) {
                         console.log('[handleUpdateCoverLayout] Dynamic layout - PRESERVING photos:', page.photos?.length);
                         return {
                             ...page,
@@ -179,7 +174,9 @@ export function useAlbumPageEditor({
                         };
                     }
 
-                    const template = findCoverTemplate(baseLayoutId) || defaultCoverTemplate;
+                    const fallbackId = String(defaultCoverTemplate?.id || '');
+                    const fallbackTemplate: any = { id: fallbackId, regions: [], category: 'cover', name: 'Fallback' };
+                    const template = findCoverTemplate(baseLayoutId) || defaultCoverTemplate || fallbackTemplate;
                     const requiredPhotos = getPhotoCount(template);
                     let currentPhotos = [...page.photos];
 
@@ -205,8 +202,8 @@ export function useAlbumPageEditor({
                     };
                 }
 
-                const currentFrontLayout = page.coverLayouts?.front || '1-full';
-                const currentBackLayout = page.coverLayouts?.back || '1-full';
+                const currentFrontLayout = page.coverLayouts?.front || defaultCoverTemplate?.id || '';
+                const currentBackLayout = page.coverLayouts?.back || defaultCoverTemplate?.id || '';
 
                 const frontLayout = side === 'front' ? newLayout : currentFrontLayout;
                 const backLayout = side === 'back' ? newLayout : currentBackLayout;
@@ -215,7 +212,7 @@ export function useAlbumPageEditor({
                 const { baseId: backBaseId } = parseLayoutId(backLayout);
 
                 // CRITICAL: Dynamic layouts should preserve all photos - don't truncate!
-                if (frontBaseId.startsWith('dynamic-justified') || backBaseId.startsWith('dynamic-justified')) {
+                if (String(frontBaseId).startsWith('dynamic-justified') || String(backBaseId).startsWith('dynamic-justified')) {
                     return {
                         ...page,
                         coverLayouts: {
@@ -226,8 +223,9 @@ export function useAlbumPageEditor({
                     };
                 }
 
-                const frontTemplate = findCoverTemplate(frontBaseId) || defaultCoverTemplate;
-                const backTemplate = findCoverTemplate(backBaseId) || defaultCoverTemplate;
+                const fallbackTemplate: any = { id: defaultCoverTemplate?.id || '', regions: [], category: 'cover', name: 'Fallback' };
+                const frontTemplate = findCoverTemplate(frontBaseId) || defaultCoverTemplate || fallbackTemplate;
+                const backTemplate = findCoverTemplate(backBaseId) || defaultCoverTemplate || fallbackTemplate;
 
                 const requiredBackPhotos = getPhotoCount(backTemplate);
                 const requiredFrontPhotos = getPhotoCount(frontTemplate);
@@ -267,8 +265,8 @@ export function useAlbumPageEditor({
             return prevPages.map(page => {
                 if (page.id !== pageId || page.isCover) return page;
 
-                const currentLeftLayout = page.spreadLayouts?.left || defaultGridTemplate.id;
-                const currentRightLayout = page.spreadLayouts?.right || defaultGridTemplate.id;
+                const currentLeftLayout = page.spreadLayouts?.left || defaultGridTemplate?.id || '';
+                const currentRightLayout = page.spreadLayouts?.right || defaultGridTemplate?.id || '';
 
                 const leftLayout = side === 'left' ? newLayout : currentLeftLayout;
                 const rightLayout = side === 'right' ? newLayout : currentRightLayout;
@@ -277,7 +275,7 @@ export function useAlbumPageEditor({
                 const { baseId: rightBaseId } = parseLayoutId(rightLayout);
 
                 // CRITICAL: Dynamic layouts should preserve all photos - don't do any truncation!
-                if (leftBaseId.startsWith('dynamic-justified') || rightBaseId.startsWith('dynamic-justified')) {
+                if (String(leftBaseId).startsWith('dynamic-justified') || String(rightBaseId).startsWith('dynamic-justified')) {
                     return {
                         ...page,
                         spreadLayouts: {
@@ -288,11 +286,14 @@ export function useAlbumPageEditor({
                     };
                 }
 
-                const leftTemplate = findTemplate(leftBaseId) || defaultGridTemplate;
-                const rightTemplate = findTemplate(rightBaseId) || defaultGridTemplate;
+                // Fallback template to prevent crash if templates not loaded
+                const fallbackId = String(defaultGridTemplate?.id || '');
+                const fallbackTemplate: any = { id: fallbackId, regions: [], category: 'grid', name: 'Fallback' };
+                const leftTemplate = findTemplate(leftBaseId) || defaultGridTemplate || fallbackTemplate;
+                const rightTemplate = findTemplate(rightBaseId) || defaultGridTemplate || fallbackTemplate;
 
                 const { baseId: oldLeftBaseId } = parseLayoutId(currentLeftLayout);
-                const oldLeftTemplate = findTemplate(oldLeftBaseId) || defaultGridTemplate;
+                const oldLeftTemplate = findTemplate(oldLeftBaseId) || defaultGridTemplate || fallbackTemplate;
                 const oldLeftCount = getPhotoCount(oldLeftTemplate);
 
                 const newLeftCount = getPhotoCount(leftTemplate);
@@ -355,12 +356,12 @@ export function useAlbumPageEditor({
                 // for the new type's layouts.
                 let requiredCount = 0;
                 if (newType === 'full') {
-                    const { baseId } = parseLayoutId(page.layout || defaultCoverTemplate.id);
+                    const { baseId } = parseLayoutId(page.layout || defaultCoverTemplate?.id);
                     const template = findCoverTemplate(baseId) || defaultCoverTemplate;
                     requiredCount = getPhotoCount(template);
                 } else {
-                    const currentFrontLayout = page.coverLayouts?.front || '1-full';
-                    const currentBackLayout = page.coverLayouts?.back || '1-full';
+                    const currentFrontLayout = page.coverLayouts?.front || defaultCoverTemplate?.id || '';
+                    const currentBackLayout = page.coverLayouts?.back || defaultCoverTemplate?.id || '';
 
                     const { baseId: frontBaseId } = parseLayoutId(currentFrontLayout);
                     const { baseId: backBaseId } = parseLayoutId(currentBackLayout);
