@@ -63,14 +63,18 @@ export const LayoutCanvas = ({
     const pageW_px = configW * pxPerUnit;
     const pageH_px = BASE_PAGE_PX;
     const isFull = page.spreadMode === 'full';
+    // Always use spread width (Double Page) to maintain square perception as requested by user
     const logicalWidth = pageW_px * 2;
+    const isSingleMode = !isFull;
     const logicalHeight = pageH_px;
     const photoGap = page.photoGap ?? config?.photoGap ?? 0;
     const pageMargin = page.pageMargin ?? config?.pageMargin ?? 0;
     const backgroundColor = config?.backgroundColor || '#ffffff';
 
     // FIX: Aspect Ratio for corrections
-    const innerLogicalWidth = logicalWidth - pageMargin * 2;
+    // In Single mode, we still show the spread, but logical usage is on the right half
+    const halfWidth = logicalWidth / 2;
+    const innerLogicalWidth = isFull ? (logicalWidth - pageMargin * 2) : (halfWidth - pageMargin * 2);
     const innerLogicalHeight = logicalHeight - pageMargin * 2;
     const coordinateAspect = innerLogicalWidth / innerLogicalHeight;
 
@@ -377,19 +381,19 @@ export const LayoutCanvas = ({
     const getPointFromEvent = (clientX: number, clientY: number, rect: DOMRect) => {
         if (!rect.width || !rect.height) return null;
 
-        const domRatio = rect.width / rect.height;
-        let drawWidth = rect.width;
-        let drawHeight = rect.height;
-        let offsetX = 0;
-        let offsetY = 0;
+        const isFull = page.spreadMode === 'full';
+        const activeAreaLeftPx = isFull ? 0 : rect.width / 2;
+        const activeAreaWidthPx = isFull ? rect.width : rect.width / 2;
 
-        // "meet" logic:
-        // If DOM is wider than Content (domRatio > coordinateAspect) -> Pillarbox (Left/Right bars)
-        // If DOM is taller than Content (domRatio < coordinateAspect) -> Letterbox (Top/Bottom bars)
+        const domRatio = activeAreaWidthPx / rect.height;
+        let drawWidth = activeAreaWidthPx;
+        let drawHeight = rect.height;
+        let offsetX = activeAreaLeftPx;
+        let offsetY = 0;
 
         if (domRatio > coordinateAspect) {
             drawWidth = drawHeight * coordinateAspect;
-            offsetX = (rect.width - drawWidth) / 2;
+            offsetX += (activeAreaWidthPx - drawWidth) / 2;
         } else if (domRatio < coordinateAspect) {
             drawHeight = drawWidth / coordinateAspect;
             offsetY = (rect.height - drawHeight) / 2;
@@ -397,6 +401,11 @@ export const LayoutCanvas = ({
 
         const x = (clientX - rect.left - offsetX) / drawWidth * (100 * coordinateAspect);
         const y = (clientY - rect.top - offsetY) / drawHeight * 100;
+
+        // Restriction: For single mode, don't allow points outside the active (right) half
+        if (!isFull) {
+            // We allow a small margin of error or handle it in the drawing logic
+        }
 
         return [x, y] as Point;
     };
@@ -1106,17 +1115,18 @@ export const LayoutCanvas = ({
         <div ref={wrapperRef} className="w-full h-full bg-muted/20 overflow-hidden relative flex items-center justify-center select-none">
             <div
                 ref={canvasRef}
-                style={{ width: logicalWidth, height: logicalHeight, transform: `scale(${scale})`, backgroundColor }}
-                className="relative overflow-hidden ring-1 ring-gray-300"
+                style={{ width: logicalWidth, height: logicalHeight, transform: `scale(${scale})`, backgroundColor, aspectRatio: `${logicalWidth}/${logicalHeight}` }}
+                className="relative overflow-hidden ring-1 ring-gray-300 flex-none shadow-sm box-border"
             >
                 <div
                     ref={interactionRef}
-                    className={cn("absolute inset-0 z-10", toolMode === 'select' ? "" : "cursor-crosshair")}
+                    className={cn("absolute z-10", toolMode === 'select' ? "" : "cursor-crosshair")}
                     style={{
                         padding: 0,
-                        margin: `${pageMargin}px`,
-                        width: logicalWidth - pageMargin * 2,
-                        height: logicalHeight - pageMargin * 2,
+                        top: pageMargin,
+                        left: pageMargin,
+                        right: pageMargin,
+                        bottom: pageMargin,
                         cursor: toolMode === 'select' ? cursorMode : undefined
                     }}
                     onMouseDown={toolMode === 'select' ? handleSelectMouseDown : handleMouseDown}
@@ -1127,7 +1137,15 @@ export const LayoutCanvas = ({
                     {/* Content Layer */}
                     <div className={cn("absolute inset-0 w-full h-full", toolMode !== 'select' && "pointer-events-none")}>
                         {advancedTemplate ? (
-                            <div className="relative w-full h-full">
+                            <div
+                                className="absolute bg-white overflow-hidden shadow-sm"
+                                style={{
+                                    top: 0,
+                                    left: isFull ? 0 : (logicalWidth / 2) - pageMargin,
+                                    width: innerLogicalWidth,
+                                    height: innerLogicalHeight,
+                                }}
+                            >
                                 {advancedTemplate.regions.sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)).map((region, index) => (
                                     <ShapeRegion
                                         key={region.id || index}
@@ -1135,8 +1153,8 @@ export const LayoutCanvas = ({
                                         photo={page.photos[index]}
                                         photoGap={photoGap}
                                         backgroundColor={backgroundColor}
-                                        containerWidth={logicalWidth - pageMargin * 2}
-                                        containerHeight={logicalHeight - pageMargin * 2}
+                                        containerWidth={innerLogicalWidth}
+                                        containerHeight={innerLogicalHeight}
                                         onUpdatePanAndZoom={() => { }}
                                         onInteractionChange={() => { }}
                                         pageId={page.id}
@@ -1144,20 +1162,39 @@ export const LayoutCanvas = ({
                                 ))}
                             </div>
                         ) : isFull ? (
-                            <div className="h-full w-full bg-white relative overflow-hidden flex items-center justify-center border-2 border-dashed border-gray-200 text-gray-400">
-                                Start Drawing to Create Layout
+                            <div className="flex h-full w-full">
+                                <div className="flex-1 border-r border-dashed border-gray-200 flex items-center justify-center text-gray-300 text-sm">Left Page</div>
+                                <div className="flex-1 flex items-center justify-center text-gray-300 text-sm">Right Page</div>
                             </div>
                         ) : (
                             <div className="flex h-full w-full">
-                                <div className="flex-1 border-r border-dashed border-gray-200" />
-                                <div className="flex-1" />
+                                {/* LOCKED LEFT SIDE */}
+                                <div className="flex-1 bg-gray-100/50 flex flex-col items-center justify-center border-r border-dashed border-gray-300">
+                                    <div className="text-gray-400 text-xs font-medium uppercase tracking-widest bg-white/80 px-2 py-1 rounded shadow-sm">Locked Section</div>
+                                    <div className="text-[10px] text-gray-400/70 mt-1">Single Page designs the right side</div>
+                                </div>
+                                {/* ACTIVE RIGHT SIDE */}
+                                <div className="flex-1 bg-white relative overflow-hidden flex items-center justify-center">
+                                    <div className="text-gray-200 text-sm">Design Area</div>
+                                </div>
                             </div>
                         )}
                     </div>
 
                     {/* Vector Overlay */}
                     {(strokes.length > 0 || currentStroke || currentPath.length > 0 || previewShape) && (
-                        <svg className="absolute inset-0 z-50 overflow-visible" style={{ pointerEvents: 'none' }} viewBox={`0 0 ${100 * coordinateAspect} 100`} preserveAspectRatio="xMidYMid meet">
+                        <svg
+                            className="absolute z-50 overflow-visible"
+                            style={{
+                                pointerEvents: 'none',
+                                top: 0,
+                                left: isFull ? 0 : (logicalWidth / 2) - pageMargin,
+                                width: innerLogicalWidth,
+                                height: innerLogicalHeight
+                            }}
+                            viewBox={`0 0 ${100 * coordinateAspect} 100`}
+                            preserveAspectRatio="none"
+                        >
                             {strokes.map((s, i) => {
                                 // Check if this stroke belongs to ANY selected shape
                                 const isSelected = selectedShapeIndices.some(idx => {
@@ -1201,12 +1238,20 @@ export const LayoutCanvas = ({
                         </svg>
                     )}
 
-                    {/* Shape Info Overlay for Verification */}
-
-
                     {/* Selection Handles (Only show if ONE shape is selected) */}
                     {primaryShape && (
-                        <svg className="absolute inset-0 z-50 overflow-visible" style={{ pointerEvents: 'none' }} viewBox={`0 0 ${100 * coordinateAspect} 100`} preserveAspectRatio="xMidYMid meet">
+                        <svg
+                            className="absolute z-50 overflow-visible"
+                            style={{
+                                pointerEvents: 'none',
+                                top: 0,
+                                left: isFull ? 0 : (logicalWidth / 2) - pageMargin,
+                                width: innerLogicalWidth,
+                                height: innerLogicalHeight
+                            }}
+                            viewBox={`0 0 ${100 * coordinateAspect} 100`}
+                            preserveAspectRatio="none"
+                        >
                             {/* Rotated Rect Outline */}
                             <polygon
                                 points={getResizeHandles(primaryShape.obb)
@@ -1238,9 +1283,6 @@ export const LayoutCanvas = ({
 
                             {/* Resize Handles (Circles) */}
                             {getResizeHandles(primaryShape.obb).map((h, i) => {
-                                // Style: Corners are Blue, Sides are White (or keep all valid?)
-                                // Remote used different colors for different things. 
-                                // Let's stick to standard blue for resize, but make them circles.
                                 return (
                                     <circle key={i}
                                         cx={h[0]} cy={h[1]}

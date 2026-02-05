@@ -62,6 +62,7 @@ export interface AdvancedTemplate {
     id: string;
     name: string;
     category: TemplateCategory;
+    type?: 'single' | 'spread' | 'both';
 
     // Photo regions in this template
     regions: LayoutRegion[];

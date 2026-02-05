@@ -183,13 +183,14 @@ function convertGridToAdvanced(dbTemplate: DBTemplate): AdvancedTemplate {
 /**
  * Parse description JSON to extract template settings
  */
-function parseTemplateDescription(description?: string): { _pageMargin?: number; _photoGap?: number } {
+function parseTemplateDescription(description?: string): { _pageMargin?: number; _photoGap?: number; type?: 'single' | 'spread' | 'both' } {
     if (!description) return {};
     try {
         const parsed = JSON.parse(description);
         return {
             _pageMargin: typeof parsed._pageMargin === 'number' ? parsed._pageMargin : undefined,
-            _photoGap: typeof parsed._photoGap === 'number' ? parsed._photoGap : undefined
+            _photoGap: typeof parsed._photoGap === 'number' ? parsed._photoGap : undefined,
+            type: parsed.type
         };
     } catch {
         return {};
@@ -242,6 +243,7 @@ async function initializeCache(): Promise<void> {
                         regions: t.regions,
                         createdBy: t.created_by as AdvancedTemplate['createdBy'],
                         isCustom: t.created_by === 'user',
+                        type: descSettings.type,
                         _pageMargin: descSettings._pageMargin,
                         _photoGap: descSettings._photoGap
                     };
@@ -263,6 +265,7 @@ async function initializeCache(): Promise<void> {
                     regions: [],
                     createdBy: t.created_by as AdvancedTemplate['createdBy'],
                     isCustom: t.created_by === 'user',
+                    type: descSettings.type,
                     _pageMargin: descSettings._pageMargin,
                     _photoGap: descSettings._photoGap
                 };

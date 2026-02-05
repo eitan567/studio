@@ -50,10 +50,10 @@ export const LayoutSidebarRight = ({
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                {/* Spread Mode */}
+                {/* Template Type */}
                 <div className="space-y-3">
                     <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        Spread Mode
+                        Template Type
                     </Label>
                     <div className="flex gap-2">
                         <Button
@@ -62,7 +62,7 @@ export const LayoutSidebarRight = ({
                             className="flex-1"
                             onClick={() => onSpreadModeChange('full')}
                         >
-                            Full
+                            Double Page
                         </Button>
                         <Button
                             variant={spreadMode === 'split' ? 'default' : 'outline'}
@@ -70,13 +70,13 @@ export const LayoutSidebarRight = ({
                             className="flex-1"
                             onClick={() => onSpreadModeChange('split')}
                         >
-                            Split
+                            Single Page
                         </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
                         {spreadMode === 'full'
-                            ? 'Full mode: Layout spans entire spread.'
-                            : 'Split mode: Separate layouts for left and right pages.'}
+                            ? 'Double Page: Create a template spanning the full spread.'
+                            : 'Single Page: Create a template for a single page (applies to L or R).'}
                     </p>
                 </div>
 

@@ -190,7 +190,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                     // Store page settings as JSON in description or separate field
                     description: JSON.stringify({
                         _pageMargin: template._pageMargin,
-                        _photoGap: template._photoGap
+                        _photoGap: template._photoGap,
+                        type: template.type
                     })
                 }));
 
@@ -254,9 +255,24 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 configH = parts[1];
             }
         }
-        // logical width is 2 * width if in split spread mode (which is our constant for logical units)
-        // or just aspect ratio * 100 since height is 100
-        const logicalWidthUnits = (configW * 2 / configH) * 100;
+
+        // Match LayoutCanvas calculation to ensure strokes (0..100*aspect) map correctly to 0..100%
+        const BASE_PAGE_PX = 450;
+        const pxPerUnit = BASE_PAGE_PX / configH;
+        const pageW_px = configW * pxPerUnit;
+        const pageH_px = BASE_PAGE_PX;
+
+        const isFull = spreadMode === 'full';
+        const logicalWidthPx = isFull ? pageW_px * 2 : pageW_px;
+        const logicalHeightPx = pageH_px;
+
+        // Determine the coordinate system aspect ratio used during drawing
+        // Note: Strokes are captured in a coordinate system of [0..Aspect*100] x [0..100]
+        const innerW = logicalWidthPx - (pageMargin * 2);
+        const innerH = logicalHeightPx - (pageMargin * 2);
+        const aspect = innerW / innerH;
+
+        const logicalWidthUnits = aspect * 100;
 
         // Core Geometry Calculation - Pass gap=0 so regions fill the entire page
         // The gap will be applied when the template is used in the album, not during creation
@@ -274,6 +290,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             photoCount: 0,
             isCustom: true,
             createdBy: 'user',
+            type: spreadMode === 'full' ? 'spread' : 'single',
             _pageMargin: pageMargin,
             _photoGap: photoGap
         };
@@ -282,6 +299,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             ...targetTemplate,
             regions: newRegions,
             photoCount: newRegions.length,
+            type: spreadMode === 'full' ? 'spread' : 'single',
             _pageMargin: pageMargin,
             _photoGap: photoGap
         };

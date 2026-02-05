@@ -288,6 +288,13 @@ const PageToolbar = ({
         return templates;
     };
 
+    const filterByType = (templates: AdvancedTemplate[], type: 'single' | 'spread') => {
+        return templates.filter(t => {
+            if (t.type) return t.type === type || t.type === 'both';
+            return true;
+        });
+    };
+
     const filteredGridTemplates = filterTemplates(gridTemplates, 'grid');
     const filteredCoverTemplates = filterTemplates(coverTemplates, 'cover');
     const filteredAdvancedTemplates = filterTemplates(advancedTemplates, 'advanced');
@@ -369,7 +376,7 @@ const PageToolbar = ({
                                     <DropdownMenu>
                                         <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">{page.isCover ? "Back" : "Page 1"}</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>{page.isCover ? "Back Cover Layout" : "Page 1 Layout"}</TooltipContent></Tooltip>
                                         <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-96 overflow-y-auto">
-                                            {(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates]).map(template => (
+                                            {filterByType(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates], 'single').map(template => (
                                                 <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.back || '' : page.spreadLayouts?.left || '').baseId === template.id} onSelect={(templateId) => {
                                                     const currentLayoutId = page.isCover ? page.coverLayouts?.back : page.spreadLayouts?.left;
                                                     const { rotation } = parseLayoutId(currentLayoutId || '');
@@ -416,7 +423,7 @@ const PageToolbar = ({
                                     <DropdownMenu>
                                         <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">{page.isCover ? "Front" : "Page 2"}</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>{page.isCover ? "Front Cover Layout" : "Page 2 Layout"}</TooltipContent></Tooltip>
                                         <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-96 overflow-y-auto">
-                                            {(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates]).map(template => (
+                                            {filterByType(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates], 'single').map(template => (
                                                 <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.front || '1-full' : page.spreadLayouts?.right || '1-full').baseId === template.id} onSelect={(templateId) => {
                                                     const currentLayoutId = page.isCover ? page.coverLayouts?.front : page.spreadLayouts?.right;
                                                     const { rotation } = parseLayoutId(currentLayoutId || '1-full');
@@ -466,7 +473,7 @@ const PageToolbar = ({
                                     <DropdownMenu>
                                         <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">Layout</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>Spread Layout</TooltipContent></Tooltip>
                                         <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-96 overflow-y-auto">
-                                            {(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates]).map(template => (
+                                            {filterByType(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates], 'spread').map(template => (
                                                 <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.layout || '1-full').baseId === template.id} onSelect={(templateId) => {
                                                     const { rotation } = parseLayoutId(page.layout || '1-full');
                                                     const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
@@ -550,7 +557,7 @@ const PageToolbar = ({
                         <DropdownMenu>
                             <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><LayoutTemplate className="h-5 w-5" /></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>Page Layout</TooltipContent></Tooltip>
                             <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
-                                {[...gridTemplates, ...advancedTemplates].map(template => (
+                                {filterByType([...gridTemplates, ...advancedTemplates], 'single').map(template => (
                                     <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.layout || '1-full').baseId === template.id} onSelect={(templateId) => {
                                         const { rotation } = parseLayoutId(page.layout || '1-full');
                                         const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
