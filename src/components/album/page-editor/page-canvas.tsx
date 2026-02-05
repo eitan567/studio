@@ -663,17 +663,17 @@ const ScaledCoverPreview = React.memo(({
     return (
         <div ref={wrapperRef} className="w-full h-full flex items-center justify-center p-4 pt-0">
             <div className="relative flex items-center justify-center"
-                style={{ width: logicalWidth, height: logicalHeight, transform: `scale(${scale})`, transformOrigin: 'center center', flexShrink: 0, colorScheme: 'light' }}>
-                <div className="absolute inset-0 bg-[#F4F4F4] rounded-[5px] shadow-2xl border border-gray-200/80 z-0">
-                    <div className="absolute inset-0 bg-gradient-to-r from-gray-50 via-transparent to-gray-50 opacity-40 rounded-[5px]" />
+                style={{ width: logicalWidth, height: logicalHeight, transform: `scale(${scale})`, transformOrigin: 'center center', flexShrink: 0 }}>
+                <div className="absolute inset-0 bg-muted/30 shadow-2xl z-0">
+                    <div className="absolute inset-0 bg-gradient-to-r from-background/5 via-transparent to-background/5 opacity-40" />
                     {!page.isCover && page.type === 'spread' && (
                         <div className="absolute bottom-[-2px] left-1/2 -translate-x-1/2 w-[40px] h-[12px] opacity-50 z-60 pointer-events-none">
                             <div className="w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-black/45 via-black/25 to-transparent rounded-b-xs" />
                         </div>
                     )}
                 </div>
-                <div className="absolute z-0 bg-white border-x border-gray-100 shadow-md" style={{ width: '98%', height: '94.5%', top: '50.4%', left: '50%', transform: 'translate(-50%, -50%)' }} />
-                <div className="relative w-[97%] h-[95%] shadow-lg z-10 overflow-hidden bg-white">
+                <div className="absolute z-0 bg-background border-x border-transparent shadow-md" style={{ width: '98%', height: '94.5%', top: '50.4%', left: '50%', transform: 'translate(-50%, -50%)' }} />
+                <div className="relative w-[97%] h-[95%] shadow-lg z-10 overflow-hidden bg-background">
                     <div className="absolute inset-0 z-50">
                         <AlbumCover page={page} config={config} mode="editor" activeView={activeView} onUpdateTitleSettings={onUpdateTitleSettings} onDropPhoto={onDropPhoto} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} onInteractionChange={onInteractionChange} onRemovePhoto={onRemovePhoto} allPhotos={allPhotos} previousPagePhotos={previousPagePhotos} priority={priority} chronologicalIndex={chronologicalIndex} />
                         {!page.isCover && page.type === 'spread' && <SpineEffectOverlay />}

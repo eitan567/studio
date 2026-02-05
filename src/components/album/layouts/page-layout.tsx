@@ -198,7 +198,7 @@ const PageLayoutComponent = ({
                         region={region}
                         photo={photo}
                         photoGap={gapValueNum}
-                        backgroundColor={page.backgroundColor || configBackgroundColor || '#ffffff'}
+                        backgroundColor={page.backgroundColor || configBackgroundColor || 'transparent'}
                         containerWidth={W}
                         containerHeight={H}
                         onUpdatePanAndZoom={(panAndZoom: PhotoPanAndZoom) => {

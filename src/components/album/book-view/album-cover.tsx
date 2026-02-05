@@ -850,11 +850,11 @@ export const AlbumCover = ({
             {isFullSpread ? (
                 /* FULL COVER MODE (Spread) */
                 <div
-                    className="relative h-full bg-white overflow-hidden flex"
+                    className="relative h-full bg-background overflow-hidden flex"
                     style={{
                         width: isFull ? '100%' : '200%',
                         transform: isFront ? 'translateX(-50%)' : 'none',
-                        backgroundColor: page.backgroundColor || config?.backgroundColor || '#fff',
+                        backgroundColor: page.backgroundColor || config?.backgroundColor || (pageMargin > 0 ? '#fff' : 'transparent'),
                         backgroundImage: (page.backgroundImage || config?.backgroundImage) ? `url(${page.backgroundImage || config?.backgroundImage})` : undefined,
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
@@ -920,11 +920,11 @@ export const AlbumCover = ({
                     {/* Left / Back Page */}
                     <div
                         className={cn(
-                            "relative h-full bg-white overflow-hidden",
+                            "relative h-full bg-background overflow-hidden",
                             isFull ? "flex-1" : isBack ? "w-full" : "hidden"
                         )}
                         style={{
-                            backgroundColor: page.backgroundColor || config?.backgroundColor || '#fff',
+                            backgroundColor: page.backgroundColor || config?.backgroundColor || (pageMargin > 0 ? '#fff' : 'transparent'),
                             backgroundImage: (page.backgroundImage || config?.backgroundImage) ? `url(${page.backgroundImage || config?.backgroundImage})` : undefined,
                             backgroundSize: 'cover',
                             backgroundPosition: 'center',
@@ -986,11 +986,11 @@ export const AlbumCover = ({
                     {/* Right / Front Page */}
                     <div
                         className={cn(
-                            "relative h-full bg-white overflow-hidden",
+                            "relative h-full bg-background overflow-hidden",
                             isFull ? "flex-1" : isFront ? "w-full" : "hidden"
                         )}
                         style={{
-                            backgroundColor: page.backgroundColor || config?.backgroundColor || '#fff',
+                            backgroundColor: page.backgroundColor || config?.backgroundColor || (pageMargin > 0 ? '#fff' : 'transparent'),
                             backgroundImage: (page.backgroundImage || config?.backgroundImage) ? `url(${page.backgroundImage || config?.backgroundImage})` : undefined,
                             backgroundSize: 'cover',
                             backgroundPosition: 'center',

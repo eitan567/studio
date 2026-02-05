@@ -296,7 +296,8 @@ export const ShapeRegion = ({
                 id={shapeId}
                 className={cn(
                     "absolute pointer-events-auto transition-all duration-200 group",
-                    (!photo || !photo.src) && "cursor-pointer"
+                    (!photo || !photo.src) && "cursor-pointer",
+                    cornerRadius === 0 && "rounded-none"
                 )}
                 style={commonStyle}
                 onClick={(e) => {
