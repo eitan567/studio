@@ -37,7 +37,23 @@ export const LayoutSidebarRight = ({
     useDummyPhotos,
     onUseDummyPhotosChange
 }: LayoutSidebarRightProps) => {
-    const { gridTemplates } = useTemplates();
+    const { allTemplates } = useTemplates();
+
+    // Filter templates by category and type
+    const systemTemplates = allTemplates.filter(t => t.createdBy === 'system' && t.category === 'grid');
+    const userTemplates = allTemplates.filter(t => t.createdBy === 'user' || t.isCustom);
+
+    const filterByMode = (templates: typeof allTemplates) => {
+        const type = spreadMode === 'split' ? 'single' : 'spread';
+        return templates.filter(t => {
+            if (t.type) return t.type === type || t.type === 'both';
+            // Default system grids to spread if not explicitly typed
+            return t.createdBy === 'system' ? type === 'spread' : false;
+        });
+    };
+
+    const filteredSystem = filterByMode(systemTemplates);
+    const filteredUser = filterByMode(userTemplates);
 
     return (
         <div className="w-72 border-l bg-background flex flex-col shrink-0 overflow-hidden">
@@ -80,13 +96,13 @@ export const LayoutSidebarRight = ({
                     </p>
                 </div>
 
-                {/* Layout Templates */}
+                {/* System Layout Templates */}
                 <div className="space-y-3">
                     <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        Layout Template
+                        Standard Layouts
                     </Label>
                     <div className="grid grid-cols-3 gap-2">
-                        {gridTemplates.map((template) => (
+                        {filteredSystem.map((template) => (
                             <button
                                 key={template.id}
                                 onClick={() => onSelectLayout(template.id)}
@@ -98,7 +114,6 @@ export const LayoutSidebarRight = ({
                                 )}
                                 title={template.name}
                             >
-                                {/* Mini regions preview */}
                                 <div className="w-full h-full relative">
                                     {template.regions?.map((region, idx) => (
                                         <div
@@ -117,6 +132,45 @@ export const LayoutSidebarRight = ({
                         ))}
                     </div>
                 </div>
+
+                {/* User Layout Templates */}
+                {filteredUser.length > 0 && (
+                    <div className="space-y-3">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                            My Layouts
+                        </Label>
+                        <div className="grid grid-cols-3 gap-2">
+                            {filteredUser.map((template) => (
+                                <button
+                                    key={template.id}
+                                    onClick={() => onSelectLayout(template.id)}
+                                    className={cn(
+                                        "aspect-[4/3] rounded-md border-2 p-1 transition-all hover:border-primary/50",
+                                        selectedLayout === template.id
+                                            ? "border-primary bg-primary/5"
+                                            : "border-muted bg-muted/30"
+                                    )}
+                                    title={template.name}
+                                >
+                                    <div className="w-full h-full relative">
+                                        {template.regions?.map((region, idx) => (
+                                            <div
+                                                key={idx}
+                                                className="absolute bg-muted-foreground/20 rounded-sm"
+                                                style={{
+                                                    left: `${region.bounds.x}%`,
+                                                    top: `${region.bounds.y}%`,
+                                                    width: `${region.bounds.width}%`,
+                                                    height: `${region.bounds.height}%`,
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Spacing Controls */}
                 <div className="space-y-4">

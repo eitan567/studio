@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { AlbumPage, AlbumConfig } from '@/lib/types';
 import { LayoutSidebarLeft, ToolMode } from './layout-sidebar-left';
 import { LayoutSidebarRight } from './layout-sidebar-right';
@@ -22,7 +22,12 @@ interface CustomLayoutEditorOverlayProps {
 }
 
 export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, onAddTemplate }: CustomLayoutEditorOverlayProps) => {
-    const { findGridTemplate, defaultGridTemplate } = useTemplates();
+    const { findGridTemplate, defaultGridTemplate, allTemplates } = useTemplates();
+
+    // Load existing custom templates from cache on mount
+    const existingCustomTemplates = useMemo(() => {
+        return allTemplates.filter(t => t.createdBy === 'user' || t.isCustom);
+    }, [allTemplates]);
 
     // Local state for created templates (starts empty)
     const [createdTemplates, setCreatedTemplates] = useState<AdvancedTemplate[]>([]);
@@ -180,14 +185,15 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 const templatesToInsert = createdTemplates.map(template => ({
                     id: template.id,
                     name: template.name,
-                    category_id: 1, // Will be set based on category
+                    category_id: 5, // CUSTOM category
                     photo_count: template.photoCount,
                     regions: template.regions,
                     created_by: userId,
                     is_system: false,
                     is_active: true,
                     sort_order: 999,
-                    // Store page settings as JSON in description or separate field
+                    type: template.type, // Dedicated classification column
+                    // Store page settings as JSON in description for redundancy/backwards compat
                     description: JSON.stringify({
                         _pageMargin: template._pageMargin,
                         _photoGap: template._photoGap,
@@ -332,7 +338,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                     onCancel={handleCancel}
                     selectedAdvancedTemplate={selectedAdvancedTemplate}
                     onSelectAdvancedTemplate={handleSelectAdvancedTemplate}
-                    customTemplates={createdTemplates}
+                    customTemplates={[...existingCustomTemplates, ...createdTemplates]}
                     onAddTemplate={onAddTemplate}
                     // New Vector Props
                     toolMode={toolMode}

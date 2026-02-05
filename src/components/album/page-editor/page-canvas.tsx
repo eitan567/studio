@@ -290,8 +290,20 @@ const PageToolbar = ({
 
     const filterByType = (templates: AdvancedTemplate[], type: 'single' | 'spread') => {
         return templates.filter(t => {
-            if (t.type) return t.type === type || t.type === 'both';
-            return true;
+            // Priority 1: Explicitly typed templates
+            if (t.type) {
+                if (t.type === 'both') return true;
+                return t.type === type;
+            }
+
+            // Priority 2: System templates without explicit type
+            // Usually old GRID templates. Default to 'spread' for them or match by ID pattern if needed.
+            if (t.createdBy === 'system') {
+                return type === 'spread'; // Or return true if you want them everywhere
+            }
+
+            // Priority 3: Custom templates must have a type to show up
+            return false;
         });
     };
 
@@ -375,7 +387,7 @@ const PageToolbar = ({
                                 <>
                                     <DropdownMenu>
                                         <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">{page.isCover ? "Back" : "Page 1"}</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>{page.isCover ? "Back Cover Layout" : "Page 1 Layout"}</TooltipContent></Tooltip>
-                                        <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-96 overflow-y-auto">
+                                        <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
                                             {filterByType(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates], 'single').map(template => (
                                                 <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.back || '' : page.spreadLayouts?.left || '').baseId === template.id} onSelect={(templateId) => {
                                                     const currentLayoutId = page.isCover ? page.coverLayouts?.back : page.spreadLayouts?.left;
@@ -422,7 +434,7 @@ const PageToolbar = ({
                                     <div className="h-4 w-px bg-border mx-1" />
                                     <DropdownMenu>
                                         <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">{page.isCover ? "Front" : "Page 2"}</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>{page.isCover ? "Front Cover Layout" : "Page 2 Layout"}</TooltipContent></Tooltip>
-                                        <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-96 overflow-y-auto">
+                                        <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
                                             {filterByType(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates], 'single').map(template => (
                                                 <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.front || '1-full' : page.spreadLayouts?.right || '1-full').baseId === template.id} onSelect={(templateId) => {
                                                     const currentLayoutId = page.isCover ? page.coverLayouts?.front : page.spreadLayouts?.right;
@@ -472,7 +484,7 @@ const PageToolbar = ({
                                 <>
                                     <DropdownMenu>
                                         <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">Layout</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>Spread Layout</TooltipContent></Tooltip>
-                                        <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-96 overflow-y-auto">
+                                        <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
                                             {filterByType(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates], 'spread').map(template => (
                                                 <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.layout || '1-full').baseId === template.id} onSelect={(templateId) => {
                                                     const { rotation } = parseLayoutId(page.layout || '1-full');
@@ -556,7 +568,7 @@ const PageToolbar = ({
                     <div className="flex items-center gap-1">
                         <DropdownMenu>
                             <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><LayoutTemplate className="h-5 w-5" /></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>Page Layout</TooltipContent></Tooltip>
-                            <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2">
+                            <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
                                 {filterByType([...gridTemplates, ...advancedTemplates], 'single').map(template => (
                                     <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.layout || '1-full').baseId === template.id} onSelect={(templateId) => {
                                         const { rotation } = parseLayoutId(page.layout || '1-full');

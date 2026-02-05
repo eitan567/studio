@@ -32,6 +32,8 @@ export interface DBTemplate {
     is_active?: boolean;
     sort_order?: number;
     description?: string;
+    classification_type_id?: number;
+    template_classification?: { code: string };
 }
 
 // Unified cache storage
@@ -220,7 +222,8 @@ async function initializeCache(): Promise<void> {
             .select(`
                 *,
                 template_type:template_types ( code ),
-                template_category:template_categories ( code )
+                template_category:template_categories ( code ),
+                template_classification:template_classifications ( code )
             `)
             .eq('is_active', true)
             .order('sort_order');
@@ -232,42 +235,45 @@ async function initializeCache(): Promise<void> {
             const mappedTemplates = data.map((t: DBTemplate) => {
                 // Parse description for page settings
                 const descSettings = parseTemplateDescription(t.description);
+                const typeCode = t.template_type?.code;
+
+                // Ensure settings are available for all conversion paths
+                const baseTemplate = {
+                    id: t.id,
+                    name: t.name,
+                    category: (t.template_category?.code?.toLowerCase() || 'grid') as AdvancedTemplate['category'],
+                    createdBy: (t.created_by === 'system' || !t.created_by ? 'system' : 'user') as AdvancedTemplate['createdBy'],
+                    isCustom: t.created_by !== 'system' && !!t.created_by,
+                    // Use joined classification code if available, fallback to description
+                    type: (t.template_classification?.code?.toLowerCase() || descSettings.type) as AdvancedTemplate['type'],
+                    _pageMargin: descSettings._pageMargin,
+                    _photoGap: descSettings._photoGap
+                };
 
                 // If template has valid regions already, use them directly
                 if (t.regions && Array.isArray(t.regions) && t.regions.length > 0) {
                     return {
-                        id: t.id,
-                        name: t.name,
-                        category: (t.template_category?.code?.toLowerCase() || 'grid') as AdvancedTemplate['category'],
+                        ...baseTemplate,
                         photoCount: t.photo_count || t.regions.length,
-                        regions: t.regions,
-                        createdBy: t.created_by as AdvancedTemplate['createdBy'],
-                        isCustom: t.created_by === 'user',
-                        type: descSettings.type,
-                        _pageMargin: descSettings._pageMargin,
-                        _photoGap: descSettings._photoGap
+                        regions: t.regions
                     };
                 }
 
-                const typeCode = t.template_type?.code;
-
                 // If it's old GRID type without regions, convert it
                 if (typeCode === 'GRID' || (!typeCode && t.grid)) {
-                    return convertGridToAdvanced(t);
+                    const converted = convertGridToAdvanced(t);
+                    return {
+                        ...baseTemplate,
+                        ...converted,
+                        category: 'grid' as const
+                    };
                 }
 
                 // Fallback for templates without regions
                 return {
-                    id: t.id,
-                    name: t.name,
-                    category: (t.template_category?.code?.toLowerCase() || 'custom') as AdvancedTemplate['category'],
+                    ...baseTemplate,
                     photoCount: t.photo_count || 1,
-                    regions: [],
-                    createdBy: t.created_by as AdvancedTemplate['createdBy'],
-                    isCustom: t.created_by === 'user',
-                    type: descSettings.type,
-                    _pageMargin: descSettings._pageMargin,
-                    _photoGap: descSettings._photoGap
+                    regions: []
                 };
             });
 

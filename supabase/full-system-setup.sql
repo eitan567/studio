@@ -275,6 +275,31 @@ ALTER SEQUENCE "public"."template_types_id_seq" OWNER TO "postgres";
 ALTER SEQUENCE "public"."template_types_id_seq" OWNED BY "public"."template_types"."id";
 
 
+CREATE TABLE IF NOT EXISTS "public"."template_classifications" (
+    "id" integer NOT NULL,
+    "code" "text" NOT NULL,
+    "label" "text"
+);
+
+
+ALTER TABLE "public"."template_classifications" OWNER TO "postgres";
+
+
+CREATE SEQUENCE IF NOT EXISTS "public"."template_classifications_id_seq"
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE "public"."template_classifications_id_seq" OWNER TO "postgres";
+
+
+ALTER SEQUENCE "public"."template_classifications_id_seq" OWNED BY "public"."template_classifications"."id";
+
+
 
 CREATE TABLE IF NOT EXISTS "public"."templates" (
     "id" "text" NOT NULL,
@@ -289,7 +314,8 @@ CREATE TABLE IF NOT EXISTS "public"."templates" (
     "created_at" timestamp with time zone DEFAULT "now"(),
     "updated_at" timestamp with time zone DEFAULT "now"(),
     "type_id" integer,
-    "category_id" integer
+    "category_id" integer,
+    "classification_type_id" integer
 );
 
 
@@ -345,6 +371,10 @@ ALTER TABLE ONLY "public"."template_types" ALTER COLUMN "id" SET DEFAULT "nextva
 
 
 
+ALTER TABLE ONLY "public"."template_classifications" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."template_classifications_id_seq"'::"regclass");
+
+
+
 ALTER TABLE ONLY "public"."user_roles" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."user_roles_id_seq"'::"regclass");
 
 
@@ -381,6 +411,16 @@ ALTER TABLE ONLY "public"."template_types"
 
 ALTER TABLE ONLY "public"."template_types"
     ADD CONSTRAINT "template_types_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."template_classifications"
+    ADD CONSTRAINT "template_classifications_code_key" UNIQUE ("code");
+
+
+
+ALTER TABLE ONLY "public"."template_classifications"
+    ADD CONSTRAINT "template_classifications_pkey" PRIMARY KEY ("id");
 
 
 
@@ -424,7 +464,7 @@ CREATE INDEX "idx_templates_category_id" ON "public"."templates" USING "btree" (
 
 
 
-CREATE INDEX "idx_templates_type_id" ON "public"."templates" USING "btree" ("type_id");
+CREATE INDEX "idx_templates_classification_type_id" ON "public"."templates" USING "btree" ("classification_type_id");
 
 
 
@@ -459,6 +499,11 @@ ALTER TABLE ONLY "public"."templates"
 
 ALTER TABLE ONLY "public"."templates"
     ADD CONSTRAINT "templates_type_id_fkey" FOREIGN KEY ("type_id") REFERENCES "public"."template_types"("id");
+
+
+
+ALTER TABLE ONLY "public"."templates"
+    ADD CONSTRAINT "templates_classification_type_id_fkey" FOREIGN KEY ("classification_type_id") REFERENCES "public"."template_classifications"("id");
 
 
 
@@ -1183,24 +1228,34 @@ INSERT INTO "public"."template_types" ("id", "code", "description") VALUES
 
 
 --
+-- Data for Name: template_classifications; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+INSERT INTO "public"."template_classifications" ("id", "code", "label") VALUES
+	(1, 'SINGLE', 'Single Page'),
+	(2, 'SPREAD', 'Double Page Spread'),
+	(3, 'BOTH', 'Both');
+
+
+--
 -- Data for Name: templates; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-INSERT INTO "public"."templates" ("id", "name", "photo_count", "grid", "regions", "created_by", "is_system", "is_active", "sort_order", "created_at", "updated_at", "type_id", "category_id") VALUES
-	('v-strips-3', 'V Strips', 3, NULL, '[{"id": "v1", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 33, "height": 100}, "zIndex": 0}, {"id": "v2", "shape": "rect", "bounds": {"x": 33, "y": 0, "width": 34, "height": 100}, "zIndex": 0}, {"id": "v3", "shape": "rect", "bounds": {"x": 67, "y": 0, "width": 33, "height": 100}, "zIndex": 0}]', 'system', true, true, 13, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 1),
-	('3-horiz-lead', '3 Photos', 3, NULL, '[{"id": "r1", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 100, "height": 58}}, {"id": "r2", "shape": "rect", "bounds": {"x": 0, "y": 58, "width": 50, "height": 42}}, {"id": "r3", "shape": "rect", "bounds": {"x": 50, "y": 58, "width": 50, "height": 42}}]', 'system', true, true, 3, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 1),
-	('center-circle-4', 'Center Circle', 5, NULL, '[{"id": "tl", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 50, "height": 50}, "zIndex": 0}, {"id": "tr", "shape": "rect", "bounds": {"x": 50, "y": 0, "width": 50, "height": 50}, "zIndex": 0}, {"id": "bl", "shape": "rect", "bounds": {"x": 0, "y": 50, "width": 50, "height": 50}, "zIndex": 0}, {"id": "br", "shape": "rect", "bounds": {"x": 50, "y": 50, "width": 50, "height": 50}, "zIndex": 0}, {"id": "center", "shape": "circle", "bounds": {"x": 25, "y": 25, "width": 50, "height": 50}, "zIndex": 1}]', 'system', true, true, 7, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 2),
-	('l-shape-mosaic', 'L-Shape Mosaic', 5, NULL, '[{"id": "big", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 60, "height": 60}, "zIndex": 0}, {"id": "tr1", "shape": "rect", "bounds": {"x": 60, "y": 0, "width": 40, "height": 30}, "zIndex": 0}, {"id": "tr2", "shape": "rect", "bounds": {"x": 60, "y": 30, "width": 40, "height": 30}, "zIndex": 0}, {"id": "bl", "shape": "rect", "bounds": {"x": 0, "y": 60, "width": 40, "height": 40}, "zIndex": 0}, {"id": "br", "shape": "rect", "bounds": {"x": 40, "y": 60, "width": 60, "height": 40}, "zIndex": 0}]', 'system', true, true, 8, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 1),
-	('diagonal-4', 'Diagonal Strips', 4, NULL, '[{"id": "d1", "shape": "polygon", "bounds": {"x": 0, "y": 0, "width": 30, "height": 100}, "points": [[0, 0], [25, 0], [15, 100], [0, 100]], "zIndex": 0}, {"id": "d2", "shape": "polygon", "bounds": {"x": 15, "y": 0, "width": 35, "height": 100}, "points": [[25, 0], [50, 0], [40, 100], [15, 100]], "zIndex": 0}, {"id": "d3", "shape": "polygon", "bounds": {"x": 40, "y": 0, "width": 35, "height": 100}, "points": [[50, 0], [75, 0], [65, 100], [40, 100]], "zIndex": 0}, {"id": "d4", "shape": "polygon", "bounds": {"x": 65, "y": 0, "width": 35, "height": 100}, "points": [[75, 0], [100, 0], [100, 100], [65, 100]], "zIndex": 0}]', 'system', true, true, 9, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 4),
-	('angular-3', 'Angular Shards', 3, NULL, '[{"id": "s1", "shape": "polygon", "bounds": {"x": 0, "y": 0, "width": 50, "height": 100}, "points": [[0, 0], [45, 0], [30, 60], [0, 50]], "zIndex": 0}, {"id": "s2", "shape": "polygon", "bounds": {"x": 30, "y": 0, "width": 70, "height": 70}, "points": [[45, 0], [100, 0], [100, 45], [60, 70], [30, 60]], "zIndex": 0}, {"id": "s3", "shape": "polygon", "bounds": {"x": 0, "y": 45, "width": 100, "height": 55}, "points": [[0, 50], [30, 60], [60, 70], [100, 45], [100, 100], [0, 100]], "zIndex": 0}]', 'system', true, true, 10, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 4),
-	('feature-4-small', 'Feature + 4', 5, NULL, '[{"id": "main", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 50, "height": 60}, "zIndex": 0}, {"id": "tr1", "shape": "rect", "bounds": {"x": 50, "y": 0, "width": 50, "height": 30}, "zIndex": 0}, {"id": "tr2", "shape": "rect", "bounds": {"x": 50, "y": 30, "width": 50, "height": 30}, "zIndex": 0}, {"id": "bl", "shape": "rect", "bounds": {"x": 0, "y": 60, "width": 50, "height": 40}, "zIndex": 0}, {"id": "br", "shape": "rect", "bounds": {"x": 50, "y": 60, "width": 50, "height": 40}, "zIndex": 0}]', 'system', true, true, 11, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 3),
-	('magazine-mix', 'Magazine Mix', 7, NULL, '[{"id": "r1", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 50, "height": 60}}, {"id": "r2", "shape": "rect", "bounds": {"x": 50, "y": 0, "width": 50, "height": 30}}, {"id": "r3", "shape": "rect", "bounds": {"x": 50, "y": 30, "width": 50, "height": 30}}, {"id": "r4", "shape": "rect", "bounds": {"x": 0, "y": 60, "width": 25, "height": 40}}, {"id": "r5", "shape": "rect", "bounds": {"x": 25, "y": 60, "width": 25, "height": 40}}, {"id": "r6", "shape": "rect", "bounds": {"x": 50, "y": 60, "width": 25, "height": 40}}, {"id": "r7", "shape": "rect", "bounds": {"x": 75, "y": 60, "width": 25, "height": 40}}]', 'system', true, true, 14, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 3),
-	('1-full', '1 Photo', 1, NULL, '[{"id": "r1", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 100, "height": 100}}]', 'system', true, true, 1, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 1),
-	('2-horiz', '2 Photos', 2, NULL, '[{"id": "r1", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 50, "height": 100}}, {"id": "r2", "shape": "rect", "bounds": {"x": 50, "y": 0, "width": 50, "height": 100}}]', 'system', true, true, 2, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 1),
-	('4-mosaic-1', '4 Photos', 4, NULL, '[{"id": "r1", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 50, "height": 50}}, {"id": "r2", "shape": "rect", "bounds": {"x": 50, "y": 0, "width": 50, "height": 50}}, {"id": "r3", "shape": "rect", "bounds": {"x": 0, "y": 50, "width": 50, "height": 50}}, {"id": "r4", "shape": "rect", "bounds": {"x": 50, "y": 50, "width": 50, "height": 50}}]', 'system', true, true, 5, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 1),
-	('4-vert-lead', '4 Photos', 4, NULL, '[{"id": "r1", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 67, "height": 100}}, {"id": "r2", "shape": "rect", "bounds": {"x": 67, "y": 0, "width": 33, "height": 33}}, {"id": "r3", "shape": "rect", "bounds": {"x": 67, "y": 33, "width": 33, "height": 34}}, {"id": "r4", "shape": "rect", "bounds": {"x": 67, "y": 67, "width": 33, "height": 33}}]', 'system', true, true, 4, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 1),
-	('mosaic-9', 'Mosaic Grid', 9, NULL, '[{"id": "r1", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 33.33, "height": 33.33}}, {"id": "r2", "shape": "rect", "bounds": {"x": 33.33, "y": 0, "width": 33.33, "height": 33.33}}, {"id": "r3", "shape": "rect", "bounds": {"x": 66.66, "y": 0, "width": 33.34, "height": 33.33}}, {"id": "r4", "shape": "rect", "bounds": {"x": 0, "y": 33.33, "width": 33.33, "height": 33.33}}, {"id": "r5", "shape": "rect", "bounds": {"x": 33.33, "y": 33.33, "width": 33.33, "height": 33.33}}, {"id": "r6", "shape": "rect", "bounds": {"x": 66.66, "y": 33.33, "width": 33.34, "height": 33.33}}, {"id": "r7", "shape": "rect", "bounds": {"x": 0, "y": 66.66, "width": 33.33, "height": 33.34}}, {"id": "r8", "shape": "rect", "bounds": {"x": 33.33, "y": 66.66, "width": 33.33, "height": 33.34}}, {"id": "r9", "shape": "rect", "bounds": {"x": 66.66, "y": 66.66, "width": 33.34, "height": 33.34}}]', 'system', true, true, 12, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 1),
-	('6-mosaic-grid', 'Mosaic Grid', 6, NULL, '[{"id": "r1", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 50, "height": 50}}, {"id": "r2", "shape": "rect", "bounds": {"x": 50, "y": 0, "width": 50, "height": 50}}, {"id": "r3", "shape": "rect", "bounds": {"x": 0, "y": 50, "width": 25, "height": 50}}, {"id": "r4", "shape": "rect", "bounds": {"x": 25, "y": 50, "width": 25, "height": 50}}, {"id": "r5", "shape": "rect", "bounds": {"x": 50, "y": 50, "width": 25, "height": 50}}, {"id": "r6", "shape": "rect", "bounds": {"x": 75, "y": 50, "width": 25, "height": 50}}]', 'system', true, true, 6, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 1);
+INSERT INTO "public"."templates" ("id", "name", "photo_count", "grid", "regions", "created_by", "is_system", "is_active", "sort_order", "created_at", "updated_at", "type_id", "category_id", "classification_type_id") VALUES
+	('v-strips-3', 'V Strips', 3, NULL, '[{"id": "v1", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 33, "height": 100}, "zIndex": 0}, {"id": "v2", "shape": "rect", "bounds": {"x": 33, "y": 0, "width": 34, "height": 100}, "zIndex": 0}, {"id": "v3", "shape": "rect", "bounds": {"x": 67, "y": 0, "width": 33, "height": 100}, "zIndex": 0}]', 'system', true, true, 13, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 1, 2),
+	('3-horiz-lead', '3 Photos', 3, NULL, '[{"id": "r1", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 100, "height": 58}}, {"id": "r2", "shape": "rect", "bounds": {"x": 0, "y": 58, "width": 50, "height": 42}}, {"id": "r3", "shape": "rect", "bounds": {"x": 50, "y": 58, "width": 50, "height": 42}}]', 'system', true, true, 3, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 1, 2),
+	('center-circle-4', 'Center Circle', 5, NULL, '[{"id": "tl", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 50, "height": 50}, "zIndex": 0}, {"id": "tr", "shape": "rect", "bounds": {"x": 50, "y": 0, "width": 50, "height": 50}, "zIndex": 0}, {"id": "bl", "shape": "rect", "bounds": {"x": 0, "y": 50, "width": 50, "height": 50}, "zIndex": 0}, {"id": "br", "shape": "rect", "bounds": {"x": 50, "y": 50, "width": 50, "height": 50}, "zIndex": 0}, {"id": "center", "shape": "circle", "bounds": {"x": 25, "y": 25, "width": 50, "height": 50}, "zIndex": 1}]', 'system', true, true, 7, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 2, 2),
+	('l-shape-mosaic', 'L-Shape Mosaic', 5, NULL, '[{"id": "big", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 60, "height": 60}, "zIndex": 0}, {"id": "tr1", "shape": "rect", "bounds": {"x": 60, "y": 0, "width": 40, "height": 30}, "zIndex": 0}, {"id": "tr2", "shape": "rect", "bounds": {"x": 60, "y": 30, "width": 40, "height": 30}, "zIndex": 0}, {"id": "bl", "shape": "rect", "bounds": {"x": 0, "y": 60, "width": 40, "height": 40}, "zIndex": 0}, {"id": "br", "shape": "rect", "bounds": {"x": 40, "y": 60, "width": 60, "height": 40}, "zIndex": 0}]', 'system', true, true, 8, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 1, 2),
+	('diagonal-4', 'Diagonal Strips', 4, NULL, '[{"id": "d1", "shape": "polygon", "bounds": {"x": 0, "y": 0, "width": 30, "height": 100}, "points": [[0, 0], [25, 0], [15, 100], [0, 100]], "zIndex": 0}, {"id": "d2", "shape": "polygon", "bounds": {"x": 15, "y": 0, "width": 35, "height": 100}, "points": [[25, 0], [50, 0], [40, 100], [15, 100]], "zIndex": 0}, {"id": "d3", "shape": "polygon", "bounds": {"x": 40, "y": 0, "width": 35, "height": 100}, "points": [[50, 0], [75, 0], [65, 100], [40, 100]], "zIndex": 0}, {"id": "d4", "shape": "polygon", "bounds": {"x": 65, "y": 0, "width": 35, "height": 100}, "points": [[75, 0], [100, 0], [100, 100], [65, 100]], "zIndex": 0}]', 'system', true, true, 9, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 4, 2),
+	('angular-3', 'Angular Shards', 3, NULL, '[{"id": "s1", "shape": "polygon", "bounds": {"x": 0, "y": 0, "width": 50, "height": 100}, "points": [[0, 0], [45, 0], [30, 60], [0, 50]], "zIndex": 0}, {"id": "s2", "shape": "polygon", "bounds": {"x": 30, "y": 0, "width": 70, "height": 70}, "points": [[45, 0], [100, 0], [100, 45], [60, 70], [30, 60]], "zIndex": 0}, {"id": "s3", "shape": "polygon", "bounds": {"x": 0, "y": 45, "width": 100, "height": 55}, "points": [[0, 50], [30, 60], [60, 70], [100, 45], [100, 100], [0, 100]], "zIndex": 0}]', 'system', true, true, 10, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 4, 2),
+	('feature-4-small', 'Feature + 4', 5, NULL, '[{"id": "main", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 50, "height": 60}, "zIndex": 0}, {"id": "tr1", "shape": "rect", "bounds": {"x": 50, "y": 0, "width": 50, "height": 30}, "zIndex": 0}, {"id": "tr2", "shape": "rect", "bounds": {"x": 50, "y": 30, "width": 50, "height": 30}, "zIndex": 0}, {"id": "bl", "shape": "rect", "bounds": {"x": 0, "y": 60, "width": 50, "height": 40}, "zIndex": 0}, {"id": "br", "shape": "rect", "bounds": {"x": 50, "y": 60, "width": 50, "height": 40}, "zIndex": 0}]', 'system', true, true, 11, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 3, 2),
+	('magazine-mix', 'Magazine Mix', 7, NULL, '[{"id": "r1", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 50, "height": 60}}, {"id": "r2", "shape": "rect", "bounds": {"x": 50, "y": 0, "width": 50, "height": 30}}, {"id": "r3", "shape": "rect", "bounds": {"x": 50, "y": 30, "width": 50, "height": 30}}, {"id": "r4", "shape": "rect", "bounds": {"x": 0, "y": 60, "width": 25, "height": 40}}, {"id": "r5", "shape": "rect", "bounds": {"x": 25, "y": 60, "width": 25, "height": 40}}, {"id": "r6", "shape": "rect", "bounds": {"x": 50, "y": 60, "width": 25, "height": 40}}, {"id": "r7", "shape": "rect", "bounds": {"x": 75, "y": 60, "width": 25, "height": 40}}]', 'system', true, true, 14, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 3, 2),
+	('1-full', '1 Photo', 1, NULL, '[{"id": "r1", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 100, "height": 100}}]', 'system', true, true, 1, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 1, 2),
+	('2-horiz', '2 Photos', 2, NULL, '[{"id": "r1", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 50, "height": 100}}, {"id": "r2", "shape": "rect", "bounds": {"x": 50, "y": 0, "width": 50, "height": 100}}]', 'system', true, true, 2, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 1, 2),
+	('4-mosaic-1', '4 Photos', 4, NULL, '[{"id": "r1", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 50, "height": 50}}, {"id": "r2", "shape": "rect", "bounds": {"x": 50, "y": 0, "width": 50, "height": 50}}, {"id": "r3", "shape": "rect", "bounds": {"x": 0, "y": 50, "width": 50, "height": 50}}, {"id": "r4", "shape": "rect", "bounds": {"x": 50, "y": 50, "width": 50, "height": 50}}]', 'system', true, true, 5, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 1, 2),
+	('4-vert-lead', '4 Photos', 4, NULL, '[{"id": "r1", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 67, "height": 100}}, {"id": "r2", "shape": "rect", "bounds": {"x": 67, "y": 0, "width": 33, "height": 33}}, {"id": "r3", "shape": "rect", "bounds": {"x": 67, "y": 33, "width": 33, "height": 34}}, {"id": "r4", "shape": "rect", "bounds": {"x": 67, "y": 67, "width": 33, "height": 33}}]', 'system', true, true, 4, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 1, 2),
+	('mosaic-9', 'Mosaic Grid', 9, NULL, '[{"id": "r1", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 33.33, "height": 33.33}}, {"id": "r2", "shape": "rect", "bounds": {"x": 33.33, "y": 0, "width": 33.33, "height": 33.33}}, {"id": "r3", "shape": "rect", "bounds": {"x": 66.66, "y": 0, "width": 33.34, "height": 33.33}}, {"id": "r4", "shape": "rect", "bounds": {"x": 0, "y": 33.33, "width": 33.33, "height": 33.33}}, {"id": "r5", "shape": "rect", "bounds": {"x": 33.33, "y": 33.33, "width": 33.33, "height": 33.33}}, {"id": "r6", "shape": "rect", "bounds": {"x": 66.66, "y": 33.33, "width": 33.34, "height": 33.33}}, {"id": "r7", "shape": "rect", "bounds": {"x": 0, "y": 66.66, "width": 33.33, "height": 33.34}}, {"id": "r8", "shape": "rect", "bounds": {"x": 33.33, "y": 66.66, "width": 33.33, "height": 33.34}}, {"id": "r9", "shape": "rect", "bounds": {"x": 66.66, "y": 66.66, "width": 33.34, "height": 33.34}}]', 'system', true, true, 12, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 1, 2),
+	('6-mosaic-grid', 'Mosaic Grid', 6, NULL, '[{"id": "r1", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 50, "height": 50}}, {"id": "r2", "shape": "rect", "bounds": {"x": 50, "y": 0, "width": 50, "height": 50}}, {"id": "r3", "shape": "rect", "bounds": {"x": 0, "y": 50, "width": 25, "height": 50}}, {"id": "r4", "shape": "rect", "bounds": {"x": 25, "y": 50, "width": 25, "height": 50}}, {"id": "r5", "shape": "rect", "bounds": {"x": 50, "y": 50, "width": 25, "height": 50}}, {"id": "r6", "shape": "rect", "bounds": {"x": 75, "y": 50, "width": 25, "height": 50}}]', 'system', true, true, 6, '2026-01-25 10:04:32.524+00', '2026-01-25 09:29:01.100638+00', 2, 1, 2);
 
 
 --
@@ -1299,6 +1354,9 @@ SELECT pg_catalog.setval('"public"."template_categories_id_seq"', 1, false);
 --
 
 SELECT pg_catalog.setval('"public"."template_types_id_seq"', 1, false);
+
+
+SELECT pg_catalog.setval('"public"."template_classifications_id_seq"', 1, false);
 
 
 --

@@ -43,11 +43,25 @@ async function seedTemplates() {
         { id: 4, code: 'DIAGONAL', label: 'Diagonal' },
         { id: 5, code: 'CUSTOM', label: 'Custom' }
     ];
-    // Helper to find cat ID
-    const getCatId = (code: string) => categories.find(c => c.code === code)?.id || 1;
-
     const { error: catsError } = await supabase.from('template_categories').upsert(categories);
     if (catsError) throw catsError;
+
+    const classifications = [
+        { id: 1, code: 'SINGLE', label: 'Single Page' },
+        { id: 2, code: 'SPREAD', label: 'Double Page Spread' },
+        { id: 3, code: 'BOTH', label: 'Both' }
+    ];
+    const { error: classError } = await supabase.from('template_classifications').upsert(classifications);
+    if (classError) throw classError;
+
+    // Helper to find cat ID
+    const getCatId = (code: string) => categories.find(c => c.code === code)?.id || 1;
+    // Helper to find classification ID
+    const getClassificationId = (type?: string) => {
+        if (!type) return 2; // Default to SPREAD
+        const upper = type.toUpperCase();
+        return classifications.find(c => c.code === upper)?.id || 2;
+    };
 
     // 2. Transform Templates
 
@@ -57,9 +71,11 @@ async function seedTemplates() {
         name: t.name,
         type_id: 1, // GRID
         category_id: 1, // GRID
-        grid: t.grid,
-        photo_count: t.grid.length,
+        grid: null,
+        regions: t.regions,
+        photo_count: t.photoCount,
         is_active: true,
+        classification_type_id: 2, // Default GRID to SPREAD
         created_at: new Date().toISOString()
     }));
 
@@ -69,9 +85,11 @@ async function seedTemplates() {
         name: t.name,
         type_id: 1, // GRID
         category_id: 1, // GRID
-        grid: t.grid,
-        photo_count: t.grid.length,
+        grid: null,
+        regions: t.regions,
+        photo_count: t.photoCount,
         is_active: true,
+        classification_type_id: 2, // Default COVER to SPREAD
         created_at: new Date().toISOString()
     }));
 
@@ -85,6 +103,7 @@ async function seedTemplates() {
         regions: t.regions,
         created_by: t.createdBy,
         is_active: true,
+        classification_type_id: getClassificationId(t.type),
         created_at: new Date().toISOString()
     }));
 
