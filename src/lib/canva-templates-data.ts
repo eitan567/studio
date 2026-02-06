@@ -365,6 +365,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-1.svg",
         "name": "Canva 1",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -387,6 +388,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-14.svg",
         "name": "Canva 14",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -409,6 +411,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-15.svg",
         "name": "Canva 15",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -431,6 +434,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-2.svg",
         "name": "Canva 2",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -453,6 +457,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-24.svg",
         "name": "Canva 24",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -475,6 +480,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-25.svg",
         "name": "Canva 25",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -497,6 +503,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-26.svg",
         "name": "Canva 26",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -519,6 +526,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-27.svg",
         "name": "Canva 27",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -541,6 +549,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-28.svg",
         "name": "Canva 28",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -563,6 +572,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-29.svg",
         "name": "Canva 29",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -585,6 +595,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-3.svg",
         "name": "Canva 3",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -607,6 +618,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-30.svg",
         "name": "Canva 30",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -629,6 +641,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-4.svg",
         "name": "Canva 4",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -651,6 +664,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-5.svg",
         "name": "Canva 5",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -673,6 +687,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-1.svg",
         "name": "Canva Artboard 1",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -695,6 +710,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-10.svg",
         "name": "Canva Artboard 10",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -717,6 +733,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-100.svg",
         "name": "Canva Artboard 100",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -739,6 +756,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-102.svg",
         "name": "Canva Artboard 102",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -761,6 +779,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-103.svg",
         "name": "Canva Artboard 103",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -783,6 +802,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-104.svg",
         "name": "Canva Artboard 104",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -805,6 +825,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-105.svg",
         "name": "Canva Artboard 105",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -827,6 +848,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-106.svg",
         "name": "Canva Artboard 106",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -849,6 +871,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-107.svg",
         "name": "Canva Artboard 107",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -871,6 +894,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-108.svg",
         "name": "Canva Artboard 108",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -893,6 +917,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-11.svg",
         "name": "Canva Artboard 11",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -915,6 +940,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-12.svg",
         "name": "Canva Artboard 12",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -937,6 +963,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-13.svg",
         "name": "Canva Artboard 13",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -959,6 +986,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-14.svg",
         "name": "Canva Artboard 14",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -981,6 +1009,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-15.svg",
         "name": "Canva Artboard 15",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1003,6 +1032,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-16.svg",
         "name": "Canva Artboard 16",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1025,6 +1055,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-17.svg",
         "name": "Canva Artboard 17",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1047,6 +1078,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-18.svg",
         "name": "Canva Artboard 18",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1069,6 +1101,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-19.svg",
         "name": "Canva Artboard 19",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1091,6 +1124,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-2.svg",
         "name": "Canva Artboard 2",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1113,6 +1147,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-20.svg",
         "name": "Canva Artboard 20",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1135,6 +1170,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-21.svg",
         "name": "Canva Artboard 21",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1157,6 +1193,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-22.svg",
         "name": "Canva Artboard 22",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1179,6 +1216,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-23.svg",
         "name": "Canva Artboard 23",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1201,6 +1239,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-24.svg",
         "name": "Canva Artboard 24",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1223,6 +1262,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-25.svg",
         "name": "Canva Artboard 25",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1245,6 +1285,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-26.svg",
         "name": "Canva Artboard 26",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1267,6 +1308,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-27.svg",
         "name": "Canva Artboard 27",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1289,6 +1331,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-28.svg",
         "name": "Canva Artboard 28",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1311,6 +1354,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-29.svg",
         "name": "Canva Artboard 29",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1333,6 +1377,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-3.svg",
         "name": "Canva Artboard 3",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1355,6 +1400,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-30.svg",
         "name": "Canva Artboard 30",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1377,6 +1423,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-31.svg",
         "name": "Canva Artboard 31",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1399,6 +1446,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-32.svg",
         "name": "Canva Artboard 32",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1421,6 +1469,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-33.svg",
         "name": "Canva Artboard 33",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1443,6 +1492,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-34.svg",
         "name": "Canva Artboard 34",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1465,6 +1515,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-35.svg",
         "name": "Canva Artboard 35",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1487,6 +1538,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-36.svg",
         "name": "Canva Artboard 36",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1509,6 +1561,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-37.svg",
         "name": "Canva Artboard 37",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1531,6 +1584,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-38.svg",
         "name": "Canva Artboard 38",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1553,6 +1607,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-39.svg",
         "name": "Canva Artboard 39",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1575,6 +1630,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-4.svg",
         "name": "Canva Artboard 4",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1597,6 +1653,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-40.svg",
         "name": "Canva Artboard 40",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1619,6 +1676,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-41.svg",
         "name": "Canva Artboard 41",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1641,6 +1699,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-42.svg",
         "name": "Canva Artboard 42",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1663,6 +1722,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-43.svg",
         "name": "Canva Artboard 43",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1685,6 +1745,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-44.svg",
         "name": "Canva Artboard 44",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1707,6 +1768,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-45.svg",
         "name": "Canva Artboard 45",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1729,6 +1791,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-46.svg",
         "name": "Canva Artboard 46",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1751,6 +1814,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-47.svg",
         "name": "Canva Artboard 47",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1773,6 +1837,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-48.svg",
         "name": "Canva Artboard 48",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1795,6 +1860,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-49.svg",
         "name": "Canva Artboard 49",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1817,6 +1883,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-5.svg",
         "name": "Canva Artboard 5",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1839,6 +1906,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-50.svg",
         "name": "Canva Artboard 50",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1861,6 +1929,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-51.svg",
         "name": "Canva Artboard 51",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1883,6 +1952,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-52.svg",
         "name": "Canva Artboard 52",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1905,6 +1975,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-53.svg",
         "name": "Canva Artboard 53",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1927,6 +1998,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-54.svg",
         "name": "Canva Artboard 54",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1949,6 +2021,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-55.svg",
         "name": "Canva Artboard 55",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1971,6 +2044,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-56.svg",
         "name": "Canva Artboard 56",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -1993,6 +2067,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-57.svg",
         "name": "Canva Artboard 57",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2015,6 +2090,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-59.svg",
         "name": "Canva Artboard 59",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2037,6 +2113,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-59_1.svg",
         "name": "Canva Artboard 59_1",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2059,6 +2136,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-6.svg",
         "name": "Canva Artboard 6",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2081,6 +2159,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-62.svg",
         "name": "Canva Artboard 62",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2103,6 +2182,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-7.svg",
         "name": "Canva Artboard 7",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2125,6 +2205,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-8.svg",
         "name": "Canva Artboard 8",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2147,6 +2228,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-artboard-9.svg",
         "name": "Canva Artboard 9",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2169,6 +2251,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_01.svg",
         "name": "Canva shape_01",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2191,6 +2274,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_02.svg",
         "name": "Canva shape_02",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2213,6 +2297,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_03.svg",
         "name": "Canva shape_03",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2235,6 +2320,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_04.svg",
         "name": "Canva shape_04",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2257,6 +2343,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_05.svg",
         "name": "Canva shape_05",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2279,6 +2366,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_06.svg",
         "name": "Canva shape_06",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2301,6 +2389,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_07.svg",
         "name": "Canva shape_07",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2323,6 +2412,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_08.svg",
         "name": "Canva shape_08",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2345,6 +2435,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_09.svg",
         "name": "Canva shape_09",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2367,6 +2458,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_10.svg",
         "name": "Canva shape_10",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2389,6 +2481,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_11.svg",
         "name": "Canva shape_11",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2411,6 +2504,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_12.svg",
         "name": "Canva shape_12",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2433,6 +2527,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_13.svg",
         "name": "Canva shape_13",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2455,6 +2550,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_14.svg",
         "name": "Canva shape_14",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2477,6 +2573,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_15.svg",
         "name": "Canva shape_15",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2499,6 +2596,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_16.svg",
         "name": "Canva shape_16",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2521,6 +2619,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_17.svg",
         "name": "Canva shape_17",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2543,6 +2642,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_18.svg",
         "name": "Canva shape_18",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2565,6 +2665,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_19.svg",
         "name": "Canva shape_19",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2587,6 +2688,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_20.svg",
         "name": "Canva shape_20",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2609,6 +2711,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_21.svg",
         "name": "Canva shape_21",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2631,6 +2734,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_22.svg",
         "name": "Canva shape_22",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2653,6 +2757,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_23.svg",
         "name": "Canva shape_23",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
@@ -2675,6 +2780,7 @@ export const CANVA_TEMPLATES: AdvancedTemplate[] = [
         "id": "canva-shape_24.svg",
         "name": "Canva shape_24",
         "category": "grid",
+        "type": "both",
         "photoCount": 1,
         "createdBy": "system",
         "regions": [
