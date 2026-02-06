@@ -339,6 +339,7 @@ export const ShapeRegion = ({
         width: `calc(${region.bounds.width}% - ${insetL + insetR}px)`,
         height: `calc(${region.bounds.height}% - ${insetT + insetB}px)`,
         zIndex: region.zIndex ?? 0,
+        transform: region.rotation ? `rotate(${region.rotation}deg)` : undefined,
     };
 
     const handleDragOver = (e: React.DragEvent) => {

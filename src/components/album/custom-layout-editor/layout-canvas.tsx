@@ -368,7 +368,7 @@ export const LayoutCanvas = ({
     // --- MOUSE HANDLERS ---
 
     const getResizeHandles = (obb: ShapeData['obb']): Point[] => {
-        const { minX, maxX, minY, maxY, angle } = obb;
+        const { minX, maxX, minY, maxY, angle, center } = obb;
         const handlesLocal = [
             [minX, minY], // 0: TL
             [(minX + maxX) / 2, minY], // 1: T
@@ -381,44 +381,41 @@ export const LayoutCanvas = ({
         ];
 
         return handlesLocal.map(p => {
-            const u = p[0];
-            const v = p[1];
-            // Rotate back by +angle
-            const x = u * Math.cos(angle) - v * Math.sin(angle);
-            const y = u * Math.sin(angle) + v * Math.cos(angle);
-            return [x, y] as Point;
+            // Rotate the point around the center
+            return rotatePoint(p as Point, center, angle);
         });
     };
 
     const getRotationHandles = (obb: ShapeData['obb']): Point[] => {
-        const { minX, maxX, minY, maxY, angle } = obb;
+        const { minX, maxX, minY, maxY, angle, center } = obb;
         const offset = 12.5;
 
-        // Corners in local space
-        // TL, TR, BR, BL
+        // Corners in local space (unrotated world coords relative to which we apply offset)
+        // We calculate offsets relative to the unrotated box, then rotate the result
+
+        // This function was calculating incorrectly. Let's simplify:
+        // 1. Take corner point on unrotated box
+        // 2. Add offset in the direction of the corner relative to center?
+        // Actually, the original logic tried to do local offset. 
+        // Let's stick to the previous logic but fix the rotation center.
+
         const cornersLocal: { u: number, v: number, ox: number, oy: number }[] = [
             { u: minX, v: minY, ox: -offset, oy: -offset }, // TL
-            { u: maxX, v: minY, ox: offset, oy: -offset },  // TR
+            { u: maxX, v: minY, ox: offset, oy: -offset },   // TR
             { u: maxX, v: maxY, ox: offset, oy: offset },   // BR
             { u: minX, v: maxY, ox: -offset, oy: offset }   // BL
         ];
 
         return cornersLocal.map(p => {
-            // Apply offset in world space
-            const u = p.u;
-            const v = p.v;
+            // Apply offset in unrotated space
+            const unrotatedX = p.u + p.ox;
+            const unrotatedY = p.v + p.oy;
 
-            // Rotate the corner point to world
-            const wx = u * Math.cos(angle) - v * Math.sin(angle);
-            const wy = u * Math.sin(angle) + v * Math.cos(angle);
-
-            // Rotate the offset vector
-            const dox = p.ox * Math.cos(angle) - p.oy * Math.sin(angle);
-            const doy = p.ox * Math.sin(angle) + p.oy * Math.cos(angle);
-
-            return [wx + dox, wy + doy] as Point;
+            // Rotate around center
+            return rotatePoint([unrotatedX, unrotatedY], center, angle);
         });
     };
+
 
     // Updated to use coordinateAspect based on inner drawing area to prevent skew
     const getPointFromEvent = (clientX: number, clientY: number, rect: DOMRect) => {
