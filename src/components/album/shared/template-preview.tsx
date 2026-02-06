@@ -14,6 +14,35 @@ export const TemplatePreview = ({ template }: { template: AdvancedTemplate }) =>
                 const isCircular = region.shape === 'circle' || region.shape === 'ellipse';
                 const isPolygon = region.shape === 'polygon' && region.points && region.points.length >= 3;
 
+                if (region.shape === 'path' && region.path) {
+                    const vb = region.viewBox ? region.viewBox.split(' ').map(Number) : [0, 0, 100, 100];
+                    const [vx, vy, vw, vh] = vb;
+                    return (
+                        <svg
+                            key={region.id || index}
+                            className="absolute overflow-visible"
+                            viewBox={`${vx} ${vy} ${vw} ${vh}`}
+                            preserveAspectRatio="xMidYMid slice"
+                            style={{
+                                left: `${region.bounds.x}%`,
+                                top: `${region.bounds.y}%`,
+                                width: `${region.bounds.width}%`,
+                                height: `${region.bounds.height}%`,
+                                zIndex: region.zIndex ?? 0,
+                            }}
+                        >
+                            <defs>
+                                <clipPath id={`preview-clip-${template.id}-${index}`}>
+                                    <path d={region.path} />
+                                </clipPath>
+                            </defs>
+                            <g clipPath={`url(#preview-clip-${template.id}-${index})`}>
+                                <rect x={vx - 1000} y={vy - 1000} width={vw + 2000} height={vh + 2000} className="fill-primary/20" />
+                            </g>
+                        </svg>
+                    );
+                }
+
                 if (isPolygon && region.points) {
                     const insetPoints = insetPolygon(region.points, GAP_INSET);
                     const clipPathPoints = insetPoints.map(([px, py]) => {

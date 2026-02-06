@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Layout, Pencil, Square, Circle, Trash2, Play, ImageOff, FlipHorizontal, X, Frame } from 'lucide-react';
 import { getPhotoCount } from '@/hooks/useTemplates';
-import { AdvancedTemplate, LayoutRegion } from '@/lib/advanced-layout-types';
+import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { CANVA_TEMPLATES } from '@/lib/canva-templates-data';
 import { cn } from '@/lib/utils';
+import { TemplatePreview } from '@/components/album/shared/template-preview';
 
 export type ToolMode = 'select' | 'pencil' | 'freehand' | 'rect' | 'circle';
 
@@ -36,113 +37,7 @@ interface LayoutSidebarLeftProps {
     onAddCanvaFrame: (template: AdvancedTemplate) => void;
 }
 
-// Render a single region as SVG element
-const renderRegionSvg = (region: LayoutRegion, index: number) => {
-    const fill = region.zIndex && region.zIndex > 0
-        ? 'rgba(100, 100, 130, 0.6)'
-        : 'rgba(100, 100, 130, 0.4)';
-    const stroke = 'rgba(255, 255, 255, 0.5)';
 
-    switch (region.shape) {
-        case 'circle': {
-            const cx = region.bounds.x + region.bounds.width / 2;
-            const cy = region.bounds.y + region.bounds.height / 2;
-            const r = Math.min(region.bounds.width, region.bounds.height) / 2;
-            return (
-                <circle
-                    key={region.id || index}
-                    cx={cx}
-                    cy={cy}
-                    r={r}
-                    fill={fill}
-                    stroke={stroke}
-                    strokeWidth="0.5"
-                />
-            );
-        }
-
-        case 'ellipse': {
-            const cx = region.bounds.x + region.bounds.width / 2;
-            const cy = region.bounds.y + region.bounds.height / 2;
-            return (
-                <ellipse
-                    key={region.id || index}
-                    cx={cx}
-                    cy={cy}
-                    rx={region.bounds.width / 2}
-                    ry={region.bounds.height / 2}
-                    fill={fill}
-                    stroke={stroke}
-                    strokeWidth="0.5"
-                />
-            );
-        }
-
-        case 'polygon': {
-            if (!region.points || region.points.length < 3) {
-                // Fallback to rect
-                return (
-                    <rect
-                        key={region.id || index}
-                        x={region.bounds.x}
-                        y={region.bounds.y}
-                        width={region.bounds.width}
-                        height={region.bounds.height}
-                        fill={fill}
-                        stroke={stroke}
-                        strokeWidth="0.5"
-                    />
-                );
-            }
-            const points = region.points.map(([x, y]) => `${x},${y}`).join(' ');
-            return (
-                <polygon
-                    key={region.id || index}
-                    points={points}
-                    fill={fill}
-                    stroke={stroke}
-                    strokeWidth="0.5"
-                />
-            );
-        }
-
-        case 'rect':
-        default: {
-            return (
-                <rect
-                    key={region.id || index}
-                    x={region.bounds.x}
-                    y={region.bounds.y}
-                    width={region.bounds.width}
-                    height={region.bounds.height}
-                    fill={fill}
-                    stroke={stroke}
-                    strokeWidth="0.5"
-                />
-            );
-        }
-    }
-};
-
-// Template preview component using SVG
-const TemplatePreview = ({ template, isSelected }: { template: AdvancedTemplate; isSelected: boolean }) => {
-    // Sort by zIndex to render in correct order
-    const sortedRegions = [...template.regions].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
-
-    return (
-        <svg
-            viewBox="0 0 100 100"
-            className="w-full h-full"
-            preserveAspectRatio="xMidYMid meet"
-        >
-            {/* Background */}
-            <rect x="0" y="0" width="100" height="100" fill="rgba(80, 80, 100, 0.2)" />
-
-            {/* Render each region */}
-            {sortedRegions.map((region, index) => renderRegionSvg(region, index))}
-        </svg>
-    );
-};
 
 export const LayoutSidebarLeft = ({
     onSave,
@@ -413,10 +308,9 @@ export const LayoutSidebarLeft = ({
                                         )}
                                         title={`${template.name} (${getPhotoCount(template)} photos)`}
                                     >
-                                        <TemplatePreview
-                                            template={template}
-                                            isSelected={selectedAdvancedTemplate?.id === template.id}
-                                        />
+                                        <div className="w-full h-full relative overflow-hidden bg-muted rounded-sm">
+                                            <TemplatePreview template={template} />
+                                        </div>
                                         <span className="absolute bottom-0 left-0 right-0 text-[9px] text-center bg-background/90 py-1 font-medium truncate px-1">
                                             {template.name}
                                         </span>
