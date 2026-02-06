@@ -7,6 +7,8 @@ import { useTemplates } from '@/hooks/useTemplates';
 import { cn } from '@/lib/utils';
 import { Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 
 interface LayoutSidebarRightProps {
     selectedLayout: string;
@@ -65,9 +67,9 @@ export const LayoutSidebarRight = ({
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                {/* Template Type */}
-                <div className="space-y-3">
+            <div className="flex-1 flex flex-col min-h-0">
+                {/* Template Type - Fixed at Top */}
+                <div className="p-4 space-y-3 shrink-0">
                     <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                         Template Type
                     </Label>
@@ -89,126 +91,126 @@ export const LayoutSidebarRight = ({
                             Single Page
                         </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                        {spreadMode === 'full'
-                            ? 'Double Page: Create a template spanning the full spread.'
-                            : 'Single Page: Create a template for a single page (applies to L or R).'}
-                    </p>
                 </div>
 
-                {/* System Layout Templates */}
-                <div className="space-y-3">
+                <div className="px-4 shrink-0">
+                    <Separator />
+                </div>
+
+                {/* System Layout Templates - Scrollable Middle Section */}
+                <div className="flex-1 flex flex-col min-h-0 p-4 space-y-3">
                     <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                         Standard Layouts
                     </Label>
-                    <div className="grid grid-cols-3 gap-2">
-                        {filteredSystem.map((template) => (
-                            <button
-                                key={template.id}
-                                onClick={() => onSelectLayout(String(template.id))}
-                                className={cn(
-                                    "aspect-[4/3] rounded-md border-2 p-1 transition-all hover:border-primary/50",
-                                    selectedLayout === template.id
-                                        ? "border-primary bg-primary/5"
-                                        : "border-muted bg-muted/30"
-                                )}
-                                title={template.name}
-                            >
-                                <div className="w-full h-full relative overflow-hidden">
-                                    {template.regions?.map((region, idx) => (
-                                        region.shape === 'path' ? (() => {
-                                            const vb = region.viewBox ? region.viewBox.split(' ').map(Number) : [0, 0, 100, 100];
-                                            const [vx, vy, vw, vh] = vb;
-                                            return (
-                                                <svg
+                    <ScrollArea className="flex-1">
+                        <div className="p-2 pr-6 grid grid-cols-2 gap-4">
+                            {filteredSystem.map((template) => (
+                                <button
+                                    key={template.id}
+                                    onClick={() => onSelectLayout(String(template.id))}
+                                    className={cn(
+                                        "aspect-[4/3] rounded-md border-2 p-1 transition-all hover:border-primary/50",
+                                        selectedLayout === String(template.id)
+                                            ? "border-primary bg-primary/5"
+                                            : "border-muted bg-muted/30"
+                                    )}
+                                    title={template.name}
+                                >
+                                    <div className="w-full h-full relative overflow-hidden">
+                                        {template.regions?.map((region, idx) => (
+                                            region.shape === 'path' ? (() => {
+                                                const vb = region.viewBox ? region.viewBox.split(' ').map(Number) : [0, 0, 100, 100];
+                                                const [vx, vy, vw, vh] = vb;
+                                                return (
+                                                    <svg
+                                                        key={idx}
+                                                        className="absolute overflow-visible"
+                                                        viewBox={`${vx} ${vy} ${vw} ${vh}`}
+                                                        preserveAspectRatio="xMidYMid slice"
+                                                        style={{
+                                                            left: `${region.bounds.x}%`,
+                                                            top: `${region.bounds.y}%`,
+                                                            width: `${region.bounds.width}%`,
+                                                            height: `${region.bounds.height}%`,
+                                                        }}
+                                                    >
+                                                        <defs>
+                                                            <clipPath id={`preview-clip-${template.id}-${idx}`}>
+                                                                <path d={region.path} />
+                                                            </clipPath>
+                                                        </defs>
+                                                        <g clipPath={`url(#preview-clip-${template.id}-${idx})`}>
+                                                            {/* Simplified Canva-style placeholder for preview */}
+                                                            <rect x={vx - 10} y={vy - 10} width={vw + 20} height={vh + 20} fill="#d4eaf7" />
+                                                            <circle cx={vx + vw * 0.8} cy={vy + vh * 0.15} r={vw * 0.1} fill="#fdf2a4" />
+                                                            <path d={`M${vx - vw * 0.2},${vy + vh} Q${vx + vw * 0.3},${vy + vh * 0.5} ${vx + vw * 0.8},${vy + vh * 1.1} Z`} fill="#90d5ac" />
+                                                            <path d={`M${vx + vw * 0.4},${vy + vh * 1.1} Q${vx + vw * 0.8},${vy + vh * 0.6} ${vx + vw * 1.2},${vy + vh} Z`} fill="#76c893" />
+                                                        </g>
+                                                        {/* Subtle outline to show the shape boundary */}
+                                                        <path d={region.path} fill="none" stroke="currentColor" strokeWidth={vw * 0.01} className="opacity-10" />
+                                                    </svg>
+                                                );
+                                            })() : (
+                                                <div
                                                     key={idx}
-                                                    className="absolute overflow-visible"
-                                                    viewBox={`${vx} ${vy} ${vw} ${vh}`}
-                                                    preserveAspectRatio="xMidYMid slice"
+                                                    className="absolute bg-muted-foreground/20 rounded-[1px]"
                                                     style={{
                                                         left: `${region.bounds.x}%`,
                                                         top: `${region.bounds.y}%`,
                                                         width: `${region.bounds.width}%`,
                                                         height: `${region.bounds.height}%`,
                                                     }}
-                                                >
-                                                    <defs>
-                                                        <clipPath id={`preview-clip-${template.id}-${idx}`}>
-                                                            <path d={region.path} />
-                                                        </clipPath>
-                                                    </defs>
-                                                    <g clipPath={`url(#preview-clip-${template.id}-${idx})`}>
-                                                        {/* Simplified Canva-style placeholder for preview */}
-                                                        <rect x={vx - 10} y={vy - 10} width={vw + 20} height={vh + 20} fill="#d4eaf7" />
-                                                        <circle cx={vx + vw * 0.8} cy={vy + vh * 0.15} r={vw * 0.1} fill="#fdf2a4" />
-                                                        <path d={`M${vx - vw * 0.2},${vy + vh} Q${vx + vw * 0.3},${vy + vh * 0.5} ${vx + vw * 0.8},${vy + vh * 1.1} Z`} fill="#90d5ac" />
-                                                        <path d={`M${vx + vw * 0.4},${vy + vh * 1.1} Q${vx + vw * 0.8},${vy + vh * 0.6} ${vx + vw * 1.2},${vy + vh} Z`} fill="#76c893" />
-                                                    </g>
-                                                    {/* Subtle outline to show the shape boundary */}
-                                                    <path d={region.path} fill="none" stroke="currentColor" strokeWidth={vw * 0.01} className="opacity-10" />
-                                                </svg>
-                                            );
-                                        })() : (
-                                            <div
-                                                key={idx}
-                                                className="absolute bg-muted-foreground/20 rounded-[1px]"
-                                                style={{
-                                                    left: `${region.bounds.x}%`,
-                                                    top: `${region.bounds.y}%`,
-                                                    width: `${region.bounds.width}%`,
-                                                    height: `${region.bounds.height}%`,
-                                                }}
-                                            />
-                                        )
-                                    ))}
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* User Layout Templates */}
-                {filteredUser.length > 0 && (
-                    <div className="space-y-3">
-                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                            My Layouts
-                        </Label>
-                        <div className="grid grid-cols-3 gap-2">
-                            {filteredUser.map((template) => (
-                                <button
-                                    key={template.id}
-                                    onClick={() => onSelectLayout(String(template.id))}
-                                    className={cn(
-                                        "aspect-[4/3] rounded-md border-2 p-1 transition-all hover:border-primary/50",
-                                        selectedLayout === template.id
-                                            ? "border-primary bg-primary/5"
-                                            : "border-muted bg-muted/30"
-                                    )}
-                                    title={template.name}
-                                >
-                                    <div className="w-full h-full relative">
-                                        {template.regions?.map((region, idx) => (
-                                            <div
-                                                key={idx}
-                                                className="absolute bg-muted-foreground/20 rounded-sm"
-                                                style={{
-                                                    left: `${region.bounds.x}%`,
-                                                    top: `${region.bounds.y}%`,
-                                                    width: `${region.bounds.width}%`,
-                                                    height: `${region.bounds.height}%`,
-                                                }}
-                                            />
+                                                />
+                                            )
                                         ))}
                                     </div>
                                 </button>
                             ))}
                         </div>
+                    </ScrollArea>
+                </div>
+
+                {/* User Layout Templates - Fixed at Bottom (if present) */}
+                {filteredUser.length > 0 && (
+                    <div className="p-4 pt-0 space-y-3 shrink-0">
+                        <Separator className="mb-4" />
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                            My Layouts
+                        </Label>
+                        <ScrollArea className="h-[120px] w-full rounded-md border bg-muted/20">
+                            <div className="p-2 grid grid-cols-2 gap-2">
+                                {filteredUser.map((template) => (
+                                    <button
+                                        key={template.id}
+                                        onClick={() => onSelectLayout(String(template.id))}
+                                        className={cn(
+                                            "aspect-[4/3] rounded-md border-2 p-1 transition-all hover:border-primary/50",
+                                            selectedLayout === String(template.id)
+                                                ? "border-primary bg-primary/5"
+                                                : "border-muted bg-muted/30"
+                                        )}
+                                        title={template.name}
+                                    >
+                                        <div className="w-full h-full relative">
+                                            {template.regions?.map((region, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    className="absolute bg-muted-foreground/20 rounded-sm"
+                                                    style={{
+                                                        left: `${region.bounds.x}%`,
+                                                        top: `${region.bounds.y}%`,
+                                                        width: `${region.bounds.width}%`,
+                                                        height: `${region.bounds.height}%`,
+                                                    }}
+                                                />
+                                            ))}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </ScrollArea>
                     </div>
                 )}
-
-                {/* Spacing Controls */}
-
-
             </div>
         </div>
     );
