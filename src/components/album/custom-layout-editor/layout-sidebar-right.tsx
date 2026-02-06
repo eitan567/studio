@@ -56,7 +56,7 @@ export const LayoutSidebarRight = ({
     const filteredUser = filterByMode(userTemplates);
 
     return (
-        <div className="w-72 border-l bg-background flex flex-col shrink-0 overflow-hidden">
+        <div className="w-full h-full border-l bg-background flex flex-col shrink-0 overflow-hidden">
             {/* Header */}
             <div className="p-4 border-b h-14 flex items-center justify-between bg-accent/5">
                 <h2 className="font-semibold text-sm uppercase tracking-wider text-primary flex items-center gap-2">
@@ -207,77 +207,7 @@ export const LayoutSidebarRight = ({
                 )}
 
                 {/* Spacing Controls */}
-                <div className="space-y-4">
-                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        Spacing
-                    </Label>
 
-                    {/* Photo Gap */}
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <Label className="text-sm">Photo Gap</Label>
-                            <Input
-                                type="number"
-                                className="w-16 h-7 text-xs text-center"
-                                value={photoGap}
-                                min={0}
-                                max={50}
-                                onChange={(e) => onPhotoGapChange(Math.max(0, Math.min(50, Number(e.target.value))))}
-                            />
-                        </div>
-                        <Slider
-                            min={0}
-                            max={50}
-                            step={1}
-                            value={[photoGap]}
-                            onValueChange={(vals) => onPhotoGapChange(vals[0])}
-                        />
-                    </div>
-
-                    {/* Page Margin */}
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <Label className="text-sm">Page Margin</Label>
-                            <Input
-                                type="number"
-                                className="w-16 h-7 text-xs text-center"
-                                value={pageMargin}
-                                min={0}
-                                max={50}
-                                onChange={(e) => onPageMarginChange(Math.max(0, Math.min(50, Number(e.target.value))))}
-                            />
-                        </div>
-                        <Slider
-                            min={0}
-                            max={50}
-                            step={1}
-                            value={[pageMargin]}
-                            onValueChange={(vals) => onPageMarginChange(vals[0])}
-                        />
-                    </div>
-
-                    {/* Corner Radius */}
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <Label className="text-sm">Corner Radius</Label>
-                            <Input
-                                type="number"
-                                className="w-16 h-7 text-xs text-center"
-                                value={cornerRadius}
-                                min={0}
-                                max={20}
-                                onChange={(e) => onCornerRadiusChange(Math.max(0, Math.min(20, Number(e.target.value))))}
-                            />
-                        </div>
-                        <Slider
-                            min={0}
-                            max={20}
-                            step={1}
-                            value={[cornerRadius]}
-                            onValueChange={(vals) => onCornerRadiusChange(vals[0])}
-                        />
-                    </div>
-                </div>
 
                 {/* Dummy Photos Option */}
                 <div className="space-y-3 pt-4 border-t">

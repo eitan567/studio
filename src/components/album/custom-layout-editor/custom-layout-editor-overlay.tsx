@@ -4,6 +4,9 @@ import { LayoutSidebarLeft, ToolMode } from './layout-sidebar-left';
 import { LayoutSidebarRight } from './layout-sidebar-right';
 import { LayoutCanvas } from './layout-canvas';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import { Input } from '@/components/ui/input';
 import { Check, X, Layout } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
@@ -313,6 +316,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
     const handleCornerRadiusChange = (radius: number) => {
         setCornerRadius(radius);
+        setDummyPage(prev => ({ ...prev, cornerRadius: radius }));
     };
 
     const handleSave = async () => {
@@ -582,51 +586,67 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     }, [vectorObjects, config?.size, selectedAdvancedTemplate, handleSelectAdvancedTemplate, createdTemplates.length, pageMargin, photoGap, strokeColor, strokeWidth, fillColor, spreadMode]);
 
     return (
-        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-8">
-            <div className="w-full h-full max-w-[1800px] bg-background border shadow-2xl rounded-xl flex overflow-hidden">
-                {/* 1. Left Sidebar */}
-                <LayoutSidebarLeft
-                    onSave={handleSave}
-                    onCancel={handleCancel}
-                    selectedAdvancedTemplate={selectedAdvancedTemplate}
-                    onSelectAdvancedTemplate={handleSelectAdvancedTemplate}
-                    customTemplates={[...existingCustomTemplates, ...createdTemplates]}
-                    onAddTemplate={onAddTemplate}
-                    // New Vector Props
-                    toolMode={toolMode}
-                    onToolChange={setToolMode}
-                    onClearStrokes={handleClearAll}
-                    onProcessLayout={handleProcessLayout}
-                    isMirrorMode={isMirrorMode}
-                    onToggleMirrorMode={() => setIsMirrorMode(!isMirrorMode)}
-                    // Property Controls
-                    strokeColor={strokeColor}
-                    onStrokeColorChange={setStrokeColor}
-                    strokeWidth={strokeWidth}
-                    onStrokeWidthChange={setStrokeWidth}
-                    fillColor={fillColor}
-                    onFillColorChange={setFillColor}
-                    // Canva Frame Shapes
-                    onAddCanvaFrame={handleAddCanvaFrame}
-                />
-
-                {/* 2. Main Content Area (Canvas) */}
-                <div className="flex flex-col flex-1 relative bg-muted/10 h-full">
-
-                    {/* Toolbar */}
-                    <div className="h-14 border-b bg-background flex items-center justify-between px-4 gap-4 shadow-sm z-10">
-                        <div className="flex items-center gap-3">
-                            <Layout className="h-5 w-5 text-primary" />
-                            <span className="font-semibold">Custom Layout Editor</span>
-                            <span className="text-xs text-muted-foreground ml-2 border-l pl-2">
-                                Mode: <span className="font-medium text-foreground uppercase">{toolMode}</span>
-                            </span>
-                        </div>
-
-                        <div className="text-sm text-muted-foreground">
-                            Preview your layout template
-                        </div>
+        <div className="fixed inset-0 z-[100] bg-background flex flex-col">
+            {/* 1. Global Header */}
+            <header className="h-14 border-b px-6 flex items-center justify-between bg-card shrink-0 shadow-sm z-20">
+                <div className="flex items-center gap-4">
+                    <div className="flex flex-col">
+                        <h2 className="text-lg font-semibold leading-none mb-1">Custom Layout Editor</h2>
+                        <p className="text-xs text-muted-foreground">Create and edit template layouts</p>
                     </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="ghost"
+                        onClick={handleCancel}
+                        className="gap-2 text-muted-foreground hover:text-foreground"
+                    >
+                        <X className="h-4 w-4" /> Cancel
+                    </Button>
+                    <div className="h-4 w-[1px] bg-border mx-2" />
+                    <Button
+                        variant="default"
+                        onClick={handleSave}
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 min-w-[140px]"
+                    >
+                        <Check className="h-4 w-4" /> Save Template
+                    </Button>
+                </div>
+            </header>
+
+            {/* 2. Main Workspace */}
+            <div className="flex-1 flex overflow-hidden">
+                {/* Left Sidebar */}
+                <div className="w-[300px] border-r bg-background flex-shrink-0 z-10">
+                    <LayoutSidebarLeft
+                        onSave={handleSave}
+                        onCancel={handleCancel}
+                        selectedAdvancedTemplate={selectedAdvancedTemplate}
+                        onSelectAdvancedTemplate={handleSelectAdvancedTemplate}
+                        customTemplates={[...existingCustomTemplates, ...createdTemplates]}
+                        onAddTemplate={onAddTemplate}
+                        // New Vector Props
+                        toolMode={toolMode}
+                        onToolChange={setToolMode}
+                        onClearStrokes={handleClearAll}
+                        onProcessLayout={handleProcessLayout}
+                        isMirrorMode={isMirrorMode}
+                        onToggleMirrorMode={() => setIsMirrorMode(!isMirrorMode)}
+                        // Property Controls
+                        strokeColor={strokeColor}
+                        onStrokeColorChange={setStrokeColor}
+                        strokeWidth={strokeWidth}
+                        onStrokeWidthChange={setStrokeWidth}
+                        fillColor={fillColor}
+                        onFillColorChange={setFillColor}
+                        // Canva Frame Shapes
+                        onAddCanvaFrame={handleAddCanvaFrame}
+                    />
+                </div>
+
+                {/* Main Canvas Area */}
+                <div className="flex-1 flex flex-col relative bg-muted/10 h-full overflow-hidden">
+
 
                     {/* Canvas */}
                     <div className="flex-1 relative overflow-hidden">
@@ -656,45 +676,92 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         />
                     </div>
 
-                    {/* Bottom Toolbar */}
-                    <div className="h-14 border-t bg-background flex items-center justify-between px-4 z-10 shrink-0">
-                        <div className="text-xs text-muted-foreground">
-                            Create and preview custom layout templates for your album pages.
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Button
-                                variant="outline"
-                                onClick={handleCancel}
-                                className="gap-2"
-                            >
-                                <X className="h-4 w-4" /> Cancel
-                            </Button>
-                            <Button
-                                variant="default"
-                                onClick={handleSave}
-                                className="bg-green-600 hover:bg-green-700 text-white gap-2"
-                            >
-                                <Check className="h-4 w-4" /> Save Layout
-                            </Button>
+                    {/* Bottom Toolbar - Spacing Controls */}
+                    <div className="h-16 border-t bg-background flex items-center justify-center px-8 shrink-0 z-10">
+                        <div className="flex items-center gap-12 w-full max-w-4xl">
+                            {/* Photo Gap */}
+                            <div className="flex items-center gap-4 flex-1">
+                                <Label className="text-xs font-semibold whitespace-nowrap min-w-[80px]">Photo Gap</Label>
+                                <Slider
+                                    min={0}
+                                    max={50}
+                                    step={1}
+                                    value={[photoGap]}
+                                    onValueChange={(vals) => handlePhotoGapChange(vals[0])}
+                                    className="flex-1"
+                                />
+                                <Input
+                                    type="number"
+                                    className="w-12 h-8 text-xs text-center px-1"
+                                    value={photoGap}
+                                    min={0}
+                                    max={50}
+                                    onChange={(e) => handlePhotoGapChange(Math.max(0, Math.min(50, Number(e.target.value))))}
+                                />
+                            </div>
+
+                            {/* Page Margin */}
+                            <div className="flex items-center gap-4 flex-1">
+                                <Label className="text-xs font-semibold whitespace-nowrap min-w-[80px]">Page Margin</Label>
+                                <Slider
+                                    min={0}
+                                    max={50}
+                                    step={1}
+                                    value={[pageMargin]}
+                                    onValueChange={(vals) => handlePageMarginChange(vals[0])}
+                                    className="flex-1"
+                                />
+                                <Input
+                                    type="number"
+                                    className="w-12 h-8 text-xs text-center px-1"
+                                    value={pageMargin}
+                                    min={0}
+                                    max={50}
+                                    onChange={(e) => handlePageMarginChange(Math.max(0, Math.min(50, Number(e.target.value))))}
+                                />
+                            </div>
+
+                            {/* Corner Radius */}
+                            <div className="flex items-center gap-4 flex-1">
+                                <Label className="text-xs font-semibold whitespace-nowrap min-w-[80px]">Corner Radius</Label>
+                                <Slider
+                                    min={0}
+                                    max={20}
+                                    step={1}
+                                    value={[cornerRadius]}
+                                    onValueChange={(vals) => handleCornerRadiusChange(vals[0])}
+                                    className="flex-1"
+                                />
+                                <Input
+                                    type="number"
+                                    className="w-12 h-8 text-xs text-center px-1"
+                                    value={cornerRadius}
+                                    min={0}
+                                    max={20}
+                                    onChange={(e) => handleCornerRadiusChange(Math.max(0, Math.min(20, Number(e.target.value))))}
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* 3. Right Sidebar (Properties) */}
-                <LayoutSidebarRight
-                    selectedLayout={selectedLayout}
-                    onSelectLayout={handleLayoutChange}
-                    spreadMode={spreadMode}
-                    onSpreadModeChange={handleSpreadModeChange}
-                    photoGap={photoGap}
-                    onPhotoGapChange={handlePhotoGapChange}
-                    pageMargin={pageMargin}
-                    onPageMarginChange={handlePageMarginChange}
-                    cornerRadius={cornerRadius}
-                    onCornerRadiusChange={handleCornerRadiusChange}
-                    useDummyPhotos={useDummyPhotos}
-                    onUseDummyPhotosChange={handleUseDummyPhotosChange}
-                />
+                {/* Right Sidebar */}
+                <div className="w-[300px] border-l bg-background flex-shrink-0 z-10">
+                    <LayoutSidebarRight
+                        selectedLayout={selectedLayout}
+                        onSelectLayout={handleLayoutChange}
+                        spreadMode={spreadMode}
+                        onSpreadModeChange={handleSpreadModeChange}
+                        photoGap={photoGap}
+                        onPhotoGapChange={handlePhotoGapChange}
+                        pageMargin={pageMargin}
+                        onPageMarginChange={handlePageMarginChange}
+                        cornerRadius={cornerRadius}
+                        onCornerRadiusChange={handleCornerRadiusChange}
+                        useDummyPhotos={useDummyPhotos}
+                        onUseDummyPhotosChange={handleUseDummyPhotosChange}
+                    />
+                </div>
             </div>
         </div>
     );

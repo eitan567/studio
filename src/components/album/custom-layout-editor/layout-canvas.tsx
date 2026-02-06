@@ -98,6 +98,7 @@ export const LayoutCanvas = ({
     const logicalHeight = pageH_px;
     const photoGap = page.photoGap ?? config?.photoGap ?? 0;
     const pageMargin = page.pageMargin ?? config?.pageMargin ?? 0;
+    const cornerRadius = page.cornerRadius ?? config?.cornerRadius ?? 0;
     const backgroundColor = config?.backgroundColor || '#ffffff';
 
     // FIX: Aspect Ratio for corrections
@@ -1208,6 +1209,7 @@ export const LayoutCanvas = ({
                                         onUpdatePanAndZoom={() => { }}
                                         onInteractionChange={() => { }}
                                         pageId={page.id}
+                                        cornerRadius={cornerRadius}
                                     />
                                 ))}
                             </div>
