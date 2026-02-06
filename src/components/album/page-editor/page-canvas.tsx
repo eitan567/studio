@@ -382,9 +382,8 @@ const PageToolbar = ({
                                         <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
                                             {filterByType(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates], 'single').map(template => (
                                                 <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.back || defaultCoverTemplate?.id || '' : page.spreadLayouts?.left || defaultGridTemplate?.id || '').baseId === template.id} onSelect={(templateId) => {
-                                                    const currentLayoutId = page.isCover ? page.coverLayouts?.back : page.spreadLayouts?.left;
-                                                    const { rotation } = parseLayoutId(currentLayoutId || defaultGridTemplate?.id || '');
-                                                    const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
+                                                    // Reset rotation to 0 when selecting new template
+                                                    const finalId = templateId;
                                                     if (page.isCover) onUpdateCoverLayout?.(page.id, 'back', String(finalId));
                                                     else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'left', String(finalId)) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate?.id || '', right: defaultGridTemplate?.id || '' }), left: String(finalId) } });
                                                 }} />
@@ -429,9 +428,8 @@ const PageToolbar = ({
                                         <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
                                             {filterByType(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates], 'single').map(template => (
                                                 <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.front || defaultCoverTemplate?.id || '' : page.spreadLayouts?.right || defaultGridTemplate?.id || '').baseId === template.id} onSelect={(templateId) => {
-                                                    const currentLayoutId = page.isCover ? page.coverLayouts?.front : page.spreadLayouts?.right;
-                                                    const { rotation } = parseLayoutId(currentLayoutId || defaultGridTemplate?.id || '');
-                                                    const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
+                                                    // Reset rotation to 0 when selecting new template
+                                                    const finalId = templateId;
                                                     if (page.isCover) onUpdateCoverLayout?.(page.id, 'front', String(finalId));
                                                     else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'right', String(finalId)) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate?.id || '', right: defaultGridTemplate?.id || '' }), right: String(finalId) } });
                                                 }} />
@@ -466,8 +464,8 @@ const PageToolbar = ({
                                         <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
                                             {filterByType(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates], 'spread').map(template => (
                                                 <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.layout || defaultGridTemplate?.id || '').baseId === template.id} onSelect={(templateId) => {
-                                                    const { rotation } = parseLayoutId(page.layout || defaultGridTemplate?.id || '');
-                                                    const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
+                                                    // Reset rotation to 0 when selecting new template
+                                                    const finalId = templateId;
                                                     if (page.isCover) onUpdateCoverLayout?.(page.id, 'full', String(finalId));
                                                     else onUpdateLayout(page.id, String(finalId));
                                                 }} />
@@ -550,8 +548,8 @@ const PageToolbar = ({
                             <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
                                 {filterByType([...gridTemplates, ...advancedTemplates], 'single').map(template => (
                                     <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '').baseId === template.id} onSelect={(templateId) => {
-                                        const { rotation } = parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '');
-                                        const finalId = rotation === 0 ? templateId : `${templateId}_r${rotation}`;
+                                        // Reset rotation to 0 when selecting new template
+                                        const finalId = templateId;
                                         onUpdateLayout(page.id, String(finalId));
                                     }} />
                                 ))}
