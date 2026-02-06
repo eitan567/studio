@@ -99,7 +99,14 @@ export const LayoutCanvas = ({
     const photoGap = page.photoGap ?? config?.photoGap ?? 0;
     const pageMargin = page.pageMargin ?? config?.pageMargin ?? 0;
     const cornerRadius = page.cornerRadius ?? config?.cornerRadius ?? 0;
-    const backgroundColor = config?.backgroundColor || '#ffffff';
+    // If background is explicitly white, treated it as 'default' which means transparent/theme-aware in this editor context
+    // This solves the issue of blinding white pages in dark mode
+    let effectiveBg = config?.backgroundColor;
+    if (effectiveBg && effectiveBg.toLowerCase() === '#ffffff') {
+        effectiveBg = undefined;
+    }
+
+    const backgroundColor = effectiveBg;
 
     // FIX: Aspect Ratio for corrections
     // In Single mode, we still show the spread, but logical usage is on the right half
@@ -1166,8 +1173,8 @@ export const LayoutCanvas = ({
         <div ref={wrapperRef} className="w-full h-full bg-muted/20 overflow-hidden relative flex items-center justify-center select-none">
             <div
                 ref={canvasRef}
-                style={{ width: logicalWidth, height: logicalHeight, transform: `scale(${scale})`, backgroundColor, aspectRatio: `${logicalWidth}/${logicalHeight}` }}
-                className="relative overflow-hidden ring-1 ring-gray-300 flex-none shadow-sm box-border"
+                style={{ width: logicalWidth, height: logicalHeight, transform: `scale(${scale})`, backgroundColor: backgroundColor || 'hsl(var(--background))', aspectRatio: `${logicalWidth}/${logicalHeight}` }}
+                className="relative overflow-hidden ring-1 ring-border flex-none shadow-sm box-border"
             >
                 <div
                     ref={interactionRef}
@@ -1189,7 +1196,7 @@ export const LayoutCanvas = ({
                     <div className={cn("absolute inset-0 w-full h-full", toolMode !== 'select' && "pointer-events-none")}>
                         {advancedTemplate ? (
                             <div
-                                className="absolute bg-white overflow-hidden shadow-sm"
+                                className="absolute bg-background overflow-hidden shadow-sm"
                                 style={{
                                     top: 0,
                                     left: isFull ? 0 : (logicalWidth / 2) - pageMargin,
@@ -1203,7 +1210,7 @@ export const LayoutCanvas = ({
                                         region={region}
                                         photo={page.photos[index]}
                                         photoGap={photoGap}
-                                        backgroundColor={backgroundColor}
+                                        backgroundColor={backgroundColor || 'hsl(var(--background))'}
                                         containerWidth={innerLogicalWidth}
                                         containerHeight={innerLogicalHeight}
                                         onUpdatePanAndZoom={() => { }}
@@ -1215,19 +1222,19 @@ export const LayoutCanvas = ({
                             </div>
                         ) : isFull ? (
                             <div className="flex h-full w-full">
-                                <div className="flex-1 border-r border-dashed border-gray-200 flex items-center justify-center text-gray-300 text-sm">Left Page</div>
-                                <div className="flex-1 flex items-center justify-center text-gray-300 text-sm">Right Page</div>
+                                <div className="flex-1 border-r border-dashed border-border flex items-center justify-center text-muted-foreground text-sm">Left Page</div>
+                                <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">Right Page</div>
                             </div>
                         ) : (
                             <div className="flex h-full w-full">
                                 {/* LOCKED LEFT SIDE */}
-                                <div className="flex-1 bg-gray-100/50 flex flex-col items-center justify-center border-r border-dashed border-gray-300">
-                                    <div className="text-gray-400 text-xs font-medium uppercase tracking-widest bg-white/80 px-2 py-1 rounded shadow-sm">Locked Section</div>
-                                    <div className="text-[10px] text-gray-400/70 mt-1">Single Page designs the right side</div>
+                                <div className="flex-1 bg-muted/30 flex flex-col items-center justify-center border-r border-dashed border-border">
+                                    <div className="text-muted-foreground text-xs font-medium uppercase tracking-widest bg-card px-2 py-1 rounded shadow-sm">Locked Section</div>
+                                    <div className="text-[10px] text-muted-foreground/70 mt-1">Single Page designs the right side</div>
                                 </div>
                                 {/* ACTIVE RIGHT SIDE */}
-                                <div className="flex-1 bg-white relative overflow-hidden flex items-center justify-center">
-                                    <div className="text-gray-200 text-sm">Design Area</div>
+                                <div className="flex-1 bg-background relative overflow-hidden flex items-center justify-center">
+                                    <div className="text-muted-foreground text-sm">Design Area</div>
                                 </div>
                             </div>
                         )}
@@ -1348,7 +1355,7 @@ export const LayoutCanvas = ({
                                                 <path
                                                     d={obj.path}
                                                     fill="none"
-                                                    stroke={backgroundColor}
+                                                    stroke={backgroundColor || 'hsl(var(--background))'}
                                                     strokeWidth={12}
                                                     vectorEffect="non-scaling-stroke"
                                                     pointerEvents="none"

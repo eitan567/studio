@@ -27,8 +27,11 @@ interface CustomLayoutEditorOverlayProps {
     onAddTemplate?: (template: AdvancedTemplate) => void;
 }
 
+import { useTheme } from 'next-themes';
+
 export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, onAddTemplate }: CustomLayoutEditorOverlayProps) => {
     const { findGridTemplate, defaultGridTemplate, allTemplates } = useTemplates();
+    const { resolvedTheme } = useTheme();
 
     // Load existing custom templates from cache on mount
     const existingCustomTemplates = useMemo(() => {
@@ -677,7 +680,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             page={dummyPage}
                             config={{
                                 size: config?.size ?? '20x20',
-                                backgroundColor: config?.backgroundColor ?? '#ffffff',
+                                backgroundColor: config?.backgroundColor,
                                 backgroundImage: config?.backgroundImage,
                                 photoGap,
                                 pageMargin,
