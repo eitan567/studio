@@ -368,51 +368,53 @@ export const LayoutCanvas = ({
     // --- MOUSE HANDLERS ---
 
     const getResizeHandles = (obb: ShapeData['obb']): Point[] => {
-        const { minX, maxX, minY, maxY, angle, center } = obb;
-        const handlesLocal = [
-            [minX, minY], // 0: TL
-            [(minX + maxX) / 2, minY], // 1: T
-            [maxX, minY], // 2: TR
-            [maxX, (minY + maxY) / 2], // 3: R
-            [maxX, maxY], // 4: BR
-            [(minX + maxX) / 2, maxY], // 5: B
-            [minX, maxY], // 6: BL
-            [minX, (minY + maxY) / 2]  // 7: L
+        const { width, height, angle, center } = obb;
+        const halfW = width / 2;
+        const halfH = height / 2;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+
+        // Handles in unrotated local space relative to center
+        // 0: TL, 1: T, 2: TR, 3: R, 4: BR, 5: B, 6: BL, 7: L
+        const offsets = [
+            [-halfW, -halfH], [0, -halfH], [halfW, -halfH],
+            [halfW, 0], [halfW, halfH], [0, halfH],
+            [-halfW, halfH], [-halfW, 0]
         ];
 
-        return handlesLocal.map(p => {
-            // Rotate the point around the center
-            return rotatePoint(p as Point, center, angle);
+        return offsets.map(offset => {
+            const ox = offset[0] * cos - offset[1] * sin;
+            const oy = offset[0] * sin + offset[1] * cos;
+            return [center[0] + ox, center[1] + oy] as Point;
         });
     };
 
     const getRotationHandles = (obb: ShapeData['obb']): Point[] => {
-        const { minX, maxX, minY, maxY, angle, center } = obb;
-        const offset = 12.5;
+        const { width, height, angle, center } = obb;
+        const halfW = width / 2;
+        const halfH = height / 2;
+        const offset = 12.5; // distance from corner
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
 
-        // Corners in local space (unrotated world coords relative to which we apply offset)
-        // We calculate offsets relative to the unrotated box, then rotate the result
-
-        // This function was calculating incorrectly. Let's simplify:
-        // 1. Take corner point on unrotated box
-        // 2. Add offset in the direction of the corner relative to center?
-        // Actually, the original logic tried to do local offset. 
-        // Let's stick to the previous logic but fix the rotation center.
-
-        const cornersLocal: { u: number, v: number, ox: number, oy: number }[] = [
-            { u: minX, v: minY, ox: -offset, oy: -offset }, // TL
-            { u: maxX, v: minY, ox: offset, oy: -offset },   // TR
-            { u: maxX, v: maxY, ox: offset, oy: offset },   // BR
-            { u: minX, v: maxY, ox: -offset, oy: offset }   // BL
+        // Corners + Offset in unrotated local space relative to center
+        const cornerOffsets = [
+            { x: -halfW, y: -halfH, ox: -offset, oy: -offset }, // TL
+            { x: halfW, y: -halfH, ox: offset, oy: -offset },   // TR
+            { x: halfW, y: halfH, ox: offset, oy: offset },     // BR
+            { x: -halfW, y: halfH, ox: -offset, oy: offset }    // BL
         ];
 
-        return cornersLocal.map(p => {
-            // Apply offset in unrotated space
-            const unrotatedX = p.u + p.ox;
-            const unrotatedY = p.v + p.oy;
+        return cornerOffsets.map(p => {
+            // Add offset to corner relative to center
+            const localX = p.x + p.ox;
+            const localY = p.y + p.oy;
 
-            // Rotate around center
-            return rotatePoint([unrotatedX, unrotatedY], center, angle);
+            // Rotate the local vector
+            const ox = localX * cos - localY * sin;
+            const oy = localX * sin + localY * cos;
+
+            return [center[0] + ox, center[1] + oy] as Point;
         });
     };
 
