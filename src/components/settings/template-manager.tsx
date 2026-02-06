@@ -107,18 +107,45 @@ export function TemplateManager({ settings, onUpdate }: TemplateManagerProps) {
 
     const baseAspectRatio = getBaseAspectRatio();
 
+    const filterByType = (templates: AdvancedTemplate[], type: 'single' | 'spread') => {
+        return templates.filter(t => {
+            // Priority 1: Explicitly typed templates
+            if (t.type) {
+                if (t.type === 'both') return true;
+                return t.type === type;
+            }
+
+            // Priority 2: System templates without explicit type
+            // Usually old GRID templates. Default to 'spread' for them or match by ID pattern if needed.
+            if (t.createdBy === 'system') {
+                return true; // Available in both views by default for flexibility
+            }
+
+            // Priority 3: Custom templates must have a type to show up
+            return false;
+        });
+    };
+
+    // Combine all non-cover templates
+    // rawGridTemplates and rawAdvancedTemplates are currently identical (allRawTemplates)
+    // so using both created duplicates. Using just one source.
+    const allRegularTemplates = rawGridTemplates;
+    const singleTemplates = filterByType(allRegularTemplates, 'single');
+    const spreadTemplates = filterByType(allRegularTemplates, 'spread');
+
     const renderTemplateList = (
         title: string,
         templates: AdvancedTemplate[],
-        layoutType: 'grid' | 'cover' | 'advanced'
+        layoutType: 'single' | 'spread' | 'cover'
     ) => {
         if (templates.length === 0) return null;
 
         // Determine aspect ratio for this list
-        // Covers are always full spreads (double width)
-        // Grid/Advanced are typically single pages in definition, though used on spreads too.
-        // For settings preview, single page view is cleaner.
-        const listAspectRatio = layoutType === 'cover' ? baseAspectRatio * 2 : baseAspectRatio;
+        // Covers and Spreads are always full spreads (double width)
+        // Single Page layouts use the base aspect ratio
+        const listAspectRatio = (layoutType === 'cover' || layoutType === 'spread')
+            ? baseAspectRatio * 2
+            : baseAspectRatio;
 
         return (
             <div className="space-y-4">
@@ -180,9 +207,14 @@ export function TemplateManager({ settings, onUpdate }: TemplateManagerProps) {
 
     return (
         <div className="space-y-8 pb-20">
-            {renderTemplateList('Grid Layouts', rawGridTemplates, 'grid')}
-            {renderTemplateList('Advanced Layouts', rawAdvancedTemplates, 'advanced')}
-            {renderTemplateList('Cover Layouts', rawCoverTemplates.filter(t => !rawGridTemplates.find(g => g.id === t.id)), 'cover')}
+            {/* Cover Templates */}
+            {renderTemplateList("Cover Layouts", rawCoverTemplates, "cover")}
+
+            {/* Spread Layouts (Full) */}
+            {renderTemplateList("Full Spread Layouts", spreadTemplates, "spread")}
+
+            {/* Single Layouts (Split) */}
+            {renderTemplateList("Single Page Layouts", singleTemplates, "single")}
 
             <div className="p-4 bg-muted/20 rounded-md text-xs text-muted-foreground text-center">
                 Templates hidden here will not appear in the album editor layout selector.
