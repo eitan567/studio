@@ -163,7 +163,7 @@ def process_artboards():
     if not os.path.exists(SVG_DIR):
         return templates
         
-    files = [f for f in os.listdir(SVG_DIR) if (f.startswith("Artboard") or re.match(r"^\d+\.svg$", f)) and f.endswith(".svg")]
+    files = [f for f in os.listdir(SVG_DIR) if f.endswith(".svg")]
     files.sort()
 
     for filename in files:
