@@ -77,14 +77,14 @@ export const LayoutSidebarLeft = ({
 
 
                     {/* Frame Shapes Section */}
-                    <div className="space-y-3 pt-4 border-t">
+                    <div className="space-y-3">
                         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                             <Frame className="h-3.5 w-3.5" /> Frame Shapes
                         </Label>
                         <p className="text-[10px] text-muted-foreground italic">
                             Click to add a decorative frame to the canvas.
                         </p>
-                        <div className="grid grid-cols-3 gap-1.5 max-h-40 overflow-y-auto pr-1">
+                        <div className="grid grid-cols-3 gap-1.5 max-h-[400px] overflow-y-auto pr-1">
                             {CANVA_TEMPLATES.map((template) => {
                                 // Get the first region's path for preview
                                 const firstRegion = template.regions[0];
