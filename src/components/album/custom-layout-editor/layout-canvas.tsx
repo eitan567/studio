@@ -993,15 +993,48 @@ export const LayoutCanvas = ({
 
             const newObjects = vectorObjects.map(obj => {
                 if (obj.id === shape.id && obj.points) {
-                    const newPolyWorld = start.origPoints.map(p => {
-                        const pl = transformPointToLocal(p, startObb.center, startObb.angle);
-                        const plNew: Point = [
-                            oppHandleLocal[0] + (pl[0] - oppHandleLocal[0]) * scaleU,
-                            oppHandleLocal[1] + (pl[1] - oppHandleLocal[1]) * scaleV
-                        ];
-                        return transformPointToWorld(plNew, startObb.center, startObb.angle);
-                    });
-                    return updateObjectPoints(obj, newPolyWorld);
+                    if (obj.type === 'path') {
+                        const localPoints = start.origPoints.map(p => {
+                            const pl = transformPointToLocal(p, startObb.center, startObb.angle);
+                            return [
+                                oppHandleLocal[0] + (pl[0] - oppHandleLocal[0]) * scaleU,
+                                oppHandleLocal[1] + (pl[1] - oppHandleLocal[1]) * scaleV
+                            ] as Point;
+                        });
+
+                        // Calculate Shift (new center in unrotated space)
+                        const minU = Math.min(...localPoints.map(p => p[0]));
+                        const maxU = Math.max(...localPoints.map(p => p[0]));
+                        const minV = Math.min(...localPoints.map(p => p[1]));
+                        const maxV = Math.max(...localPoints.map(p => p[1]));
+                        const shiftU = (minU + maxU) / 2;
+                        const shiftV = (minV + maxV) / 2;
+
+                        // Calculate Correction: Rotate(Shift) - Shift
+                        const cos = Math.cos(startObb.angle);
+                        const sin = Math.sin(startObb.angle);
+                        const rotShiftU = shiftU * cos - shiftV * sin;
+                        const rotShiftV = shiftU * sin + shiftV * cos;
+                        const correctionU = rotShiftU - shiftU;
+                        const correctionV = rotShiftV - shiftV;
+
+                        const correctedPoints = localPoints.map(p => [
+                            startObb.center[0] + p[0] + correctionU,
+                            startObb.center[1] + p[1] + correctionV
+                        ] as Point);
+
+                        return updateObjectPoints(obj, correctedPoints);
+                    } else {
+                        const newPolyWorld = start.origPoints.map(p => {
+                            const pl = transformPointToLocal(p, startObb.center, startObb.angle);
+                            const plNew: Point = [
+                                oppHandleLocal[0] + (pl[0] - oppHandleLocal[0]) * scaleU,
+                                oppHandleLocal[1] + (pl[1] - oppHandleLocal[1]) * scaleV
+                            ];
+                            return transformPointToWorld(plNew, startObb.center, startObb.angle);
+                        });
+                        return updateObjectPoints(obj, newPolyWorld);
+                    }
                 }
                 if (start.mirrorPartnerIndex !== undefined && coordinateAspect) {
                     const mShape = shapesRef.current[start.mirrorPartnerIndex];
