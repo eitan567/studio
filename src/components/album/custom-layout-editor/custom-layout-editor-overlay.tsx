@@ -765,6 +765,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         onSelectLayout={handleLayoutChange}
                         spreadMode={spreadMode}
                         onSpreadModeChange={handleSpreadModeChange}
+                        config={config}
                         photoGap={photoGap}
                         onPhotoGapChange={handlePhotoGapChange}
                         pageMargin={pageMargin}

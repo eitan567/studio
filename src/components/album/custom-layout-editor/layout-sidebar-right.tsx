@@ -11,11 +11,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { TemplatePreview } from '@/components/album/shared/template-preview';
 
+import { AlbumConfig } from '@/lib/types';
+
 interface LayoutSidebarRightProps {
     selectedLayout: string;
     onSelectLayout: (layoutId: string) => void;
     spreadMode: 'full' | 'split';
     onSpreadModeChange: (mode: 'full' | 'split') => void;
+    config?: AlbumConfig;
     photoGap: number;
     onPhotoGapChange: (gap: number) => void;
     pageMargin: number;
@@ -31,6 +34,7 @@ export const LayoutSidebarRight = ({
     onSelectLayout,
     spreadMode,
     onSpreadModeChange,
+    config,
     photoGap,
     onPhotoGapChange,
     pageMargin,
@@ -41,6 +45,18 @@ export const LayoutSidebarRight = ({
     onUseDummyPhotosChange
 }: LayoutSidebarRightProps) => {
     const { allTemplates } = useTemplates();
+
+    // Calculate aspect ratio from config
+    const aspectRatio = React.useMemo(() => {
+        if (!config?.size) return 1; // Default square
+        const [w, h] = config.size.split('x').map(Number);
+        if (isNaN(w) || isNaN(h) || h === 0) return 1;
+
+        const singlePageRatio = w / h;
+        // In split mode (single page), use single page ratio
+        // In full mode (spread), use double width ratio
+        return spreadMode === 'split' ? singlePageRatio : (singlePageRatio * 2);
+    }, [config?.size, spreadMode]);
 
     // Filter templates by category and type
     const systemTemplates = allTemplates.filter(t => t.createdBy === 'system');
@@ -116,11 +132,12 @@ export const LayoutSidebarRight = ({
                                     key={template.id}
                                     onClick={() => onSelectLayout(String(template.id))}
                                     className={cn(
-                                        "aspect-[4/3] rounded-md border-2 p-1 transition-all hover:border-primary/50",
+                                        "rounded-md border-2 p-1 transition-all hover:border-primary/50",
                                         selectedLayout === String(template.id)
                                             ? "border-primary bg-primary/5"
                                             : "border-muted bg-muted/30"
                                     )}
+                                    style={{ aspectRatio }}
                                     title={template.name}
                                 >
                                     <div className="w-full h-full relative overflow-hidden bg-muted rounded-sm">
@@ -146,11 +163,12 @@ export const LayoutSidebarRight = ({
                                         key={template.id}
                                         onClick={() => onSelectLayout(String(template.id))}
                                         className={cn(
-                                            "aspect-[4/3] rounded-md border-2 p-1 transition-all hover:border-primary/50",
+                                            "rounded-md border-2 p-1 transition-all hover:border-primary/50",
                                             selectedLayout === String(template.id)
                                                 ? "border-primary bg-primary/5"
                                                 : "border-muted bg-muted/30"
                                         )}
+                                        style={{ aspectRatio }}
                                         title={template.name}
                                     >
                                         <div className="w-full h-full relative overflow-hidden bg-muted rounded-sm">
