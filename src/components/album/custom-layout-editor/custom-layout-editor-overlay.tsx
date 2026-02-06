@@ -3,6 +3,8 @@ import { AlbumPage, AlbumConfig } from '@/lib/types';
 import { LayoutSidebarLeft, ToolMode } from './layout-sidebar-left';
 import { LayoutSidebarRight } from './layout-sidebar-right';
 import { LayoutCanvas } from './layout-canvas';
+import { FloatingToolbar } from './floating-toolbar';
+import { BottomToolbar } from './bottom-toolbar';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
@@ -651,6 +653,26 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
                     {/* Canvas */}
                     <div className="flex-1 relative overflow-hidden">
+                        {/* Floating Toolbar */}
+                        <FloatingToolbar
+                            toolMode={toolMode}
+                            onToolChange={setToolMode}
+                            isMirrorMode={isMirrorMode}
+                            onToggleMirrorMode={() => setIsMirrorMode(!isMirrorMode)}
+                            strokeColor={strokeColor}
+                            onStrokeColorChange={setStrokeColor}
+                            strokeWidth={strokeWidth}
+                            onStrokeWidthChange={setStrokeWidth}
+                            fillColor={fillColor}
+                            onFillColorChange={setFillColor}
+                        />
+
+                        {/* Bottom Action Bar */}
+                        <BottomToolbar
+                            onClearStrokes={handleClearAll}
+                            onProcessLayout={handleProcessLayout}
+                        />
+
                         <LayoutCanvas
                             page={dummyPage}
                             config={{
