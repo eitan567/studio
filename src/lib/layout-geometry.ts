@@ -1,12 +1,10 @@
-import { LayoutRegion } from "./advanced-layout-types";
+import { LayoutRegion, Point, Segment } from "./advanced-layout-types";
 import { v4 as uuidv4 } from "uuid";
 
 // ----------------------------------------------------------------------
 // TYPES & CONSTANTS
 // ----------------------------------------------------------------------
 
-export type Point = [number, number]; // [x, y] in 0-100+ logical coordinates
-export type Segment = { p1: Point; p2: Point };
 export type Polygon = Point[];
 
 // Geometric tolerances

@@ -105,7 +105,7 @@ export const LayoutSidebarRight = ({
                         {filteredSystem.map((template) => (
                             <button
                                 key={template.id}
-                                onClick={() => onSelectLayout(template.id)}
+                                onClick={() => onSelectLayout(String(template.id))}
                                 className={cn(
                                     "aspect-[4/3] rounded-md border-2 p-1 transition-all hover:border-primary/50",
                                     selectedLayout === template.id
@@ -114,18 +114,52 @@ export const LayoutSidebarRight = ({
                                 )}
                                 title={template.name}
                             >
-                                <div className="w-full h-full relative">
+                                <div className="w-full h-full relative overflow-hidden">
                                     {template.regions?.map((region, idx) => (
-                                        <div
-                                            key={idx}
-                                            className="absolute bg-muted-foreground/20 rounded-sm"
-                                            style={{
-                                                left: `${region.bounds.x}%`,
-                                                top: `${region.bounds.y}%`,
-                                                width: `${region.bounds.width}%`,
-                                                height: `${region.bounds.height}%`,
-                                            }}
-                                        />
+                                        region.shape === 'path' ? (() => {
+                                            const vb = region.viewBox ? region.viewBox.split(' ').map(Number) : [0, 0, 100, 100];
+                                            const [vx, vy, vw, vh] = vb;
+                                            return (
+                                                <svg
+                                                    key={idx}
+                                                    className="absolute overflow-visible"
+                                                    viewBox={`${vx} ${vy} ${vw} ${vh}`}
+                                                    preserveAspectRatio="xMidYMid slice"
+                                                    style={{
+                                                        left: `${region.bounds.x}%`,
+                                                        top: `${region.bounds.y}%`,
+                                                        width: `${region.bounds.width}%`,
+                                                        height: `${region.bounds.height}%`,
+                                                    }}
+                                                >
+                                                    <defs>
+                                                        <clipPath id={`preview-clip-${template.id}-${idx}`}>
+                                                            <path d={region.path} />
+                                                        </clipPath>
+                                                    </defs>
+                                                    <g clipPath={`url(#preview-clip-${template.id}-${idx})`}>
+                                                        {/* Simplified Canva-style placeholder for preview */}
+                                                        <rect x={vx - 10} y={vy - 10} width={vw + 20} height={vh + 20} fill="#d4eaf7" />
+                                                        <circle cx={vx + vw * 0.8} cy={vy + vh * 0.15} r={vw * 0.1} fill="#fdf2a4" />
+                                                        <path d={`M${vx - vw * 0.2},${vy + vh} Q${vx + vw * 0.3},${vy + vh * 0.5} ${vx + vw * 0.8},${vy + vh * 1.1} Z`} fill="#90d5ac" />
+                                                        <path d={`M${vx + vw * 0.4},${vy + vh * 1.1} Q${vx + vw * 0.8},${vy + vh * 0.6} ${vx + vw * 1.2},${vy + vh} Z`} fill="#76c893" />
+                                                    </g>
+                                                    {/* Subtle outline to show the shape boundary */}
+                                                    <path d={region.path} fill="none" stroke="currentColor" strokeWidth={vw * 0.01} className="opacity-10" />
+                                                </svg>
+                                            );
+                                        })() : (
+                                            <div
+                                                key={idx}
+                                                className="absolute bg-muted-foreground/20 rounded-[1px]"
+                                                style={{
+                                                    left: `${region.bounds.x}%`,
+                                                    top: `${region.bounds.y}%`,
+                                                    width: `${region.bounds.width}%`,
+                                                    height: `${region.bounds.height}%`,
+                                                }}
+                                            />
+                                        )
                                     ))}
                                 </div>
                             </button>
@@ -143,7 +177,7 @@ export const LayoutSidebarRight = ({
                             {filteredUser.map((template) => (
                                 <button
                                     key={template.id}
-                                    onClick={() => onSelectLayout(template.id)}
+                                    onClick={() => onSelectLayout(String(template.id))}
                                     className={cn(
                                         "aspect-[4/3] rounded-md border-2 p-1 transition-all hover:border-primary/50",
                                         selectedLayout === template.id

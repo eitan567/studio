@@ -88,11 +88,12 @@ export function TemplateManager({ settings, onUpdate }: TemplateManagerProps) {
     const { rawGridTemplates, rawAdvancedTemplates, rawCoverTemplates } = useTemplates();
     const hiddenIds = settings.hiddenTemplateIds || [];
 
-    const toggleTemplate = (id: string) => {
-        const isHidden = hiddenIds.includes(id);
+    const toggleTemplate = (id: string | number) => {
+        const idStr = String(id);
+        const isHidden = hiddenIds.includes(idStr);
         const newHiddenIds = isHidden
-            ? hiddenIds.filter((hid) => hid !== id)
-            : [...hiddenIds, id];
+            ? hiddenIds.filter((hid) => hid !== idStr)
+            : [...hiddenIds, idStr];
 
         onUpdate({ hiddenTemplateIds: newHiddenIds });
     };
@@ -112,7 +113,7 @@ export function TemplateManager({ settings, onUpdate }: TemplateManagerProps) {
 
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                     {templates.map((template) => {
-                        const isHidden = hiddenIds.includes(template.id);
+                        const isHidden = hiddenIds.includes(String(template.id));
 
                         return (
                             <div

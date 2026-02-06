@@ -5,6 +5,68 @@ import { PhotoRenderer } from './photo-renderer';
 import { EmptyPhotoSlot } from '../album-editor/empty-photo-slot';
 import { cn } from '@/lib/utils';
 
+// Canva-like placeholder background
+const CanvaPlaceholder = ({ className }: { className?: string }) => (
+    <div className={cn("absolute inset-0 bg-[#d4eaf7] overflow-hidden select-none pointer-events-none", className)}>
+        <svg
+            viewBox="0 0 100 100"
+            preserveAspectRatio="xMidYMid slice"
+            className="w-full h-full"
+            xmlns="http://www.w3.org/2000/svg"
+        >
+            <defs>
+                <linearGradient id="skyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#d4eaf7" />
+                    <stop offset="100%" stopColor="#eef8ff" />
+                </linearGradient>
+                <linearGradient id="hillGradient1" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#90d5ac" />
+                    <stop offset="100%" stopColor="#76c893" />
+                </linearGradient>
+                <linearGradient id="hillGradient2" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#76c893" />
+                    <stop offset="100%" stopColor="#52b788" />
+                </linearGradient>
+            </defs>
+
+            {/* Sky */}
+            <rect width="100" height="100" fill="url(#skyGradient)" />
+
+            {/* Sun */}
+            <circle cx="85" cy="15" r="8" fill="#fdf2a4" />
+
+            {/* Clouds */}
+            <g fill="white" opacity="0.6">
+                <circle cx="20" cy="20" r="5" />
+                <circle cx="25" cy="22" r="6" />
+                <circle cx="30" cy="20" r="5" />
+
+                <circle cx="60" cy="35" r="4" />
+                <circle cx="65" cy="37" r="5" />
+                <circle cx="70" cy="35" r="4" />
+            </g>
+
+            {/* Far Hill */}
+            <path
+                d="M-10,100 Q50,40 110,100 Z"
+                fill="url(#hillGradient1)"
+                opacity="0.9"
+            />
+
+            {/* Near Hill */}
+            <path
+                d="M-20,100 Q30,60 80,110 Z"
+                fill="url(#hillGradient2)"
+            />
+            <path
+                d="M40,110 Q80,70 120,100 Z"
+                fill="url(#hillGradient2)"
+                opacity="0.8"
+            />
+        </svg>
+    </div>
+);
+
 export const ShapeRegion = ({
     region,
     photo,
@@ -157,6 +219,9 @@ export const ShapeRegion = ({
 
     const renderContent = () => {
         if (!photo || !photo.src) {
+            if (region.shape === 'path') {
+                return <CanvaPlaceholder className={cn(isPreview && "opacity-60")} />;
+            }
             return (
                 <EmptyPhotoSlot
                     className={cn(
@@ -251,12 +316,21 @@ export const ShapeRegion = ({
         </button>
     );
 
+    // SVG Path specific logic: Parse the native viewBox and calculate normalization transform
+    const vb = region.viewBox ? region.viewBox.split(' ').map(Number) : [0, 0, 100, 100];
+    const [vx, vy, vw, vh] = vb;
+    const pathTransform = region.viewBox
+        ? `scale(${1 / vw}, ${1 / vh}) translate(${-vx}, ${-vy})`
+        : "scale(0.01, 0.01)";
+
     // Local clip-path calculation using the adjusted container's relative coordinates
     const clipPathStyle = isCircle ? 'circle(closest-side)' : (
-        svgPoints ? `polygon(${svgPoints.split(' ').map(p => {
-            const [sx, sy] = p.split(',');
-            return `${sx}% ${sy}%`;
-        }).join(', ')})` : 'none'
+        region.shape === 'path' ? `url(#${shapeId}-clip)` : (
+            svgPoints ? `polygon(${svgPoints.split(' ').map(p => {
+                const [sx, sy] = p.split(',');
+                return `${sx}% ${sy}%`;
+            }).join(', ')})` : 'none'
+        )
     );
 
     const commonStyle: React.CSSProperties = {
@@ -407,12 +481,19 @@ export const ShapeRegion = ({
                 style={{ overflow: 'visible', zIndex: 100 }}
             >
                 <defs>
-                    <mask id={maskId}>
-                        <rect x="-100" y="-100" width="300" height="300" fill="white" />
+                    <clipPath id={`${shapeId}-clip`} clipPathUnits="objectBoundingBox">
+                        <path d={region.path} transform={pathTransform} />
+                    </clipPath>
+                    <mask id={maskId} maskUnits="objectBoundingBox" maskContentUnits="objectBoundingBox">
+                        <rect x="-1" y="-1" width="3" height="3" fill="white" />
                         {isCircle ? (
-                            <ellipse cx="50" cy="50" rx="50" ry="50" fill="black" />
+                            <ellipse cx="0.5" cy="0.5" rx="0.5" ry="0.5" fill="black" />
                         ) : (
-                            <polygon points={svgPoints} fill="black" />
+                            region.shape === 'path' ? (
+                                <path d={region.path} fill="black" transform={pathTransform} />
+                            ) : (
+                                <polygon points={svgPoints} fill="black" transform="scale(0.01, 0.01)" />
+                            )
                         )}
                     </mask>
                 </defs>
@@ -427,6 +508,21 @@ export const ShapeRegion = ({
                             />
                             <ellipse
                                 cx="50" cy="50" rx="50" ry="50"
+                                fill="none" stroke={backgroundColor} strokeWidth="4"
+                                strokeLinejoin="round" vectorEffect="non-scaling-stroke"
+                            />
+                        </>
+                    ) : region.shape === 'path' ? (
+                        <>
+                            <path
+                                d={region.path}
+                                transform={pathTransform}
+                                fill="none" stroke={isDragOver ? "hsl(var(--primary))" : "hsl(var(--primary) / 0.2)"} strokeWidth="8"
+                                strokeLinejoin="round" vectorEffect="non-scaling-stroke"
+                            />
+                            <path
+                                d={region.path}
+                                transform={pathTransform}
                                 fill="none" stroke={backgroundColor} strokeWidth="4"
                                 strokeLinejoin="round" vectorEffect="non-scaling-stroke"
                             />

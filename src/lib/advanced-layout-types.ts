@@ -1,7 +1,6 @@
-/**
- * Advanced Layout Types
- * Supports shapes beyond rectangles: circles, polygons, paths
- */
+// Basic types for geometry
+export type Point = [number, number]; // [x, y] in 0-100+ logical coordinates
+export type Segment = { p1: Point; p2: Point };
 
 // Shape types for photo regions
 export type ShapeType = 'rect' | 'circle' | 'ellipse' | 'polygon' | 'path';
@@ -40,11 +39,20 @@ export interface LayoutRegion {
     // Coordinates should be in percentages (0-100)
     path?: string;
 
+    // Localized viewBox for the path (minX minY width height)
+    viewBox?: string;
+
     // Z-index for overlapping regions (higher = on top)
     zIndex?: number;
 
     // Optional rotation in degrees
     rotation?: number;
+
+    // Styling properties
+    stroke?: string;
+    strokeWidth?: number;
+    fill?: string;
+    opacity?: number;
 
     // Optional label for the region (e.g., "Main Photo", "Accent")
     label?: string;
@@ -52,6 +60,25 @@ export interface LayoutRegion {
     // When true, the photo should use object-fit: contain instead of cover
     // This preserves the photo's natural aspect ratio without cropping
     preserveAspectRatio?: boolean;
+}
+
+// Complete vector object definition for the editor
+export interface VectorObject {
+    id: string;
+    type: 'rect' | 'circle' | 'polygon' | 'line' | 'freehand' | 'path';
+    segments: Segment[]; // The atomic lines
+    points?: Point[];    // The original points if applicable (e.g. for rect/circle)
+    path?: string;       // For complex SVG paths
+    viewBox?: string;    // ViewBox for path objects
+    stroke: string;
+    strokeWidth: number;
+    fill?: string;
+    opacity?: number;
+    zIndex: number;
+    rotation: number;
+    // Mirror property (if this object was created as a mirror or has a partner)
+    mirrorPartnerId?: string;
+    isMirror?: boolean;
 }
 
 // Template categories

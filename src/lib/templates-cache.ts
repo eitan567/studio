@@ -308,14 +308,20 @@ async function initializeCache(): Promise<void> {
                 return template;
             });
 
-            // Deduplicate by ID
+            // Merge with static templates (Canva templates, etc.)
+            // Deduplicate by ID, prioritizing database templates
             const seenIds = new Map<string, AdvancedTemplate>();
-            for (const template of mappedTemplates) {
-                const sId = String(template.id);
-                if (!seenIds.has(sId)) {
-                    seenIds.set(sId, template);
-                }
+
+            // Add static templates first
+            for (const template of LAYOUT_TEMPLATES) {
+                seenIds.set(String(template.id), template);
             }
+
+            // Add/Overwrite with database templates
+            for (const template of mappedTemplates) {
+                seenIds.set(String(template.id), template);
+            }
+
             templatesCache = Array.from(seenIds.values());
 
             // Covers use same templates

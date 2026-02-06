@@ -16,13 +16,14 @@ const rect = (id: string, x: number, y: number, width: number, height: number): 
  * Standard Layout Templates (converted from Grid to Region-based)
  * Uses percentage-based positioning (0-100)
  */
-export const LAYOUT_TEMPLATES: AdvancedTemplate[] = [
+const STATIC_LAYOUTS: AdvancedTemplate[] = [
   // 1 Photo - Full Page
   {
     id: '1-full',
     name: '1 Photo',
     category: 'grid',
     photoCount: 1,
+    createdBy: 'system',
     regions: [
       rect('r1', 0, 0, 100, 100)
     ]
@@ -34,6 +35,7 @@ export const LAYOUT_TEMPLATES: AdvancedTemplate[] = [
     name: '2 Photos',
     category: 'grid',
     photoCount: 2,
+    createdBy: 'system',
     regions: [
       rect('r1', 0, 0, 50, 100),
       rect('r2', 50, 0, 50, 100)
@@ -46,6 +48,7 @@ export const LAYOUT_TEMPLATES: AdvancedTemplate[] = [
     name: '3 Photos',
     category: 'grid',
     photoCount: 3,
+    createdBy: 'system',
     regions: [
       rect('r1', 0, 0, 100, 58.33),
       rect('r2', 0, 58.33, 50, 41.67),
@@ -59,6 +62,7 @@ export const LAYOUT_TEMPLATES: AdvancedTemplate[] = [
     name: '4 Photos',
     category: 'grid',
     photoCount: 4,
+    createdBy: 'system',
     regions: [
       rect('r1', 0, 0, 58.33, 100),
       rect('r2', 58.33, 0, 41.67, 33.33),
@@ -73,6 +77,7 @@ export const LAYOUT_TEMPLATES: AdvancedTemplate[] = [
     name: '4 Photos Mosaic',
     category: 'grid',
     photoCount: 4,
+    createdBy: 'system',
     regions: [
       rect('r1', 0, 0, 66.67, 58.33),
       rect('r2', 66.67, 0, 33.33, 58.33),
@@ -87,6 +92,7 @@ export const LAYOUT_TEMPLATES: AdvancedTemplate[] = [
     name: 'Mosaic Grid',
     category: 'grid',
     photoCount: 6,
+    createdBy: 'system',
     regions: [
       rect('r1', 0, 0, 66.67, 66.67),         // Large Top-Left
       rect('r2', 66.67, 0, 33.33, 33.33),     // Small Top-Right
@@ -98,5 +104,11 @@ export const LAYOUT_TEMPLATES: AdvancedTemplate[] = [
   }
 ];
 
+// Export templates (Canva frames are now vector tools, not templates)
+export const LAYOUT_TEMPLATES: AdvancedTemplate[] = [
+  ...STATIC_LAYOUTS
+];
+
 // Cover templates share the same layouts
 export const COVER_TEMPLATES = LAYOUT_TEMPLATES;
+

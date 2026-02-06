@@ -3,9 +3,10 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Layout, Pencil, Square, Circle, Trash2, Play, ImageOff, FlipHorizontal } from 'lucide-react';
+import { Layout, Pencil, Square, Circle, Trash2, Play, ImageOff, FlipHorizontal, X, Frame } from 'lucide-react';
 import { getPhotoCount } from '@/hooks/useTemplates';
 import { AdvancedTemplate, LayoutRegion } from '@/lib/advanced-layout-types';
+import { CANVA_TEMPLATES } from '@/lib/canva-templates-data';
 import { cn } from '@/lib/utils';
 
 export type ToolMode = 'select' | 'pencil' | 'freehand' | 'rect' | 'circle';
@@ -24,6 +25,15 @@ interface LayoutSidebarLeftProps {
     onProcessLayout: () => void;
     isMirrorMode: boolean;
     onToggleMirrorMode: () => void;
+    // Property Controls
+    strokeColor: string;
+    onStrokeColorChange: (color: string) => void;
+    strokeWidth: number;
+    onStrokeWidthChange: (width: number) => void;
+    fillColor: string;
+    onFillColorChange: (color: string) => void;
+    // Canva Frame Shapes
+    onAddCanvaFrame: (template: AdvancedTemplate) => void;
 }
 
 // Render a single region as SVG element
@@ -146,7 +156,14 @@ export const LayoutSidebarLeft = ({
     onClearStrokes,
     onProcessLayout,
     isMirrorMode,
-    onToggleMirrorMode
+    onToggleMirrorMode,
+    strokeColor,
+    onStrokeColorChange,
+    strokeWidth,
+    onStrokeWidthChange,
+    fillColor,
+    onFillColorChange,
+    onAddCanvaFrame
 }: LayoutSidebarLeftProps) => {
     return (
         <div className="h-full z-20 flex bg-background">
@@ -222,6 +239,150 @@ export const LayoutSidebarLeft = ({
                         <p className="text-[10px] text-muted-foreground italic text-center pt-1">
                             Draw lines to split the page. Click 'Process' to convert to frames.
                         </p>
+                    </div>
+
+                    {/* Property Controls Section */}
+                    <div className="space-y-4 pt-2 border-t">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                            Shape Properties
+                        </Label>
+
+                        <div className="space-y-3">
+                            {/* Stroke Color */}
+                            <div className="flex items-center justify-between gap-2">
+                                <Label className="text-xs">Stroke</Label>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="color"
+                                        value={strokeColor === 'transparent' ? '#000000' : strokeColor}
+                                        onChange={(e) => onStrokeColorChange(e.target.value)}
+                                        className="w-6 h-6 rounded cursor-pointer border-none bg-transparent"
+                                    />
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6"
+                                        onClick={() => onStrokeColorChange('transparent')}
+                                        title="No Stroke"
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {/* Stroke Width */}
+                            <div className="space-y-1.5">
+                                <div className="flex justify-between">
+                                    <Label className="text-xs">Thickness</Label>
+                                    <span className="text-[10px] font-mono">{strokeWidth.toFixed(1)}pt</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0.1"
+                                    max="5"
+                                    step="0.1"
+                                    value={strokeWidth}
+                                    onChange={(e) => onStrokeWidthChange(parseFloat(e.target.value))}
+                                    className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                                />
+                            </div>
+
+                            {/* Fill Color */}
+                            <div className="flex items-center justify-between gap-2">
+                                <Label className="text-xs">Fill</Label>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="color"
+                                        value={fillColor === 'transparent' ? '#ffffff' : fillColor}
+                                        onChange={(e) => onFillColorChange(e.target.value)}
+                                        className="w-6 h-6 rounded cursor-pointer border-none bg-transparent"
+                                    />
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6"
+                                        onClick={() => onFillColorChange('transparent')}
+                                        title="No Fill"
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Frame Shapes Section */}
+                    <div className="space-y-3 pt-4 border-t">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                            <Frame className="h-3.5 w-3.5" /> Frame Shapes
+                        </Label>
+                        <p className="text-[10px] text-muted-foreground italic">
+                            Click to add a decorative frame to the canvas.
+                        </p>
+                        <div className="grid grid-cols-3 gap-1.5 max-h-40 overflow-y-auto pr-1">
+                            {CANVA_TEMPLATES.map((template) => {
+                                // Get the first region's path for preview
+                                const firstRegion = template.regions[0];
+                                const pathD = firstRegion?.path || '';
+                                const viewBox = firstRegion?.viewBox || '0 0 100 100';
+                                const clipId = `thumb-clip-${template.id}`;
+                                // Parse viewBox for positioning placeholder elements
+                                const vb = viewBox.split(' ').map(Number);
+                                const vbX = vb[0] || 0;
+                                const vbY = vb[1] || 0;
+                                const vbW = vb[2] || 100;
+                                const vbH = vb[3] || 100;
+                                return (
+                                    <button
+                                        key={template.id}
+                                        className="aspect-square border rounded-md hover:border-primary hover:bg-primary/5 p-1 transition-all bg-muted/20"
+                                        onClick={() => onAddCanvaFrame(template)}
+                                        title={template.name}
+                                    >
+                                        <svg viewBox={viewBox} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+                                            <defs>
+                                                <clipPath id={clipId}>
+                                                    <path d={pathD} />
+                                                </clipPath>
+                                                <linearGradient id={`thumbSky-${template.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                                    <stop offset="0%" stopColor="#d4eaf7" />
+                                                    <stop offset="100%" stopColor="#eef8ff" />
+                                                </linearGradient>
+                                                <linearGradient id={`thumbHill1-${template.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                                    <stop offset="0%" stopColor="#90d5ac" />
+                                                    <stop offset="100%" stopColor="#76c893" />
+                                                </linearGradient>
+                                                <linearGradient id={`thumbHill2-${template.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                                    <stop offset="0%" stopColor="#76c893" />
+                                                    <stop offset="100%" stopColor="#52b788" />
+                                                </linearGradient>
+                                            </defs>
+                                            {/* Placeholder clipped to frame shape */}
+                                            <g clipPath={`url(#${clipId})`}>
+                                                <rect x={vbX} y={vbY} width={vbW} height={vbH} fill={`url(#thumbSky-${template.id})`} />
+                                                <circle cx={vbX + vbW * 0.85} cy={vbY + vbH * 0.15} r={vbW * 0.08} fill="#fdf2a4" />
+                                                <g fill="white" opacity="0.6">
+                                                    <circle cx={vbX + vbW * 0.2} cy={vbY + vbH * 0.2} r={vbW * 0.05} />
+                                                    <circle cx={vbX + vbW * 0.25} cy={vbY + vbH * 0.22} r={vbW * 0.06} />
+                                                    <circle cx={vbX + vbW * 0.3} cy={vbY + vbH * 0.2} r={vbW * 0.05} />
+                                                </g>
+                                                <path
+                                                    d={`M ${vbX - vbW * 0.1} ${vbY + vbH} Q ${vbX + vbW * 0.5} ${vbY + vbH * 0.4} ${vbX + vbW * 1.1} ${vbY + vbH} Z`}
+                                                    fill={`url(#thumbHill1-${template.id})`}
+                                                    opacity="0.9"
+                                                />
+                                                <path
+                                                    d={`M ${vbX - vbW * 0.2} ${vbY + vbH} Q ${vbX + vbW * 0.3} ${vbY + vbH * 0.6} ${vbX + vbW * 0.8} ${vbY + vbH * 1.1} Z`}
+                                                    fill={`url(#thumbHill2-${template.id})`}
+                                                />
+                                            </g>
+                                            {/* Frame border */}
+                                            <path d={pathD} fill="none" stroke="#555" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+                                        </svg>
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
 
                     {/* Custom Templates - My Templates (created during this session) */}

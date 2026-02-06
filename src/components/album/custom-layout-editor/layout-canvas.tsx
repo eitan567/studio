@@ -1,37 +1,61 @@
 'use client';
 
 import { useRef, useState, useEffect, useCallback } from 'react';
+import { processLayoutGeometry } from '@/lib/layout-geometry';
+import { createClient } from '@/lib/supabase';
+import { invalidateCache } from '@/lib/templates-cache';
 import { AlbumPage, AlbumConfig } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { AdvancedTemplate } from '@/lib/advanced-layout-types';
+import { AdvancedTemplate, VectorObject, Point, Segment, LayoutRegion } from '@/lib/advanced-layout-types';
+import { v4 as uuidv4 } from 'uuid';
 import { ShapeRegion } from '../layouts/shape-region';
 import { ToolMode } from './layout-sidebar-left';
-import { Segment, Point } from '@/lib/layout-geometry';
+
+const updateObjectPoints = (obj: VectorObject, newPoints: Point[]): VectorObject => {
+    const newSegments: Segment[] = [];
+    // Create segments between consecutive points
+    for (let i = 0; i < newPoints.length - 1; i++) {
+        newSegments.push({ p1: newPoints[i], p2: newPoints[i + 1] });
+    }
+    // Add closing segment from last point back to first point (for closed shapes)
+    if (newPoints.length >= 3) {
+        newSegments.push({ p1: newPoints[newPoints.length - 1], p2: newPoints[0] });
+    }
+    return { ...obj, points: newPoints, segments: newSegments };
+};
 
 interface LayoutCanvasProps {
     page: AlbumPage;
     config?: AlbumConfig;
     onUpdatePage: (page: AlbumPage) => void;
-    advancedTemplate?: AdvancedTemplate | null;
-    toolMode?: ToolMode;
-    strokes?: Segment[];
-    onUpdateStrokes?: (strokes: Segment[]) => void;
-    isMirrorMode?: boolean;
+    advancedTemplate: AdvancedTemplate | null;
+    toolMode: ToolMode;
+    vectorObjects: VectorObject[];
+    onUpdateVectorObjects?: (objects: VectorObject[]) => void;
+    isMirrorMode: boolean;
+    activeStrokeColor: string;
+    activeStrokeWidth: number;
+    activeFillColor: string;
+    selectedShapeIndices: number[];
+    onSelectionChange: (indices: number[]) => void;
 }
 
 type TransformMode = 'none' | 'move' | 'resize' | 'rotate';
 
+type Obb = {
+    center: Point;
+    width: number;
+    height: number;
+    angle: number;
+    minX: number; maxX: number; minY: number; maxY: number;
+};
+
 interface ShapeData {
-    indices: number[];
+    id: string; // From VectorObject
     polygon: Point[];
     bbox: { minX: number; minY: number; maxX: number; maxY: number; centerX: number; centerY: number; width: number; height: number };
-    obb: {
-        center: Point;
-        width: number;
-        height: number;
-        angle: number;
-        minX: number; maxX: number; minY: number; maxY: number;
-    };
+    obb: Obb;
+    object: VectorObject;
 }
 
 export const LayoutCanvas = ({
@@ -39,10 +63,15 @@ export const LayoutCanvas = ({
     config,
     onUpdatePage,
     advancedTemplate,
-    toolMode = 'select',
-    strokes = [],
-    onUpdateStrokes,
-    isMirrorMode = false
+    toolMode,
+    vectorObjects,
+    onUpdateVectorObjects,
+    isMirrorMode,
+    activeStrokeColor,
+    activeStrokeWidth,
+    activeFillColor,
+    selectedShapeIndices,
+    onSelectionChange
 }: LayoutCanvasProps) => {
     const wrapperRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLDivElement>(null);
@@ -83,7 +112,6 @@ export const LayoutCanvas = ({
     const [isDrawing, setIsDrawing] = useState(false);
     const [currentStroke, setCurrentStroke] = useState<Segment | null>(null);
     const [currentPath, setCurrentPath] = useState<Point[]>([]);
-    const [selectedShapeIndices, setSelectedShapeIndices] = useState<number[]>([]);
     const [transformMode, setTransformMode] = useState<TransformMode>('none');
     const [resizeHandle, setResizeHandle] = useState<number | null>(null);
     const [selectionBox, setSelectionBox] = useState<{ start: Point; end: Point } | null>(null);
@@ -105,13 +133,11 @@ export const LayoutCanvas = ({
         origPoints: Point[];
         bbox: ShapeData['bbox'];
         startObb?: ShapeData['obb'];
-        affectedStrokeIndices?: Set<number>;
+        affectedObjectIds?: Set<string>;
         isDuplicating?: boolean;
         initialAltKey?: boolean;
-        strokeMapping?: Map<number, { p1: number; p2: number }>;
         mirrorPartnerIndex?: number;
-        affectedMirrorIndices?: Set<number>;
-        mirrorStrokeMapping?: Map<number, { p1: number; p2: number }>;
+        mirrorPartnerIds?: Set<string>;
     } | null>(null);
 
     // --- UTILS ---
@@ -121,6 +147,7 @@ export const LayoutCanvas = ({
             minX = Math.min(minX, p[0]);
             minY = Math.min(minY, p[1]);
             maxX = Math.max(maxX, p[0]);
+            minY = Math.min(minY, p[1]);
             maxY = Math.max(maxY, p[1]);
         });
         return { minX, minY, maxX, maxY, centerX: (minX + maxX) / 2, centerY: (minY + maxY) / 2, width: maxX - minX, height: maxY - minY };
@@ -234,49 +261,13 @@ export const LayoutCanvas = ({
     // --- SHAPE DETECTION ---
     const shapesRef = useRef<ShapeData[]>([]);
 
-    const detectShapes = useCallback((strokes: Segment[]) => {
-        const adj = new Map<number, number[]>();
-        strokes.forEach((_, i) => adj.set(i, []));
-
-        const EPSILON = 0.1;
-        const isPointEqual = (a: Point, b: Point) => Math.abs(a[0] - b[0]) < EPSILON && Math.abs(a[1] - b[1]) < EPSILON;
-
-        for (let i = 0; i < strokes.length; i++) {
-            for (let j = i + 1; j < strokes.length; j++) {
-                const s1 = strokes[i];
-                const s2 = strokes[j];
-                if (isPointEqual(s1.p1, s2.p1) || isPointEqual(s1.p1, s2.p2) ||
-                    isPointEqual(s1.p2, s2.p1) || isPointEqual(s1.p2, s2.p2)) {
-                    adj.get(i)!.push(j);
-                    adj.get(j)!.push(i);
-                }
-            }
-        }
-
-        const visited = new Set<number>();
+    const detectShapes = useCallback((objects: VectorObject[]) => {
         const shapes: ShapeData[] = [];
 
-        for (let i = 0; i < strokes.length; i++) {
-            if (visited.has(i)) continue;
-
-            const component: number[] = [];
-            const queue = [i];
-            visited.add(i);
-
-            while (queue.length > 0) {
-                const curr = queue.shift()!;
-                component.push(curr);
-                for (const neighbor of adj.get(curr)!) {
-                    if (!visited.has(neighbor)) {
-                        visited.add(neighbor);
-                        queue.push(neighbor);
-                    }
-                }
-            }
-
+        objects.forEach(obj => {
+            // Collect points from segments
             const pointSet = new Map<string, Point>();
-            component.forEach(idx => {
-                const s = strokes[idx];
+            obj.segments?.forEach(s => {
                 const key1 = `${s.p1[0].toFixed(2)},${s.p1[1].toFixed(2)}`;
                 const key2 = `${s.p2[0].toFixed(2)},${s.p2[1].toFixed(2)}`;
                 pointSet.set(key1, s.p1);
@@ -284,25 +275,77 @@ export const LayoutCanvas = ({
             });
 
             const polygon = Array.from(pointSet.values());
+            if (polygon.length === 0 && obj.type !== 'path') return;
+
+            if (obj.type === 'path') {
+                // For paths, we use the bounding box to define the shape data
+                // We'll calculate a bounding box based on points if available, or use 0-100 defaults
+                const minX = obj.points && obj.points.length ? Math.min(...obj.points.map(p => p[0])) : 0;
+                const minY = obj.points && obj.points.length ? Math.min(...obj.points.map(p => p[1])) : 0;
+                const maxX = obj.points && obj.points.length ? Math.max(...obj.points.map(p => p[0])) : 100 * coordinateAspect;
+                const maxY = obj.points && obj.points.length ? Math.max(...obj.points.map(p => p[1])) : 100;
+
+                const width = maxX - minX;
+                const height = maxY - minY;
+                const centerX = minX + width / 2;
+                const centerY = minY + height / 2;
+
+                // Convert rotation from degrees to radians for OBB angle
+                const angleRad = (obj.rotation || 0) * Math.PI / 180;
+
+                const box: ShapeData['bbox'] = { minX, minY, maxX, maxY, centerX, centerY, width, height };
+                const obb: ShapeData['obb'] = {
+                    center: [centerX, centerY],
+                    width: width,
+                    height: height,
+                    angle: angleRad,
+                    minX, maxX, minY, maxY
+                };
+
+                // Create polygon from the 4 corners of the bounding box, rotated by the current angle
+                const halfW = width / 2;
+                const halfH = height / 2;
+                const cos = Math.cos(angleRad);
+                const sin = Math.sin(angleRad);
+                const dx1 = halfW * cos, dy1 = halfW * sin;
+                const dx2 = halfH * -sin, dy2 = halfH * cos;
+                const pathPolygon: Point[] = [
+                    [centerX - dx1 - dx2, centerY - dy1 - dy2],
+                    [centerX + dx1 - dx2, centerY + dy1 - dy2],
+                    [centerX + dx1 + dx2, centerY + dy1 + dy2],
+                    [centerX - dx1 + dx2, centerY - dy1 + dy2]
+                ];
+
+                shapes.push({
+                    id: obj.id,
+                    polygon: pathPolygon,
+                    bbox: box,
+                    obb: obb,
+                    object: obj
+                });
+                return;
+            }
 
             // Try to find matching previous shape to preserve angle
             let preferredAngle: number | undefined;
             if (shapesRef.current) {
-                const prev = shapesRef.current.find(s =>
-                    s.indices.length === component.length &&
-                    s.indices.every((val, idx) => val === component[idx])
-                );
-                // Only preserve angle if NOT currently rotating
+                const prev = shapesRef.current.find(s => s.id === obj.id);
                 if (prev && !isRotatingRef.current) preferredAngle = prev.obb.angle;
             }
 
-            shapes.push({ indices: component, polygon, bbox: getBoundingBox(polygon), obb: getSmartBBox(polygon, preferredAngle) });
-        }
+            shapes.push({
+                id: obj.id,
+                polygon,
+                bbox: getBoundingBox(polygon),
+                obb: getSmartBBox(polygon, preferredAngle),
+                object: obj
+            });
+        });
 
         shapesRef.current = shapes;
-    }, []);
+    }, [coordinateAspect]);
 
-    useEffect(() => { detectShapes(strokes); }, [strokes, detectShapes]);
+    useEffect(() => { detectShapes(vectorObjects); }, [vectorObjects, detectShapes]);
 
     // --- AUTO-SCALE ---
     useEffect(() => {
@@ -411,7 +454,8 @@ export const LayoutCanvas = ({
     };
 
     const handleMouseDown = (e: React.MouseEvent) => {
-        if (toolMode === 'select' || !onUpdateStrokes) return;
+        // This function handles drawing new shapes (not selection/manipulation)
+        if (toolMode === 'select' || !onUpdateVectorObjects) return;
         const rect = e.currentTarget.getBoundingClientRect();
         const point = getPointFromEvent(e.clientX, e.clientY, rect);
         if (!point) return;
@@ -435,7 +479,7 @@ export const LayoutCanvas = ({
     const handleSelectMouseDown = (e: React.MouseEvent) => {
         const rect = e.currentTarget.getBoundingClientRect();
         const point = getPointFromEvent(e.clientX, e.clientY, rect);
-        if (!point) return;
+        if (!point || !onUpdateVectorObjects) return;
 
         const shapes = shapesRef.current;
         const primaryIdx = selectedShapeIndices.length === 1 ? selectedShapeIndices[0] : null;
@@ -444,21 +488,8 @@ export const LayoutCanvas = ({
         if (primaryIdx !== null) {
             const shape = shapes[primaryIdx];
             if (shape) {
-                // Compute Stroke Mapping for Rigid Transformation
-                const strokeMapping = new Map<number, { p1: number; p2: number }>();
-                shape.indices.forEach(idx => {
-                    const s = strokes[idx];
-                    // Using very small epsilon to match exact vertices
-                    const idx1 = shape.polygon.findIndex(p => distance(p, s.p1) < 0.1);
-                    const idx2 = shape.polygon.findIndex(p => distance(p, s.p2) < 0.1);
-                    if (idx1 >= 0 && idx2 >= 0) {
-                        strokeMapping.set(idx, { p1: idx1, p2: idx2 });
-                    }
-                });
-
-                // Match Mirror Logic
+                // Determine Mirror Logic
                 let mirrorPartnerIdx: number | undefined;
-                let mirrorStrokeMapping: Map<number, { p1: number; p2: number }> | undefined;
 
                 if (isMirrorMode && coordinateAspect) {
                     const totalWidth = 100 * coordinateAspect;
@@ -468,36 +499,22 @@ export const LayoutCanvas = ({
                     mirrorPartnerIdx = shapes.findIndex((s, idx) => {
                         if (idx === primaryIdx) return false;
                         const d = Math.sqrt(Math.pow(s.obb.center[0] - mirrorX, 2) + Math.pow(s.obb.center[1] - mirrorY, 2));
-                        return d < 5.0 && Math.abs(s.obb.width - shape.obb.width) < 1;
+                        return d < 5.0 && Math.abs(s.obb.width - shape.obb.width) < 1 && Math.abs(s.obb.height - shape.obb.height) < 1;
                     });
 
-                    if (mirrorPartnerIdx !== -1) {
-                        // Compute Mirror Mapping
-                        const mShape = shapes[mirrorPartnerIdx];
-                        mirrorStrokeMapping = new Map();
-                        mShape.indices.forEach(idx => {
-                            const s = strokes[idx];
-                            const idx1 = mShape.polygon.findIndex(p => distance(p, s.p1) < 0.1);
-                            const idx2 = mShape.polygon.findIndex(p => distance(p, s.p2) < 0.1);
-                            if (idx1 >= 0 && idx2 >= 0) {
-                                mirrorStrokeMapping!.set(idx, { p1: idx1, p2: idx2 });
-                            }
-                        });
-                    } else {
-                        mirrorPartnerIdx = undefined;
-                    }
+                    if (mirrorPartnerIdx === -1) mirrorPartnerIdx = undefined;
                 }
 
                 // Rotation Handles
                 const rotHandles = getRotationHandles(shape.obb);
                 for (let i = 0; i < 4; i++) {
-                    // Strict hit radius matching visual size (1.6) + small margin
                     if (distance(point, rotHandles[i]) < 2.0) {
                         setTransformMode('rotate');
                         isRotatingRef.current = true;
+                        // Use shape.polygon for all objects (path objects now have rotated OBB corners as polygon)
                         dragStartRef.current = {
-                            point, origPoints: shape.polygon, bbox: shape.bbox, startObb: shape.obb, strokeMapping,
-                            mirrorPartnerIndex: mirrorPartnerIdx, mirrorStrokeMapping
+                            point, origPoints: shape.polygon, bbox: shape.bbox, startObb: shape.obb,
+                            mirrorPartnerIndex: mirrorPartnerIdx
                         };
                         return;
                     }
@@ -505,7 +522,6 @@ export const LayoutCanvas = ({
 
                 // Resize Handles
                 const handles = getResizeHandles(shape.obb);
-                // Strict hit radius matching visual size (1.2) + small margin
                 const hitRadius = 1.5;
 
                 for (let i = 0; i < 8; i++) {
@@ -513,9 +529,10 @@ export const LayoutCanvas = ({
                         setResizeHandle(i);
                         setTransformMode('resize');
                         isRotatingRef.current = false;
+                        // Use shape.polygon for all objects (path objects now have rotated OBB corners as polygon)
                         dragStartRef.current = {
-                            point, origPoints: shape.polygon, bbox: shape.bbox, startObb: shape.obb, strokeMapping,
-                            mirrorPartnerIndex: mirrorPartnerIdx, mirrorStrokeMapping
+                            point, origPoints: shape.polygon, bbox: shape.bbox, startObb: shape.obb,
+                            mirrorPartnerIndex: mirrorPartnerIdx
                         };
                         return;
                     }
@@ -525,41 +542,25 @@ export const LayoutCanvas = ({
 
         // 2. Check Shape Hit
         let foundIdx = -1;
-        // Check in reverse order (topmost first)
         for (let i = shapes.length - 1; i >= 0; i--) {
             const bbox = shapes[i].bbox;
             if (point[0] >= bbox.minX - 3 && point[0] <= bbox.maxX + 3 &&
                 point[1] >= bbox.minY - 3 && point[1] <= bbox.maxY + 3) {
-                // Polygon check could be more precise, but bbox is okay for selection
                 foundIdx = i;
                 break;
             }
         }
 
         if (foundIdx >= 0) {
-            // Clicked on a shape
             let newSelection = [...selectedShapeIndices];
-
-            // If strictly new selection (clicked shape not currently selected), select ONLY it
-            // (Unless we add Shift key support later)
             if (!newSelection.includes(foundIdx)) {
                 newSelection = [foundIdx];
-                setSelectedShapeIndices(newSelection);
+                onSelectionChange(newSelection);
             }
-            // If clicked shape IS selected, we keep the group selection to allow moving the group.
 
             setTransformMode('move');
             isRotatingRef.current = false;
             setCursorMode('grabbing');
-
-            // Prepare for move/duplicate: Identify all strokes involved
-            const affectedIndices = new Set<number>();
-            newSelection.forEach(idx => {
-                const s = shapes[idx];
-                if (s) {
-                    s.indices.forEach(si => affectedIndices.add(si));
-                }
-            });
 
             // Detect Mirror Partner (only if single selection)
             let mirrorPartnerIdx: number | undefined;
@@ -569,12 +570,10 @@ export const LayoutCanvas = ({
                 const mirrorX = totalWidth - currentShape.obb.center[0];
                 const mirrorY = currentShape.obb.center[1];
 
-                // Find shape close to mirror position
                 mirrorPartnerIdx = shapes.findIndex((s, idx) => {
                     if (idx === foundIdx) return false;
                     const d = Math.sqrt(Math.pow(s.obb.center[0] - mirrorX, 2) + Math.pow(s.obb.center[1] - mirrorY, 2));
-                    // Tolerance 2 units
-                    return d < 2.0 && Math.abs(s.obb.width - currentShape.obb.width) < 1 && Math.abs(s.obb.height - currentShape.obb.height) < 1;
+                    return d < 5.0 && Math.abs(s.obb.width - currentShape.obb.width) < 1 && Math.abs(s.obb.height - currentShape.obb.height) < 1;
                 });
 
                 if (mirrorPartnerIdx === -1) mirrorPartnerIdx = undefined;
@@ -585,26 +584,151 @@ export const LayoutCanvas = ({
                 origPoints: shapes[foundIdx].polygon,
                 bbox: shapes[foundIdx].bbox,
                 startObb: shapes[foundIdx].obb,
-                affectedStrokeIndices: affectedIndices,
                 initialAltKey: e.altKey,
                 isDuplicating: false,
                 mirrorPartnerIndex: mirrorPartnerIdx
             };
 
         } else {
-            // Clicked on empty space -> Start Selection Box
-            setSelectedShapeIndices([]); // Clear selection
+            onSelectionChange([]);
             setSelectionBox({ start: point, end: point });
-            setTransformMode('none'); // We'll handle box update in mouseMove, maybe distinct mode?
-            // Actually, let's use a flag or check selectionBox !== null
+            setTransformMode('none');
             isRotatingRef.current = false;
         }
+    };
+
+    const handleMouseUpCleanup = () => {
+        setIsDrawing(false);
+        isDrawingRef.current = false;
+        setCurrentStroke(null);
+        currentStrokeRef.current = null;
+        setCurrentPath([]);
+        currentPathRef.current = [];
+        setPreviewShape(null);
+        setTransformMode('none');
+        setResizeHandle(null);
+        setIsSymmetric(false);
+        dragStartRef.current = null;
+    };
+
+    const handleMouseUp = (e: React.MouseEvent) => {
+        if (toolMode === 'select') {
+            if (selectionBox) {
+                const { start, end } = selectionBox;
+                const minX = Math.min(start[0], end[0]);
+                const maxX = Math.max(start[0], end[0]);
+                const minY = Math.min(start[1], end[1]);
+                const maxY = Math.max(start[1], end[1]);
+
+                const newSelection: number[] = [];
+                shapesRef.current.forEach((shape, idx) => {
+                    if (shape.obb.center[0] >= minX && shape.obb.center[0] <= maxX &&
+                        shape.obb.center[1] >= minY && shape.obb.center[1] <= maxY) {
+                        newSelection.push(idx);
+                    }
+                });
+                onSelectionChange(newSelection);
+            }
+            setSelectionBox(null);
+            setTransformMode('none');
+            setCursorMode('default');
+            dragStartRef.current = null;
+            handleMouseUpCleanup();
+            return;
+        }
+
+        if (!isDrawing) {
+            handleMouseUpCleanup();
+            return;
+        }
+
+        setIsDrawing(false);
+        isDrawingRef.current = false;
+
+        const rect = e.currentTarget.getBoundingClientRect();
+        const point = getPointFromEvent(e.clientX, e.clientY, rect);
+        if (!point) {
+            handleMouseUpCleanup();
+            return;
+        }
+
+        let newObjects = [...vectorObjects];
+
+        const createObject = (type: VectorObject['type'], points: Point[]): VectorObject => {
+            const segments: Segment[] = [];
+            for (let i = 0; i < points.length - 1; i++) {
+                segments.push({ p1: points[i], p2: points[i + 1] });
+            }
+            return {
+                id: uuidv4(),
+                type,
+                segments,
+                points,
+                stroke: activeStrokeColor,
+                strokeWidth: activeStrokeWidth,
+                fill: activeFillColor,
+                zIndex: (vectorObjects?.length || 0),
+                rotation: 0
+            };
+        };
+
+        if (toolMode === 'freehand') {
+            if (currentPath.length > 1) {
+                const obj = createObject('freehand', currentPath);
+                newObjects.push(obj);
+
+                if (isMirrorMode && coordinateAspect) {
+                    const totalWidth = 100 * coordinateAspect;
+                    const mirroredPoints = currentPath.map(p => [totalWidth - p[0], p[1]] as Point);
+                    const mirroredObj = createObject('freehand', mirroredPoints);
+                    mirroredObj.id = uuidv4();
+                    mirroredObj.mirrorPartnerId = obj.id;
+                    obj.mirrorPartnerId = mirroredObj.id;
+                    newObjects.push(mirroredObj);
+                }
+            }
+        } else if (toolMode === 'rect' || toolMode === 'circle') {
+            if (previewShape && previewShape.points.length > 2) {
+                const obj = createObject(toolMode, previewShape.points);
+                newObjects.push(obj);
+
+                if (isMirrorMode && coordinateAspect) {
+                    const totalWidth = 100 * coordinateAspect;
+                    const mirroredPoints = previewShape.points.map(p => [totalWidth - p[0], p[1]] as Point);
+                    const mirroredObj = createObject(toolMode, mirroredPoints);
+                    mirroredObj.id = uuidv4();
+                    mirroredObj.mirrorPartnerId = obj.id;
+                    obj.mirrorPartnerId = mirroredObj.id;
+                    newObjects.push(mirroredObj);
+                }
+            }
+        } else if (toolMode === 'pencil') {
+            const start = currentStrokeRef.current?.p1;
+            if (start && distance(start, point) > 0.5) {
+                const obj = createObject('line', [start, point]);
+                newObjects.push(obj);
+
+                if (isMirrorMode && coordinateAspect) {
+                    const totalWidth = 100 * coordinateAspect;
+                    const mirroredStart: Point = [totalWidth - start[0], start[1]];
+                    const mirroredEnd: Point = [totalWidth - point[0], point[1]];
+                    const mirroredObj = createObject('line', [mirroredStart, mirroredEnd]);
+                    mirroredObj.id = uuidv4();
+                    mirroredObj.mirrorPartnerId = obj.id;
+                    obj.mirrorPartnerId = mirroredObj.id;
+                    newObjects.push(mirroredObj);
+                }
+            }
+        }
+
+        onUpdateVectorObjects?.(newObjects);
+        handleMouseUpCleanup();
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
         const rect = e.currentTarget.getBoundingClientRect();
         const point = getPointFromEvent(e.clientX, e.clientY, rect);
-        if (!point || !onUpdateStrokes) return;
+        if (!point || !onUpdateVectorObjects) return;
 
         // Drawing mode - show preview shape
         if (isDrawing && (toolMode === 'rect' || toolMode === 'circle')) {
@@ -741,86 +865,90 @@ export const LayoutCanvas = ({
             const dy = point[1] - start.point[1];
 
             if (distance(point, start.point) > 0.5) {
-                let currentStrokes = strokes;
-                let indicesToMove = start.affectedStrokeIndices || new Set<number>();
+                let currentObjects = vectorObjects;
+                let objectIdsToMove = start.affectedObjectIds || new Set<string>();
 
-                // Determine Mirror Indices (Lazy load if not yet in ref)
-                let indicesToMirror = start.affectedMirrorIndices || new Set<number>();
-                if (indicesToMirror.size === 0 && start.mirrorPartnerIndex !== undefined) {
+                // Lazy determine affected objects if not in ref
+                if (objectIdsToMove.size === 0) {
+                    objectIdsToMove = new Set();
+                    selectedShapeIndices.forEach(idx => {
+                        const shape = shapesRef.current[idx];
+                        if (shape) objectIdsToMove.add(shape.id);
+                    });
+                    start.affectedObjectIds = objectIdsToMove;
+                }
+
+                // Determine Mirror Indices
+                let mirrorIds = start.mirrorPartnerIds || new Set<string>();
+                if (mirrorIds.size === 0 && start.mirrorPartnerIndex !== undefined) {
                     const mirrorShape = shapesRef.current[start.mirrorPartnerIndex];
-                    if (mirrorShape) {
-                        mirrorShape.indices.forEach(idx => indicesToMirror.add(idx));
-                    }
+                    if (mirrorShape) mirrorIds.add(mirrorShape.id);
+                    start.mirrorPartnerIds = mirrorIds;
                 }
 
                 // Duplication Logic (Alt + Drag)
                 if (start.initialAltKey && !start.isDuplicating) {
                     start.isDuplicating = true;
-                    const clones: Segment[] = [];
-                    const newIndices = new Set<number>();
-                    const newMirrorIndices = new Set<number>();
-                    let nextIdx = strokes.length;
+                    const clones: VectorObject[] = [];
+                    const newIds = new Set<string>();
+                    const newMirrorIds = new Set<string>();
 
-                    // Clone Primary
-                    indicesToMove.forEach(idx => {
-                        if (strokes[idx]) {
-                            clones.push({ ...strokes[idx] });
-                            newIndices.add(nextIdx++);
+                    objectIdsToMove.forEach(id => {
+                        const original = vectorObjects.find(o => o.id === id);
+                        if (original) {
+                            const clone = { ...original, id: uuidv4() };
+                            clones.push(clone);
+                            newIds.add(clone.id);
                         }
                     });
 
-                    // Clone Mirror
-                    indicesToMirror.forEach(idx => {
-                        if (strokes[idx]) {
-                            clones.push({ ...strokes[idx] });
-                            newMirrorIndices.add(nextIdx++);
+                    mirrorIds.forEach(id => {
+                        const original = vectorObjects.find(o => o.id === id);
+                        if (original) {
+                            const clone = { ...original, id: uuidv4() };
+                            clones.push(clone);
+                            newMirrorIds.add(clone.id);
                         }
                     });
 
                     if (clones.length > 0) {
-                        currentStrokes = [...strokes, ...clones];
-                        indicesToMove = newIndices;
-                        indicesToMirror = newMirrorIndices;
-
-                        // Update ref to track the NEW clones
-                        start.affectedStrokeIndices = newIndices;
-                        start.affectedMirrorIndices = newMirrorIndices;
-                        setSelectedShapeIndices([]); // Clear selection of original
+                        currentObjects = [...vectorObjects, ...clones];
+                        objectIdsToMove = newIds;
+                        mirrorIds = newMirrorIds;
+                        start.affectedObjectIds = newIds;
+                        start.mirrorPartnerIds = newMirrorIds;
+                        onSelectionChange([]);
                     }
                 }
 
-                if (indicesToMove.size > 0 || indicesToMirror.size > 0) {
-                    const newStrokes = currentStrokes.map((s, i) => {
-                        if (indicesToMove.has(i)) {
-                            return { p1: [s.p1[0] + dx, s.p1[1] + dy] as Point, p2: [s.p2[0] + dx, s.p2[1] + dy] as Point };
+                if (objectIdsToMove.size > 0 || mirrorIds.size > 0) {
+                    const newObjects = currentObjects.map((obj: VectorObject) => {
+                        if (objectIdsToMove.has(obj.id)) {
+                            if (obj.points) {
+                                const newPoints = obj.points.map((p: Point) => [p[0] + dx, p[1] + dy] as Point);
+                                return updateObjectPoints(obj, newPoints);
+                            }
                         }
-                        if (indicesToMirror.has(i)) {
-                            // Mirror move: -dx (horizontal flip), +dy (same vertical)
-                            return { p1: [s.p1[0] - dx, s.p1[1] + dy] as Point, p2: [s.p2[0] - dx, s.p2[1] + dy] as Point };
+                        if (mirrorIds.has(obj.id)) {
+                            if (obj.points) {
+                                const newPoints = obj.points.map((p: Point) => [p[0] - dx, p[1] + dy] as Point);
+                                return updateObjectPoints(obj, newPoints);
+                            }
                         }
-                        return s;
+                        return obj;
                     });
-                    onUpdateStrokes(newStrokes);
-                    // Persist the potentially updated indices (if lazy loaded or duped)
-                    dragStartRef.current = {
-                        ...start,
-                        point,
-                        affectedMirrorIndices: indicesToMirror
-                    };
+                    onUpdateVectorObjects?.(newObjects);
+                    dragStartRef.current = { ...start, point };
                 }
             }
         } else if (transformMode === 'resize' && selectedShapeIndices.length === 1) {
-            // Single Shape Resize
             const shape = shapesRef.current[selectedShapeIndices[0]];
             if (!shape) return;
 
             const startObb = start.startObb;
-            const origPoints = start.origPoints; // This should be correct for single shape
             if (!startObb) return;
 
-            // Local Mouse Point (u, v)
             const localMouse = transformPointToLocal(point, startObb.center, startObb.angle);
-            // Local Handle Orig (u, v)
             const handles = getResizeHandles(startObb).map(h => transformPointToLocal(h, startObb.center, startObb.angle));
 
             const oppHandles = [4, 5, 6, 7, 0, 1, 2, 3];
@@ -828,9 +956,7 @@ export const LayoutCanvas = ({
             const oppHandleLocal = handles[oppIdx];
             const currHandleLocal = handles[resizeHandle!];
 
-            // Calculate scale in local space
             let scaleU = 1, scaleV = 1;
-
             const isCorner = [0, 2, 4, 6].includes(resizeHandle!);
             const isTopBottom = [1, 5].includes(resizeHandle!);
             const isLeftRight = [3, 7].includes(resizeHandle!);
@@ -847,265 +973,157 @@ export const LayoutCanvas = ({
                 scaleU = Math.abs(dimU) > 0.001 ? (localMouse[0] - oppHandleLocal[0]) / dimU : 1;
             }
 
-            // Symmetry Check & Snap (Only for Corners)
-            const baseW = startObb.maxX - startObb.minX;
-            const baseH = startObb.maxY - startObb.minY;
-
-            // Calculate temp dimensions for check
+            const baseW = startObb.width;
+            const baseH = startObb.height;
             let symmetric = false;
 
             if (isCorner) {
                 const currW = baseW * Math.abs(scaleU);
                 const currH = baseH * Math.abs(scaleV);
                 const snapThreshold = 10;
-
                 if (Math.abs(currW - currH) < snapThreshold) {
                     symmetric = true;
-                    // ... (existing symmetry logic) ...
                     const targetSize = (currW + currH) / 2;
-                    const epsilon = 1.001;
                     scaleU = (targetSize / baseW) * (scaleU < 0 ? -1 : 1);
-                    scaleV = (targetSize * epsilon / baseH) * (scaleV < 0 ? -1 : 1);
+                    scaleV = (targetSize / baseH) * (scaleV < 0 ? -1 : 1);
                 }
             }
+            if (symmetric !== isSymmetric) setIsSymmetric(symmetric);
 
-            if (symmetric !== isSymmetric) {
-                setIsSymmetric(symmetric);
-            }
-
-            // Min Size Constraint (20px) -> Changed to 2 units for safety
             const minSize = 2;
-            const currentW = Math.abs(baseW * scaleU);
-            const currentH = Math.abs(baseH * scaleV);
+            if (Math.abs(baseW * scaleU) < minSize) scaleU = (minSize / baseW) * (scaleU < 0 ? -1 : 1);
+            if (Math.abs(baseH * scaleV) < minSize) scaleV = (minSize / baseH) * (scaleV < 0 ? -1 : 1);
 
-            if (currentW < minSize) scaleU = (minSize / baseW) * (scaleU < 0 ? -1 : 1);
-            if (currentH < minSize) scaleV = (minSize / baseH) * (scaleV < 0 ? -1 : 1);
-
-            // Apply to Primary
-            const newStrokes = [...strokes];
-
-            // Recompute all polygon points in local then world space
-            const newPolyLocal = origPoints.map(p => {
-                const pl = transformPointToLocal(p, startObb.center, startObb.angle);
-                // Resize in local space relative to pivot (opp handle)
-                const plNew: Point = [
-                    oppHandleLocal[0] + (pl[0] - oppHandleLocal[0]) * scaleU,
-                    oppHandleLocal[1] + (pl[1] - oppHandleLocal[1]) * scaleV
-                ];
-                return plNew;
-            });
-
-            // Transform back to world
-            const newPolyWorld = newPolyLocal.map(p => transformPointToWorld(p, startObb.center, startObb.angle));
-
-            // Update Primary Strokes
-            start.strokeMapping?.forEach((vIndices, sIdx) => {
-                newStrokes[sIdx] = {
-                    p1: newPolyWorld[vIndices.p1],
-                    p2: newPolyWorld[vIndices.p2]
-                };
-            });
-
-            // Mirror Logic for Resize
-            if (start.mirrorPartnerIndex !== undefined && coordinateAspect) {
-                const mirrorShape = shapesRef.current[start.mirrorPartnerIndex];
-                if (mirrorShape && mirrorShape.indices.length === shape.indices.length) {
-                    const totalWidth = 100 * coordinateAspect;
-                    // Mirror the NEW Primary Points
-                    const mirroredPoints = newPolyWorld.map(p => [totalWidth - p[0], p[1]] as Point);
-
-                    // Apply to Mirror Strokes
-                    // We iterate mirrorShape indices directly
-                    mirrorShape.indices.forEach(mirrorSIdx => {
-                        const mapping = start.mirrorStrokeMapping?.get(mirrorSIdx);
-                        if (mapping) {
-                            newStrokes[mirrorSIdx] = {
-                                p1: mirroredPoints[mapping.p1], // Assumes vertex order alignment
-                                p2: mirroredPoints[mapping.p2]
-                            };
-                        }
+            const newObjects = vectorObjects.map(obj => {
+                if (obj.id === shape.id && obj.points) {
+                    const newPolyWorld = start.origPoints.map(p => {
+                        const pl = transformPointToLocal(p, startObb.center, startObb.angle);
+                        const plNew: Point = [
+                            oppHandleLocal[0] + (pl[0] - oppHandleLocal[0]) * scaleU,
+                            oppHandleLocal[1] + (pl[1] - oppHandleLocal[1]) * scaleV
+                        ];
+                        return transformPointToWorld(plNew, startObb.center, startObb.angle);
                     });
+                    return updateObjectPoints(obj, newPolyWorld);
                 }
-            }
-
-            onUpdateStrokes(newStrokes);
+                if (start.mirrorPartnerIndex !== undefined && coordinateAspect) {
+                    const mShape = shapesRef.current[start.mirrorPartnerIndex];
+                    if (mShape && obj.id === mShape.id && obj.points) {
+                        const totalWidth = 100 * coordinateAspect;
+                        const newPolyWorld = start.origPoints.map(p => {
+                            const pl = transformPointToLocal(p, startObb.center, startObb.angle);
+                            const plNew: Point = [
+                                oppHandleLocal[0] + (pl[0] - oppHandleLocal[0]) * scaleU,
+                                oppHandleLocal[1] + (pl[1] - oppHandleLocal[1]) * scaleV
+                            ];
+                            return transformPointToWorld(plNew, startObb.center, startObb.angle);
+                        });
+                        const mirroredPoints = newPolyWorld.map(p => [totalWidth - p[0], p[1]] as Point);
+                        return updateObjectPoints(obj, mirroredPoints);
+                    }
+                }
+                return obj;
+            });
+            onUpdateVectorObjects?.(newObjects);
 
         } else if (transformMode === 'rotate' && selectedShapeIndices.length === 1) {
             const shape = shapesRef.current[selectedShapeIndices[0]];
             if (!shape) return;
 
-            const center = start.startObb?.center || [start.bbox.centerX, start.bbox.centerY] as Point;
+            const center = start.startObb?.center || [shape.bbox.centerX, shape.bbox.centerY] as Point;
             const startAngle = Math.atan2(start.point[1] - center[1], start.point[0] - center[0]);
             const currentAngle = Math.atan2(point[1] - center[1], point[0] - center[0]);
             const dTheta = currentAngle - startAngle;
 
-            const newStrokes = [...strokes];
-            const newPolyWorld: Point[] = [];
-
-            // Apply Rotate to Primary
-            const poly = start.origPoints.map(p => rotatePoint(p, center, dTheta));
-            poly.forEach(p => newPolyWorld.push(p));
-
-            start.strokeMapping?.forEach((vIndices, sIdx) => {
-                newStrokes[sIdx] = {
-                    p1: newPolyWorld[vIndices.p1],
-                    p2: newPolyWorld[vIndices.p2]
-                };
-            });
-
-            // Mirror Logic for Rotate
-            if (start.mirrorPartnerIndex !== undefined && coordinateAspect) {
-                const mirrorShape = shapesRef.current[start.mirrorPartnerIndex];
-                if (mirrorShape && mirrorShape.indices.length === shape.indices.length) {
-                    const totalWidth = 100 * coordinateAspect;
-                    // Mirror the NEW Primary Points
-                    const mirroredPoints = newPolyWorld.map(p => [totalWidth - p[0], p[1]] as Point);
-
-                    mirrorShape.indices.forEach(mirrorSIdx => {
-                        const mapping = start.mirrorStrokeMapping?.get(mirrorSIdx);
-                        if (mapping) {
-                            newStrokes[mirrorSIdx] = {
-                                p1: mirroredPoints[mapping.p1],
-                                p2: mirroredPoints[mapping.p2]
+            const newObjects = vectorObjects.map(obj => {
+                if (obj.id === shape.id && obj.points) {
+                    // For path objects, only update the rotation property - don't rotate points
+                    // Points represent the axis-aligned bounding box, rotation is applied via CSS
+                    if (obj.type === 'path') {
+                        // Calculate new absolute rotation from start OBB angle + delta
+                        const startAngleRad = start.startObb?.angle || 0;
+                        const newRotationRad = startAngleRad + dTheta;
+                        return {
+                            ...obj,
+                            rotation: newRotationRad * 180 / Math.PI
+                        };
+                    }
+                    // For regular shapes, rotate the points
+                    const newPolyWorld = start.origPoints.map(p => rotatePoint(p, center, dTheta));
+                    return updateObjectPoints(obj, newPolyWorld);
+                }
+                if (start.mirrorPartnerIndex !== undefined && coordinateAspect) {
+                    const mShape = shapesRef.current[start.mirrorPartnerIndex];
+                    if (mShape && obj.id === mShape.id && obj.points) {
+                        // For path objects in mirror mode
+                        if (obj.type === 'path') {
+                            const startAngleRad = start.startObb?.angle || 0;
+                            const newRotationRad = -(startAngleRad + dTheta);
+                            return {
+                                ...obj,
+                                rotation: newRotationRad * 180 / Math.PI
                             };
                         }
-                    });
+                        const totalWidth = 100 * coordinateAspect;
+                        const newPolyWorld = start.origPoints.map(p => rotatePoint(p, center, dTheta));
+                        const mirroredPoints = newPolyWorld.map(p => [totalWidth - p[0], p[1]] as Point);
+                        return updateObjectPoints(obj, mirroredPoints);
+                    }
                 }
-            }
-
-            onUpdateStrokes(newStrokes);
-        }
-    };
-
-    const handleMouseUp = () => {
-        // Finalize drawing
-        if (isDrawing && onUpdateStrokes) {
-            let newSegments: Segment[] = [];
-            const stroke = currentStrokeRef.current;
-            const preview = previewShape;
-
-            // For rect/circle, use preview shape if available
-            if (preview && preview.points.length > 1) {
-                for (let i = 0; i < preview.points.length - 1; i++) {
-                    newSegments.push({ p1: preview.points[i], p2: preview.points[i + 1] });
-                }
-            } else if (stroke && (Math.abs(stroke.p1[0] - stroke.p2[0]) > 0.1 || Math.abs(stroke.p1[1] - stroke.p2[1]) > 0.1)) {
-                newSegments = [stroke];
-            }
-
-            if (newSegments.length > 0) {
-                if (isMirrorMode && coordinateAspect) {
-                    const totalWidth = 100 * coordinateAspect;
-                    const mirroredSegments = newSegments.map(s => ({
-                        p1: [totalWidth - s.p1[0], s.p1[1]] as Point,
-                        p2: [totalWidth - s.p2[0], s.p2[1]] as Point
-                    }));
-                    newSegments = [...newSegments, ...mirroredSegments];
-                }
-                onUpdateStrokes([...strokes, ...newSegments]);
-            }
-        }
-
-        // Finalize Selection Box
-        if (selectionBox) {
-            const shapes = shapesRef.current;
-            const boxMinX = Math.min(selectionBox.start[0], selectionBox.end[0]);
-            const boxMaxX = Math.max(selectionBox.start[0], selectionBox.end[0]);
-            const boxMinY = Math.min(selectionBox.start[1], selectionBox.end[1]);
-            const boxMaxY = Math.max(selectionBox.start[1], selectionBox.end[1]);
-
-            // Find shapes intersecting the selection box
-            const indices: number[] = [];
-            shapes.forEach((shape, i) => {
-                const s = shape.bbox;
-                // AABB Intersection Test
-                const overlaps = !(boxMaxX < s.minX || boxMinX > s.maxX || boxMaxY < s.minY || boxMinY > s.maxY);
-                if (overlaps) {
-                    indices.push(i);
-                }
+                return obj;
             });
-            setSelectedShapeIndices(indices);
-            setSelectionBox(null);
+            onUpdateVectorObjects?.(newObjects);
         }
-
-        setIsDrawing(false);
-        isDrawingRef.current = false;
-        setCurrentStroke(null);
-        currentStrokeRef.current = null;
-        setCurrentPath([]);
-        currentPathRef.current = [];
-        setPreviewShape(null);
-        setTransformMode('none');
-        setResizeHandle(null);
-        setIsSymmetric(false);
-        dragStartRef.current = null;
     };
 
-    // Keyboard handler
     useEffect(() => {
-        if (toolMode !== 'select' || selectedShapeIndices.length === 0 || !onUpdateStrokes) return;
-
         const handleKeyDown = (e: KeyboardEvent) => {
+            if (toolMode !== 'select' || !onUpdateVectorObjects) return;
+
             if (e.key === 'Delete' || e.key === 'Backspace') {
                 e.preventDefault();
-
-                // Identify all strokes to remove
-                const shapes = shapesRef.current;
-                const strokesToRemove = new Set<number>();
-
-                selectedShapeIndices.forEach(idx => {
-                    const shape = shapes[idx];
-                    if (shape) {
-                        shape.indices.forEach(sIdx => strokesToRemove.add(sIdx));
-                    }
+                const idsToRemove = new Set<string>();
+                selectedShapeIndices.forEach((idx: number) => {
+                    const shape = shapesRef.current[idx];
+                    if (shape) idsToRemove.add(shape.id);
                 });
 
-                if (strokesToRemove.size > 0) {
-                    const newStrokes = strokes.filter((_, i) => !strokesToRemove.has(i));
-                    onUpdateStrokes(newStrokes);
-                    setSelectedShapeIndices([]);
+                if (idsToRemove.size > 0) {
+                    const newObjects = vectorObjects.filter(obj => !idsToRemove.has(obj.id));
+                    onUpdateVectorObjects(newObjects);
+                    onSelectionChange([]);
                 }
             } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-                if (selectedShapeIndices.length > 0 && onUpdateStrokes) {
-                    e.preventDefault();
-                    // Nudge amount: 0.2 units (approx 1-2 pixels)
-                    const delta = e.shiftKey ? 2.0 : 0.2;
-                    let dx = 0;
-                    let dy = 0;
+                e.preventDefault();
+                const nudge = 0.5;
+                const dx = e.key === 'ArrowLeft' ? -nudge : e.key === 'ArrowRight' ? nudge : 0;
+                const dy = e.key === 'ArrowUp' ? -nudge : e.key === 'ArrowDown' ? nudge : 0;
 
-                    if (e.key === 'ArrowUp') dy = -delta;
-                    if (e.key === 'ArrowDown') dy = delta;
-                    if (e.key === 'ArrowLeft') dx = -delta;
-                    if (e.key === 'ArrowRight') dx = delta;
+                const idsToMove = new Set<string>();
+                selectedShapeIndices.forEach((idx: number) => {
+                    const shape = shapesRef.current[idx];
+                    if (shape) idsToMove.add(shape.id);
+                });
 
-                    const shapes = shapesRef.current;
-                    const indicesToMove = new Set<number>();
-
-                    selectedShapeIndices.forEach(idx => {
-                        const shape = shapes[idx];
-                        if (shape) {
-                            shape.indices.forEach(sIdx => indicesToMove.add(sIdx));
+                if (idsToMove.size > 0) {
+                    const newObjects = vectorObjects.map((obj: VectorObject) => {
+                        if (idsToMove.has(obj.id) && obj.points) {
+                            const newPoints = obj.points.map((p: Point) => [p[0] + dx, p[1] + dy] as Point);
+                            return updateObjectPoints(obj, newPoints);
                         }
+                        return obj;
                     });
-
-                    if (indicesToMove.size > 0) {
-                        const newStrokes = strokes.map((s, i) => {
-                            if (indicesToMove.has(i)) {
-                                return { p1: [s.p1[0] + dx, s.p1[1] + dy] as Point, p2: [s.p2[0] + dx, s.p2[1] + dy] as Point };
-                            }
-                            return s;
-                        });
-                        onUpdateStrokes(newStrokes);
-                    }
+                    onUpdateVectorObjects(newObjects);
                 }
             } else if (e.key === 'Escape') {
-                setSelectedShapeIndices([]);
+                onSelectionChange([]);
                 setSelectionBox(null);
             }
         };
+
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [toolMode, selectedShapeIndices, strokes, onUpdateStrokes]);
+    }, [toolMode, selectedShapeIndices, vectorObjects, onUpdateVectorObjects, onSelectionChange]);
 
     // Derived state for rendering
     const primaryShapeIndex = selectedShapeIndices.length === 1 ? selectedShapeIndices[0] : null;
@@ -1182,7 +1200,7 @@ export const LayoutCanvas = ({
                     </div>
 
                     {/* Vector Overlay */}
-                    {(strokes.length > 0 || currentStroke || currentPath.length > 0 || previewShape) && (
+                    {(vectorObjects.length > 0 || currentStroke || currentPath.length > 0 || previewShape) && (
                         <svg
                             className="absolute z-50 overflow-visible"
                             style={{
@@ -1195,18 +1213,148 @@ export const LayoutCanvas = ({
                             viewBox={`0 0 ${100 * coordinateAspect} 100`}
                             preserveAspectRatio="none"
                         >
-                            {strokes.map((s, i) => {
-                                // Check if this stroke belongs to ANY selected shape
-                                const isSelected = selectedShapeIndices.some(idx => {
-                                    const shape = shapesRef.current[idx];
-                                    return shape && shape.indices.includes(i);
-                                });
+                            {vectorObjects.map((obj, i) => {
+                                const isSelected = selectedShapeIndices.includes(i);
+                                const pointsStr = (obj.points || []).map(p => `${p[0]},${p[1]}`).join(' ');
+
+                                if (obj.type === 'path') {
+                                    // Calculate current bounding box from points
+                                    const minX = obj.points && obj.points.length ? Math.min(...obj.points.map(p => p[0])) : 0;
+                                    const minY = obj.points && obj.points.length ? Math.min(...obj.points.map(p => p[1])) : 0;
+                                    const maxX = obj.points && obj.points.length ? Math.max(...obj.points.map(p => p[0])) : 100 * coordinateAspect;
+                                    const maxY = obj.points && obj.points.length ? Math.max(...obj.points.map(p => p[1])) : 100;
+
+                                    const width = maxX - minX;
+                                    const height = maxY - minY;
+                                    const cx = minX + width / 2;
+                                    const cy = minY + height / 2;
+
+                                    // Use the path's viewBox to scale it correctly
+                                    // viewBox format: "minX minY width height"
+                                    const pathViewBox = obj.viewBox || '0 0 100 100';
+                                    const clipId = `clip-${obj.id}`;
+
+                                    return (
+                                        <g key={obj.id} transform={`rotate(${obj.rotation || 0}, ${cx}, ${cy})`}>
+                                            {/* Nested SVG to properly scale the path using its viewBox */}
+                                            <svg
+                                                x={minX}
+                                                y={minY}
+                                                width={width}
+                                                height={height}
+                                                viewBox={pathViewBox}
+                                                preserveAspectRatio="none"
+                                                overflow="visible"
+                                            >
+                                                {/* Definitions for gradients and clip path */}
+                                                <defs>
+                                                    {/* Clip path using the frame shape */}
+                                                    <clipPath id={clipId}>
+                                                        <path d={obj.path} />
+                                                    </clipPath>
+                                                    {/* Sky gradient */}
+                                                    <linearGradient id={`skyGrad-${obj.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                                        <stop offset="0%" stopColor="#d4eaf7" />
+                                                        <stop offset="100%" stopColor="#eef8ff" />
+                                                    </linearGradient>
+                                                    {/* Hill gradients */}
+                                                    <linearGradient id={`hill1-${obj.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                                        <stop offset="0%" stopColor="#90d5ac" />
+                                                        <stop offset="100%" stopColor="#76c893" />
+                                                    </linearGradient>
+                                                    <linearGradient id={`hill2-${obj.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                                        <stop offset="0%" stopColor="#76c893" />
+                                                        <stop offset="100%" stopColor="#52b788" />
+                                                    </linearGradient>
+                                                </defs>
+
+                                                {/* Placeholder content clipped to frame shape */}
+                                                <g clipPath={`url(#${clipId})`}>
+                                                    {/* Parse viewBox to get bounds */}
+                                                    {(() => {
+                                                        const vb = pathViewBox.split(' ').map(Number);
+                                                        const vbX = vb[0] || 0;
+                                                        const vbY = vb[1] || 0;
+                                                        const vbW = vb[2] || 100;
+                                                        const vbH = vb[3] || 100;
+                                                        return (
+                                                            <>
+                                                                {/* Sky background */}
+                                                                <rect x={vbX} y={vbY} width={vbW} height={vbH} fill={`url(#skyGrad-${obj.id})`} />
+                                                                {/* Sun */}
+                                                                <circle cx={vbX + vbW * 0.85} cy={vbY + vbH * 0.15} r={vbW * 0.08} fill="#fdf2a4" />
+                                                                {/* Clouds */}
+                                                                <g fill="white" opacity="0.6">
+                                                                    <circle cx={vbX + vbW * 0.2} cy={vbY + vbH * 0.2} r={vbW * 0.05} />
+                                                                    <circle cx={vbX + vbW * 0.25} cy={vbY + vbH * 0.22} r={vbW * 0.06} />
+                                                                    <circle cx={vbX + vbW * 0.3} cy={vbY + vbH * 0.2} r={vbW * 0.05} />
+                                                                </g>
+                                                                {/* Far hill */}
+                                                                <path
+                                                                    d={`M ${vbX - vbW * 0.1} ${vbY + vbH} Q ${vbX + vbW * 0.5} ${vbY + vbH * 0.4} ${vbX + vbW * 1.1} ${vbY + vbH} Z`}
+                                                                    fill={`url(#hill1-${obj.id})`}
+                                                                    opacity="0.9"
+                                                                />
+                                                                {/* Near hills */}
+                                                                <path
+                                                                    d={`M ${vbX - vbW * 0.2} ${vbY + vbH} Q ${vbX + vbW * 0.3} ${vbY + vbH * 0.6} ${vbX + vbW * 0.8} ${vbY + vbH * 1.1} Z`}
+                                                                    fill={`url(#hill2-${obj.id})`}
+                                                                />
+                                                                <path
+                                                                    d={`M ${vbX + vbW * 0.4} ${vbY + vbH * 1.1} Q ${vbX + vbW * 0.8} ${vbY + vbH * 0.7} ${vbX + vbW * 1.2} ${vbY + vbH} Z`}
+                                                                    fill={`url(#hill2-${obj.id})`}
+                                                                    opacity="0.8"
+                                                                />
+                                                            </>
+                                                        );
+                                                    })()}
+                                                </g>
+
+                                                {/* Photo gap - uses background color from album settings */}
+                                                <path
+                                                    d={obj.path}
+                                                    fill="none"
+                                                    stroke={backgroundColor}
+                                                    strokeWidth={12}
+                                                    vectorEffect="non-scaling-stroke"
+                                                    pointerEvents="none"
+                                                />
+
+                                                {/* Frame border stroke */}
+                                                <path
+                                                    d={obj.path}
+                                                    fill="none"
+                                                    stroke={isSelected ? "#3b82f6" : (obj.stroke || "#333333")}
+                                                    strokeWidth={isSelected ? 3 : 2}
+                                                    strokeOpacity={obj.opacity ?? 1}
+                                                    vectorEffect="non-scaling-stroke"
+                                                />
+                                            </svg>
+                                        </g>
+                                    );
+                                }
+
                                 return (
-                                    <line key={i} x1={s.p1[0]} y1={s.p1[1]} x2={s.p2[0]} y2={s.p2[1]}
-                                        stroke={isSelected ? "#3b82f6" : "black"} strokeWidth={isSelected ? "0.75" : "0.5"}
-                                        vectorEffect="non-scaling-stroke" />
+                                    <polygon
+                                        key={obj.id}
+                                        points={pointsStr}
+                                        fill={obj.fill || 'none'}
+                                        stroke={isSelected ? "#3b82f6" : (obj.stroke || "black")}
+                                        strokeWidth={isSelected ? Math.max(0.75, (obj.strokeWidth || 0.5) * 1.5) : (obj.strokeWidth || 0.5)}
+                                        strokeOpacity={obj.opacity ?? 1}
+                                        fillOpacity={obj.opacity ?? 1}
+                                        vectorEffect="non-scaling-stroke"
+                                    />
                                 );
                             })}
+
+                            {currentStroke && (
+                                <line
+                                    x1={currentStroke.p1[0]} y1={currentStroke.p1[1]}
+                                    x2={currentStroke.p2[0]} y2={currentStroke.p2[1]}
+                                    stroke="#ef4444" strokeWidth="0.5" strokeDasharray="1 1" vectorEffect="non-scaling-stroke"
+                                />
+                            )}
                             {currentPath.length > 1 && (
                                 <polyline points={currentPath.map(p => `${p[0]},${p[1]}`).join(' ')} fill="none" stroke="red" strokeWidth="0.75" strokeDasharray="1 1" vectorEffect="non-scaling-stroke" />
                             )}
@@ -1270,7 +1418,6 @@ export const LayoutCanvas = ({
                                 <g key={`rot-${i}`} transform={`translate(${h[0]}, ${h[1]})`}>
                                     {/* Connector Line from Corner to Rot Handle */}
                                     {(() => {
-                                        // Find corresponding corner
                                         const cornerIdx = [0, 2, 4, 6][i]; // TL, TR, BR, BL
                                         const corner = getResizeHandles(primaryShape.obb)[cornerIdx];
                                         return (

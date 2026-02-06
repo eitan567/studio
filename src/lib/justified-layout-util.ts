@@ -21,6 +21,7 @@ export function generateJustifiedLayout(photos: Photo[], rowCount: number = 2): 
             name: 'Empty',
             category: 'custom',
             photoCount: 0,
+            createdBy: 'system',
             regions: []
         };
     }
@@ -84,6 +85,7 @@ export function generateJustifiedLayout(photos: Photo[], rowCount: number = 2): 
         name: 'Justified Layout',
         category: 'custom',
         photoCount: photos.length,
+        createdBy: 'system',
         regions
     };
 }
@@ -295,6 +297,7 @@ export function generateSmartJustifiedLayout(photos: Photo[], containerAspectRat
         name: 'Smart Justified',
         category: 'custom',
         photoCount: photos.length,
+        createdBy: 'system',
         regions
     };
 }
