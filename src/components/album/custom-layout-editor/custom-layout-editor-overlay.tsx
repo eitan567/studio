@@ -11,6 +11,7 @@ import { Check, X, Layout } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
 import { Sheet } from '@/components/ui/sheet';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { processLayoutGeometry } from '@/lib/layout-geometry';
 import { createClient } from '@/lib/supabase';
@@ -740,6 +741,18 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                                     max={20}
                                     onChange={(e) => handleCornerRadiusChange(Math.max(0, Math.min(20, Number(e.target.value))))}
                                 />
+                            </div>
+
+                            {/* Dummy Photos Toggle */}
+                            <div className="flex items-center gap-2">
+                                <Switch
+                                    id="dummy-photos"
+                                    checked={useDummyPhotos}
+                                    onCheckedChange={handleUseDummyPhotosChange}
+                                />
+                                <Label htmlFor="dummy-photos" className="text-xs font-semibold whitespace-nowrap">
+                                    Sample Photos
+                                </Label>
                             </div>
                         </div>
                     </div>

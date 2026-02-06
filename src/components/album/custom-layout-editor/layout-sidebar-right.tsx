@@ -209,28 +209,6 @@ export const LayoutSidebarRight = ({
                 {/* Spacing Controls */}
 
 
-                {/* Dummy Photos Option */}
-                <div className="space-y-3 pt-4 border-t">
-                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        Preview Options
-                    </Label>
-                    <div className="flex items-center space-x-2">
-                        <Checkbox
-                            id="useDummyPhotos"
-                            checked={useDummyPhotos}
-                            onCheckedChange={(checked) => onUseDummyPhotosChange(checked === true)}
-                        />
-                        <Label
-                            htmlFor="useDummyPhotos"
-                            className="text-sm font-normal cursor-pointer"
-                        >
-                            Load dummy photos
-                        </Label>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                        Automatically fill layout with sample images when changing templates.
-                    </p>
-                </div>
             </div>
         </div>
     );
