@@ -43,15 +43,21 @@ export const LayoutSidebarRight = ({
     const { allTemplates } = useTemplates();
 
     // Filter templates by category and type
-    const systemTemplates = allTemplates.filter(t => t.createdBy === 'system' && t.category === 'grid');
+    const systemTemplates = allTemplates.filter(t => t.createdBy === 'system');
     const userTemplates = allTemplates.filter(t => t.createdBy === 'user' || t.isCustom);
 
     const filterByMode = (templates: typeof allTemplates) => {
         const type = spreadMode === 'split' ? 'single' : 'spread';
         return templates.filter(t => {
             if (t.type) return t.type === type || t.type === 'both';
-            // Default system grids to spread if not explicitly typed
-            return t.createdBy === 'system' ? type === 'spread' : false;
+
+            // Priority 2: System templates without explicit type
+            // Match PageCanvas logic: Available in both views by default for flexibility
+            if (t.createdBy === 'system') {
+                return true;
+            }
+
+            return false;
         });
     };
 
