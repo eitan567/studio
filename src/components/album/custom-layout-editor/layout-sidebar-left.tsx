@@ -62,7 +62,7 @@ export const LayoutSidebarLeft = ({
 }: LayoutSidebarLeftProps) => {
     return (
         <div className="h-full z-20 flex bg-background">
-            <div className="w-72 bg-background flex flex-col border-r shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] transition-all duration-300">
+            <div className="bg-background flex flex-col border-r shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] transition-all duration-300">
                 {/* Header */}
                 <div className="p-4 border-b h-14 flex items-center justify-between bg-accent/5">
                     <h2 className="font-semibold text-sm uppercase tracking-wider text-primary flex items-center gap-2">
