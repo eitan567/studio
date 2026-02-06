@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
-import { AdvancedTemplate, insetPolygon } from '@/lib/advanced-layout-types';
+import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
@@ -32,6 +32,7 @@ import { useSettings } from '@/hooks/use-settings';
 import { useAlbumEditor } from '../album-editor/context';
 import { useToast } from '@/hooks/use-toast';
 import { AlbumCover } from '../book-view/album-cover';
+import { TemplatePreview } from '@/components/album/shared/template-preview';
 // Import CoverEditorOverlay if needed, or pass onOpenCoverEditor prop to handle it in parent
 // Assuming parent handles opening the overlay since it's a modal over everything
 
@@ -41,63 +42,7 @@ import { AlbumCover } from '../book-view/album-cover';
 // --- HELPERS ---
 
 
-const renderAdvancedTemplatePreview = (template: AdvancedTemplate) => {
-    const sortedRegions = [...template.regions].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
-    const GAP_INSET = 1;
-    const EDGE_MARGIN = 2;
-    const scale = (100 - EDGE_MARGIN * 2) / 100;
 
-    return (
-        <div className="w-full h-full relative">
-            {sortedRegions.map((region, index) => {
-                const isCircular = region.shape === 'circle' || region.shape === 'ellipse';
-                const isPolygon = region.shape === 'polygon' && region.points && region.points.length >= 3;
-
-                if (isPolygon && region.points) {
-                    const insetPoints = insetPolygon(region.points, GAP_INSET);
-                    const clipPathPoints = insetPoints.map(([px, py]) => {
-                        const scaledX = EDGE_MARGIN + (px * scale);
-                        const scaledY = EDGE_MARGIN + (py * scale);
-                        return `${scaledX}% ${scaledY}%`;
-                    }).join(', ');
-
-                    return (
-                        <div
-                            key={region.id || index}
-                            className="absolute bg-primary/20"
-                            style={{
-                                left: 0, top: 0, width: '100%', height: '100%',
-                                clipPath: `polygon(${clipPathPoints})`,
-                                zIndex: region.zIndex ?? 0,
-                            }}
-                        />
-                    );
-                }
-
-                const gapX = region.bounds.x + GAP_INSET;
-                const gapY = region.bounds.y + GAP_INSET;
-                const gapW = Math.max(0, region.bounds.width - (GAP_INSET * 2));
-                const gapH = Math.max(0, region.bounds.height - (GAP_INSET * 2));
-
-                const x = EDGE_MARGIN + (gapX * scale);
-                const y = EDGE_MARGIN + (gapY * scale);
-                const width = gapW * scale;
-                const height = gapH * scale;
-
-                return (
-                    <div
-                        key={region.id || index}
-                        className={cn('absolute bg-primary/20', isCircular ? 'rounded-full' : 'rounded-sm')}
-                        style={{
-                            left: `${x}%`, top: `${y}%`, width: `${width}%`, height: `${height}%`,
-                            zIndex: region.zIndex ?? 0,
-                        }}
-                    />
-                );
-            })}
-        </div>
-    );
-};
 
 const TemplateThumbnail = ({
     template,
@@ -112,7 +57,7 @@ const TemplateThumbnail = ({
         // All templates now use regions
         return (
             <div className="w-full h-16 bg-muted relative overflow-hidden">
-                {renderAdvancedTemplatePreview(template)}
+                <TemplatePreview template={template} />
             </div>
         );
     };
