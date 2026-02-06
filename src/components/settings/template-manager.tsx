@@ -98,12 +98,27 @@ export function TemplateManager({ settings, onUpdate }: TemplateManagerProps) {
         onUpdate({ hiddenTemplateIds: newHiddenIds });
     };
 
+    const getBaseAspectRatio = () => {
+        const sizeStr = settings.defaultAlbumSize || '30x30'; // Default to square if not set
+        const [w, h] = sizeStr.split('x').map(Number);
+        if (isNaN(w) || isNaN(h) || h === 0) return 1;
+        return w / h;
+    };
+
+    const baseAspectRatio = getBaseAspectRatio();
+
     const renderTemplateList = (
         title: string,
         templates: AdvancedTemplate[],
         layoutType: 'grid' | 'cover' | 'advanced'
     ) => {
         if (templates.length === 0) return null;
+
+        // Determine aspect ratio for this list
+        // Covers are always full spreads (double width)
+        // Grid/Advanced are typically single pages in definition, though used on spreads too.
+        // For settings preview, single page view is cleaner.
+        const listAspectRatio = layoutType === 'cover' ? baseAspectRatio * 2 : baseAspectRatio;
 
         return (
             <div className="space-y-4">
@@ -127,11 +142,14 @@ export function TemplateManager({ settings, onUpdate }: TemplateManagerProps) {
                                 onClick={() => toggleTemplate(template.id)}
                             >
                                 {/* Thumbnail Box */}
-                                <div className={cn(
-                                    "w-full aspect-[4/3] rounded overflow-hidden relative mb-2",
-                                    "bg-muted border border-border/50", // Base box style
-                                    isHidden ? "opacity-50" : ""
-                                )}>
+                                <div
+                                    className={cn(
+                                        "w-full rounded overflow-hidden relative mb-2",
+                                        "bg-muted border border-border/50", // Base box style
+                                        isHidden ? "opacity-50" : ""
+                                    )}
+                                    style={{ aspectRatio: listAspectRatio }}
+                                >
                                     {/* Render Logic - All templates now use regions */}
                                     <div className="w-full h-full relative">
                                         {renderAdvancedTemplatePreview(template)}

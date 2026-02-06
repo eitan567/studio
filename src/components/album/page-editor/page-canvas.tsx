@@ -47,16 +47,18 @@ import { TemplatePreview } from '@/components/album/shared/template-preview';
 const TemplateThumbnail = ({
     template,
     isSelected,
-    onSelect
+    onSelect,
+    aspectRatio = 1
 }: {
     template: AdvancedTemplate;
     isSelected: boolean;
     onSelect: (templateId: string) => void;
+    aspectRatio?: number;
 }) => {
     const renderPreview = () => {
         // All templates now use regions
         return (
-            <div className="w-full h-16 bg-muted relative overflow-hidden">
+            <div className="w-full h-full relative overflow-hidden bg-muted">
                 <TemplatePreview template={template} />
             </div>
         );
@@ -67,9 +69,13 @@ const TemplateThumbnail = ({
             onSelect={() => onSelect(String(template.id))}
             className={cn("p-0 focus:bg-accent/50 rounded-md cursor-pointer", isSelected && "ring-2 ring-primary")}
         >
-            <div className="w-24 h-24 p-1 flex flex-col items-center">
-                {renderPreview()}
-                <span className="text-xs pt-1 text-muted-foreground">{template.name}</span>
+            <div
+                className="w-24 p-1 flex flex-col items-center"
+            >
+                <div style={{ aspectRatio, width: '100%' }} className="rounded-sm overflow-hidden border border-border/50">
+                    {renderPreview()}
+                </div>
+                <span className="text-xs pt-1 text-muted-foreground truncate w-full text-center">{template.name}</span>
             </div>
         </DropdownMenuItem>
     );
@@ -215,9 +221,19 @@ const SpineColorPicker = ({ value, onChange, disableAlpha = false }: { value?: s
 
 const PageToolbar = ({
     page, pageNumber, displayLabel, canDelete = true, onDeletePage, onUpdateLayout, onUpdateSpreadLayout, onUpdateCoverLayout, onUpdateCoverType, onUpdateSpineText, onUpdateSpineSettings, onUpdateTitleSettings, onDownloadPage, onUpdatePage, toast, viewMode, onToggleViewMode, visibleTemplateCategories, allowedTemplateIds,
-    onCycleLayout, onEnhanceWithAi, onUndo, onOpenEditor // New props
+    onCycleLayout, onEnhanceWithAi, onUndo, onOpenEditor, config
 }: any) => {
     const { gridTemplates, coverTemplates, advancedTemplates, findTemplate, defaultGridTemplate, defaultCoverTemplate } = useTemplates();
+
+    const getAspectRatios = () => {
+        if (!config?.size) return { single: 1, spread: 2 };
+        const [w, h] = config.size.split('x').map(Number);
+        if (isNaN(w) || isNaN(h) || h === 0) return { single: 1, spread: 2 };
+        const single = w / h;
+        return { single, spread: single * 2 };
+    };
+
+    const { single: singleAspectRatio, spread: spreadAspectRatio } = getAspectRatios();
 
     const filterTemplates = (templates: AdvancedTemplate[], category: 'grid' | 'cover' | 'advanced') => {
         if (visibleTemplateCategories && !visibleTemplateCategories.includes(category)) return [];
@@ -326,12 +342,18 @@ const PageToolbar = ({
                                         <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">{page.isCover ? "Back" : "Page 1"}</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>{page.isCover ? "Back Cover Layout" : "Page 1 Layout"}</TooltipContent></Tooltip>
                                         <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
                                             {filterByType(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates], 'single').map(template => (
-                                                <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.back || defaultCoverTemplate?.id || '' : page.spreadLayouts?.left || defaultGridTemplate?.id || '').baseId === template.id} onSelect={(templateId) => {
-                                                    // Reset rotation to 0 when selecting new template
-                                                    const finalId = templateId;
-                                                    if (page.isCover) onUpdateCoverLayout?.(page.id, 'back', String(finalId));
-                                                    else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'left', String(finalId)) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate?.id || '', right: defaultGridTemplate?.id || '' }), left: String(finalId) } });
-                                                }} />
+                                                <TemplateThumbnail
+                                                    key={template.id}
+                                                    template={template}
+                                                    isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.back || defaultCoverTemplate?.id || '' : page.spreadLayouts?.left || defaultGridTemplate?.id || '').baseId === template.id}
+                                                    onSelect={(templateId) => {
+                                                        // Reset rotation to 0 when selecting new template
+                                                        const finalId = templateId;
+                                                        if (page.isCover) onUpdateCoverLayout?.(page.id, 'back', String(finalId));
+                                                        else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'left', String(finalId)) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate?.id || '', right: defaultGridTemplate?.id || '' }), left: String(finalId) } });
+                                                    }}
+                                                    aspectRatio={singleAspectRatio}
+                                                />
                                             ))}
                                         </DropdownMenuContent>
                                     </DropdownMenu>
@@ -372,12 +394,18 @@ const PageToolbar = ({
                                         <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">{page.isCover ? "Front" : "Page 2"}</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>{page.isCover ? "Front Cover Layout" : "Page 2 Layout"}</TooltipContent></Tooltip>
                                         <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
                                             {filterByType(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates], 'single').map(template => (
-                                                <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.front || defaultCoverTemplate?.id || '' : page.spreadLayouts?.right || defaultGridTemplate?.id || '').baseId === template.id} onSelect={(templateId) => {
-                                                    // Reset rotation to 0 when selecting new template
-                                                    const finalId = templateId;
-                                                    if (page.isCover) onUpdateCoverLayout?.(page.id, 'front', String(finalId));
-                                                    else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'right', String(finalId)) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate?.id || '', right: defaultGridTemplate?.id || '' }), right: String(finalId) } });
-                                                }} />
+                                                <TemplateThumbnail
+                                                    key={template.id}
+                                                    template={template}
+                                                    isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.front || defaultCoverTemplate?.id || '' : page.spreadLayouts?.right || defaultGridTemplate?.id || '').baseId === template.id}
+                                                    onSelect={(templateId) => {
+                                                        // Reset rotation to 0 when selecting new template
+                                                        const finalId = templateId;
+                                                        if (page.isCover) onUpdateCoverLayout?.(page.id, 'front', String(finalId));
+                                                        else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'right', String(finalId)) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate?.id || '', right: defaultGridTemplate?.id || '' }), right: String(finalId) } });
+                                                    }}
+                                                    aspectRatio={singleAspectRatio}
+                                                />
                                             ))}
                                         </DropdownMenuContent>
                                     </DropdownMenu>
@@ -408,12 +436,18 @@ const PageToolbar = ({
                                         <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">Layout</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>Spread Layout</TooltipContent></Tooltip>
                                         <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
                                             {filterByType(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates], 'spread').map(template => (
-                                                <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.layout || defaultGridTemplate?.id || '').baseId === template.id} onSelect={(templateId) => {
-                                                    // Reset rotation to 0 when selecting new template
-                                                    const finalId = templateId;
-                                                    if (page.isCover) onUpdateCoverLayout?.(page.id, 'full', String(finalId));
-                                                    else onUpdateLayout(page.id, String(finalId));
-                                                }} />
+                                                <TemplateThumbnail
+                                                    key={template.id}
+                                                    template={template}
+                                                    isSelected={parseLayoutId(page.layout || defaultGridTemplate?.id || '').baseId === template.id}
+                                                    onSelect={(templateId) => {
+                                                        // Reset rotation to 0 when selecting new template
+                                                        const finalId = templateId;
+                                                        if (page.isCover) onUpdateCoverLayout?.(page.id, 'full', String(finalId));
+                                                        else onUpdateLayout(page.id, String(finalId));
+                                                    }}
+                                                    aspectRatio={spreadAspectRatio}
+                                                />
                                             ))}
                                         </DropdownMenuContent>
                                     </DropdownMenu>
@@ -492,11 +526,17 @@ const PageToolbar = ({
                             <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><LayoutTemplate className="h-5 w-5" /></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>Page Layout</TooltipContent></Tooltip>
                             <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
                                 {filterByType([...gridTemplates, ...advancedTemplates], 'single').map(template => (
-                                    <TemplateThumbnail key={template.id} template={template} isSelected={parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '').baseId === template.id} onSelect={(templateId) => {
-                                        // Reset rotation to 0 when selecting new template
-                                        const finalId = templateId;
-                                        onUpdateLayout(page.id, String(finalId));
-                                    }} />
+                                    <TemplateThumbnail
+                                        key={template.id}
+                                        template={template}
+                                        isSelected={parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '').baseId === template.id}
+                                        onSelect={(templateId) => {
+                                            // Reset rotation to 0 when selecting new template
+                                            const finalId = templateId;
+                                            onUpdateLayout(page.id, String(finalId));
+                                        }}
+                                        aspectRatio={singleAspectRatio}
+                                    />
                                 ))}
                             </DropdownMenuContent>
                         </DropdownMenu>
