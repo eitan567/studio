@@ -465,6 +465,16 @@ export const ShapeRegion = ({
                             vectorEffect="non-scaling-stroke"
                         />
                     )}
+                    {region.shape === 'path' && region.path && (
+                        <path
+                            d={region.path}
+                            transform={`scale(${100 / vw}, ${100 / vh}) translate(${-vx}, ${-vy})`}
+                            fill="none"
+                            stroke={backgroundColor}
+                            strokeWidth={photoGapNum}
+                            vectorEffect="non-scaling-stroke"
+                        />
+                    )}
                     {renderInternalStrokes()}
                 </svg>
             )}

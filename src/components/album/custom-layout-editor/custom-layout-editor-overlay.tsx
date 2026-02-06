@@ -325,17 +325,26 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 const { data: { user } } = await supabase.auth.getUser();
                 const userId = user?.id || 'anonymous';
 
+                // Get the max ID from existing templates to generate new IDs
+                const { data: maxIdResult } = await supabase
+                    .from('templates')
+                    .select('id')
+                    .order('id', { ascending: false })
+                    .limit(1);
+
+                let nextId = (maxIdResult && maxIdResult.length > 0) ? (maxIdResult[0].id + 1) : 1000;
+
                 // Prepare templates for insertion
                 const templatesToInsert = createdTemplates.map(template => {
-                    const isNew = typeof template.id === 'string' && template.id.includes('-'); // uuid check
+                    // New templates have UUID strings, existing DB templates have integer IDs
+                    const isNew = typeof template.id === 'string' && template.id.includes('-');
 
-                    // Map type to classification_type_id
-                    let classification_id = 3; // default BOTH
-                    if (template.type === 'single') classification_id = 1;
-                    if (template.type === 'spread') classification_id = 2;
+                    // Map type to type_id
+                    let typeId = 3; // default BOTH
+                    if (template.type === 'single') typeId = 1;
+                    if (template.type === 'spread') typeId = 2;
 
-                    return {
-                        ...(isNew ? {} : { id: template.id }), // Omit ID for new templates so DB generates it
+                    const baseTemplate = {
                         name: template.name,
                         category_id: 5, // CUSTOM category
                         photo_count: template.photoCount,
@@ -344,17 +353,24 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         is_system: false,
                         is_active: true,
                         sort_order: 999,
-                        classification_type_id: classification_id,
-                        description: null // No longer saving JSON here
+                        type_id: typeId
                     };
+
+                    // Generate new integer ID for new templates
+                    if (isNew) {
+                        const newIntegerId = nextId++;
+                        return { ...baseTemplate, id: newIntegerId, _isNew: true };
+                    } else {
+                        return { ...baseTemplate, id: template.id, _isNew: false };
+                    }
                 });
 
                 // Since some might be new (no ID) and some updates, we might need separate calls
                 // or use a logic that works for both. 
                 // If we want auto-increment, we use insert for new ones and update for existing.
 
-                const newTemplates = templatesToInsert.filter(t => !t.id);
-                const existingTemplates = templatesToInsert.filter(t => t.id);
+                const newTemplates = templatesToInsert.filter(t => (t as any)._isNew).map(({ _isNew, ...rest }) => rest);
+                const existingTemplates = templatesToInsert.filter(t => !(t as any)._isNew).map(({ _isNew, ...rest }) => rest);
 
                 if (newTemplates.length > 0) {
                     const { data: insertedData, error: insertError } = await supabase
@@ -393,8 +409,15 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 invalidateCache();
 
                 console.log('Templates saved successfully to Supabase');
-            } catch (error) {
+            } catch (error: any) {
                 console.error('Failed to save templates to Supabase:', error);
+                console.error('Error details:', {
+                    message: error?.message,
+                    code: error?.code,
+                    details: error?.details,
+                    hint: error?.hint,
+                    name: error?.name
+                });
                 // Continue closing even if save fails - user can retry
             }
         }

@@ -1231,8 +1231,8 @@ export const LayoutCanvas = ({
                         )}
                     </div>
 
-                    {/* Vector Overlay */}
-                    {(vectorObjects.length > 0 || currentStroke || currentPath.length > 0 || previewShape) && (
+                    {/* Vector Overlay - Only show during editing (not when displaying a processed template) */}
+                    {!advancedTemplate && (vectorObjects.length > 0 || currentStroke || currentPath.length > 0 || previewShape) && (
                         <svg
                             className="absolute z-50 overflow-visible"
                             style={{
