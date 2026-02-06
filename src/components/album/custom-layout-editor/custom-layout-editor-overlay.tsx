@@ -582,119 +582,112 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     }, [vectorObjects, config?.size, selectedAdvancedTemplate, handleSelectAdvancedTemplate, createdTemplates.length, pageMargin, photoGap, strokeColor, strokeWidth, fillColor, spreadMode]);
 
     return (
-        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-8">
-            <div className="w-full h-full max-w-[1800px] bg-background border shadow-2xl rounded-xl flex overflow-hidden">
-                {/* 1. Left Sidebar */}
-                <LayoutSidebarLeft
-                    onSave={handleSave}
-                    onCancel={handleCancel}
-                    selectedAdvancedTemplate={selectedAdvancedTemplate}
-                    onSelectAdvancedTemplate={handleSelectAdvancedTemplate}
-                    customTemplates={[...existingCustomTemplates, ...createdTemplates]}
-                    onAddTemplate={onAddTemplate}
-                    // New Vector Props
-                    toolMode={toolMode}
-                    onToolChange={setToolMode}
-                    onClearStrokes={handleClearAll}
-                    onProcessLayout={handleProcessLayout}
-                    isMirrorMode={isMirrorMode}
-                    onToggleMirrorMode={() => setIsMirrorMode(!isMirrorMode)}
-                    // Property Controls
-                    strokeColor={strokeColor}
-                    onStrokeColorChange={setStrokeColor}
-                    strokeWidth={strokeWidth}
-                    onStrokeWidthChange={setStrokeWidth}
-                    fillColor={fillColor}
-                    onFillColorChange={setFillColor}
-                    // Canva Frame Shapes
-                    onAddCanvaFrame={handleAddCanvaFrame}
-                />
-
-                {/* 2. Main Content Area (Canvas) */}
-                <div className="flex flex-col flex-1 relative bg-muted/10 h-full">
-
-                    {/* Toolbar */}
-                    <div className="h-14 border-b bg-background flex items-center justify-between px-4 gap-4 shadow-sm z-10">
-                        <div className="flex items-center gap-3">
-                            <Layout className="h-5 w-5 text-primary" />
-                            <span className="font-semibold">Custom Layout Editor</span>
-                            <span className="text-xs text-muted-foreground ml-2 border-l pl-2">
-                                Mode: <span className="font-medium text-foreground uppercase">{toolMode}</span>
-                            </span>
-                        </div>
-
-                        <div className="text-sm text-muted-foreground">
-                            Preview your layout template
-                        </div>
+        <div className="fixed inset-0 z-50 bg-background flex flex-col">
+            {/* 1. Header */}
+            <div className="h-16 border-b flex items-center justify-between px-6 bg-card shrink-0">
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <Layout className="h-5 w-5 text-primary" />
+                        <span className="font-semibold text-lg">Custom Layout Editor</span>
                     </div>
-
-                    {/* Canvas */}
-                    <div className="flex-1 relative overflow-hidden">
-                        <LayoutCanvas
-                            page={dummyPage}
-                            config={{
-                                size: config?.size ?? '20x20',
-                                backgroundColor: config?.backgroundColor ?? '#ffffff',
-                                backgroundImage: config?.backgroundImage,
-                                photoGap,
-                                pageMargin,
-                                cornerRadius
-                            }}
-                            onUpdatePage={handleUpdatePage}
-                            advancedTemplate={selectedAdvancedTemplate}
-                            // Vector Props
-                            toolMode={toolMode}
-                            vectorObjects={vectorObjects}
-                            onUpdateVectorObjects={setVectorObjects}
-                            selectedShapeIndices={selectedShapeIndices}
-                            onSelectionChange={setSelectedShapeIndices}
-                            isMirrorMode={isMirrorMode}
-                            // Active Styles
-                            activeStrokeColor={strokeColor}
-                            activeStrokeWidth={strokeWidth}
-                            activeFillColor={fillColor}
-                        />
-                    </div>
-
-                    {/* Bottom Toolbar */}
-                    <div className="h-14 border-t bg-background flex items-center justify-between px-4 z-10 shrink-0">
-                        <div className="text-xs text-muted-foreground">
-                            Create and preview custom layout templates for your album pages.
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Button
-                                variant="outline"
-                                onClick={handleCancel}
-                                className="gap-2"
-                            >
-                                <X className="h-4 w-4" /> Cancel
-                            </Button>
-                            <Button
-                                variant="default"
-                                onClick={handleSave}
-                                className="bg-green-600 hover:bg-green-700 text-white gap-2"
-                            >
-                                <Check className="h-4 w-4" /> Save Layout
-                            </Button>
-                        </div>
-                    </div>
+                    <span className="text-sm text-muted-foreground border-l pl-4 hidden sm:inline-block">
+                        Mode: <span className="font-medium text-foreground uppercase">{toolMode}</span>
+                    </span>
                 </div>
 
-                {/* 3. Right Sidebar (Properties) */}
-                <LayoutSidebarRight
-                    selectedLayout={selectedLayout}
-                    onSelectLayout={handleLayoutChange}
-                    spreadMode={spreadMode}
-                    onSpreadModeChange={handleSpreadModeChange}
-                    photoGap={photoGap}
-                    onPhotoGapChange={handlePhotoGapChange}
-                    pageMargin={pageMargin}
-                    onPageMarginChange={handlePageMarginChange}
-                    cornerRadius={cornerRadius}
-                    onCornerRadiusChange={handleCornerRadiusChange}
-                    useDummyPhotos={useDummyPhotos}
-                    onUseDummyPhotosChange={handleUseDummyPhotosChange}
-                />
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        onClick={handleCancel}
+                        className="gap-2"
+                    >
+                        <X className="h-4 w-4" /> Cancel
+                    </Button>
+                    <Button
+                        variant="default"
+                        onClick={handleSave}
+                        className="bg-green-600 hover:bg-green-700 text-white gap-2"
+                    >
+                        <Check className="h-4 w-4" /> Save Layout
+                    </Button>
+                </div>
+            </div>
+
+            {/* 2. Main Workspace */}
+            <div className="flex-1 flex overflow-hidden">
+                {/* Left Sidebar */}
+                <div className="border-r bg-background h-full shrink-0 flex">
+                    <LayoutSidebarLeft
+                        onSave={handleSave}
+                        onCancel={handleCancel}
+                        selectedAdvancedTemplate={selectedAdvancedTemplate}
+                        onSelectAdvancedTemplate={handleSelectAdvancedTemplate}
+                        customTemplates={[...existingCustomTemplates, ...createdTemplates]}
+                        onAddTemplate={onAddTemplate}
+                        // New Vector Props
+                        toolMode={toolMode}
+                        onToolChange={setToolMode}
+                        onClearStrokes={handleClearAll}
+                        onProcessLayout={handleProcessLayout}
+                        isMirrorMode={isMirrorMode}
+                        onToggleMirrorMode={() => setIsMirrorMode(!isMirrorMode)}
+                        // Property Controls
+                        strokeColor={strokeColor}
+                        onStrokeColorChange={setStrokeColor}
+                        strokeWidth={strokeWidth}
+                        onStrokeWidthChange={setStrokeWidth}
+                        fillColor={fillColor}
+                        onFillColorChange={setFillColor}
+                        // Canva Frame Shapes
+                        onAddCanvaFrame={handleAddCanvaFrame}
+                    />
+                </div>
+
+                {/* Main Content Area (Canvas) */}
+                <div className="flex-1 relative bg-muted/10 h-full overflow-hidden">
+                    <LayoutCanvas
+                        page={dummyPage}
+                        config={{
+                            size: config?.size ?? '20x20',
+                            backgroundColor: config?.backgroundColor ?? '#ffffff',
+                            backgroundImage: config?.backgroundImage,
+                            photoGap,
+                            pageMargin,
+                            cornerRadius
+                        }}
+                        onUpdatePage={handleUpdatePage}
+                        advancedTemplate={selectedAdvancedTemplate}
+                        // Vector Props
+                        toolMode={toolMode}
+                        vectorObjects={vectorObjects}
+                        onUpdateVectorObjects={setVectorObjects}
+                        selectedShapeIndices={selectedShapeIndices}
+                        onSelectionChange={setSelectedShapeIndices}
+                        isMirrorMode={isMirrorMode}
+                        // Active Styles
+                        activeStrokeColor={strokeColor}
+                        activeStrokeWidth={strokeWidth}
+                        activeFillColor={fillColor}
+                    />
+                </div>
+
+                {/* Right Sidebar (Properties) */}
+                <div className="border-l bg-background h-full shrink-0 flex">
+                    <LayoutSidebarRight
+                        selectedLayout={selectedLayout}
+                        onSelectLayout={handleLayoutChange}
+                        spreadMode={spreadMode}
+                        onSpreadModeChange={handleSpreadModeChange}
+                        photoGap={photoGap}
+                        onPhotoGapChange={handlePhotoGapChange}
+                        pageMargin={pageMargin}
+                        onPageMarginChange={handlePageMarginChange}
+                        cornerRadius={cornerRadius}
+                        onCornerRadiusChange={handleCornerRadiusChange}
+                        useDummyPhotos={useDummyPhotos}
+                        onUseDummyPhotosChange={handleUseDummyPhotosChange}
+                    />
+                </div>
             </div>
         </div>
     );
