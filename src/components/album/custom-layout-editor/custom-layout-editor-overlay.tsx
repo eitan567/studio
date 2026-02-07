@@ -641,23 +641,6 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         <p className="text-xs text-muted-foreground">Create and edit template layouts</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="ghost"
-                        onClick={handleCancel}
-                        className="gap-2 text-muted-foreground hover:text-foreground"
-                    >
-                        <X className="h-4 w-4" /> Cancel
-                    </Button>
-                    <div className="h-4 w-[1px] bg-border mx-2" />
-                    <Button
-                        variant="default"
-                        onClick={handleSave}
-                        className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 min-w-[140px]"
-                    >
-                        <Check className="h-4 w-4" /> Save Template
-                    </Button>
-                </div>
             </header>
 
             {/* 2. Main Workspace */}
@@ -722,86 +705,6 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             activeFillColor={fillColor}
                         />
                     </div>
-
-                    {/* Bottom Toolbar - Spacing Controls */}
-                    <div className="h-16 border-t bg-background flex items-center justify-center px-8 shrink-0 z-10">
-                        <div className="flex items-center gap-12 w-full max-w-4xl">
-                            {/* Photo Gap */}
-                            <div className="flex items-center gap-4 flex-1">
-                                <Label className="text-xs font-semibold whitespace-nowrap min-w-[80px]">Photo Gap</Label>
-                                <Slider
-                                    min={0}
-                                    max={50}
-                                    step={1}
-                                    value={[photoGap]}
-                                    onValueChange={(vals) => handlePhotoGapChange(vals[0])}
-                                    className="flex-1"
-                                />
-                                <Input
-                                    type="number"
-                                    className="w-12 h-8 text-xs text-center px-1"
-                                    value={photoGap}
-                                    min={0}
-                                    max={50}
-                                    onChange={(e) => handlePhotoGapChange(Math.max(0, Math.min(50, Number(e.target.value))))}
-                                />
-                            </div>
-
-                            {/* Page Margin */}
-                            <div className="flex items-center gap-4 flex-1">
-                                <Label className="text-xs font-semibold whitespace-nowrap min-w-[80px]">Page Margin</Label>
-                                <Slider
-                                    min={0}
-                                    max={50}
-                                    step={1}
-                                    value={[pageMargin]}
-                                    onValueChange={(vals) => handlePageMarginChange(vals[0])}
-                                    className="flex-1"
-                                />
-                                <Input
-                                    type="number"
-                                    className="w-12 h-8 text-xs text-center px-1"
-                                    value={pageMargin}
-                                    min={0}
-                                    max={50}
-                                    onChange={(e) => handlePageMarginChange(Math.max(0, Math.min(50, Number(e.target.value))))}
-                                />
-                            </div>
-
-                            {/* Corner Radius */}
-                            <div className="flex items-center gap-4 flex-1">
-                                <Label className="text-xs font-semibold whitespace-nowrap min-w-[80px]">Corner Radius</Label>
-                                <Slider
-                                    min={0}
-                                    max={20}
-                                    step={1}
-                                    value={[cornerRadius]}
-                                    onValueChange={(vals) => handleCornerRadiusChange(vals[0])}
-                                    className="flex-1"
-                                />
-                                <Input
-                                    type="number"
-                                    className="w-12 h-8 text-xs text-center px-1"
-                                    value={cornerRadius}
-                                    min={0}
-                                    max={20}
-                                    onChange={(e) => handleCornerRadiusChange(Math.max(0, Math.min(20, Number(e.target.value))))}
-                                />
-                            </div>
-
-                            {/* Dummy Photos Toggle */}
-                            <div className="flex items-center gap-2">
-                                <Switch
-                                    id="dummy-photos"
-                                    checked={useDummyPhotos}
-                                    onCheckedChange={handleUseDummyPhotosChange}
-                                />
-                                <Label htmlFor="dummy-photos" className="text-xs font-semibold whitespace-nowrap">
-                                    Sample Photos
-                                </Label>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 {/* Right Sidebar */}
@@ -824,6 +727,116 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         useDummyPhotos={useDummyPhotos}
                         onUseDummyPhotosChange={handleUseDummyPhotosChange}
                     />
+                </div>
+            </div>
+
+            {/* 3. Full-Width Bottom Toolbar & Actions */}
+            <div className="h-16 border-t bg-background grid grid-cols-[300px_1fr_300px] items-center px-6 shrink-0 z-20">
+                {/* Left side empty placeholder to balance the grid for centering */}
+                <div />
+
+                {/* Spacing Controls (Center) */}
+                <div className="flex items-center gap-10 justify-center">
+                    {/* Photo Gap */}
+                    <div className="flex items-center gap-4 min-w-[180px]">
+                        <Label className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Photo Gap</Label>
+                        <div className="flex items-center gap-3 flex-1">
+                            <Slider
+                                min={0}
+                                max={50}
+                                step={1}
+                                value={[photoGap]}
+                                onValueChange={(vals) => handlePhotoGapChange(vals[0])}
+                                className="w-24"
+                            />
+                            <Input
+                                type="number"
+                                className="w-10 h-7 text-[10px] text-center px-1 bg-muted/30"
+                                value={photoGap}
+                                min={0}
+                                max={50}
+                                onChange={(e) => handlePhotoGapChange(Math.max(0, Math.min(50, Number(e.target.value))))}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Page Margin */}
+                    <div className="flex items-center gap-4 min-w-[180px]">
+                        <Label className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Page Margin</Label>
+                        <div className="flex items-center gap-3 flex-1">
+                            <Slider
+                                min={0}
+                                max={50}
+                                step={1}
+                                value={[pageMargin]}
+                                onValueChange={(vals) => handlePageMarginChange(vals[0])}
+                                className="w-24"
+                            />
+                            <Input
+                                type="number"
+                                className="w-10 h-7 text-[10px] text-center px-1 bg-muted/30"
+                                value={pageMargin}
+                                min={0}
+                                max={50}
+                                onChange={(e) => handlePageMarginChange(Math.max(0, Math.min(50, Number(e.target.value))))}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Corner Radius */}
+                    <div className="flex items-center gap-4 min-w-[180px] hidden xl:flex">
+                        <Label className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Corner Radius</Label>
+                        <div className="flex items-center gap-3 flex-1">
+                            <Slider
+                                min={0}
+                                max={20}
+                                step={1}
+                                value={[cornerRadius]}
+                                onValueChange={(vals) => handleCornerRadiusChange(vals[0])}
+                                className="w-24"
+                            />
+                            <Input
+                                type="number"
+                                className="w-10 h-7 text-[10px] text-center px-1 bg-muted/30"
+                                value={cornerRadius}
+                                min={0}
+                                max={20}
+                                onChange={(e) => handleCornerRadiusChange(Math.max(0, Math.min(20, Number(e.target.value))))}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Dummy Photos Toggle */}
+                    <div className="flex items-center gap-3 pl-4 border-l hidden 2xl:flex">
+                        <Switch
+                            id="dummy-photos-bottom"
+                            checked={useDummyPhotos}
+                            onCheckedChange={handleUseDummyPhotosChange}
+                        />
+                        <Label htmlFor="dummy-photos-bottom" className="text-xs font-semibold whitespace-nowrap cursor-pointer">
+                            Sample Photos
+                        </Label>
+                    </div>
+                </div>
+
+                {/* Action Buttons (Right) */}
+                <div className="flex items-center gap-3 justify-end">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleCancel}
+                        className="gap-2 text-muted-foreground hover:text-foreground h-9 px-4"
+                    >
+                        <X className="h-4 w-4" /> Cancel
+                    </Button>
+                    <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleSave}
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 min-w-[130px] h-9"
+                    >
+                        <Check className="h-4 w-4" /> Save Template
+                    </Button>
                 </div>
             </div>
         </div>

@@ -214,15 +214,6 @@ export const LayoutSidebarRight = ({
                         </div>
                     </ScrollArea>
                 </div>
-
-                {/* Info Footer */}
-                {(activeTab === 'new' && selectedAdvancedTemplate) && (
-                    <div className="p-3 border-t bg-muted/20 text-center">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-tight">
-                            Selected: {selectedAdvancedTemplate.name} ({getPhotoCount(selectedAdvancedTemplate)} slots)
-                        </p>
-                    </div>
-                )}
             </div>
         </div>
     );
