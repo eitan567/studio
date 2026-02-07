@@ -13,49 +13,13 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 
-CREATE EXTENSION IF NOT EXISTS "pg_net" WITH SCHEMA "extensions";
+CREATE SCHEMA IF NOT EXISTS "public";
 
 
-
-
+ALTER SCHEMA "public" OWNER TO "pg_database_owner";
 
 
 COMMENT ON SCHEMA "public" IS 'standard public schema';
-
-
-
-CREATE EXTENSION IF NOT EXISTS "pg_graphql" WITH SCHEMA "graphql";
-
-
-
-
-
-
-CREATE EXTENSION IF NOT EXISTS "pg_stat_statements" WITH SCHEMA "extensions";
-
-
-
-
-
-
-CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA "extensions";
-
-
-
-
-
-
-CREATE EXTENSION IF NOT EXISTS "supabase_vault" WITH SCHEMA "vault";
-
-
-
-
-
-
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
-
-
-
 
 
 
@@ -179,6 +143,37 @@ CREATE TABLE IF NOT EXISTS "public"."albums" (
 
 
 ALTER TABLE "public"."albums" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."canva_frames" (
+    "id" "uuid" DEFAULT "extensions"."uuid_generate_v4"() NOT NULL,
+    "name" "text" NOT NULL,
+    "path" "text" NOT NULL,
+    "view_box" "text" DEFAULT '0 0 100 100'::"text" NOT NULL,
+    "category" "text" DEFAULT 'general'::"text",
+    "is_public" boolean DEFAULT true,
+    "created_by" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    "frame_type" "text" DEFAULT 'simple'::"text" NOT NULL,
+    "svg_content" "text",
+    CONSTRAINT "valid_frame_type" CHECK (("frame_type" = ANY (ARRAY['simple'::"text", 'complex'::"text"])))
+);
+
+
+ALTER TABLE "public"."canva_frames" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."canva_frames" IS 'Stores SVG frame shapes for the custom layout editor';
+
+
+
+COMMENT ON COLUMN "public"."canva_frames"."frame_type" IS 'simple = uses path+view_box, complex = uses svg_content';
+
+
+
+COMMENT ON COLUMN "public"."canva_frames"."svg_content" IS 'Full SVG content for complex frames (used when frame_type=complex)';
+
 
 
 CREATE TABLE IF NOT EXISTS "public"."photos" (
@@ -375,6 +370,11 @@ ALTER TABLE ONLY "public"."albums"
 
 
 
+ALTER TABLE ONLY "public"."canva_frames"
+    ADD CONSTRAINT "canva_frames_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."photos"
     ADD CONSTRAINT "photos_pkey" PRIMARY KEY ("id");
 
@@ -439,6 +439,22 @@ CREATE INDEX "idx_albums_user_id" ON "public"."albums" USING "btree" ("user_id")
 
 
 
+CREATE INDEX "idx_canva_frames_category" ON "public"."canva_frames" USING "btree" ("category");
+
+
+
+CREATE INDEX "idx_canva_frames_frame_type" ON "public"."canva_frames" USING "btree" ("frame_type");
+
+
+
+CREATE INDEX "idx_canva_frames_public" ON "public"."canva_frames" USING "btree" ("is_public");
+
+
+
+CREATE INDEX "idx_canva_frames_type" ON "public"."canva_frames" USING "btree" ("frame_type");
+
+
+
 CREATE INDEX "idx_photos_capture_date" ON "public"."photos" USING "btree" ("capture_date");
 
 
@@ -465,6 +481,11 @@ CREATE OR REPLACE TRIGGER "on_role_change" AFTER INSERT OR UPDATE OF "role_id" O
 
 ALTER TABLE ONLY "public"."albums"
     ADD CONSTRAINT "albums_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."canva_frames"
+    ADD CONSTRAINT "canva_frames_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
 
 
 
@@ -508,6 +529,12 @@ ALTER TABLE ONLY "public"."user_settings"
 
 
 
+CREATE POLICY "Admins can manage frames" ON "public"."canva_frames" TO "authenticated" USING ((EXISTS ( SELECT 1
+   FROM "public"."profiles"
+  WHERE (("profiles"."id" = "auth"."uid"()) AND ("profiles"."role_id" = 1)))));
+
+
+
 CREATE POLICY "Admins can view all profiles" ON "public"."profiles" FOR SELECT TO "authenticated" USING ((((("auth"."jwt"() -> 'app_metadata'::"text") ->> 'role'::"text") = 'ADMIN'::"text") OR ("auth"."uid"() = "id")));
 
 
@@ -517,6 +544,14 @@ CREATE POLICY "Anyone can insert photos" ON "public"."photos" FOR INSERT WITH CH
 
 
 CREATE POLICY "Anyone can read active templates" ON "public"."templates" FOR SELECT USING (("is_active" = true));
+
+
+
+CREATE POLICY "Authenticated users can view frames" ON "public"."canva_frames" FOR SELECT TO "authenticated" USING (true);
+
+
+
+CREATE POLICY "Public frames are viewable by everyone" ON "public"."canva_frames" FOR SELECT USING (("is_public" = true));
 
 
 
@@ -583,6 +618,9 @@ CREATE POLICY "Users can view their own settings" ON "public"."user_settings" FO
 ALTER TABLE "public"."albums" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."canva_frames" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."photos" ENABLE ROW LEVEL SECURITY;
 
 
@@ -595,174 +633,10 @@ ALTER TABLE "public"."templates" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."user_settings" ENABLE ROW LEVEL SECURITY;
 
 
-
-
-ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
-
-
-
-
-
 GRANT USAGE ON SCHEMA "public" TO "postgres";
 GRANT USAGE ON SCHEMA "public" TO "anon";
 GRANT USAGE ON SCHEMA "public" TO "authenticated";
 GRANT USAGE ON SCHEMA "public" TO "service_role";
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -784,24 +658,15 @@ GRANT ALL ON FUNCTION "public"."update_user_role"("target_user_id" "uuid", "new_
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 GRANT ALL ON TABLE "public"."albums" TO "anon";
 GRANT ALL ON TABLE "public"."albums" TO "authenticated";
 GRANT ALL ON TABLE "public"."albums" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."canva_frames" TO "anon";
+GRANT ALL ON TABLE "public"."canva_frames" TO "authenticated";
+GRANT ALL ON TABLE "public"."canva_frames" TO "service_role";
 
 
 
@@ -877,12 +742,6 @@ GRANT ALL ON TABLE "public"."user_settings" TO "service_role";
 
 
 
-
-
-
-
-
-
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "postgres";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "anon";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "authenticated";
@@ -907,30 +766,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "anon";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "service_role";
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
