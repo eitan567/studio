@@ -109,24 +109,26 @@ export const LayoutSidebarLeft = ({
                                                 <clipPath id={clipId}>
                                                     <path d={pathD} />
                                                 </clipPath>
+                                                {/* More vibrant sky gradient - matches Canva style */}
                                                 <linearGradient id={`thumbSky-${template.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                                                    <stop offset="0%" stopColor="#d4eaf7" />
-                                                    <stop offset="100%" stopColor="#eef8ff" />
+                                                    <stop offset="0%" stopColor="#b8e4f9" />
+                                                    <stop offset="100%" stopColor="#e8f6fc" />
                                                 </linearGradient>
+                                                {/* More vibrant hill gradients - matches Canva style */}
                                                 <linearGradient id={`thumbHill1-${template.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                                                    <stop offset="0%" stopColor="#90d5ac" />
-                                                    <stop offset="100%" stopColor="#76c893" />
+                                                    <stop offset="0%" stopColor="#9cd67e" />
+                                                    <stop offset="100%" stopColor="#7cc45a" />
                                                 </linearGradient>
                                                 <linearGradient id={`thumbHill2-${template.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                                                    <stop offset="0%" stopColor="#76c893" />
-                                                    <stop offset="100%" stopColor="#52b788" />
+                                                    <stop offset="0%" stopColor="#85c95c" />
+                                                    <stop offset="100%" stopColor="#6ab344" />
                                                 </linearGradient>
                                             </defs>
                                             {/* Placeholder clipped to frame shape */}
                                             <g clipPath={`url(#${clipId})`}>
                                                 <rect x={vbX} y={vbY} width={vbW} height={vbH} fill={`url(#thumbSky-${template.id})`} />
                                                 <circle cx={vbX + vbW * 0.85} cy={vbY + vbH * 0.15} r={vbW * 0.08} fill="#fdf2a4" />
-                                                <g fill="white" opacity="0.6">
+                                                <g fill="white" opacity="0.8">
                                                     <circle cx={vbX + vbW * 0.2} cy={vbY + vbH * 0.2} r={vbW * 0.05} />
                                                     <circle cx={vbX + vbW * 0.25} cy={vbY + vbH * 0.22} r={vbW * 0.06} />
                                                     <circle cx={vbX + vbW * 0.3} cy={vbY + vbH * 0.2} r={vbW * 0.05} />
@@ -134,15 +136,13 @@ export const LayoutSidebarLeft = ({
                                                 <path
                                                     d={`M ${vbX - vbW * 0.1} ${vbY + vbH} Q ${vbX + vbW * 0.5} ${vbY + vbH * 0.4} ${vbX + vbW * 1.1} ${vbY + vbH} Z`}
                                                     fill={`url(#thumbHill1-${template.id})`}
-                                                    opacity="0.9"
                                                 />
                                                 <path
                                                     d={`M ${vbX - vbW * 0.2} ${vbY + vbH} Q ${vbX + vbW * 0.3} ${vbY + vbH * 0.6} ${vbX + vbW * 0.8} ${vbY + vbH * 1.1} Z`}
                                                     fill={`url(#thumbHill2-${template.id})`}
                                                 />
                                             </g>
-                                            {/* Frame border */}
-                                            <path d={pathD} fill="none" stroke="#555" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+                                            {/* No frame border - clean look like Canva */}
                                         </svg>
                                     </button>
                                 );
