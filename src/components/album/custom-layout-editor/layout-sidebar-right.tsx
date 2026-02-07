@@ -57,11 +57,6 @@ export const LayoutSidebarRight = ({
     // Local state for filtering, independent of global canvas spreadMode
     const [sidebarMode, setSidebarMode] = React.useState<'full' | 'split'>(spreadMode);
 
-    // Keep sidebarMode in sync with global spreadMode when it changes externally
-    React.useEffect(() => {
-        setSidebarMode(spreadMode);
-    }, [spreadMode]);
-
     // Calculate aspect ratio from config
     const aspectRatio = React.useMemo(() => {
         if (!config?.size) return 1; // Default square
