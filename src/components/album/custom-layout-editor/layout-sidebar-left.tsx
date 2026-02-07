@@ -5,36 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Layout, Pencil, Square, Circle, Trash2, Play, ImageOff, FlipHorizontal, X, Frame, Loader2, Settings2 } from 'lucide-react';
-import { getPhotoCount } from '@/hooks/useTemplates';
+import { Layout, Trash2, ImageOff, X, Frame, Loader2, Settings2 } from 'lucide-react';
 import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { useCanvaFrames } from '@/hooks/useCanvaFrames';
 import { cn } from '@/lib/utils';
 import { TemplatePreview } from '@/components/album/shared/template-preview';
 
-export type ToolMode = 'select' | 'pencil' | 'freehand' | 'rect' | 'circle';
-
 interface LayoutSidebarLeftProps {
-    onSave: () => void;
-    onCancel: () => void;
-    selectedAdvancedTemplate: AdvancedTemplate | null;
-    onSelectAdvancedTemplate: (template: AdvancedTemplate) => void;
-    customTemplates?: AdvancedTemplate[];
-    onAddTemplate?: (template: AdvancedTemplate) => void;
-    // New Props for Vector Tools
-    toolMode: ToolMode;
-    onToolChange: (mode: ToolMode) => void;
-    onClearStrokes: () => void;
-    onProcessLayout: () => void;
-    isMirrorMode: boolean;
-    onToggleMirrorMode: () => void;
-    // Property Controls
-    strokeColor: string;
-    onStrokeColorChange: (color: string) => void;
-    strokeWidth: number;
-    onStrokeWidthChange: (width: number) => void;
-    fillColor: string;
-    onFillColorChange: (color: string) => void;
     // Canva Frame Shapes
     onAddCanvaFrame: (template: AdvancedTemplate) => void;
 }
@@ -42,24 +19,6 @@ interface LayoutSidebarLeftProps {
 
 
 export const LayoutSidebarLeft = ({
-    onSave,
-    onCancel,
-    selectedAdvancedTemplate,
-    onSelectAdvancedTemplate,
-    customTemplates = [],
-    onAddTemplate,
-    toolMode,
-    onToolChange,
-    onClearStrokes,
-    onProcessLayout,
-    isMirrorMode,
-    onToggleMirrorMode,
-    strokeColor,
-    onStrokeColorChange,
-    strokeWidth,
-    onStrokeWidthChange,
-    fillColor,
-    onFillColorChange,
     onAddCanvaFrame
 }: LayoutSidebarLeftProps) => {
     // Fetch frames from database
@@ -75,41 +34,10 @@ export const LayoutSidebarLeft = ({
 
             {/* Content */}
             <div className="flex-1 flex flex-col min-h-0">
-                {/* Tools Section - Top Fixed */}
-                <div className="p-4 space-y-4 shrink-0">
-                    <div className="flex flex-col gap-2">
-                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                            Vector Tools
-                        </Label>
-                        <div className="grid grid-cols-2 gap-2">
-                            <Button
-                                variant={toolMode === 'select' ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => onToolChange('select')}
-                                className="justify-start gap-2"
-                            >
-                                <Play className="h-3.5 w-3.5 rotate-90" /> Select
-                            </Button>
-                            <Button
-                                variant={toolMode === 'pencil' ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => onToolChange('pencil')}
-                                className="justify-start gap-2"
-                            >
-                                <Pencil className="h-3.5 w-3.5" /> Pencil
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="px-4 shrink-0">
-                    <Separator />
-                </div>
-
                 {/* Canva Frames - Scrollable Section */}
                 <div className="flex-1 flex flex-col min-h-0 p-4 space-y-3">
                     <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                        <Frame className="h-3.5 w-3.5" /> Frame Shapes
+                        <Frame className="h-3.5 w-3.5" /> Frame Shapes ({canvaFrames.length})
                     </Label>
 
                     <ScrollArea className="flex-1">
@@ -184,19 +112,6 @@ export const LayoutSidebarLeft = ({
                             })}
                         </div>
                     </ScrollArea>
-                </div>
-
-                <div className="px-4 shrink-0">
-                    <Separator />
-                </div>
-
-                {/* Footer */}
-                <div className="p-4 shrink-0 bg-accent/5">
-                    <p className="text-[10px] text-muted-foreground text-center line-clamp-2">
-                        {selectedAdvancedTemplate
-                            ? `${selectedAdvancedTemplate.name} • ${getPhotoCount(selectedAdvancedTemplate)} photos`
-                            : 'Select a template or use tools to draw'}
-                    </p>
                 </div>
             </div>
         </div>

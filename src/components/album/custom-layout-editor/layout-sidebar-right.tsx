@@ -71,17 +71,19 @@ export const LayoutSidebarRight = ({
     const systemTemplates = allTemplates.filter(t => t.createdBy === 'system');
 
     const filterByMode = (templates: typeof allTemplates) => {
-        const type = spreadMode === 'split' ? 'single' : 'spread';
+        const mode = spreadMode === 'split' ? 'single' : 'spread';
         return templates.filter(t => {
-            if (t.type) return (t.type === type || t.type === 'both');
-
-            // Priority 2: System templates without explicit type
-            // Match PageCanvas logic: Available in both views by default for flexibility
+            // For system templates, we want to be more inclusive
             if (t.createdBy === 'system') {
-                return true;
+                // If it has no type, or is marked 'both' or 'grid', show it in both modes
+                if (!t.type || t.type === 'both' || (t.type as string) === 'grid') return true;
+                // Otherwise it must match the current mode
+                return t.type === mode;
             }
 
-            return false;
+            // For custom/user templates, follow strict filtering
+            if (t.type) return (t.type === mode || t.type === 'both');
+            return true;
         });
     };
 

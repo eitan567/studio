@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { AlbumPage, AlbumConfig } from '@/lib/types';
-import { LayoutSidebarLeft, ToolMode } from './layout-sidebar-left';
+import { LayoutSidebarLeft } from './layout-sidebar-left';
 import { LayoutSidebarRight } from './layout-sidebar-right';
 import { LayoutCanvas } from './layout-canvas';
 import { FloatingToolbar } from './floating-toolbar';
@@ -19,6 +19,8 @@ import { processLayoutGeometry } from '@/lib/layout-geometry';
 import { createClient } from '@/lib/supabase';
 import { invalidateCache } from '@/lib/templates-cache';
 import { VectorObject, Point, Segment, LayoutRegion, AdvancedTemplate } from '@/lib/advanced-layout-types';
+
+export type ToolMode = 'select' | 'pencil' | 'freehand' | 'rect' | 'circle';
 
 interface CustomLayoutEditorOverlayProps {
     onClose: () => void;
@@ -203,9 +205,18 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
         setVectorObjects(newVectorObjects);
 
-        // Update spread mode based on template type
-        const newSpreadMode = template.type === 'spread' ? 'full' : 'split';
-        setSpreadMode(newSpreadMode);
+        // Update spread mode based on template type - only if explicitly restricted
+        // Universal templates (both, grid, or undefined) will stay in current mode
+        let newSpreadMode = spreadMode;
+        if (template.type === 'spread') {
+            newSpreadMode = 'full';
+        } else if (template.type === 'single') {
+            newSpreadMode = 'split';
+        }
+
+        if (newSpreadMode !== spreadMode) {
+            setSpreadMode(newSpreadMode);
+        }
 
         // Create a dummy page with the right number of photos for this template
         const photos = Array(getPhotoCount(template)).fill(null).map((_, index) => {
@@ -654,27 +665,6 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 {/* Left Sidebar */}
                 <div className="w-[300px] border-r bg-background flex-shrink-0 z-10">
                     <LayoutSidebarLeft
-                        onSave={handleSave}
-                        onCancel={handleCancel}
-                        selectedAdvancedTemplate={selectedAdvancedTemplate}
-                        onSelectAdvancedTemplate={handleSelectAdvancedTemplate}
-                        customTemplates={[]}
-                        onAddTemplate={onAddTemplate}
-                        // New Vector Props
-                        toolMode={toolMode}
-                        onToolChange={setToolMode}
-                        onClearStrokes={handleClearAll}
-                        onProcessLayout={handleProcessLayout}
-                        isMirrorMode={isMirrorMode}
-                        onToggleMirrorMode={() => setIsMirrorMode(!isMirrorMode)}
-                        // Property Controls
-                        strokeColor={strokeColor}
-                        onStrokeColorChange={setStrokeColor}
-                        strokeWidth={strokeWidth}
-                        onStrokeWidthChange={setStrokeWidth}
-                        fillColor={fillColor}
-                        onFillColorChange={setFillColor}
-                        // Canva Frame Shapes
                         onAddCanvaFrame={handleAddCanvaFrame}
                     />
                 </div>
