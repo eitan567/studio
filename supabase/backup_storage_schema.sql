@@ -653,6 +653,22 @@ CREATE POLICY "Allow User Update" ON "storage"."objects" FOR UPDATE TO "authenti
 
 
 
+CREATE POLICY "Authenticated Delete" ON "storage"."objects" FOR DELETE TO "authenticated" USING ((("bucket_id" = 'avatars'::"text") AND (("storage"."foldername"("name"))[1] = ("auth"."uid"())::"text")));
+
+
+
+CREATE POLICY "Authenticated Insert" ON "storage"."objects" FOR INSERT TO "authenticated" WITH CHECK ((("bucket_id" = 'avatars'::"text") AND (("storage"."foldername"("name"))[1] = ("auth"."uid"())::"text")));
+
+
+
+CREATE POLICY "Authenticated Update" ON "storage"."objects" FOR UPDATE TO "authenticated" USING ((("bucket_id" = 'avatars'::"text") AND (("storage"."foldername"("name"))[1] = ("auth"."uid"())::"text"))) WITH CHECK ((("bucket_id" = 'avatars'::"text") AND (("storage"."foldername"("name"))[1] = ("auth"."uid"())::"text")));
+
+
+
+CREATE POLICY "Public Access" ON "storage"."objects" FOR SELECT USING (("bucket_id" = 'avatars'::"text"));
+
+
+
 ALTER TABLE "storage"."buckets" ENABLE ROW LEVEL SECURITY;
 
 
