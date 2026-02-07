@@ -255,17 +255,34 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     // Handle adding a Canva frame shape to the canvas as a VectorObject
     const handleAddCanvaFrame = (template: AdvancedTemplate) => {
         // Add only the first region as a draggable frame shape
-        // We scale it to be placed at a reasonable size on the canvas
+        // We scale it to be placed at a reasonable size on the canvas while maintaining aspect ratio
         const firstRegion = template.regions[0];
         if (!firstRegion || !firstRegion.path) return;
 
-        // Default size for added frame (in canvas coordinate units)
-        // Canvas uses 0-100 height with aspect ratio applied to width
-        const frameWidth = 30;
-        const frameHeight = 30;
+        // Parse viewBox to get natural aspect ratio
+        const viewBox = firstRegion.viewBox || '0 0 100 100';
+        const vbParts = viewBox.split(' ').map(Number);
+        const vbWidth = vbParts[2] || 100;
+        const vbHeight = vbParts[3] || 100;
+        const aspectRatio = vbWidth / vbHeight;
+
+        // Base size for the frame (the larger dimension will be 30 canvas units)
+        const baseSize = 30;
+        let frameWidth: number;
+        let frameHeight: number;
+
+        if (aspectRatio >= 1) {
+            // Wider than tall
+            frameWidth = baseSize;
+            frameHeight = baseSize / aspectRatio;
+        } else {
+            // Taller than wide
+            frameHeight = baseSize;
+            frameWidth = baseSize * aspectRatio;
+        }
 
         // Center position on canvas
-        const centerX = 35; // Slightly left of center to account for aspect ratio
+        const centerX = 35;
         const centerY = 35;
 
         // Calculate bounding box points for the frame
