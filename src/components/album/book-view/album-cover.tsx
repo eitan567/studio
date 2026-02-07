@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { AlbumPage, CoverText, CoverImage, AlbumConfig, Photo, PhotoPanAndZoom } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { logger } from '@/lib/logger';
 import { PageLayout } from '../layouts/page-layout';
 import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
 import { useSettings } from '@/hooks/use-settings';
@@ -761,7 +762,7 @@ export const AlbumCover = ({
 
     // FIX: For dynamic layouts, we want ALL photos, not just the template count
     const isDynamicBack = String(backBaseId).startsWith('dynamic-justified');
-    console.log('[AlbumCover] DEBUG:', {
+    logger.debug('[AlbumCover] DEBUG:', {
         backLayoutId,
         backBaseId,
         isDynamicBack,

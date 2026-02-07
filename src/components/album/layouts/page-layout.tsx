@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { logger } from '@/lib/logger';
 import { AlbumPage, Photo, PhotoPanAndZoom } from '@/lib/types';
 import { useTemplates, AdvancedTemplate } from '@/hooks/useTemplates';
 import { ShapeRegion } from './shape-region';
@@ -56,7 +57,7 @@ const PageLayoutComponent = ({
 
     const photos = overridePhotos || page.photos;
     const rawLayout = overrideLayout || page.layout;
-    console.log('[PageLayout] DEBUG received:', { overrideLayout, 'page.layout': page.layout, rawLayout, photosLength: photos.length });
+    logger.debug('[PageLayout] DEBUG received:', { overrideLayout, 'page.layout': page.layout, rawLayout, photosLength: photos.length });
 
     // Parse rotation from layout ID
     const { baseId: layout, rotation } = parseLayoutId(rawLayout);
@@ -66,12 +67,12 @@ const PageLayoutComponent = ({
 
     // Dynamic Layout Generation (Justified)
     if (layout === 'dynamic-justified') {
-        console.log('[PageLayout] Generating standard justified layout for', photos.length, 'photos');
+        // logger.debug('[PageLayout] Generating standard justified layout for', photos.length, 'photos');
         template = generateJustifiedLayout(photos, 2);
     }
     // Dynamic Layout Generation (Smart Justified)
     else if (layout === 'dynamic-justified-smart') {
-        console.log('[PageLayout] Generating SMART justified layout for', photos.length, 'photos, aspectRatio:', aspectRatio);
+        logger.debug('[PageLayout] Generating SMART justified layout for', photos.length, 'photos, aspectRatio:', aspectRatio);
         template = generateSmartJustifiedLayout(photos, aspectRatio || 1.5);
     }
 
