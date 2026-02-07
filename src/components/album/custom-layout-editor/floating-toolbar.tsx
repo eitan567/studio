@@ -149,7 +149,7 @@ export const FloatingToolbar = ({
                 <div className="flex items-center gap-2 w-24" title="Stroke Width">
                     <input
                         type="range"
-                        min="0.1"
+                        min="0"
                         max="5"
                         step="0.1"
                         value={strokeWidth}

@@ -1367,14 +1367,16 @@ export const LayoutCanvas = ({
                                                 )}
 
                                                 {/* Frame border stroke */}
-                                                <path
-                                                    d={obj.path}
-                                                    fill="none"
-                                                    stroke={isSelected ? "#3b82f6" : (obj.stroke || "#333333")}
-                                                    strokeWidth={isSelected ? 3 : 2}
-                                                    strokeOpacity={obj.opacity ?? 1}
-                                                    vectorEffect="non-scaling-stroke"
-                                                />
+                                                {(obj.strokeWidth ?? 0) > 0 && (
+                                                    <path
+                                                        d={obj.path}
+                                                        fill="none"
+                                                        stroke={isSelected ? "#3b82f6" : (obj.stroke || "#333333")}
+                                                        strokeWidth={isSelected ? Math.max(0.75, (obj.strokeWidth || 0.5) * 1.5) : (obj.strokeWidth || 0.5)}
+                                                        strokeOpacity={obj.opacity ?? 1}
+                                                        vectorEffect="non-scaling-stroke"
+                                                    />
+                                                )}
                                             </svg>
                                         </g>
                                     );
@@ -1385,8 +1387,8 @@ export const LayoutCanvas = ({
                                         key={obj.id}
                                         points={pointsStr}
                                         fill={obj.fill || 'none'}
-                                        stroke={isSelected ? "#3b82f6" : (obj.stroke || "black")}
-                                        strokeWidth={isSelected ? Math.max(0.75, (obj.strokeWidth || 0.5) * 1.5) : (obj.strokeWidth || 0.5)}
+                                        stroke={(obj.strokeWidth ?? 0) > 0 ? (isSelected ? "#3b82f6" : (obj.stroke || "black")) : "none"}
+                                        strokeWidth={(obj.strokeWidth ?? 0) > 0 ? (isSelected ? Math.max(0.75, (obj.strokeWidth || 0.5) * 1.5) : (obj.strokeWidth || 0.5)) : 0}
                                         strokeOpacity={obj.opacity ?? 1}
                                         fillOpacity={obj.opacity ?? 1}
                                         vectorEffect="non-scaling-stroke"
