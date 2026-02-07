@@ -1,6 +1,6 @@
 import { AdvancedTemplate } from './advanced-layout-types';
 
-export const CANVA_TEMPLATES: AdvancedTemplate[] = [
+export const CANVA_FRAMES: AdvancedTemplate[] = [
     {
         "id": "canva-mosaic-grid",
         "name": "Canva Mosaic Grid",

@@ -3,10 +3,10 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Layout, Pencil, Square, Circle, Trash2, Play, ImageOff, FlipHorizontal, X, Frame } from 'lucide-react';
+import { Layout, Pencil, Square, Circle, Trash2, Play, ImageOff, FlipHorizontal, X, Frame, Loader2 } from 'lucide-react';
 import { getPhotoCount } from '@/hooks/useTemplates';
 import { AdvancedTemplate } from '@/lib/advanced-layout-types';
-import { CANVA_TEMPLATES } from '@/lib/canva-templates-data';
+import { useCanvaFrames } from '@/hooks/useCanvaFrames';
 import { cn } from '@/lib/utils';
 import { TemplatePreview } from '@/components/album/shared/template-preview';
 
@@ -60,6 +60,8 @@ export const LayoutSidebarLeft = ({
     onFillColorChange,
     onAddCanvaFrame
 }: LayoutSidebarLeftProps) => {
+    // Fetch frames from database
+    const { frames: canvaFrames, loading: framesLoading } = useCanvaFrames();
     return (
         <div className="h-full z-20 flex bg-background">
             <div className="bg-background flex flex-col border-r shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] transition-all duration-300">
@@ -85,7 +87,15 @@ export const LayoutSidebarLeft = ({
                             Click to add a decorative frame to the canvas.
                         </p>
                         <div className="grid grid-cols-3 gap-1.5 max-h-[400px] overflow-y-auto pr-1">
-                            {CANVA_TEMPLATES.map((template) => {
+                            {framesLoading ? (
+                                <div className="col-span-3 flex items-center justify-center py-8">
+                                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                </div>
+                            ) : canvaFrames.length === 0 ? (
+                                <div className="col-span-3 py-4 text-center text-muted-foreground text-xs">
+                                    No frames available
+                                </div>
+                            ) : canvaFrames.map((template) => {
                                 // Get the first region's path for preview
                                 const firstRegion = template.regions[0];
                                 const pathD = firstRegion?.path || '';
