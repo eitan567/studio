@@ -510,7 +510,7 @@ export function AdminSettingsDialog({ open, onOpenChange }: AdminSettingsDialogP
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="fixed left-0 top-0 z-50 w-screen h-screen max-w-none m-0 rounded-none border-0 p-0 flex flex-col bg-background translate-x-0 translate-y-0 data-[state=open]:slide-in-from-bottom-0 data-[state=open]:slide-in-from-top-0 data-[state=open]:zoom-in-100">
+            <DialogContent className="fixed left-0 top-0 z-[200] w-screen h-screen max-w-none m-0 rounded-none border-0 p-0 flex flex-col bg-background translate-x-0 translate-y-0 data-[state=open]:slide-in-from-bottom-0 data-[state=open]:slide-in-from-top-0 data-[state=open]:zoom-in-100">
                 <DialogHeader className="px-6 py-4 pr-12 border-b flex flex-row items-center justify-between space-y-0 shrink-0 bg-card">
                     <div>
                         <DialogTitle className="text-xl">Admin Settings</DialogTitle>

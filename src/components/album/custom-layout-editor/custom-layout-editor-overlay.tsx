@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
-import { Check, X, Layout, BookOpen, Book } from 'lucide-react';
+import { Check, X, Layout, BookOpen, Book, Maximize, FolderOpen, Trash2, Shield } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
 import { Sheet } from '@/components/ui/sheet';
@@ -19,6 +19,10 @@ import { processLayoutGeometry } from '@/lib/layout-geometry';
 import { createClient } from '@/lib/supabase';
 import { invalidateCache } from '@/lib/templates-cache';
 import { VectorObject, Point, Segment, LayoutRegion, AdvancedTemplate } from '@/lib/advanced-layout-types';
+import { useAuth } from "@/hooks/useAuth";
+import { ModeToggle } from "@/components/mode-toggle";
+import { UserNav } from "@/components/user-nav";
+import { AdminSettingsDialog } from "@/components/admin/admin-settings-dialog";
 
 export type ToolMode = 'select' | 'pencil' | 'rect' | 'circle';
 
@@ -34,6 +38,8 @@ import { useTheme } from 'next-themes';
 export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, onAddTemplate }: CustomLayoutEditorOverlayProps) => {
     const { findGridTemplate, defaultGridTemplate, allTemplates } = useTemplates();
     const { resolvedTheme } = useTheme();
+    const { isAdmin } = useAuth();
+    const [adminOpen, setAdminOpen] = useState(false);
 
     // Load existing custom templates from cache on mount
     const existingCustomTemplates = useMemo(() => {
@@ -417,7 +423,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 });
 
                 // Since some might be new (no ID) and some updates, we might need separate calls
-                // or use a logic that works for both. 
+                // or use a logic that works for both.
                 // If we want auto-increment, we use insert for new ones and update for existing.
 
                 const newTemplates = templatesToInsert.filter(t => (t as any)._isNew).map(({ _isNew, ...rest }) => rest);
@@ -634,14 +640,33 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     return (
         <div className="fixed inset-0 z-[100] bg-background flex flex-col">
             {/* 1. Global Header */}
-            <header className="h-14 border-b px-6 flex items-center justify-between bg-card shrink-0 shadow-sm z-20">
-                <div className="flex items-center gap-4">
-                    <div className="flex flex-col">
-                        <h2 className="text-lg font-semibold leading-none mb-1">Custom Layout Editor</h2>
-                        <p className="text-xs text-muted-foreground">Create and edit template layouts</p>
-                    </div>
+            <div className="h-14 border-b bg-background flex items-center px-6 shrink-0 z-20">
+                <span className="heading-sm">Custom Layout Editor</span>
+
+                <div className="flex-1" />
+
+                <div className="flex items-center gap-2">
+                    {/* Admin Button */}
+                    {isAdmin && (
+                        <>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                title="Admin Panel"
+                                onClick={() => setAdminOpen(true)}
+                            >
+                                <Shield className="h-5 w-5" />
+                            </Button>
+                            <AdminSettingsDialog open={adminOpen} onOpenChange={setAdminOpen} />
+                        </>
+                    )}
+
+                    <ModeToggle />
+                    <div className="h-4 w-px bg-border mx-1" />
+                    <UserNav showSettingsLink={false} />
                 </div>
-            </header>
+            </div>
 
             {/* 2. Main Workspace */}
             <div className="flex-1 flex overflow-hidden">
