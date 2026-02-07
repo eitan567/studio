@@ -5,17 +5,22 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useTemplates } from '@/hooks/useTemplates';
 import { cn } from '@/lib/utils';
-import { Settings2 } from 'lucide-react';
+import { Settings2, Layout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { TemplatePreview } from '@/components/album/shared/template-preview';
 
 import { AlbumConfig } from '@/lib/types';
+import { AdvancedTemplate } from '@/lib/advanced-layout-types';
+import { getPhotoCount } from '@/hooks/useTemplates';
 
 interface LayoutSidebarRightProps {
     selectedLayout: string;
     onSelectLayout: (layoutId: string) => void;
+    onSelectAdvancedTemplate: (template: AdvancedTemplate) => void;
+    selectedAdvancedTemplate: AdvancedTemplate | null;
+    customTemplates: AdvancedTemplate[];
     spreadMode: 'full' | 'split';
     onSpreadModeChange: (mode: 'full' | 'split') => void;
     config?: AlbumConfig;
@@ -32,6 +37,9 @@ interface LayoutSidebarRightProps {
 export const LayoutSidebarRight = ({
     selectedLayout,
     onSelectLayout,
+    onSelectAdvancedTemplate,
+    selectedAdvancedTemplate,
+    customTemplates,
     spreadMode,
     onSpreadModeChange,
     config,
@@ -45,6 +53,7 @@ export const LayoutSidebarRight = ({
     onUseDummyPhotosChange
 }: LayoutSidebarRightProps) => {
     const { allTemplates } = useTemplates();
+    const [activeTab, setActiveTab] = React.useState<'standard' | 'new'>('standard');
 
     // Calculate aspect ratio from config
     const aspectRatio = React.useMemo(() => {
@@ -60,12 +69,11 @@ export const LayoutSidebarRight = ({
 
     // Filter templates by category and type
     const systemTemplates = allTemplates.filter(t => t.createdBy === 'system');
-    const userTemplates = allTemplates.filter(t => t.createdBy === 'user' || t.isCustom);
 
     const filterByMode = (templates: typeof allTemplates) => {
         const type = spreadMode === 'split' ? 'single' : 'spread';
         return templates.filter(t => {
-            if (t.type) return t.type === type || t.type === 'both';
+            if (t.type) return (t.type === type || t.type === 'both');
 
             // Priority 2: System templates without explicit type
             // Match PageCanvas logic: Available in both views by default for flexibility
@@ -78,7 +86,6 @@ export const LayoutSidebarRight = ({
     };
 
     const filteredSystem = filterByMode(systemTemplates);
-    const filteredUser = filterByMode(userTemplates);
 
     return (
         <div className="w-full h-full border-l bg-background flex flex-col shrink-0 overflow-hidden">
@@ -91,28 +98,44 @@ export const LayoutSidebarRight = ({
 
             {/* Content */}
             <div className="flex-1 flex flex-col min-h-0">
-                {/* Template Type - Fixed at Top */}
-                <div className="p-4 space-y-3 shrink-0">
-                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        Template Type
-                    </Label>
-                    <div className="flex gap-2">
-                        <Button
-                            variant={spreadMode === 'full' ? 'default' : 'outline'}
-                            size="sm"
-                            className="flex-1"
-                            onClick={() => onSpreadModeChange('full')}
-                        >
-                            Double Page
-                        </Button>
-                        <Button
-                            variant={spreadMode === 'split' ? 'default' : 'outline'}
-                            size="sm"
-                            className="flex-1"
-                            onClick={() => onSpreadModeChange('split')}
-                        >
-                            Single Page
-                        </Button>
+                {/* Template Type & Tabs - Fixed at Top */}
+                <div className="p-4 space-y-4 shrink-0">
+                    <div className="space-y-2">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                            Template Type
+                        </Label>
+                        <div className="flex gap-1.5">
+                            <Button
+                                variant={activeTab === 'standard' && spreadMode === 'full' ? 'default' : 'outline'}
+                                size="sm"
+                                className="flex-1 h-8 text-[11px] px-2"
+                                onClick={() => {
+                                    setActiveTab('standard');
+                                    onSpreadModeChange('full');
+                                }}
+                            >
+                                Double Page
+                            </Button>
+                            <Button
+                                variant={activeTab === 'standard' && spreadMode === 'split' ? 'default' : 'outline'}
+                                size="sm"
+                                className="flex-1 h-8 text-[11px] px-2"
+                                onClick={() => {
+                                    setActiveTab('standard');
+                                    onSpreadModeChange('split');
+                                }}
+                            >
+                                Single Page
+                            </Button>
+                            <Button
+                                variant={activeTab === 'new' ? 'default' : 'outline'}
+                                size="sm"
+                                className="flex-1 h-8 text-[11px] px-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border-indigo-500/20 hover:from-indigo-500/20 hover:to-purple-500/20"
+                                onClick={() => setActiveTab('new')}
+                            >
+                                New Templates
+                            </Button>
+                        </div>
                     </div>
                 </div>
 
@@ -120,52 +143,23 @@ export const LayoutSidebarRight = ({
                     <Separator />
                 </div>
 
-                {/* System Layout Templates - Scrollable Middle Section */}
+                {/* Templates List Area */}
                 <div className="flex-1 flex flex-col min-h-0 p-4 space-y-3">
                     <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        Standard Layouts
+                        {activeTab === 'standard' ? 'Standard Layouts' : 'My Templates'}
                     </Label>
-                    <ScrollArea className="flex-1">
-                        <div className="p-2 pr-6 grid grid-cols-2 gap-1">
-                            {filteredSystem.map((template) => (
-                                <button
-                                    key={template.id}
-                                    onClick={() => onSelectLayout(String(template.id))}
-                                    className={cn(
-                                        "rounded-md border-2 p-1 transition-all hover:border-primary/50",
-                                        selectedLayout === String(template.id)
-                                            ? "border-primary bg-primary/5"
-                                            : "border-muted bg-muted/30"
-                                    )}
-                                    style={{ aspectRatio }}
-                                    title={template.name}
-                                >
-                                    <div className="w-full h-full relative overflow-hidden bg-muted rounded-sm">
-                                        <TemplatePreview template={template} />
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    </ScrollArea>
-                </div>
 
-                {/* User Layout Templates - Fixed at Bottom (if present) */}
-                {filteredUser.length > 0 && (
-                    <div className="p-4 pt-0 space-y-3 shrink-0">
-                        <Separator className="mb-4" />
-                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                            My Layouts
-                        </Label>
-                        <ScrollArea className="h-[120px] w-full rounded-md border bg-muted/20">
-                            <div className="p-2 grid grid-cols-2 gap-2">
-                                {filteredUser.map((template) => (
+                    <ScrollArea className="flex-1">
+                        <div className="p-2 pr-4 grid grid-cols-2 gap-2">
+                            {activeTab === 'standard' ? (
+                                filteredSystem.map((template) => (
                                     <button
                                         key={template.id}
                                         onClick={() => onSelectLayout(String(template.id))}
                                         className={cn(
-                                            "rounded-md border-2 p-1 transition-all hover:border-primary/50",
+                                            "rounded-md border-2 p-1 transition-all hover:border-primary/50 relative overflow-hidden",
                                             selectedLayout === String(template.id)
-                                                ? "border-primary bg-primary/5"
+                                                ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                                                 : "border-muted bg-muted/30"
                                         )}
                                         style={{ aspectRatio }}
@@ -175,9 +169,54 @@ export const LayoutSidebarRight = ({
                                             <TemplatePreview template={template} />
                                         </div>
                                     </button>
-                                ))}
-                            </div>
-                        </ScrollArea>
+                                ))
+                            ) : (
+                                customTemplates.length > 0 ? (
+                                    customTemplates.map((template) => {
+                                        const isSpread = template.type === 'spread';
+                                        const templateRatio = isSpread ? aspectRatio : (aspectRatio / (spreadMode === 'full' ? 2 : 1));
+
+                                        return (
+                                            <button
+                                                key={template.id}
+                                                onClick={() => onSelectAdvancedTemplate(template)}
+                                                className={cn(
+                                                    "rounded-md border-2 p-1 transition-all hover:border-primary/50 relative overflow-hidden",
+                                                    selectedAdvancedTemplate?.id === template.id
+                                                        ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                                                        : "border-muted bg-muted/30",
+                                                    isSpread ? "col-span-2 aspect-[2/1]" : "aspect-square"
+                                                )}
+                                                title={`${template.name} (${getPhotoCount(template)} photos)`}
+                                            >
+                                                <div className="w-full h-full relative overflow-hidden bg-muted rounded-sm">
+                                                    <TemplatePreview template={template} />
+                                                </div>
+                                                <span className="absolute bottom-0 left-0 right-0 text-[8px] text-center bg-background/80 py-0.5 font-medium truncate px-1">
+                                                    {template.name}
+                                                </span>
+                                            </button>
+                                        );
+                                    })
+                                ) : (
+                                    <div className="col-span-2 py-12 flex flex-col items-center justify-center text-center space-y-2 opacity-50">
+                                        <div className="p-3 rounded-full bg-muted">
+                                            <Layout className="h-6 w-6 text-muted-foreground" />
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">No custom templates yet</p>
+                                    </div>
+                                )
+                            )}
+                        </div>
+                    </ScrollArea>
+                </div>
+
+                {/* Info Footer */}
+                {(activeTab === 'new' && selectedAdvancedTemplate) && (
+                    <div className="p-3 border-t bg-muted/20 text-center">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-tight">
+                            Selected: {selectedAdvancedTemplate.name} ({getPhotoCount(selectedAdvancedTemplate)} slots)
+                        </p>
                     </div>
                 )}
             </div>

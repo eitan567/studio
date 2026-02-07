@@ -203,6 +203,10 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
         setVectorObjects(newVectorObjects);
 
+        // Update spread mode based on template type
+        const newSpreadMode = template.type === 'spread' ? 'full' : 'split';
+        setSpreadMode(newSpreadMode);
+
         // Create a dummy page with the right number of photos for this template
         const photos = Array(getPhotoCount(template)).fill(null).map((_, index) => {
             if (useDummyPhotos) {
@@ -230,7 +234,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             layout: template.id,
             photoGap: photoGap,
             pageMargin: pageMargin,
-            spreadMode
+            spreadMode: newSpreadMode
         }));
     };
 
@@ -654,7 +658,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         onCancel={handleCancel}
                         selectedAdvancedTemplate={selectedAdvancedTemplate}
                         onSelectAdvancedTemplate={handleSelectAdvancedTemplate}
-                        customTemplates={[...existingCustomTemplates, ...createdTemplates]}
+                        customTemplates={[]}
                         onAddTemplate={onAddTemplate}
                         // New Vector Props
                         toolMode={toolMode}
@@ -813,6 +817,9 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                     <LayoutSidebarRight
                         selectedLayout={selectedLayout}
                         onSelectLayout={handleLayoutChange}
+                        onSelectAdvancedTemplate={handleSelectAdvancedTemplate}
+                        selectedAdvancedTemplate={selectedAdvancedTemplate}
+                        customTemplates={[...existingCustomTemplates, ...createdTemplates]}
                         spreadMode={spreadMode}
                         onSpreadModeChange={handleSpreadModeChange}
                         config={config}
