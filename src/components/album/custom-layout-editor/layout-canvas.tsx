@@ -1354,15 +1354,17 @@ export const LayoutCanvas = ({
                                                     })()}
                                                 </g>
 
-                                                {/* Photo gap - uses background color from album settings */}
-                                                <path
-                                                    d={obj.path}
-                                                    fill="none"
-                                                    stroke={backgroundColor || 'hsl(var(--background))'}
-                                                    strokeWidth={12}
-                                                    vectorEffect="non-scaling-stroke"
-                                                    pointerEvents="none"
-                                                />
+                                                {/* Photo gap - uses background color from album settings, only if photoGap > 0 */}
+                                                {photoGap > 0 && (
+                                                    <path
+                                                        d={obj.path}
+                                                        fill="none"
+                                                        stroke={backgroundColor || 'hsl(var(--background))'}
+                                                        strokeWidth={photoGap}
+                                                        vectorEffect="non-scaling-stroke"
+                                                        pointerEvents="none"
+                                                    />
+                                                )}
 
                                                 {/* Frame border stroke */}
                                                 <path
