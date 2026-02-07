@@ -99,14 +99,8 @@ export const LayoutCanvas = ({
     const photoGap = page.photoGap ?? config?.photoGap ?? 0;
     const pageMargin = page.pageMargin ?? config?.pageMargin ?? 0;
     const cornerRadius = page.cornerRadius ?? config?.cornerRadius ?? 0;
-    // If background is explicitly white, treated it as 'default' which means transparent/theme-aware in this editor context
-    // This solves the issue of blinding white pages in dark mode
-    let effectiveBg = config?.backgroundColor;
-    if (effectiveBg && effectiveBg.toLowerCase() === '#ffffff') {
-        effectiveBg = undefined;
-    }
-
-    const backgroundColor = effectiveBg;
+    // Use config background color directly
+    const backgroundColor = config?.backgroundColor;
 
     // FIX: Aspect Ratio for corrections
     // In Single mode, we still show the spread, but logical usage is on the right half
@@ -1173,8 +1167,17 @@ export const LayoutCanvas = ({
         <div ref={wrapperRef} className="w-full h-full bg-muted/20 overflow-hidden relative flex items-center justify-center select-none">
             <div
                 ref={canvasRef}
-                style={{ width: logicalWidth, height: logicalHeight, transform: `scale(${scale})`, backgroundColor: backgroundColor || 'hsl(var(--background))', aspectRatio: `${logicalWidth}/${logicalHeight}` }}
-                className="relative overflow-hidden ring-1 ring-border flex-none shadow-sm box-border"
+                style={{
+                    width: logicalWidth,
+                    height: logicalHeight,
+                    transform: `scale(${scale})`,
+                    backgroundColor: backgroundColor, // Only set if specific color
+                    aspectRatio: `${logicalWidth}/${logicalHeight}`
+                }}
+                className={cn(
+                    "relative overflow-hidden ring-1 ring-border flex-none shadow-sm box-border transition-colors duration-200",
+                    !backgroundColor && "bg-background" // Use theme class if no specific color
+                )}
             >
                 <div
                     ref={interactionRef}

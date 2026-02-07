@@ -106,6 +106,14 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const [strokeWidth, setStrokeWidth] = useState(0.5);
     const [fillColor, setFillColor] = useState('transparent');
 
+    useEffect(() => {
+        if (resolvedTheme === 'dark') {
+            setStrokeColor('#ffffff');
+        } else {
+            setStrokeColor('#000000');
+        }
+    }, [resolvedTheme]);
+
     // 1. When selection changes, update sidebar to match the first selected object's properties
     useEffect(() => {
         if (selectedShapeIndices.length > 0) {
@@ -680,7 +688,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             page={dummyPage}
                             config={{
                                 size: config?.size ?? '20x20',
-                                backgroundColor: config?.backgroundColor,
+                                backgroundColor: config?.backgroundColor ?? '#ffffff',
                                 backgroundImage: config?.backgroundImage,
                                 photoGap,
                                 pageMargin,
