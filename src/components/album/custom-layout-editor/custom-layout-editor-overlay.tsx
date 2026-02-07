@@ -155,7 +155,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     }, [strokeColor, strokeWidth, fillColor]);
 
     // Handle advanced template selection
-    const handleSelectAdvancedTemplate = (template: AdvancedTemplate) => {
+    const handleSelectAdvancedTemplate = (template: AdvancedTemplate, preferredMode?: 'full' | 'split') => {
         setSelectedAdvancedTemplate(template);
 
         // Convert template regions to VectorObjects for interactivity
@@ -212,6 +212,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             newSpreadMode = 'full';
         } else if (template.type === 'single') {
             newSpreadMode = 'split';
+        } else if (preferredMode) {
+            newSpreadMode = preferredMode;
         }
 
         if (newSpreadMode !== spreadMode) {
@@ -250,19 +252,19 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     };
 
     // Update dummy page when layout changes
-    const handleLayoutChange = (layoutId: string) => {
+    const handleLayoutChange = (layoutId: string, preferredMode?: 'full' | 'split') => {
         setSelectedLayout(layoutId);
 
         // Find the full template object to set selectedAdvancedTemplate
         const template = allTemplates.find(t => String(t.id) === String(layoutId));
         if (template) {
-            handleSelectAdvancedTemplate(template);
+            handleSelectAdvancedTemplate(template, preferredMode);
         } else {
             setDummyPage(prev => ({
                 ...createDummyPage(layoutId, useDummyPhotos),
                 photoGap,
                 pageMargin,
-                spreadMode
+                spreadMode: preferredMode || spreadMode
             }));
         }
     };

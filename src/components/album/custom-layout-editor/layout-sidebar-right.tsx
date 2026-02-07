@@ -17,8 +17,8 @@ import { getPhotoCount } from '@/hooks/useTemplates';
 
 interface LayoutSidebarRightProps {
     selectedLayout: string;
-    onSelectLayout: (layoutId: string) => void;
-    onSelectAdvancedTemplate: (template: AdvancedTemplate) => void;
+    onSelectLayout: (layoutId: string, mode?: 'full' | 'split') => void;
+    onSelectAdvancedTemplate: (template: AdvancedTemplate, mode?: 'full' | 'split') => void;
     selectedAdvancedTemplate: AdvancedTemplate | null;
     customTemplates: AdvancedTemplate[];
     spreadMode: 'full' | 'split';
@@ -54,6 +54,13 @@ export const LayoutSidebarRight = ({
 }: LayoutSidebarRightProps) => {
     const { allTemplates } = useTemplates();
     const [activeTab, setActiveTab] = React.useState<'standard' | 'new'>('standard');
+    // Local state for filtering, independent of global canvas spreadMode
+    const [sidebarMode, setSidebarMode] = React.useState<'full' | 'split'>(spreadMode);
+
+    // Keep sidebarMode in sync with global spreadMode when it changes externally
+    React.useEffect(() => {
+        setSidebarMode(spreadMode);
+    }, [spreadMode]);
 
     // Calculate aspect ratio from config
     const aspectRatio = React.useMemo(() => {
@@ -64,14 +71,14 @@ export const LayoutSidebarRight = ({
         const singlePageRatio = w / h;
         // In split mode (single page), use single page ratio
         // In full mode (spread), use double width ratio
-        return spreadMode === 'split' ? singlePageRatio : (singlePageRatio * 2);
-    }, [config?.size, spreadMode]);
+        return sidebarMode === 'split' ? singlePageRatio : (singlePageRatio * 2);
+    }, [config?.size, sidebarMode]);
 
     // Filter templates by category and type
     const systemTemplates = allTemplates.filter(t => t.createdBy === 'system');
 
     const filterByMode = (templates: typeof allTemplates) => {
-        const mode = spreadMode === 'split' ? 'single' : 'spread';
+        const mode = sidebarMode === 'split' ? 'single' : 'spread';
         return templates.filter(t => {
             // For system templates, we want to be more inclusive
             if (t.createdBy === 'system') {
@@ -108,23 +115,23 @@ export const LayoutSidebarRight = ({
                         </Label>
                         <div className="flex gap-1.5">
                             <Button
-                                variant={activeTab === 'standard' && spreadMode === 'full' ? 'default' : 'outline'}
+                                variant={activeTab === 'standard' && sidebarMode === 'full' ? 'default' : 'outline'}
                                 size="sm"
                                 className="flex-1 h-8 text-[11px] px-2"
                                 onClick={() => {
                                     setActiveTab('standard');
-                                    onSpreadModeChange('full');
+                                    setSidebarMode('full');
                                 }}
                             >
                                 Double Page
                             </Button>
                             <Button
-                                variant={activeTab === 'standard' && spreadMode === 'split' ? 'default' : 'outline'}
+                                variant={activeTab === 'standard' && sidebarMode === 'split' ? 'default' : 'outline'}
                                 size="sm"
                                 className="flex-1 h-8 text-[11px] px-2"
                                 onClick={() => {
                                     setActiveTab('standard');
-                                    onSpreadModeChange('split');
+                                    setSidebarMode('split');
                                 }}
                             >
                                 Single Page
@@ -157,7 +164,7 @@ export const LayoutSidebarRight = ({
                                 filteredSystem.map((template) => (
                                     <button
                                         key={template.id}
-                                        onClick={() => onSelectLayout(String(template.id))}
+                                        onClick={() => onSelectLayout(String(template.id), sidebarMode)}
                                         className={cn(
                                             "rounded-md border-2 p-1 transition-all hover:border-primary/50 relative overflow-hidden",
                                             selectedLayout === String(template.id)
@@ -176,12 +183,12 @@ export const LayoutSidebarRight = ({
                                 customTemplates.length > 0 ? (
                                     customTemplates.map((template) => {
                                         const isSpread = template.type === 'spread';
-                                        const templateRatio = isSpread ? aspectRatio : (aspectRatio / (spreadMode === 'full' ? 2 : 1));
+                                        const templateRatio = isSpread ? aspectRatio : (aspectRatio / (sidebarMode === 'full' ? 2 : 1));
 
                                         return (
                                             <button
                                                 key={template.id}
-                                                onClick={() => onSelectAdvancedTemplate(template)}
+                                                onClick={() => onSelectAdvancedTemplate(template, sidebarMode)}
                                                 className={cn(
                                                     "rounded-md border-2 p-1 transition-all hover:border-primary/50 relative overflow-hidden",
                                                     selectedAdvancedTemplate?.id === template.id
