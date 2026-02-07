@@ -81,7 +81,7 @@ export const LayoutSidebarLeft = ({
                     {/* Frame Shapes Section */}
                     <div className="space-y-3">
                         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                            <Frame className="h-3.5 w-3.5" /> Frame Shapes
+                            <Frame className="h-3.5 w-3.5" /> Frame Shapes ({canvaFrames.length})
                         </Label>
                         <p className="text-[10px] text-muted-foreground italic">
                             Click to add a decorative frame to the canvas.
