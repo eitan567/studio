@@ -126,7 +126,7 @@ export const LayoutSidebarRight = ({
                         Standard Layouts
                     </Label>
                     <ScrollArea className="flex-1">
-                        <div className="p-2 pr-6 grid grid-cols-2 gap-4">
+                        <div className="p-2 pr-6 grid grid-cols-2 gap-1">
                             {filteredSystem.map((template) => (
                                 <button
                                     key={template.id}

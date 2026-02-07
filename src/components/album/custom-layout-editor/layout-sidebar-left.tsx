@@ -161,42 +161,88 @@ export const LayoutSidebarLeft = ({
                     </div>
 
                     {/* Custom Templates - My Templates (created during this session) */}
-                    <div className="space-y-3">
-                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                            My Templates
-                        </Label>
-
+                    <div className="space-y-4">
                         {customTemplates.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-8 px-4 text-center border-2 border-dashed border-muted-foreground/20 rounded-lg bg-muted/10">
-                                <ImageOff className="h-8 w-8 text-muted-foreground/50 mb-2" />
-                                <p className="text-xs text-muted-foreground">
-                                    No templates yet.<br />
-                                    Draw on the canvas and click <span className="font-medium">Process</span> to create your first template.
-                                </p>
+                            <div className="space-y-3">
+                                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                    My Templates
+                                </Label>
+                                <div className="flex flex-col items-center justify-center py-8 px-4 text-center border-2 border-dashed border-muted-foreground/20 rounded-lg bg-muted/10">
+                                    <ImageOff className="h-8 w-8 text-muted-foreground/50 mb-2" />
+                                    <p className="text-xs text-muted-foreground">
+                                        No templates yet.<br />
+                                        Draw on the canvas and click <span className="font-medium">Process</span> to create your first template.
+                                    </p>
+                                </div>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-2 gap-2">
-                                {customTemplates.map((template) => (
-                                    <button
-                                        key={template.id}
-                                        onClick={() => onSelectAdvancedTemplate(template)}
-                                        className={cn(
-                                            "aspect-square rounded-lg border-2 p-1 transition-all hover:border-primary/50 relative overflow-hidden bg-muted/30",
-                                            selectedAdvancedTemplate?.id === template.id
-                                                ? "border-primary ring-2 ring-primary/20"
-                                                : "border-muted-foreground/20"
-                                        )}
-                                        title={`${template.name} (${getPhotoCount(template)} photos)`}
-                                    >
-                                        <div className="w-full h-full relative overflow-hidden bg-muted rounded-sm">
-                                            <TemplatePreview template={template} />
+                            <>
+                                {/* Single Page Layouts */}
+                                {customTemplates.filter(t => !t.type || t.type === 'single').length > 0 && (
+                                    <div className="space-y-3">
+                                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                            Single Page Layouts
+                                        </Label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {customTemplates
+                                                .filter(t => !t.type || t.type === 'single')
+                                                .map((template) => (
+                                                    <button
+                                                        key={template.id}
+                                                        onClick={() => onSelectAdvancedTemplate(template)}
+                                                        className={cn(
+                                                            "aspect-square rounded-lg border-2 p-1 transition-all hover:border-primary/50 relative overflow-hidden bg-muted/30",
+                                                            selectedAdvancedTemplate?.id === template.id
+                                                                ? "border-primary ring-2 ring-primary/20"
+                                                                : "border-muted-foreground/20"
+                                                        )}
+                                                        title={`${template.name} (${getPhotoCount(template)} photos)`}
+                                                    >
+                                                        <div className="w-full h-full relative overflow-hidden bg-muted rounded-sm">
+                                                            <TemplatePreview template={template} />
+                                                        </div>
+                                                        <span className="absolute bottom-0 left-0 right-0 text-[9px] text-center bg-background/90 py-1 font-medium truncate px-1">
+                                                            {template.name}
+                                                        </span>
+                                                    </button>
+                                                ))}
                                         </div>
-                                        <span className="absolute bottom-0 left-0 right-0 text-[9px] text-center bg-background/90 py-1 font-medium truncate px-1">
-                                            {template.name}
-                                        </span>
-                                    </button>
-                                ))}
-                            </div>
+                                    </div>
+                                )}
+
+                                {/* Full Spread Layouts */}
+                                {customTemplates.filter(t => t.type === 'spread').length > 0 && (
+                                    <div className="space-y-3">
+                                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                            Full Spread Layouts
+                                        </Label>
+                                        <div className="grid grid-cols-1 gap-2">
+                                            {customTemplates
+                                                .filter(t => t.type === 'spread')
+                                                .map((template) => (
+                                                    <button
+                                                        key={template.id}
+                                                        onClick={() => onSelectAdvancedTemplate(template)}
+                                                        className={cn(
+                                                            "aspect-[2/1] rounded-lg border-2 p-1 transition-all hover:border-primary/50 relative overflow-hidden bg-muted/30",
+                                                            selectedAdvancedTemplate?.id === template.id
+                                                                ? "border-primary ring-2 ring-primary/20"
+                                                                : "border-muted-foreground/20"
+                                                        )}
+                                                        title={`${template.name} (${getPhotoCount(template)} photos)`}
+                                                    >
+                                                        <div className="w-full h-full relative overflow-hidden bg-muted rounded-sm">
+                                                            <TemplatePreview template={template} />
+                                                        </div>
+                                                        <span className="absolute bottom-0 left-0 right-0 text-[9px] text-center bg-background/90 py-1 font-medium truncate px-1">
+                                                            {template.name}
+                                                        </span>
+                                                    </button>
+                                                ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
 
