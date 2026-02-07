@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { AdvancedTemplate, VectorObject, Point, Segment, LayoutRegion } from '@/lib/advanced-layout-types';
 import { v4 as uuidv4 } from 'uuid';
 import { ShapeRegion } from '../layouts/shape-region';
-import { ToolMode } from './layout-sidebar-left';
+import { ToolMode } from './custom-layout-editor-overlay';
 
 const updateObjectPoints = (obj: VectorObject, newPoints: Point[]): VectorObject => {
     const newSegments: Segment[] = [];
@@ -113,7 +113,6 @@ export const LayoutCanvas = ({
     const [scale, setScale] = useState(1);
     const [isDrawing, setIsDrawing] = useState(false);
     const [currentStroke, setCurrentStroke] = useState<Segment | null>(null);
-    const [currentPath, setCurrentPath] = useState<Point[]>([]);
     const [transformMode, setTransformMode] = useState<TransformMode>('none');
     const [resizeHandle, setResizeHandle] = useState<number | null>(null);
     const [selectionBox, setSelectionBox] = useState<{ start: Point; end: Point } | null>(null);
@@ -125,7 +124,6 @@ export const LayoutCanvas = ({
 
     // Refs
     // Refs
-    const currentPathRef = useRef<Point[]>([]);
     const currentStrokeRef = useRef<Segment | null>(null);
     const isDrawingRef = useRef(false);
     const isRotatingRef = useRef(false);
@@ -464,17 +462,10 @@ export const LayoutCanvas = ({
         setIsDrawing(true);
         isDrawingRef.current = true;
 
-        if (toolMode === 'freehand') {
-            currentPathRef.current = [point];
-            setCurrentPath([point]);
-            currentStrokeRef.current = null;
-            setCurrentStroke(null);
-        } else {
-            const stroke = { p1: point, p2: point };
-            currentStrokeRef.current = stroke;
-            setCurrentStroke(stroke);
-            setPreviewShape(null);
-        }
+        const stroke = { p1: point, p2: point };
+        currentStrokeRef.current = stroke;
+        setCurrentStroke(stroke);
+        setPreviewShape(null);
     };
 
     const handleSelectMouseDown = (e: React.MouseEvent) => {
@@ -603,8 +594,6 @@ export const LayoutCanvas = ({
         isDrawingRef.current = false;
         setCurrentStroke(null);
         currentStrokeRef.current = null;
-        setCurrentPath([]);
-        currentPathRef.current = [];
         setPreviewShape(null);
         setTransformMode('none');
         setResizeHandle(null);
@@ -673,22 +662,7 @@ export const LayoutCanvas = ({
             };
         };
 
-        if (toolMode === 'freehand') {
-            if (currentPath.length > 1) {
-                const obj = createObject('freehand', currentPath);
-                newObjects.push(obj);
-
-                if (isMirrorMode && coordinateAspect) {
-                    const totalWidth = 100 * coordinateAspect;
-                    const mirroredPoints = currentPath.map(p => [totalWidth - p[0], p[1]] as Point);
-                    const mirroredObj = createObject('freehand', mirroredPoints);
-                    mirroredObj.id = uuidv4();
-                    mirroredObj.mirrorPartnerId = obj.id;
-                    obj.mirrorPartnerId = mirroredObj.id;
-                    newObjects.push(mirroredObj);
-                }
-            }
-        } else if (toolMode === 'rect' || toolMode === 'circle') {
+        if (toolMode === 'rect' || toolMode === 'circle') {
             if (previewShape && previewShape.points.length > 2) {
                 const obj = createObject(toolMode, previewShape.points);
                 newObjects.push(obj);
@@ -765,22 +739,8 @@ export const LayoutCanvas = ({
         }
 
         if (isDrawing) {
-            if (toolMode === 'freehand') {
-                const prev = currentPathRef.current;
-                if (prev.length > 0) {
-                    const last = prev[prev.length - 1];
-                    if (distance(point, last) > 0.2) {
-                        currentPathRef.current = [...prev, point];
-                        setCurrentPath(currentPathRef.current);
-                    }
-                } else {
-                    currentPathRef.current = [point];
-                    setCurrentPath([point]);
-                }
-            } else {
-                currentStrokeRef.current = currentStrokeRef.current ? { ...currentStrokeRef.current, p2: point } : null;
-                setCurrentStroke(currentStrokeRef.current);
-            }
+            currentStrokeRef.current = currentStrokeRef.current ? { ...currentStrokeRef.current, p2: point } : null;
+            setCurrentStroke(currentStrokeRef.current);
             return;
         }
 
@@ -1244,7 +1204,7 @@ export const LayoutCanvas = ({
                     </div>
 
                     {/* Vector Overlay - Only show during editing (not when displaying a processed template) */}
-                    {!advancedTemplate && (vectorObjects.length > 0 || currentStroke || currentPath.length > 0 || previewShape) && (
+                    {!advancedTemplate && (vectorObjects.length > 0 || currentStroke || previewShape) && (
                         <svg
                             className="absolute z-50 overflow-visible"
                             style={{
@@ -1402,9 +1362,7 @@ export const LayoutCanvas = ({
                                     stroke="#ef4444" strokeWidth="0.5" strokeDasharray="1 1" vectorEffect="non-scaling-stroke"
                                 />
                             )}
-                            {currentPath.length > 1 && (
-                                <polyline points={currentPath.map(p => `${p[0]},${p[1]}`).join(' ')} fill="none" stroke="red" strokeWidth="0.75" strokeDasharray="1 1" vectorEffect="non-scaling-stroke" />
-                            )}
+
                             {previewShape && (
                                 <>
                                     <polygon points={previewShape.points.map(p => `${p[0]},${p[1]}`).join(' ')} fill="rgba(255,0,0,0.1)" stroke="red" strokeWidth="0.75" strokeDasharray="2 2" vectorEffect="non-scaling-stroke" />

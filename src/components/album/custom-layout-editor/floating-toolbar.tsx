@@ -83,32 +83,6 @@ export const FloatingToolbar = ({
                     <Pencil className="h-4 w-4" />
                 </Button>
                 <Button
-                    variant={toolMode === 'freehand' ? "secondary" : "ghost"}
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => onToolChange('freehand')}
-                    title="Freehand Tool"
-                >
-                    <Layout className="h-4 w-4" />
-                    {/* Using Layout icon as placeholder for Freehand if Pencil is used for Line, or switch icons. 
-                        Checking original sidebar: 
-                        Line -> Pencil icon
-                        Free -> Pencil icon
-                        Wait, original code used Pencil for BOTH Line and Free? 
-                        Line -> Pencil className="h-4 w-4"
-                        Free -> Pencil className="h-4 w-4"
-                        Let's try to distinguish them. 'Line' usually is a Slash or Pen. 'Free' is a Pencil or Brush.
-                        I'll use 'Pencil' for Free and maybe 'Minus' or 'Slash' or 'PenTool' for Line if available, or just keep as is but add titles. 
-                        Let's use 'Pencil' for Line (as per original) and maybe 'Edit3' or similar for Freehand? 
-                        Actually, original reused Pencil for both. I will keep Pencil for Line and maybe 'Signature' or 'Scribble' if available, otherwise reuse Pencil but change titles.
-                        Let's stick to valid Lucide icons.
-                        Line -> Pencil
-                        Free -> 'Signature' is not in Lucide regular set? 'Pen' is.
-                        Let's use Pencil for Line and 'Pen' for Freehand?
-                        Or just keep them distinct by position/title.
-                    */}
-                </Button>
-                <Button
                     variant={toolMode === 'rect' ? "secondary" : "ghost"}
                     size="icon"
                     className="h-8 w-8"

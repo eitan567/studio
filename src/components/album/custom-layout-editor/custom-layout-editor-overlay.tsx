@@ -20,7 +20,7 @@ import { createClient } from '@/lib/supabase';
 import { invalidateCache } from '@/lib/templates-cache';
 import { VectorObject, Point, Segment, LayoutRegion, AdvancedTemplate } from '@/lib/advanced-layout-types';
 
-export type ToolMode = 'select' | 'pencil' | 'freehand' | 'rect' | 'circle';
+export type ToolMode = 'select' | 'pencil' | 'rect' | 'circle';
 
 interface CustomLayoutEditorOverlayProps {
     onClose: () => void;
@@ -99,7 +99,6 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const [toolMode, setToolMode] = useState<ToolMode>('select');
     const [vectorObjects, setVectorObjects] = useState<VectorObject[]>([]);
     const [currentStroke, setCurrentStroke] = useState<Segment | null>(null);
-    const [currentPath, setCurrentPath] = useState<Point[]>([]);
     const [isMirrorMode, setIsMirrorMode] = useState(false);
     const [selectedShapeIndices, setSelectedShapeIndices] = useState<number[]>([]);
 
@@ -494,7 +493,6 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const handleClearAll = useCallback(() => {
         setVectorObjects([]);
         setCurrentStroke(null);
-        setCurrentPath([]);
         // Clear the selected template so user can create a new one
         setSelectedAdvancedTemplate(null);
         setToolMode('select');
