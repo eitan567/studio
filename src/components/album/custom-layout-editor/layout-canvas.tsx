@@ -1296,19 +1296,19 @@ export const LayoutCanvas = ({
                                                     <clipPath id={clipId}>
                                                         <path d={obj.path} />
                                                     </clipPath>
-                                                    {/* Sky gradient */}
+                                                    {/* Sky gradient - vibrant Canva style */}
                                                     <linearGradient id={`skyGrad-${obj.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                                                        <stop offset="0%" stopColor="#d4eaf7" />
-                                                        <stop offset="100%" stopColor="#eef8ff" />
+                                                        <stop offset="0%" stopColor="#b8e4f9" />
+                                                        <stop offset="100%" stopColor="#e8f6fc" />
                                                     </linearGradient>
-                                                    {/* Hill gradients */}
+                                                    {/* Hill gradients - vibrant Canva style */}
                                                     <linearGradient id={`hill1-${obj.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                                                        <stop offset="0%" stopColor="#90d5ac" />
-                                                        <stop offset="100%" stopColor="#76c893" />
+                                                        <stop offset="0%" stopColor="#9cd67e" />
+                                                        <stop offset="100%" stopColor="#7cc45a" />
                                                     </linearGradient>
                                                     <linearGradient id={`hill2-${obj.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                                                        <stop offset="0%" stopColor="#76c893" />
-                                                        <stop offset="100%" stopColor="#52b788" />
+                                                        <stop offset="0%" stopColor="#85c95c" />
+                                                        <stop offset="100%" stopColor="#6ab344" />
                                                     </linearGradient>
                                                 </defs>
 
@@ -1328,7 +1328,7 @@ export const LayoutCanvas = ({
                                                                 {/* Sun */}
                                                                 <circle cx={vbX + vbW * 0.85} cy={vbY + vbH * 0.15} r={vbW * 0.08} fill="#fdf2a4" />
                                                                 {/* Clouds */}
-                                                                <g fill="white" opacity="0.6">
+                                                                <g fill="white" opacity="0.8">
                                                                     <circle cx={vbX + vbW * 0.2} cy={vbY + vbH * 0.2} r={vbW * 0.05} />
                                                                     <circle cx={vbX + vbW * 0.25} cy={vbY + vbH * 0.22} r={vbW * 0.06} />
                                                                     <circle cx={vbX + vbW * 0.3} cy={vbY + vbH * 0.2} r={vbW * 0.05} />
@@ -1337,7 +1337,6 @@ export const LayoutCanvas = ({
                                                                 <path
                                                                     d={`M ${vbX - vbW * 0.1} ${vbY + vbH} Q ${vbX + vbW * 0.5} ${vbY + vbH * 0.4} ${vbX + vbW * 1.1} ${vbY + vbH} Z`}
                                                                     fill={`url(#hill1-${obj.id})`}
-                                                                    opacity="0.9"
                                                                 />
                                                                 {/* Near hills */}
                                                                 <path
