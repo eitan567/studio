@@ -285,8 +285,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             points: pathPoints,
             path: firstRegion.path,
             viewBox: firstRegion.viewBox,
-            stroke: strokeColor !== 'transparent' ? strokeColor : '#333333',
-            strokeWidth: strokeWidth > 0 ? strokeWidth : 0.5,
+            stroke: strokeColor,
+            strokeWidth: strokeWidth,
             // Use a visible default fill - a soft gray/blue that looks like a frame placeholder
             fill: fillColor !== 'transparent' ? fillColor : 'rgba(100, 130, 180, 0.3)',
             zIndex: vectorObjects.length + 1,
