@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
-import { Check, X, Layout } from 'lucide-react';
+import { Check, X, Layout, BookOpen, Book } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
 import { Sheet } from '@/components/ui/sheet';
@@ -687,6 +687,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             onStrokeWidthChange={setStrokeWidth}
                             fillColor={fillColor}
                             onFillColorChange={setFillColor}
+                            spreadMode={spreadMode}
+                            onToggleSpreadMode={() => handleSpreadModeChange(spreadMode === 'full' ? 'split' : 'full')}
                         />
 
                         {/* Bottom Action Bar */}

@@ -2,9 +2,9 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Layout, Pencil, Square, Circle, Trash2, FlipHorizontal, X, MousePointer2 } from 'lucide-react';
+import { Layout, Pencil, Square, Circle, Trash2, FlipHorizontal, X, MousePointer2, BookOpen, Book } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ToolMode } from './layout-sidebar-left';
+import { ToolMode } from './custom-layout-editor-overlay';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 
@@ -21,6 +21,9 @@ interface FloatingToolbarProps {
     onStrokeWidthChange: (width: number) => void;
     fillColor: string;
     onFillColorChange: (color: string) => void;
+    // Spacing/Layout Controls
+    spreadMode: 'full' | 'split';
+    onToggleSpreadMode: () => void;
 }
 
 export const FloatingToolbar = ({
@@ -33,10 +36,32 @@ export const FloatingToolbar = ({
     strokeWidth,
     onStrokeWidthChange,
     fillColor,
-    onFillColorChange
+    onFillColorChange,
+    spreadMode,
+    onToggleSpreadMode
 }: FloatingToolbarProps) => {
     return (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-background border shadow-lg rounded-lg p-2 flex items-center gap-3">
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-1">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                        "h-8 w-8 transition-colors",
+                        spreadMode === 'full'
+                            ? "text-[#e35a6b] bg-[#fdf0f1] hover:bg-[#fae1e4]"
+                            : "text-muted-foreground hover:bg-muted"
+                    )}
+                    onClick={onToggleSpreadMode}
+                    title={spreadMode === 'full' ? "Double Page Mode" : "Single Page Mode"}
+                >
+                    <BookOpen className="h-4 w-4" />
+                </Button>
+            </div>
+
+            <Separator orientation="vertical" className="h-6" />
+
             {/* Vector Tools Group */}
             <div className="flex items-center gap-1">
                 <Button
