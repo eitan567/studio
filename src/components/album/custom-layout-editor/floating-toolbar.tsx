@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Layout, Pencil, Square, Circle, Trash2, FlipHorizontal, X, MousePointer2, BookOpen, Book } from 'lucide-react';
+import { Layout, Pencil, Square, Circle, Trash2, FlipHorizontal, X, MousePointer2, BookOpen, Book, Ruler, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ToolMode } from './custom-layout-editor-overlay';
 import { Separator } from '@/components/ui/separator';
@@ -24,6 +24,11 @@ interface FloatingToolbarProps {
     // Spacing/Layout Controls
     spreadMode: 'full' | 'split';
     onToggleSpreadMode: () => void;
+    showGuides: boolean;
+    onToggleGuides: () => void;
+    // Action Controls
+    onClearStrokes: () => void;
+    onProcessLayout: () => void;
 }
 
 export const FloatingToolbar = ({
@@ -38,10 +43,14 @@ export const FloatingToolbar = ({
     fillColor,
     onFillColorChange,
     spreadMode,
-    onToggleSpreadMode
+    onToggleSpreadMode,
+    showGuides,
+    onToggleGuides,
+    onClearStrokes,
+    onProcessLayout
 }: FloatingToolbarProps) => {
     return (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-background border shadow-lg rounded-lg p-2 flex items-center gap-3">
+        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-50 bg-background/95 backdrop-blur-sm border shadow-md rounded-full p-2 px-4 flex items-center gap-4">
             {/* View Mode Toggle */}
             <div className="flex items-center gap-1">
                 <Button
@@ -111,6 +120,18 @@ export const FloatingToolbar = ({
                     title="Toggle Mirror Mode"
                 >
                     <FlipHorizontal className="h-4 w-4" />
+                </Button>
+
+                <Separator orientation="vertical" className="h-6 mx-1" />
+
+                <Button
+                    variant={showGuides ? "secondary" : "ghost"}
+                    size="icon"
+                    className={cn("h-8 w-8", showGuides && "text-primary")}
+                    onClick={onToggleGuides}
+                    title="Toggle Rulers & Grid"
+                >
+                    <Ruler className="h-4 w-4" />
                 </Button>
             </div>
 
@@ -184,6 +205,30 @@ export const FloatingToolbar = ({
                     </Button>
                 </div>
             </div>
-        </div>
+
+            <Separator orientation="vertical" className="h-6" />
+
+            {/* Main Action Group */}
+            <div className="flex items-center gap-2">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onClearStrokes}
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 px-3 rounded-full flex items-center gap-2"
+                >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span className="text-xs font-medium">Clear All</span>
+                </Button>
+
+                <Button
+                    size="sm"
+                    onClick={onProcessLayout}
+                    className="bg-green-600 hover:bg-green-700 h-8 px-4 rounded-full flex items-center gap-2 text-white shadow-sm transition-all active:scale-95"
+                >
+                    <Play className="h-3.5 w-3.5 fill-current" />
+                    <span className="text-xs font-medium">Process Layout</span>
+                </Button>
+            </div>
+        </div >
     );
 };

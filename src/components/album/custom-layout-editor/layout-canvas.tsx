@@ -38,6 +38,7 @@ interface LayoutCanvasProps {
     activeFillColor: string;
     selectedShapeIndices: number[];
     onSelectionChange: (indices: number[]) => void;
+    showGuides?: boolean;
 }
 
 type TransformMode = 'none' | 'move' | 'resize' | 'rotate';
@@ -71,7 +72,8 @@ export const LayoutCanvas = ({
     activeStrokeWidth,
     activeFillColor,
     selectedShapeIndices,
-    onSelectionChange
+    onSelectionChange,
+    showGuides = false
 }: LayoutCanvasProps) => {
     const wrapperRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLDivElement>(null);
@@ -108,6 +110,7 @@ export const LayoutCanvas = ({
     const innerLogicalWidth = isFull ? (logicalWidth - pageMargin * 2) : (halfWidth - pageMargin * 2);
     const innerLogicalHeight = logicalHeight - pageMargin * 2;
     const coordinateAspect = innerLogicalWidth / innerLogicalHeight;
+    const logicalWidthUnits = 100 * coordinateAspect;
 
     // --- STATE ---
     const [scale, setScale] = useState(1);
@@ -1125,329 +1128,407 @@ export const LayoutCanvas = ({
 
     return (
         <div ref={wrapperRef} className="w-full h-full bg-muted/20 overflow-hidden relative flex items-center justify-center select-none">
-            <div
-                ref={canvasRef}
-                style={{
-                    width: logicalWidth,
-                    height: logicalHeight,
-                    transform: `scale(${scale})`,
-                    // backgroundColor: backgroundColor, // Only set if specific color
-                    aspectRatio: `${logicalWidth}/${logicalHeight}`
-                }}
-                className={cn(
-                    "relative overflow-hidden ring-1 ring-border flex-none shadow-sm box-border transition-colors duration-200",
-                    !backgroundColor && "bg-background" // Use theme class if no specific color
-                )}
-            >
+            <div className="relative" style={{ transform: `scale(${scale})` }}> {/* Scale anchor for canvas + rulers */}
                 <div
-                    ref={interactionRef}
-                    className={cn("absolute z-10", toolMode === 'select' ? "" : "cursor-crosshair")}
+                    ref={canvasRef}
+                    className={cn(
+                        "relative overflow-hidden ring-1 ring-border flex-none shadow-sm box-border transition-colors duration-200",
+                        !backgroundColor && "bg-background" // Use theme class if no specific color
+                    )}
                     style={{
-                        padding: 0,
-                        top: pageMargin,
-                        left: pageMargin,
-                        right: pageMargin,
-                        bottom: pageMargin,
-                        cursor: toolMode === 'select' ? cursorMode : undefined
+                        width: logicalWidth,
+                        height: logicalHeight,
+                        backgroundColor: backgroundColor || undefined
                     }}
-                    onMouseDown={toolMode === 'select' ? handleSelectMouseDown : handleMouseDown}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                    onMouseLeave={handleMouseUp}
                 >
-                    {/* Content Layer */}
-                    <div className={cn("absolute inset-0 w-full h-full", toolMode !== 'select' && "pointer-events-none")}>
-                        {advancedTemplate ? (
-                            <div
-                                className="absolute bg-background overflow-hidden shadow-sm"
+                    <div
+                        ref={interactionRef}
+                        className={cn("absolute z-10", toolMode === 'select' ? "" : "cursor-crosshair")}
+                        style={{
+                            padding: 0,
+                            top: pageMargin,
+                            left: pageMargin,
+                            right: pageMargin,
+                            bottom: pageMargin,
+                            cursor: toolMode === 'select' ? cursorMode : undefined
+                        }}
+                        onMouseDown={toolMode === 'select' ? handleSelectMouseDown : handleMouseDown}
+                        onMouseMove={handleMouseMove}
+                        onMouseUp={handleMouseUp}
+                        onMouseLeave={handleMouseUp}
+                    >
+                        {/* Content Layer */}
+                        <div className={cn("absolute inset-0 w-full h-full", toolMode !== 'select' && "pointer-events-none")}>
+                            {advancedTemplate ? (
+                                <div
+                                    className="absolute bg-background overflow-hidden shadow-sm"
+                                    style={{
+                                        top: 0,
+                                        left: isFull ? 0 : (logicalWidth / 2) - pageMargin,
+                                        width: innerLogicalWidth,
+                                        height: innerLogicalHeight,
+                                    }}
+                                >
+                                    {advancedTemplate.regions.sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)).map((region, index) => (
+                                        <ShapeRegion
+                                            key={region.id || index}
+                                            region={region}
+                                            photo={page.photos[index]}
+                                            photoGap={photoGap}
+                                            backgroundColor={backgroundColor || 'hsl(var(--background))'}
+                                            containerWidth={innerLogicalWidth}
+                                            containerHeight={innerLogicalHeight}
+                                            onUpdatePanAndZoom={() => { }}
+                                            onInteractionChange={() => { }}
+                                            pageId={page.id}
+                                            cornerRadius={cornerRadius}
+                                        />
+                                    ))}
+                                </div>
+                            ) : isFull ? (
+                                <div className="flex h-full w-full">
+                                    <div className="flex-1 border-r border-dashed border-border flex items-center justify-center text-muted-foreground text-sm">Left Page</div>
+                                    <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">Right Page</div>
+                                </div>
+                            ) : (
+                                <div className="flex h-full w-full">
+                                    {/* LOCKED LEFT SIDE */}
+                                    <div className="flex-1 bg-muted/30 flex flex-col items-center justify-center border-r border-dashed border-border">
+                                        <div className="text-muted-foreground text-xs font-medium uppercase tracking-widest bg-card px-2 py-1 rounded shadow-sm">Locked Section</div>
+                                        <div className="text-[10px] text-muted-foreground/70 mt-1">Single Page designs the right side</div>
+                                    </div>
+                                    {/* ACTIVE RIGHT SIDE */}
+                                    <div className="flex-1 bg-background relative overflow-hidden flex items-center justify-center">
+                                        <div className="text-muted-foreground text-sm">Design Area</div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Vector Overlay - Only show during editing (not when displaying a processed template) */}
+                        {!advancedTemplate && (vectorObjects.length > 0 || currentStroke || previewShape) && (
+                            <svg
+                                className="absolute z-50 overflow-visible"
                                 style={{
+                                    pointerEvents: 'none',
                                     top: 0,
                                     left: isFull ? 0 : (logicalWidth / 2) - pageMargin,
                                     width: innerLogicalWidth,
-                                    height: innerLogicalHeight,
+                                    height: innerLogicalHeight
                                 }}
+                                viewBox={`0 0 ${100 * coordinateAspect} 100`}
+                                preserveAspectRatio="none"
                             >
-                                {advancedTemplate.regions.sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)).map((region, index) => (
-                                    <ShapeRegion
-                                        key={region.id || index}
-                                        region={region}
-                                        photo={page.photos[index]}
-                                        photoGap={photoGap}
-                                        backgroundColor={backgroundColor || 'hsl(var(--background))'}
-                                        containerWidth={innerLogicalWidth}
-                                        containerHeight={innerLogicalHeight}
-                                        onUpdatePanAndZoom={() => { }}
-                                        onInteractionChange={() => { }}
-                                        pageId={page.id}
-                                        cornerRadius={cornerRadius}
-                                    />
-                                ))}
-                            </div>
-                        ) : isFull ? (
-                            <div className="flex h-full w-full">
-                                <div className="flex-1 border-r border-dashed border-border flex items-center justify-center text-muted-foreground text-sm">Left Page</div>
-                                <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">Right Page</div>
-                            </div>
-                        ) : (
-                            <div className="flex h-full w-full">
-                                {/* LOCKED LEFT SIDE */}
-                                <div className="flex-1 bg-muted/30 flex flex-col items-center justify-center border-r border-dashed border-border">
-                                    <div className="text-muted-foreground text-xs font-medium uppercase tracking-widest bg-card px-2 py-1 rounded shadow-sm">Locked Section</div>
-                                    <div className="text-[10px] text-muted-foreground/70 mt-1">Single Page designs the right side</div>
-                                </div>
-                                {/* ACTIVE RIGHT SIDE */}
-                                <div className="flex-1 bg-background relative overflow-hidden flex items-center justify-center">
-                                    <div className="text-muted-foreground text-sm">Design Area</div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                                {vectorObjects.map((obj, i) => {
+                                    const isSelected = selectedShapeIndices.includes(i);
+                                    const pointsStr = (obj.points || []).map(p => `${p[0]},${p[1]}`).join(' ');
 
-                    {/* Vector Overlay - Only show during editing (not when displaying a processed template) */}
-                    {!advancedTemplate && (vectorObjects.length > 0 || currentStroke || previewShape) && (
-                        <svg
-                            className="absolute z-50 overflow-visible"
-                            style={{
-                                pointerEvents: 'none',
-                                top: 0,
-                                left: isFull ? 0 : (logicalWidth / 2) - pageMargin,
-                                width: innerLogicalWidth,
-                                height: innerLogicalHeight
-                            }}
-                            viewBox={`0 0 ${100 * coordinateAspect} 100`}
-                            preserveAspectRatio="none"
-                        >
-                            {vectorObjects.map((obj, i) => {
-                                const isSelected = selectedShapeIndices.includes(i);
-                                const pointsStr = (obj.points || []).map(p => `${p[0]},${p[1]}`).join(' ');
+                                    if (obj.type === 'path') {
+                                        // Calculate current bounding box from points
+                                        const minX = obj.points && obj.points.length ? Math.min(...obj.points.map(p => p[0])) : 0;
+                                        const minY = obj.points && obj.points.length ? Math.min(...obj.points.map(p => p[1])) : 0;
+                                        const maxX = obj.points && obj.points.length ? Math.max(...obj.points.map(p => p[0])) : 100 * coordinateAspect;
+                                        const maxY = obj.points && obj.points.length ? Math.max(...obj.points.map(p => p[1])) : 100;
 
-                                if (obj.type === 'path') {
-                                    // Calculate current bounding box from points
-                                    const minX = obj.points && obj.points.length ? Math.min(...obj.points.map(p => p[0])) : 0;
-                                    const minY = obj.points && obj.points.length ? Math.min(...obj.points.map(p => p[1])) : 0;
-                                    const maxX = obj.points && obj.points.length ? Math.max(...obj.points.map(p => p[0])) : 100 * coordinateAspect;
-                                    const maxY = obj.points && obj.points.length ? Math.max(...obj.points.map(p => p[1])) : 100;
+                                        const width = maxX - minX;
+                                        const height = maxY - minY;
+                                        const cx = minX + width / 2;
+                                        const cy = minY + height / 2;
 
-                                    const width = maxX - minX;
-                                    const height = maxY - minY;
-                                    const cx = minX + width / 2;
-                                    const cy = minY + height / 2;
+                                        // Use the path's viewBox to scale it correctly
+                                        // viewBox format: "minX minY width height"
+                                        const pathViewBox = obj.viewBox || '0 0 100 100';
+                                        const clipId = `clip-${obj.id}`;
 
-                                    // Use the path's viewBox to scale it correctly
-                                    // viewBox format: "minX minY width height"
-                                    const pathViewBox = obj.viewBox || '0 0 100 100';
-                                    const clipId = `clip-${obj.id}`;
+                                        return (
+                                            <g key={obj.id} transform={`rotate(${obj.rotation || 0}, ${cx}, ${cy})`}>
+                                                {/* Nested SVG to properly scale the path using its viewBox */}
+                                                <svg
+                                                    x={minX}
+                                                    y={minY}
+                                                    width={width}
+                                                    height={height}
+                                                    viewBox={pathViewBox}
+                                                    preserveAspectRatio="none"
+                                                    overflow="visible"
+                                                >
+                                                    {/* Definitions for gradients and clip path */}
+                                                    <defs>
+                                                        {/* Clip path using the frame shape */}
+                                                        <clipPath id={clipId}>
+                                                            <path d={obj.path} />
+                                                        </clipPath>
+                                                        {/* Sky gradient - vibrant Canva style */}
+                                                        <linearGradient id={`skyGrad-${obj.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                                            <stop offset="0%" stopColor="#b8e4f9" />
+                                                            <stop offset="100%" stopColor="#e8f6fc" />
+                                                        </linearGradient>
+                                                        {/* Hill gradients - vibrant Canva style */}
+                                                        <linearGradient id={`hill1-${obj.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                                            <stop offset="0%" stopColor="#9cd67e" />
+                                                            <stop offset="100%" stopColor="#7cc45a" />
+                                                        </linearGradient>
+                                                        <linearGradient id={`hill2-${obj.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                                            <stop offset="0%" stopColor="#85c95c" />
+                                                            <stop offset="100%" stopColor="#6ab344" />
+                                                        </linearGradient>
+                                                    </defs>
+
+                                                    {/* Placeholder content clipped to frame shape */}
+                                                    <g clipPath={`url(#${clipId})`}>
+                                                        {/* Parse viewBox to get bounds */}
+                                                        {(() => {
+                                                            const vb = pathViewBox.split(' ').map(Number);
+                                                            const vbX = vb[0] || 0;
+                                                            const vbY = vb[1] || 0;
+                                                            const vbW = vb[2] || 100;
+                                                            const vbH = vb[3] || 100;
+                                                            return (
+                                                                <>
+                                                                    {/* Sky background */}
+                                                                    <rect x={vbX} y={vbY} width={vbW} height={vbH} fill={`url(#skyGrad-${obj.id})`} />
+                                                                    {/* Sun */}
+                                                                    <circle cx={vbX + vbW * 0.85} cy={vbY + vbH * 0.15} r={vbW * 0.08} fill="#fdf2a4" />
+                                                                    {/* Clouds */}
+                                                                    <g fill="white" opacity="0.8">
+                                                                        <circle cx={vbX + vbW * 0.2} cy={vbY + vbH * 0.2} r={vbW * 0.05} />
+                                                                        <circle cx={vbX + vbW * 0.25} cy={vbY + vbH * 0.22} r={vbW * 0.06} />
+                                                                        <circle cx={vbX + vbW * 0.3} cy={vbY + vbH * 0.2} r={vbW * 0.05} />
+                                                                    </g>
+                                                                    {/* Far hill */}
+                                                                    <path
+                                                                        d={`M ${vbX - vbW * 0.1} ${vbY + vbH} Q ${vbX + vbW * 0.5} ${vbY + vbH * 0.4} ${vbX + vbW * 1.1} ${vbY + vbH} Z`}
+                                                                        fill={`url(#hill1-${obj.id})`}
+                                                                    />
+                                                                    {/* Near hills */}
+                                                                    <path
+                                                                        d={`M ${vbX - vbW * 0.2} ${vbY + vbH} Q ${vbX + vbW * 0.3} ${vbY + vbH * 0.6} ${vbX + vbW * 0.8} ${vbY + vbH * 1.1} Z`}
+                                                                        fill={`url(#hill2-${obj.id})`}
+                                                                    />
+                                                                    <path
+                                                                        d={`M ${vbX + vbW * 0.4} ${vbY + vbH * 1.1} Q ${vbX + vbW * 0.8} ${vbY + vbH * 0.7} ${vbX + vbW * 1.2} ${vbY + vbH} Z`}
+                                                                        fill={`url(#hill2-${obj.id})`}
+                                                                        opacity="0.8"
+                                                                    />
+                                                                </>
+                                                            );
+                                                        })()}
+                                                    </g>
+
+                                                    {/* Photo gap - uses background color from album settings, only if photoGap > 0 */}
+                                                    {photoGap > 0 && (
+                                                        <path
+                                                            d={obj.path}
+                                                            fill="none"
+                                                            stroke={backgroundColor || 'hsl(var(--background))'}
+                                                            strokeWidth={photoGap}
+                                                            vectorEffect="non-scaling-stroke"
+                                                            pointerEvents="none"
+                                                        />
+                                                    )}
+
+                                                    {/* Frame border stroke */}
+                                                    {(obj.strokeWidth ?? 0) > 0 && (
+                                                        <path
+                                                            d={obj.path}
+                                                            fill="none"
+                                                            stroke={isSelected ? "#3b82f6" : (obj.stroke || "#333333")}
+                                                            strokeWidth={isSelected ? Math.max(0.75, (obj.strokeWidth || 0.5) * 1.5) : (obj.strokeWidth || 0.5)}
+                                                            strokeOpacity={obj.opacity ?? 1}
+                                                            vectorEffect="non-scaling-stroke"
+                                                        />
+                                                    )}
+                                                </svg>
+                                            </g>
+                                        );
+                                    }
 
                                     return (
-                                        <g key={obj.id} transform={`rotate(${obj.rotation || 0}, ${cx}, ${cy})`}>
-                                            {/* Nested SVG to properly scale the path using its viewBox */}
-                                            <svg
-                                                x={minX}
-                                                y={minY}
-                                                width={width}
-                                                height={height}
-                                                viewBox={pathViewBox}
-                                                preserveAspectRatio="none"
-                                                overflow="visible"
-                                            >
-                                                {/* Definitions for gradients and clip path */}
-                                                <defs>
-                                                    {/* Clip path using the frame shape */}
-                                                    <clipPath id={clipId}>
-                                                        <path d={obj.path} />
-                                                    </clipPath>
-                                                    {/* Sky gradient - vibrant Canva style */}
-                                                    <linearGradient id={`skyGrad-${obj.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                                                        <stop offset="0%" stopColor="#b8e4f9" />
-                                                        <stop offset="100%" stopColor="#e8f6fc" />
-                                                    </linearGradient>
-                                                    {/* Hill gradients - vibrant Canva style */}
-                                                    <linearGradient id={`hill1-${obj.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                                                        <stop offset="0%" stopColor="#9cd67e" />
-                                                        <stop offset="100%" stopColor="#7cc45a" />
-                                                    </linearGradient>
-                                                    <linearGradient id={`hill2-${obj.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                                                        <stop offset="0%" stopColor="#85c95c" />
-                                                        <stop offset="100%" stopColor="#6ab344" />
-                                                    </linearGradient>
-                                                </defs>
-
-                                                {/* Placeholder content clipped to frame shape */}
-                                                <g clipPath={`url(#${clipId})`}>
-                                                    {/* Parse viewBox to get bounds */}
-                                                    {(() => {
-                                                        const vb = pathViewBox.split(' ').map(Number);
-                                                        const vbX = vb[0] || 0;
-                                                        const vbY = vb[1] || 0;
-                                                        const vbW = vb[2] || 100;
-                                                        const vbH = vb[3] || 100;
-                                                        return (
-                                                            <>
-                                                                {/* Sky background */}
-                                                                <rect x={vbX} y={vbY} width={vbW} height={vbH} fill={`url(#skyGrad-${obj.id})`} />
-                                                                {/* Sun */}
-                                                                <circle cx={vbX + vbW * 0.85} cy={vbY + vbH * 0.15} r={vbW * 0.08} fill="#fdf2a4" />
-                                                                {/* Clouds */}
-                                                                <g fill="white" opacity="0.8">
-                                                                    <circle cx={vbX + vbW * 0.2} cy={vbY + vbH * 0.2} r={vbW * 0.05} />
-                                                                    <circle cx={vbX + vbW * 0.25} cy={vbY + vbH * 0.22} r={vbW * 0.06} />
-                                                                    <circle cx={vbX + vbW * 0.3} cy={vbY + vbH * 0.2} r={vbW * 0.05} />
-                                                                </g>
-                                                                {/* Far hill */}
-                                                                <path
-                                                                    d={`M ${vbX - vbW * 0.1} ${vbY + vbH} Q ${vbX + vbW * 0.5} ${vbY + vbH * 0.4} ${vbX + vbW * 1.1} ${vbY + vbH} Z`}
-                                                                    fill={`url(#hill1-${obj.id})`}
-                                                                />
-                                                                {/* Near hills */}
-                                                                <path
-                                                                    d={`M ${vbX - vbW * 0.2} ${vbY + vbH} Q ${vbX + vbW * 0.3} ${vbY + vbH * 0.6} ${vbX + vbW * 0.8} ${vbY + vbH * 1.1} Z`}
-                                                                    fill={`url(#hill2-${obj.id})`}
-                                                                />
-                                                                <path
-                                                                    d={`M ${vbX + vbW * 0.4} ${vbY + vbH * 1.1} Q ${vbX + vbW * 0.8} ${vbY + vbH * 0.7} ${vbX + vbW * 1.2} ${vbY + vbH} Z`}
-                                                                    fill={`url(#hill2-${obj.id})`}
-                                                                    opacity="0.8"
-                                                                />
-                                                            </>
-                                                        );
-                                                    })()}
-                                                </g>
-
-                                                {/* Photo gap - uses background color from album settings, only if photoGap > 0 */}
-                                                {photoGap > 0 && (
-                                                    <path
-                                                        d={obj.path}
-                                                        fill="none"
-                                                        stroke={backgroundColor || 'hsl(var(--background))'}
-                                                        strokeWidth={photoGap}
-                                                        vectorEffect="non-scaling-stroke"
-                                                        pointerEvents="none"
-                                                    />
-                                                )}
-
-                                                {/* Frame border stroke */}
-                                                {(obj.strokeWidth ?? 0) > 0 && (
-                                                    <path
-                                                        d={obj.path}
-                                                        fill="none"
-                                                        stroke={isSelected ? "#3b82f6" : (obj.stroke || "#333333")}
-                                                        strokeWidth={isSelected ? Math.max(0.75, (obj.strokeWidth || 0.5) * 1.5) : (obj.strokeWidth || 0.5)}
-                                                        strokeOpacity={obj.opacity ?? 1}
-                                                        vectorEffect="non-scaling-stroke"
-                                                    />
-                                                )}
-                                            </svg>
-                                        </g>
+                                        <polygon
+                                            key={obj.id}
+                                            points={pointsStr}
+                                            fill={obj.fill || 'none'}
+                                            stroke={(obj.strokeWidth ?? 0) > 0 ? (isSelected ? "#3b82f6" : (obj.stroke || "black")) : "none"}
+                                            strokeWidth={(obj.strokeWidth ?? 0) > 0 ? (isSelected ? Math.max(0.75, (obj.strokeWidth || 0.5) * 1.5) : (obj.strokeWidth || 0.5)) : 0}
+                                            strokeOpacity={obj.opacity ?? 1}
+                                            fillOpacity={obj.opacity ?? 1}
+                                            vectorEffect="non-scaling-stroke"
+                                        />
                                     );
-                                }
+                                })}
 
-                                return (
-                                    <polygon
-                                        key={obj.id}
-                                        points={pointsStr}
-                                        fill={obj.fill || 'none'}
-                                        stroke={(obj.strokeWidth ?? 0) > 0 ? (isSelected ? "#3b82f6" : (obj.stroke || "black")) : "none"}
-                                        strokeWidth={(obj.strokeWidth ?? 0) > 0 ? (isSelected ? Math.max(0.75, (obj.strokeWidth || 0.5) * 1.5) : (obj.strokeWidth || 0.5)) : 0}
-                                        strokeOpacity={obj.opacity ?? 1}
-                                        fillOpacity={obj.opacity ?? 1}
+                                {currentStroke && (
+                                    <line
+                                        x1={currentStroke.p1[0]} y1={currentStroke.p1[1]}
+                                        x2={currentStroke.p2[0]} y2={currentStroke.p2[1]}
+                                        stroke="#ef4444" strokeWidth="0.5" strokeDasharray="1 1" vectorEffect="non-scaling-stroke"
+                                    />
+                                )}
+
+                                {previewShape && (
+                                    <>
+                                        <polygon points={previewShape.points.map(p => `${p[0]},${p[1]}`).join(' ')} fill="rgba(255,0,0,0.1)" stroke="red" strokeWidth="0.75" strokeDasharray="2 2" vectorEffect="non-scaling-stroke" />
+                                        {isMirrorMode && (
+                                            <polygon
+                                                points={previewShape.points.map(p => `${(100 * coordinateAspect) - p[0]},${p[1]}`).join(' ')}
+                                                fill="rgba(255,0,0,0.1)" stroke="red" strokeWidth="0.75" strokeDasharray="2 2" vectorEffect="non-scaling-stroke"
+                                            />
+                                        )}
+                                    </>
+                                )}
+                                {/* Selection Box */}
+                                {selectionBox && (
+                                    <rect
+                                        x={Math.min(selectionBox.start[0], selectionBox.end[0])}
+                                        y={Math.min(selectionBox.start[1], selectionBox.end[1])}
+                                        width={Math.abs(selectionBox.end[0] - selectionBox.start[0])}
+                                        height={Math.abs(selectionBox.end[1] - selectionBox.start[1])}
+                                        fill="rgba(59, 130, 246, 0.1)"
+                                        stroke="#3b82f6"
+                                        strokeWidth="0.5"
+                                        strokeDasharray="2 2"
                                         vectorEffect="non-scaling-stroke"
                                     />
-                                );
-                            })}
+                                )}
+                            </svg>
+                        )}
 
-                            {currentStroke && (
-                                <line
-                                    x1={currentStroke.p1[0]} y1={currentStroke.p1[1]}
-                                    x2={currentStroke.p2[0]} y2={currentStroke.p2[1]}
-                                    stroke="#ef4444" strokeWidth="0.5" strokeDasharray="1 1" vectorEffect="non-scaling-stroke"
-                                />
-                            )}
-
-                            {previewShape && (
-                                <>
-                                    <polygon points={previewShape.points.map(p => `${p[0]},${p[1]}`).join(' ')} fill="rgba(255,0,0,0.1)" stroke="red" strokeWidth="0.75" strokeDasharray="2 2" vectorEffect="non-scaling-stroke" />
-                                    {isMirrorMode && (
-                                        <polygon
-                                            points={previewShape.points.map(p => `${(100 * coordinateAspect) - p[0]},${p[1]}`).join(' ')}
-                                            fill="rgba(255,0,0,0.1)" stroke="red" strokeWidth="0.75" strokeDasharray="2 2" vectorEffect="non-scaling-stroke"
-                                        />
-                                    )}
-                                </>
-                            )}
-                            {/* Selection Box */}
-                            {selectionBox && (
-                                <rect
-                                    x={Math.min(selectionBox.start[0], selectionBox.end[0])}
-                                    y={Math.min(selectionBox.start[1], selectionBox.end[1])}
-                                    width={Math.abs(selectionBox.end[0] - selectionBox.start[0])}
-                                    height={Math.abs(selectionBox.end[1] - selectionBox.start[1])}
-                                    fill="rgba(59, 130, 246, 0.1)"
-                                    stroke="#3b82f6"
-                                    strokeWidth="0.5"
-                                    strokeDasharray="2 2"
+                        {/* Selection Handles (Only show if ONE shape is selected) */}
+                        {primaryShape && (
+                            <svg
+                                className="absolute z-50 overflow-visible"
+                                style={{
+                                    pointerEvents: 'none',
+                                    top: 0,
+                                    left: isFull ? 0 : (logicalWidth / 2) - pageMargin,
+                                    width: innerLogicalWidth,
+                                    height: innerLogicalHeight
+                                }}
+                                viewBox={`0 0 ${100 * coordinateAspect} 100`}
+                                preserveAspectRatio="none"
+                            >
+                                {/* Rotated Rect Outline */}
+                                <polygon
+                                    points={getResizeHandles(primaryShape.obb)
+                                        .filter((_, i) => [0, 2, 4, 6].includes(i)) // corners only for the rect polygon
+                                        .map(p => `${p[0]},${p[1]}`)
+                                        .join(' ')}
+                                    fill="none"
+                                    stroke={isSymmetric ? "#10b981" : "#3b82f6"}
+                                    strokeWidth={isSymmetric ? "2" : "0.5"}
+                                    strokeDasharray={isSymmetric ? "none" : "3 3"}
                                     vectorEffect="non-scaling-stroke"
                                 />
-                            )}
-                        </svg>
-                    )}
 
-                    {/* Selection Handles (Only show if ONE shape is selected) */}
-                    {primaryShape && (
-                        <svg
-                            className="absolute z-50 overflow-visible"
-                            style={{
-                                pointerEvents: 'none',
-                                top: 0,
-                                left: isFull ? 0 : (logicalWidth / 2) - pageMargin,
-                                width: innerLogicalWidth,
-                                height: innerLogicalHeight
-                            }}
-                            viewBox={`0 0 ${100 * coordinateAspect} 100`}
-                            preserveAspectRatio="none"
-                        >
-                            {/* Rotated Rect Outline */}
-                            <polygon
-                                points={getResizeHandles(primaryShape.obb)
-                                    .filter((_, i) => [0, 2, 4, 6].includes(i)) // corners only for the rect polygon
-                                    .map(p => `${p[0]},${p[1]}`)
-                                    .join(' ')}
-                                fill="none"
-                                stroke={isSymmetric ? "#10b981" : "#3b82f6"}
-                                strokeWidth={isSymmetric ? "2" : "0.5"}
-                                strokeDasharray={isSymmetric ? "none" : "3 3"}
-                                vectorEffect="non-scaling-stroke"
+                                {/* Rotation Handles (Pink Circles at Corners, Offset) */}
+                                {getRotationHandles(primaryShape.obb).map((h, i) => (
+                                    <g key={`rot-${i}`} transform={`translate(${h[0]}, ${h[1]})`}>
+                                        {/* Connector Line from Corner to Rot Handle */}
+                                        {(() => {
+                                            const cornerIdx = [0, 2, 4, 6][i]; // TL, TR, BR, BL
+                                            const corner = getResizeHandles(primaryShape.obb)[cornerIdx];
+                                            return (
+                                                <line x1={corner[0] - h[0]} y1={corner[1] - h[1]} x2={0} y2={0} stroke="#ec4899" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
+                                            )
+                                        })()}
+                                        <circle r={1.6} fill="#ec4899" stroke="white" strokeWidth="1" vectorEffect="non-scaling-stroke" cursor="crosshair" />
+                                    </g>
+                                ))}
+
+                                {/* Resize Handles (Circles) */}
+                                {getResizeHandles(primaryShape.obb).map((h, i) => {
+                                    return (
+                                        <circle key={i}
+                                            cx={h[0]} cy={h[1]}
+                                            r={1.2}
+                                            fill="white" stroke="#3b82f6" strokeWidth="0.5"
+                                            vectorEffect="non-scaling-stroke"
+                                            transform={`rotate(${primaryShape.obb.angle * 180 / Math.PI}, ${h[0]}, ${h[1]})`}
+                                        />
+                                    );
+                                })}
+                            </svg>
+                        )}
+
+                        {/* GRID OVERLAY */}
+                        {showGuides && (
+                            <div
+                                className="absolute inset-0 pointer-events-none z-0"
+                                style={{
+                                    backgroundImage: `
+                                    linear-gradient(to right, rgba(128, 128, 128, 0.08) 1px, transparent 1px),
+                                    linear-gradient(to bottom, rgba(128, 128, 128, 0.08) 1px, transparent 1px),
+                                    linear-gradient(to right, rgba(128, 128, 128, 0.04) 1px, transparent 1px),
+                                    linear-gradient(to bottom, rgba(128, 128, 128, 0.04) 1px, transparent 1px)
+                                `,
+                                    backgroundSize: `
+                                    ${(10 / coordinateAspect)}% 10%,
+                                    ${(10 / coordinateAspect)}% 10%,
+                                    ${(2 / coordinateAspect)}% 2%,
+                                    ${(2 / coordinateAspect)}% 2%
+                                `,
+                                    backgroundPosition: '0 0'
+                                }}
                             />
+                        )}
+                    </div> {/* End interactionRef */}
+                </div> {/* End canvasRef */}
 
-                            {/* Rotation Handles (Pink Circles at Corners, Offset) */}
-                            {getRotationHandles(primaryShape.obb).map((h, i) => (
-                                <g key={`rot-${i}`} transform={`translate(${h[0]}, ${h[1]})`}>
-                                    {/* Connector Line from Corner to Rot Handle */}
-                                    {(() => {
-                                        const cornerIdx = [0, 2, 4, 6][i]; // TL, TR, BR, BL
-                                        const corner = getResizeHandles(primaryShape.obb)[cornerIdx];
-                                        return (
-                                            <line x1={corner[0] - h[0]} y1={corner[1] - h[1]} x2={0} y2={0} stroke="#ec4899" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
-                                        )
-                                    })()}
-                                    <circle r={1.6} fill="#ec4899" stroke="white" strokeWidth="1" vectorEffect="non-scaling-stroke" cursor="crosshair" />
-                                </g>
+                {/* RULERS (Aligned with interaction area) */}
+                {showGuides && (
+                    <>
+                        {/* Ruler Intersection Corner */}
+                        <div
+                            className="absolute border border-border/40 bg-background/80 backdrop-blur-sm z-20"
+                            style={{
+                                left: pageMargin - 26,
+                                top: pageMargin - 26,
+                                width: '26px',
+                                height: '26px'
+                            }}
+                        />
+
+                        {/* Vertical Ruler (Left) */}
+                        <div
+                            className="absolute w-[26px] flex flex-col pointer-events-none select-none border-r border-border/40 bg-background/80 backdrop-blur-sm"
+                            style={{
+                                left: pageMargin - 26,
+                                top: pageMargin,
+                                bottom: pageMargin
+                            }}
+                        >
+                            {Array.from({ length: 11 }).map((_, i) => (
+                                <div key={i} className="absolute left-0 right-0 flex items-center justify-end pr-1.5" style={{ top: `${i * 10}%`, height: '0px' }}>
+                                    <div className="absolute right-0 w-3 border-b border-border/40" />
+                                    <span className="text-[8px] font-medium text-muted-foreground/90 mr-4 translate-y-[2px]">{i * 10}</span>
+                                </div>
                             ))}
+                            {Array.from({ length: 51 }).map((_, i) => (
+                                <div key={i} className={cn("absolute right-0 border-b border-border/20", i % 5 === 0 ? "w-2.5" : "w-1.5")} style={{ top: `${i * 2}%`, height: '0px' }} />
+                            ))}
+                        </div>
 
-                            {/* Resize Handles (Circles) */}
-                            {getResizeHandles(primaryShape.obb).map((h, i) => {
-                                return (
-                                    <circle key={i}
-                                        cx={h[0]} cy={h[1]}
-                                        r={1.2}
-                                        fill="white" stroke="#3b82f6" strokeWidth="0.5"
-                                        vectorEffect="non-scaling-stroke"
-                                        transform={`rotate(${primaryShape.obb.angle * 180 / Math.PI}, ${h[0]}, ${h[1]})`}
-                                    />
-                                );
-                            })}
-                        </svg>
-                    )}
-                </div>
+                        {/* Horizontal Ruler (Top) */}
+                        <div
+                            className="absolute h-[26px] flex pointer-events-none select-none border-b border-border/40 bg-background/80 backdrop-blur-sm"
+                            style={{
+                                top: pageMargin - 26,
+                                left: pageMargin,
+                                right: pageMargin
+                            }}
+                        >
+                            {Array.from({ length: Math.ceil(logicalWidthUnits / 10) + 1 }).map((_, i) => (
+                                <div key={i} className="absolute top-0 bottom-0 flex flex-col justify-end pb-1.5" style={{ left: `${(i * 10 / logicalWidthUnits) * 100}%`, width: '0px' }}>
+                                    <div className="absolute bottom-0 h-3 border-r border-border/40" />
+                                    <span className="text-[8px] font-medium text-muted-foreground/90 ml-1.5 mb-2.5">{i * 10}</span>
+                                </div>
+                            ))}
+                            {Array.from({ length: Math.ceil(logicalWidthUnits / 2) + 1 }).map((_, i) => (
+                                <div key={i} className={cn("absolute bottom-0 border-r border-border/20", i % 5 === 0 ? "h-2.5" : "h-1.5")} style={{ left: `${(i * 2 / logicalWidthUnits) * 100}%`, width: '0px' }} />
+                            ))}
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     );

@@ -107,6 +107,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const [currentStroke, setCurrentStroke] = useState<Segment | null>(null);
     const [isMirrorMode, setIsMirrorMode] = useState(false);
     const [selectedShapeIndices, setSelectedShapeIndices] = useState<number[]>([]);
+    const [showGuides, setShowGuides] = useState(true);
 
     // Vector Properties State
     const [strokeColor, setStrokeColor] = useState('#000000');
@@ -683,7 +684,6 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
                     {/* Canvas */}
                     <div className="flex-1 relative overflow-hidden">
-                        {/* Floating Toolbar */}
                         <FloatingToolbar
                             toolMode={toolMode}
                             onToolChange={setToolMode}
@@ -697,10 +697,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             onFillColorChange={setFillColor}
                             spreadMode={spreadMode}
                             onToggleSpreadMode={() => handleSpreadModeChange(spreadMode === 'full' ? 'split' : 'full')}
-                        />
-
-                        {/* Bottom Action Bar */}
-                        <BottomToolbar
+                            showGuides={showGuides}
+                            onToggleGuides={() => setShowGuides(!showGuides)}
                             onClearStrokes={handleClearAll}
                             onProcessLayout={handleProcessLayout}
                         />
@@ -728,6 +726,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             activeStrokeColor={strokeColor}
                             activeStrokeWidth={strokeWidth}
                             activeFillColor={fillColor}
+                            showGuides={showGuides}
                         />
                     </div>
                 </div>
