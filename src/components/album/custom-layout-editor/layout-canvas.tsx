@@ -1171,7 +1171,7 @@ export const LayoutCanvas = ({
                     width: logicalWidth,
                     height: logicalHeight,
                     transform: `scale(${scale})`,
-                    backgroundColor: backgroundColor, // Only set if specific color
+                    // backgroundColor: backgroundColor, // Only set if specific color
                     aspectRatio: `${logicalWidth}/${logicalHeight}`
                 }}
                 className={cn(
