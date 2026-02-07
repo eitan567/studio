@@ -75,7 +75,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             type: 'spread',
             photos,
             layout: layoutId,
-            spreadMode: 'split',
+            spreadMode: 'full',
             spreadLayouts: {
                 left: layoutId,
                 right: layoutId
@@ -87,7 +87,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
 
     const [selectedLayout, setSelectedLayout] = useState('4-grid');
-    const [spreadMode, setSpreadMode] = useState<'full' | 'split'>('split');
+    const [spreadMode, setSpreadMode] = useState<'full' | 'split'>('full');
     const [photoGap, setPhotoGap] = useState(() => config?.photoGap ?? 2);
     const [pageMargin, setPageMargin] = useState(() => config?.pageMargin ?? 0);
     const [cornerRadius, setCornerRadius] = useState(() => config?.cornerRadius ?? 0);

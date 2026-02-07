@@ -50,7 +50,7 @@ export const FloatingToolbar = ({
                     className={cn(
                         "h-8 w-8 transition-colors",
                         spreadMode === 'full'
-                            ? "text-[#e35a6b] bg-[#fdf0f1] hover:bg-[#fae1e4]"
+                            ? "text-[#e35a6b] bg-[#fdf0f1] hover:bg-[#fae1e4] dark:bg-[#3d2428] dark:text-[#ff8a9a] dark:hover:bg-[#4d2e32]"
                             : "text-muted-foreground hover:bg-muted"
                     )}
                     onClick={onToggleSpreadMode}
