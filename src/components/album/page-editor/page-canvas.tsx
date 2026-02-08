@@ -249,14 +249,9 @@ const PageToolbar = ({
                 return t.type === type;
             }
 
-            // Priority 2: System templates without explicit type
-            // Usually old GRID templates. Default to 'spread' for them or match by ID pattern if needed.
-            if (t.createdBy === 'system') {
-                return true; // Available in both views by default for flexibility
-            }
-
-            // Priority 3: Custom templates must have a type to show up
-            return false;
+            // Priority 2: Templates without explicit type - Show them
+            // User requested no filtering by system status
+            return true;
         });
     };
 

@@ -139,7 +139,7 @@ Return ONLY a valid JSON object with the layout definition.`;
                 regions,
                 photoCount: input.photoCount,
                 isCustom: true,
-                createdBy: 'ai',
+                createdBy: null,
                 description: input.prompt,
             };
 

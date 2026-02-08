@@ -41,10 +41,11 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const { isAdmin } = useAuth();
     const [adminOpen, setAdminOpen] = useState(false);
 
-    // Load existing custom templates from cache on mount
+    // Use only templates passed via props (if any) or start empty for session
+    // Do NOT auto-load all custom templates from the global cache to avoid cluttering "New Templates"
     const existingCustomTemplates = useMemo(() => {
-        return allTemplates.filter(t => t.createdBy === 'user' || t.isCustom);
-    }, [allTemplates]);
+        return customTemplates || [];
+    }, [customTemplates]);
 
     // Local state for created templates (starts empty)
     const [createdTemplates, setCreatedTemplates] = useState<AdvancedTemplate[]>([]);
@@ -106,22 +107,37 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     // VECTOR TOOLS STATE
     const [toolMode, setToolMode] = useState<ToolMode>('select');
     const [vectorObjects, setVectorObjects] = useState<VectorObject[]>([]);
-    const [currentStroke, setCurrentStroke] = useState<Segment | null>(null);
-    const [isMirrorMode, setIsMirrorMode] = useState(false);
-    const [selectedShapeIndices, setSelectedShapeIndices] = useState<number[]>([]);
-    const [showGuides, setShowGuides] = useState(true);
-
     // Vector Properties State
     const [strokeColor, setStrokeColor] = useState('#000000');
     const [strokeWidth, setStrokeWidth] = useState(0.5);
     const [fillColor, setFillColor] = useState('transparent');
 
+    const [currentStroke, setCurrentStroke] = useState<Segment | null>(null);
+    const [isMirrorMode, setIsMirrorMode] = useState(false);
+    const [selectedShapeIndices, setSelectedShapeIndices] = useState<number[]>([]);
+    const [showGuides, setShowGuides] = useState(true);
+
+    // Dynamic Theme Update: When theme changes, update state AND existing objects
     useEffect(() => {
-        if (resolvedTheme === 'dark') {
-            setStrokeColor('#ffffff');
-        } else {
-            setStrokeColor('#000000');
-        }
+        const isDark = resolvedTheme === 'dark';
+        const newStroke = isDark ? '#ffffff' : '#000000';
+        const newFill = isDark ? '#292929' : '#ededed';
+
+        setStrokeColor(newStroke);
+        setFillColor(newFill);
+
+        // Update all existing shapes to match the new theme defaults
+        setVectorObjects(prev => prev.map((obj, index) => {
+            // Background frame (index 0) gets a distinct color
+            const isBackground = index === 0;
+            const bgFill = isDark ? '#1f1f1f' : '#f5f5f5';
+
+            return {
+                ...obj,
+                stroke: newStroke,
+                fill: isBackground ? bgFill : newFill // Force update fill to match theme with distinction
+            };
+        }));
     }, [resolvedTheme]);
 
     // 1. When selection changes, update sidebar to match the first selected object's properties
@@ -238,6 +254,11 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             // For other polygons/points, scale them if needed
             const finalPoints = (region.shape === 'rect') ? points : points.map(p => [p[0] * scaleX, p[1]] as Point);
 
+            // Background frame (index 0) gets a distinct color
+            const isBackground = index === 0;
+            const isDark = resolvedTheme === 'dark';
+            const bgFill = isDark ? '#1f1f1f' : '#f5f5f5';
+
             return {
                 id: region.id || uuidv4(),
                 type: isPath ? 'path' : (region.shape === 'rect' ? 'rect' : (region.shape === 'circle' ? 'circle' : 'polygon')),
@@ -245,9 +266,9 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 points: isPath ? pathPoints : finalPoints,
                 path: region.path,
                 viewBox: region.viewBox,
-                stroke: region.stroke || '#000000',
+                stroke: strokeColor,
                 strokeWidth: region.strokeWidth || 0.5,
-                fill: region.fill || 'transparent',
+                fill: isBackground ? bgFill : fillColor,
                 zIndex: region.zIndex || index,
                 rotation: region.rotation || 0
             };
@@ -616,7 +637,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             regions: [],
             photoCount: 0,
             isCustom: true,
-            createdBy: 'user',
+            createdBy: null,
             type: spreadMode === 'full' ? 'spread' : 'single',
             _pageMargin: pageMargin,
             _photoGap: photoGap
@@ -630,7 +651,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             photoCount: updatedRegions.length,
             type: spreadMode === 'full' ? 'spread' : 'single',
             isCustom: true, // Always mark as custom
-            createdBy: 'user', // Always mark as user-created
+            createdBy: null, // Custom templates owned by user (handled by RLS/context)
             _pageMargin: pageMargin,
             _photoGap: photoGap
         };
@@ -771,7 +792,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         onSelectLayout={handleLayoutChange}
                         onSelectAdvancedTemplate={handleSelectAdvancedTemplate}
                         selectedAdvancedTemplate={selectedAdvancedTemplate}
-                        customTemplates={[...existingCustomTemplates, ...createdTemplates]}
+                        customTemplates={createdTemplates}
                         spreadMode={spreadMode}
                         onSpreadModeChange={handleSpreadModeChange}
                         config={config}

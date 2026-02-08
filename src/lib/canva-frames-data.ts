@@ -6,7 +6,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "name": "Canva Mosaic Grid",
         "category": "grid",
         "photoCount": 27,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "canva-grid-0",
@@ -367,7 +367,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -390,7 +390,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -413,7 +413,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -436,7 +436,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -459,7 +459,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -482,7 +482,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -505,7 +505,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -528,7 +528,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -551,7 +551,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -574,7 +574,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -597,7 +597,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -620,7 +620,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -643,7 +643,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -666,7 +666,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -689,7 +689,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -712,7 +712,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -735,7 +735,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -758,7 +758,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -781,7 +781,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -804,7 +804,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -827,7 +827,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -850,7 +850,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -873,7 +873,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -896,7 +896,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -919,7 +919,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -942,7 +942,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -965,7 +965,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -988,7 +988,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1011,7 +1011,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1034,7 +1034,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1057,7 +1057,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1080,7 +1080,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1103,7 +1103,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1126,7 +1126,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1149,7 +1149,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1172,7 +1172,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1195,7 +1195,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1218,7 +1218,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1241,7 +1241,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1264,7 +1264,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1287,7 +1287,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1310,7 +1310,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1333,7 +1333,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1356,7 +1356,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1379,7 +1379,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1402,7 +1402,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1425,7 +1425,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1448,7 +1448,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1471,7 +1471,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1494,7 +1494,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1517,7 +1517,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1540,7 +1540,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1563,7 +1563,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1586,7 +1586,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1609,7 +1609,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1632,7 +1632,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1655,7 +1655,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1678,7 +1678,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1701,7 +1701,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1724,7 +1724,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1747,7 +1747,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1770,7 +1770,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1793,7 +1793,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1816,7 +1816,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1839,7 +1839,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1862,7 +1862,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1885,7 +1885,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1908,7 +1908,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1931,7 +1931,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1954,7 +1954,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -1977,7 +1977,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2000,7 +2000,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2023,7 +2023,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2046,7 +2046,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2069,7 +2069,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2092,7 +2092,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2115,7 +2115,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2138,7 +2138,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2161,7 +2161,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2184,7 +2184,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2207,7 +2207,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2230,7 +2230,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2253,7 +2253,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2276,7 +2276,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2299,7 +2299,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2322,7 +2322,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2345,7 +2345,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2368,7 +2368,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2391,7 +2391,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2414,7 +2414,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2437,7 +2437,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2460,7 +2460,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2483,7 +2483,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2506,7 +2506,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2529,7 +2529,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2552,7 +2552,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2575,7 +2575,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2598,7 +2598,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2621,7 +2621,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2644,7 +2644,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2667,7 +2667,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2690,7 +2690,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2713,7 +2713,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2736,7 +2736,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2759,7 +2759,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",
@@ -2782,7 +2782,7 @@ export const CANVA_FRAMES: AdvancedTemplate[] = [
         "category": "grid",
         "type": "both",
         "photoCount": 1,
-        "createdBy": "system",
+        "createdBy": null,
         "regions": [
             {
                 "id": "main",

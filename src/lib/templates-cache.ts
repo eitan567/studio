@@ -33,6 +33,10 @@ export interface DBTemplate {
     sort_order?: number;
     description?: string;
     // Keep template_classification for type classification
+    is_system?: boolean;
+    created_at?: string;
+    updated_at?: string;
+    created_by?: string;
     template_classification?: { code: string };
 }
 
@@ -174,11 +178,24 @@ function convertGridToAdvanced(dbTemplate: DBTemplate): AdvancedTemplate {
     return {
         id: dbTemplate.id,
         name: dbTemplate.name,
+        // Map native fields
+        type_id: dbTemplate.type_id,
+        category_id: dbTemplate.category_id,
+        is_system: dbTemplate.is_system,
+        is_active: dbTemplate.is_active,
+        sort_order: dbTemplate.sort_order,
+        created_at: dbTemplate.created_at,
+        updated_at: dbTemplate.updated_at,
+        createdBy: dbTemplate.created_by || null, // UUID or null
+
+        // Derived UI fields
         category: 'grid',
         photoCount: dbTemplate.photo_count || regions.length,
         regions,
-        createdBy: 'system' as AdvancedTemplate['createdBy'],
-        isCustom: false
+        isCustom: false, // Grid templates are static/system usually
+
+        // Description parsing if needed
+        ...parseTemplateDescription(dbTemplate.description)
     };
 }
 
@@ -248,8 +265,8 @@ async function initializeCache(): Promise<void> {
                     id: t.id,
                     name: t.name,
                     category: (t.template_category?.code?.toLowerCase() || 'grid') as AdvancedTemplate['category'],
-                    createdBy: 'system' as AdvancedTemplate['createdBy'],
-                    isCustom: false,
+                    createdBy: t.created_by || null,
+                    isCustom: !t.is_system,
                     // Use template_classification code if available
                     type: (t.template_classification?.code?.toLowerCase() || descSettings.type) as AdvancedTemplate['type'],
                     _pageMargin: descSettings._pageMargin,

@@ -75,7 +75,8 @@ export const LayoutSidebarRight = ({
     }, [config?.size, sidebarMode]);
 
     // Filter templates by category and type
-    const systemTemplates = allTemplates.filter(t => t.createdBy === 'system');
+    // User requested NO filtering by system/created status - show all available templates
+    const systemTemplates = allTemplates;
 
     // Remove local filtering by mode here if we want to show all in "My Templates"
     // or keep it consistent. Let's keep it consistent but ensure we use sidebarMode.
@@ -86,6 +87,9 @@ export const LayoutSidebarRight = ({
     });
 
     const filteredCustom = customTemplates.filter(t => {
+        // For "New Templates" tab, show EVERYTHING regardless of mode
+        if (activeTab === 'new') return true;
+
         const mode = sidebarMode === 'split' ? 'single' : 'spread';
         if (t.type) return (t.type === mode || t.type === 'both');
         return true;

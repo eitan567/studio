@@ -1143,7 +1143,7 @@ export const LayoutCanvas = ({
                     style={{
                         width: logicalWidth,
                         height: logicalHeight,
-                        backgroundColor: backgroundColor || undefined
+                        // backgroundColor: backgroundColor || undefined
                     }}
                 >
                     <div
@@ -1484,7 +1484,7 @@ export const LayoutCanvas = ({
                     <>
                         {/* Ruler Intersection Corner */}
                         <div
-                            className="absolute border border-border/40 bg-background/80 backdrop-blur-sm z-20"
+                            className="absolute border border-border/40 backdrop-blur-sm z-20"
                             style={{
                                 left: pageMargin - 26,
                                 top: pageMargin - 26,
@@ -1495,7 +1495,7 @@ export const LayoutCanvas = ({
 
                         {/* Vertical Ruler (Left) */}
                         <div
-                            className="absolute w-[26px] flex flex-col pointer-events-none select-none border-r border-border/40 bg-background/80 backdrop-blur-sm"
+                            className="absolute w-[26px] flex flex-col pointer-events-none select-none border-r border-border/40 backdrop-blur-sm"
                             style={{
                                 left: pageMargin - 26,
                                 top: pageMargin,
@@ -1515,7 +1515,7 @@ export const LayoutCanvas = ({
 
                         {/* Horizontal Ruler (Top) */}
                         <div
-                            className="absolute h-[26px] flex pointer-events-none select-none border-b border-border/40 bg-background/80 backdrop-blur-sm"
+                            className="absolute h-[26px] flex pointer-events-none select-none border-b border-border/40 backdrop-blur-sm"
                             style={{
                                 top: pageMargin - 26,
                                 left: pageMargin,

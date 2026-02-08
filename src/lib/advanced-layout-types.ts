@@ -85,9 +85,18 @@ export interface VectorObject {
 export type TemplateCategory = 'grid' | 'geometric' | 'artistic' | 'diagonal' | 'custom';
 
 // Complete advanced template definition
+// Complete advanced template definition aligned with DB
 export interface AdvancedTemplate {
+    // Core Identity
     id: string | number;
     name: string;
+
+    // DB Foreign Keys & Classifications
+    type_id?: number | null;
+    category_id?: number | null;
+    classification_type_id?: number | null;
+
+    // Derived/Mapped fields for UI (kept for compatibility)
     category: TemplateCategory;
     type?: 'single' | 'spread' | 'both';
 
@@ -97,22 +106,28 @@ export interface AdvancedTemplate {
     // Number of photos this template supports
     photoCount: number;
 
-    // Whether this is a user-created template
+    // Ownership & System Status
     isCustom?: boolean;
+    is_system?: boolean | null;
+    is_active?: boolean | null;
 
-    // Who created this template
-    createdBy: 'system' | 'user' | 'ai';
+    // UUID of creator (or null for system/public templates)
+    createdBy: string | null;
 
-    // Optional thumbnail preview (data URL or path)
-    thumbnail?: string;
+    // Metadata
+    description?: string | null;
+    thumbnail?: string | null;
+    sort_order?: number | null;
 
-    // Optional description
-    description?: string;
+    // Timestamps
+    created_at?: string | null;
+    updated_at?: string | null;
 
     // Page settings for custom templates (used when template was created)
     _pageMargin?: number;
     _photoGap?: number;
 }
+
 
 // Helper type for creating clip-path CSS
 export type ClipPathValue = string;
@@ -239,176 +254,4 @@ export function regionToSvgPoints(region: LayoutRegion, viewBoxSize: number = 10
     }
 }
 
-// ==========================================
-// PREDEFINED ADVANCED TEMPLATES
-// Designed to match user-provided examples
-// ==========================================
-
-export const ADVANCED_TEMPLATES: AdvancedTemplate[] = [
-    // ========== GRID WITH CIRCLES ==========
-
-    // Center circle with 4 corners (symmetric)
-    {
-        id: 'center-circle-4',
-        name: 'Center Circle',
-        category: 'geometric',
-        photoCount: 5,
-        createdBy: 'system',
-        regions: [
-            { id: 'tl', shape: 'rect', bounds: { x: 0, y: 0, width: 50, height: 50 }, zIndex: 0 },
-            { id: 'tr', shape: 'rect', bounds: { x: 50, y: 0, width: 50, height: 50 }, zIndex: 0 },
-            { id: 'bl', shape: 'rect', bounds: { x: 0, y: 50, width: 50, height: 50 }, zIndex: 0 },
-            { id: 'br', shape: 'rect', bounds: { x: 50, y: 50, width: 50, height: 50 }, zIndex: 0 },
-            { id: 'center', shape: 'circle', bounds: { x: 25, y: 25, width: 50, height: 50 }, zIndex: 1 },
-        ],
-    },
-
-
-
-    // L-shape with small squares (like user example)
-    {
-        id: 'l-shape-mosaic',
-        name: 'L-Shape Mosaic',
-        category: 'grid',
-        photoCount: 5,
-        createdBy: 'system',
-        regions: [
-            { id: 'big', shape: 'rect', bounds: { x: 0, y: 0, width: 60, height: 60 }, zIndex: 0 },
-            { id: 'tr1', shape: 'rect', bounds: { x: 60, y: 0, width: 40, height: 30 }, zIndex: 0 },
-            { id: 'tr2', shape: 'rect', bounds: { x: 60, y: 30, width: 40, height: 30 }, zIndex: 0 },
-            { id: 'bl', shape: 'rect', bounds: { x: 0, y: 60, width: 40, height: 40 }, zIndex: 0 },
-            { id: 'br', shape: 'rect', bounds: { x: 40, y: 60, width: 60, height: 40 }, zIndex: 0 },
-        ],
-    },
-
-    // ========== DIAGONAL LAYOUTS ==========
-
-    // 4 diagonal strips (like user example image 2)
-    {
-        id: 'diagonal-4',
-        name: 'Diagonal Strips',
-        category: 'diagonal',
-        photoCount: 4,
-        createdBy: 'system',
-        regions: [
-            {
-                id: 'd1', shape: 'polygon', bounds: { x: 0, y: 0, width: 30, height: 100 },
-                points: [[0, 0], [25, 0], [15, 100], [0, 100]], zIndex: 0
-            },
-            {
-                id: 'd2', shape: 'polygon', bounds: { x: 15, y: 0, width: 35, height: 100 },
-                points: [[25, 0], [50, 0], [40, 100], [15, 100]], zIndex: 0
-            },
-            {
-                id: 'd3', shape: 'polygon', bounds: { x: 40, y: 0, width: 35, height: 100 },
-                points: [[50, 0], [75, 0], [65, 100], [40, 100]], zIndex: 0
-            },
-            {
-                id: 'd4', shape: 'polygon', bounds: { x: 65, y: 0, width: 35, height: 100 },
-                points: [[75, 0], [100, 0], [100, 100], [65, 100]], zIndex: 0
-            },
-        ],
-    },
-
-    // Angular shards (3 pieces, like broken glass)
-    {
-        id: 'angular-3',
-        name: 'Angular Shards',
-        category: 'diagonal',
-        photoCount: 3,
-        createdBy: 'system',
-        regions: [
-            {
-                id: 's1', shape: 'polygon', bounds: { x: 0, y: 0, width: 50, height: 100 },
-                points: [[0, 0], [45, 0], [30, 60], [0, 50]], zIndex: 0
-            },
-            {
-                id: 's2', shape: 'polygon', bounds: { x: 30, y: 0, width: 70, height: 70 },
-                points: [[45, 0], [100, 0], [100, 45], [60, 70], [30, 60]], zIndex: 0
-            },
-            {
-                id: 's3', shape: 'polygon', bounds: { x: 0, y: 45, width: 100, height: 55 },
-                points: [[0, 50], [30, 60], [60, 70], [100, 45], [100, 100], [0, 100]], zIndex: 0
-            },
-        ],
-    },
-
-    // ========== ASYMMETRIC ARTISTIC ==========
-
-    // Big + 4 small (like user example image 4)
-    {
-        id: 'feature-4-small',
-        name: 'Feature + 4',
-        category: 'artistic',
-        photoCount: 5,
-        createdBy: 'system',
-        regions: [
-            { id: 'main', shape: 'rect', bounds: { x: 0, y: 0, width: 50, height: 60 }, zIndex: 0 },
-            { id: 'tr1', shape: 'rect', bounds: { x: 50, y: 0, width: 50, height: 30 }, zIndex: 0 },
-            { id: 'tr2', shape: 'rect', bounds: { x: 50, y: 30, width: 50, height: 30 }, zIndex: 0 },
-            { id: 'bl', shape: 'rect', bounds: { x: 0, y: 60, width: 50, height: 40 }, zIndex: 0 },
-            { id: 'br', shape: 'rect', bounds: { x: 50, y: 60, width: 50, height: 40 }, zIndex: 0 },
-        ],
-    },
-
-    // ========== MOOD BOARD STYLE ==========
-
-
-
-    // Mosaic grid (asymmetric, mood board style)
-    {
-        id: 'mosaic-9',
-        name: 'Mosaic Grid',
-        category: 'grid',
-        photoCount: 9,
-        createdBy: 'system',
-        regions: [
-            { id: 'm1', shape: 'rect', bounds: { x: 0, y: 0, width: 40, height: 33 }, zIndex: 0 },
-            { id: 'm2', shape: 'rect', bounds: { x: 40, y: 0, width: 30, height: 33 }, zIndex: 0 },
-            { id: 'm3', shape: 'rect', bounds: { x: 70, y: 0, width: 30, height: 50 }, zIndex: 0 },
-            { id: 'm4', shape: 'rect', bounds: { x: 0, y: 33, width: 25, height: 34 }, zIndex: 0 },
-            { id: 'm5', shape: 'rect', bounds: { x: 25, y: 33, width: 45, height: 34 }, zIndex: 0 },
-            { id: 'm6', shape: 'rect', bounds: { x: 70, y: 50, width: 30, height: 50 }, zIndex: 0 },
-            { id: 'm7', shape: 'rect', bounds: { x: 0, y: 67, width: 35, height: 33 }, zIndex: 0 },
-            { id: 'm8', shape: 'rect', bounds: { x: 35, y: 67, width: 35, height: 33 }, zIndex: 0 },
-        ],
-    },
-
-
-
-
-
-
-
-    // Vertical strips (3 columns)
-    {
-        id: 'v-strips-3',
-        name: 'V Strips',
-        category: 'grid',
-        photoCount: 3,
-        createdBy: 'system',
-        regions: [
-            { id: 'v1', shape: 'rect', bounds: { x: 0, y: 0, width: 33, height: 100 }, zIndex: 0 },
-            { id: 'v2', shape: 'rect', bounds: { x: 33, y: 0, width: 34, height: 100 }, zIndex: 0 },
-            { id: 'v3', shape: 'rect', bounds: { x: 67, y: 0, width: 33, height: 100 }, zIndex: 0 },
-        ],
-    },
-
-    // Mixed sizes (magazine style)
-    {
-        id: 'magazine-mix',
-        name: 'Magazine Mix',
-        category: 'artistic',
-        photoCount: 7,
-        createdBy: 'system',
-        regions: [
-            { id: 'big', shape: 'rect', bounds: { x: 0, y: 0, width: 60, height: 70 }, zIndex: 0 },
-            { id: 'r1', shape: 'rect', bounds: { x: 60, y: 0, width: 40, height: 35 }, zIndex: 0 },
-            { id: 'r2', shape: 'rect', bounds: { x: 60, y: 35, width: 40, height: 35 }, zIndex: 0 },
-            { id: 'b1', shape: 'rect', bounds: { x: 0, y: 70, width: 25, height: 30 }, zIndex: 0 },
-            { id: 'b2', shape: 'rect', bounds: { x: 25, y: 70, width: 25, height: 30 }, zIndex: 0 },
-            { id: 'b3', shape: 'rect', bounds: { x: 50, y: 70, width: 25, height: 30 }, zIndex: 0 },
-            { id: 'b4', shape: 'rect', bounds: { x: 75, y: 70, width: 25, height: 30 }, zIndex: 0 },
-        ],
-    },
-];
+// NO HARDCODED TEMPLATES HERE - ALL TEMPLATES COME FROM DB OR TEMPLATES-CACHE.TS

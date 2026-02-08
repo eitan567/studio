@@ -38,7 +38,7 @@ function frameToTemplate(frame: CanvaFrame): AdvancedTemplate {
         name: frame.name,
         category: (frame.category as 'grid' | 'geometric' | 'artistic' | 'diagonal' | 'custom') || 'custom',
         photoCount: 1,
-        createdBy: 'system',
+        createdBy: null,
         regions: [region]
     };
 }
