@@ -214,7 +214,7 @@ export const FloatingToolbar = ({
                     variant="ghost"
                     size="sm"
                     onClick={onClearStrokes}
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 px-3 rounded-full flex items-center gap-2"
+                    className="text-primary hover:text-primary hover:bg-primary/10 h-8 px-3 rounded-full flex items-center gap-2"
                 >
                     <Trash2 className="h-3.5 w-3.5" />
                     <span className="text-xs font-medium">Clear All</span>
