@@ -100,6 +100,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const [useDummyPhotos, setUseDummyPhotos] = useState(true);
     const [dummyPage, setDummyPage] = useState<AlbumPage>(() => createDummyPage('4-grid', true));
     const [selectedAdvancedTemplate, setSelectedAdvancedTemplate] = useState<AdvancedTemplate | null>(null);
+    const [editingTemplateId, setEditingTemplateId] = useState<string | number | null>(null);
+    const [templateName, setTemplateName] = useState('');
 
     // VECTOR TOOLS STATE
     const [toolMode, setToolMode] = useState<ToolMode>('select');
@@ -161,44 +163,86 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     }, [strokeColor, strokeWidth, fillColor]);
 
     // Handle advanced template selection
-    const handleSelectAdvancedTemplate = (template: AdvancedTemplate, preferredMode?: 'full' | 'split') => {
+    const handleSelectAdvancedTemplate = (template: AdvancedTemplate, preferredMode?: 'full' | 'split', isEdit: boolean = false) => {
         setSelectedAdvancedTemplate(template);
+
+        const isSystemTemplate = template.createdBy === 'system';
+
+        if (isEdit) {
+            if (isSystemTemplate) {
+                // For system templates, force save-as-new by keeping editingTemplateId null
+                setEditingTemplateId(null);
+                setTemplateName(`${template.name} Copy`);
+            } else {
+                // For custom templates, allow updating
+                setEditingTemplateId(template.id);
+                setTemplateName(template.name);
+            }
+        } else {
+            setEditingTemplateId(null);
+            setTemplateName('');
+        }
+        // Determine target spread mode and coordinate scaling
+        let targetSpreadMode = preferredMode || spreadMode;
+        if (template.type === 'spread') {
+            targetSpreadMode = 'full';
+        } else if (template.type === 'single') {
+            targetSpreadMode = 'split';
+        }
+
+        const isFullSpread = targetSpreadMode === 'full';
+        const scaleX = isFullSpread ? 2 : 1;
 
         // Convert template regions to VectorObjects for interactivity
         const newVectorObjects: VectorObject[] = template.regions.map((region, index) => {
             const isPath = region.shape === 'path';
-            const points: Point[] = region.points || [];
+            let points: Point[] = region.points || [];
 
             // For path objects, generate a bounding box to allow manipulation (points will be used for translation)
             let pathPoints: Point[] | undefined = undefined;
             if (isPath) {
                 const { x, y, width, height } = region.bounds;
-                pathPoints = [[x, y], [x + width, y], [x + width, y + height], [x, y + height]];
+                pathPoints = [
+                    [x * scaleX, y],
+                    [(x + width) * scaleX, y],
+                    [(x + width) * scaleX, y + height],
+                    [x * scaleX, y + height]
+                ];
             }
 
             // For polygons, generate segments
             const segments: Segment[] = [];
             if (!isPath && points.length > 1) {
                 for (let i = 0; i < points.length - 1; i++) {
-                    segments.push({ p1: points[i], p2: points[i + 1] });
+                    segments.push({ p1: [points[i][0] * scaleX, points[i][1]] as Point, p2: [points[i + 1][0] * scaleX, points[i + 1][1]] as Point });
                 }
                 // Close polygon if needed
                 if (points.length > 2 && (points[0][0] !== points[points.length - 1][0] || points[0][1] !== points[points.length - 1][1])) {
-                    segments.push({ p1: points[points.length - 1], p2: points[0] });
+                    segments.push({ p1: [points[points.length - 1][0] * scaleX, points[points.length - 1][1]] as Point, p2: [points[0][0] * scaleX, points[0][1]] as Point });
                 }
             } else if (!isPath && region.shape === 'rect') {
                 const { x, y, width, height } = region.bounds;
-                const rectPoints: Point[] = [[x, y], [x + width, y], [x + width, y + height], [x, y + height]];
+                const rectPoints: Point[] = [
+                    [x * scaleX, y],
+                    [(x + width) * scaleX, y],
+                    [(x + width) * scaleX, y + height],
+                    [x * scaleX, y + height]
+                ];
                 for (let i = 0; i < 4; i++) {
                     segments.push({ p1: rectPoints[i], p2: rectPoints[(i + 1) % 4] });
                 }
+                // For rect shapes, we MUST ensure points are populated so LayoutCanvas can render the polygon
+                points = rectPoints;
             }
+
+            // For other polygons/points, scale them if needed
+            const finalPoints = (region.shape === 'rect') ? points : points.map(p => [p[0] * scaleX, p[1]] as Point);
 
             return {
                 id: region.id || uuidv4(),
                 type: isPath ? 'path' : (region.shape === 'rect' ? 'rect' : (region.shape === 'circle' ? 'circle' : 'polygon')),
                 segments,
-                points: isPath ? pathPoints : points,
+                points: isPath ? pathPoints : finalPoints,
                 path: region.path,
                 viewBox: region.viewBox,
                 stroke: region.stroke || '#000000',
@@ -211,19 +255,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
         setVectorObjects(newVectorObjects);
 
-        // Update spread mode based on template type - only if explicitly restricted
-        // Universal templates (both, grid, or undefined) will stay in current mode
-        let newSpreadMode = spreadMode;
-        if (template.type === 'spread') {
-            newSpreadMode = 'full';
-        } else if (template.type === 'single') {
-            newSpreadMode = 'split';
-        } else if (preferredMode) {
-            newSpreadMode = preferredMode;
-        }
-
-        if (newSpreadMode !== spreadMode) {
-            setSpreadMode(newSpreadMode);
+        if (targetSpreadMode !== spreadMode) {
+            setSpreadMode(targetSpreadMode);
         }
 
         // Create a dummy page with the right number of photos for this template
@@ -253,7 +286,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             layout: template.id,
             photoGap: photoGap,
             pageMargin: pageMargin,
-            spreadMode: newSpreadMode
+            spreadMode: targetSpreadMode
         }));
     };
 
@@ -392,18 +425,15 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
                 let nextId = (maxIdResult && maxIdResult.length > 0) ? (maxIdResult[0].id + 1) : 1000;
 
-                // Prepare templates for insertion
-                const templatesToInsert = createdTemplates.map(template => {
-                    // New templates have UUID strings, existing DB templates have integer IDs
-                    const isNew = typeof template.id === 'string' && template.id.includes('-');
-
+                // Prepare templates for insertion/update
+                const templatesToProcess = createdTemplates.map(template => {
                     // Map type to type_id
                     let typeId = 3; // default BOTH
                     if (template.type === 'single') typeId = 1;
                     if (template.type === 'spread') typeId = 2;
 
                     const baseTemplate = {
-                        name: template.name,
+                        name: templateName || template.name,
                         category_id: 5, // CUSTOM category
                         photo_count: template.photoCount,
                         regions: template.regions,
@@ -414,52 +444,24 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         type_id: typeId
                     };
 
-                    // Generate new integer ID for new templates
+                    // If we have an editingTemplateId (and it's an integer), update that specific record
+                    const targetId = editingTemplateId || template.id;
+                    const isNew = typeof targetId === 'string' && targetId.includes('-');
+
                     if (isNew) {
                         const newIntegerId = nextId++;
-                        return { ...baseTemplate, id: newIntegerId, _isNew: true };
+                        return { ...baseTemplate, id: newIntegerId };
                     } else {
-                        return { ...baseTemplate, id: template.id, _isNew: false };
+                        return { ...baseTemplate, id: targetId };
                     }
                 });
 
-                // Since some might be new (no ID) and some updates, we might need separate calls
-                // or use a logic that works for both.
-                // If we want auto-increment, we use insert for new ones and update for existing.
-
-                const newTemplates = templatesToInsert.filter(t => (t as any)._isNew).map(({ _isNew, ...rest }) => rest);
-                const existingTemplates = templatesToInsert.filter(t => !(t as any)._isNew).map(({ _isNew, ...rest }) => rest);
-
-                if (newTemplates.length > 0) {
-                    const { data: insertedData, error: insertError } = await supabase
+                if (templatesToProcess.length > 0) {
+                    const { error: upsertError } = await supabase
                         .from('templates')
-                        .insert(newTemplates)
-                        .select();
+                        .upsert(templatesToProcess, { onConflict: 'id' });
 
-                    if (insertError) throw insertError;
-
-                    // Update the local state with the returned IDs from DB
-                    if (insertedData) {
-                        setCreatedTemplates(prev => {
-                            const updated = [...prev];
-                            insertedData.forEach((dbT: any) => {
-                                // Match by name and regions or something since we don't have ID matching easily
-                                // Better: we only have one 'createdTemplates' usually
-                                if (updated.length === 1 && insertedData.length === 1) {
-                                    updated[0].id = dbT.id;
-                                }
-                            });
-                            return updated;
-                        });
-                    }
-                }
-
-                if (existingTemplates.length > 0) {
-                    const { error: updateError } = await supabase
-                        .from('templates')
-                        .upsert(existingTemplates, { onConflict: 'id' });
-
-                    if (updateError) throw updateError;
+                    if (upsertError) throw upsertError;
                 }
                 console.log('Templates saved successfully to Supabase');
 
@@ -641,8 +643,24 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     return (
         <div className="fixed inset-0 z-[100] bg-background flex flex-col">
             {/* 1. Global Header */}
-            <div className="h-14 border-b bg-background flex items-center px-6 shrink-0 z-20">
-                <span className="heading-sm">Custom Layout Editor</span>
+            <div className="h-14 border-b bg-background flex items-center px-6 shrink-0 z-20 gap-4">
+                <span className="heading-sm whitespace-nowrap">Custom Layout Editor</span>
+
+                <div className="w-px h-6 bg-border mx-2" />
+
+                {/* Template Name Input */}
+                <div className="flex items-center gap-2 max-w-sm flex-1">
+                    <Label htmlFor="template-name" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+                        {editingTemplateId ? "Editing:" : "New Template:"}
+                    </Label>
+                    <Input
+                        id="template-name"
+                        placeholder="Enter template name..."
+                        value={templateName}
+                        onChange={(e) => setTemplateName(e.target.value)}
+                        className="h-8 text-sm bg-muted/30 border-muted-foreground/20 focus:bg-background"
+                    />
+                </div>
 
                 <div className="flex-1" />
 
@@ -750,6 +768,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         onCornerRadiusChange={handleCornerRadiusChange}
                         useDummyPhotos={useDummyPhotos}
                         onUseDummyPhotosChange={handleUseDummyPhotosChange}
+                        onEditAdvancedTemplate={(t, m) => handleSelectAdvancedTemplate(t, m, true)}
+                        editingTemplateId={editingTemplateId}
                     />
                 </div>
             </div>

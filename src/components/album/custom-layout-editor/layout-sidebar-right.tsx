@@ -14,12 +14,15 @@ import { TemplatePreview } from '@/components/album/shared/template-preview';
 import { AlbumConfig } from '@/lib/types';
 import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { getPhotoCount } from '@/hooks/useTemplates';
+import { Pencil, Play } from 'lucide-react';
 
 interface LayoutSidebarRightProps {
     selectedLayout: string;
     onSelectLayout: (layoutId: string, mode?: 'full' | 'split') => void;
     onSelectAdvancedTemplate: (template: AdvancedTemplate, mode?: 'full' | 'split') => void;
+    onEditAdvancedTemplate?: (template: AdvancedTemplate, mode?: 'full' | 'split') => void;
     selectedAdvancedTemplate: AdvancedTemplate | null;
+    editingTemplateId?: string | number | null;
     customTemplates: AdvancedTemplate[];
     spreadMode: 'full' | 'split';
     onSpreadModeChange: (mode: 'full' | 'split') => void;
@@ -50,7 +53,9 @@ export const LayoutSidebarRight = ({
     cornerRadius,
     onCornerRadiusChange,
     useDummyPhotos,
-    onUseDummyPhotosChange
+    onUseDummyPhotosChange,
+    onEditAdvancedTemplate,
+    editingTemplateId
 }: LayoutSidebarRightProps) => {
     const { allTemplates } = useTemplates();
     const [activeTab, setActiveTab] = React.useState<'standard' | 'new'>('standard');
@@ -72,24 +77,19 @@ export const LayoutSidebarRight = ({
     // Filter templates by category and type
     const systemTemplates = allTemplates.filter(t => t.createdBy === 'system');
 
-    const filterByMode = (templates: typeof allTemplates) => {
+    // Remove local filtering by mode here if we want to show all in "My Templates"
+    // or keep it consistent. Let's keep it consistent but ensure we use sidebarMode.
+    const filteredSystem = systemTemplates.filter(t => {
         const mode = sidebarMode === 'split' ? 'single' : 'spread';
-        return templates.filter(t => {
-            // For system templates, we want to be more inclusive
-            if (t.createdBy === 'system') {
-                // If it has no type, or is marked 'both' or 'grid', show it in both modes
-                if (!t.type || t.type === 'both' || (t.type as string) === 'grid') return true;
-                // Otherwise it must match the current mode
-                return t.type === mode;
-            }
+        if (!t.type || t.type === 'both' || (t.type as string) === 'grid') return true;
+        return t.type === mode;
+    });
 
-            // For custom/user templates, follow strict filtering
-            if (t.type) return (t.type === mode || t.type === 'both');
-            return true;
-        });
-    };
-
-    const filteredSystem = filterByMode(systemTemplates);
+    const filteredCustom = customTemplates.filter(t => {
+        const mode = sidebarMode === 'split' ? 'single' : 'spread';
+        if (t.type) return (t.type === mode || t.type === 'both');
+        return true;
+    });
 
     return (
         <div className="w-full h-full border-l bg-background flex flex-col shrink-0 overflow-hidden">
@@ -158,90 +158,145 @@ export const LayoutSidebarRight = ({
                             {activeTab === 'standard' ? (
                                 <div className="grid grid-cols-2 gap-2">
                                     {filteredSystem.map((template) => (
-                                        <button
-                                            key={template.id}
-                                            onClick={() => onSelectLayout(String(template.id), sidebarMode)}
-                                            className={cn(
-                                                "rounded-md border-2 p-1 transition-all hover:border-primary/50 relative overflow-hidden",
-                                                selectedLayout === String(template.id)
-                                                    ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                                                    : "border-muted bg-muted/30"
-                                            )}
-                                            style={{ aspectRatio }}
-                                            title={template.name}
-                                        >
-                                            <div className="w-full h-full relative overflow-hidden bg-muted rounded-sm">
-                                                <TemplatePreview template={template} />
+                                        <div key={template.id} className="relative group">
+                                            <button
+                                                onClick={() => onSelectLayout(String(template.id), sidebarMode)}
+                                                className={cn(
+                                                    "w-full rounded-md border-2 p-1 transition-all hover:border-primary/50 relative overflow-hidden",
+                                                    selectedLayout === String(template.id)
+                                                        ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                                                        : "border-muted bg-muted/30"
+                                                )}
+                                                style={{ aspectRatio }}
+                                                title={template.name}
+                                            >
+                                                <div className="w-full h-full relative overflow-hidden bg-muted rounded-sm">
+                                                    <TemplatePreview template={template} />
+                                                </div>
+                                            </button>
+
+                                            {/* Edit Overlay Actions */}
+                                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-20 z-10">
+                                                <Button
+                                                    variant="secondary"
+                                                    size="icon"
+                                                    className="h-7 w-7 rounded-full shadow-lg bg-white hover:bg-gray-100"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onEditAdvancedTemplate?.(template, sidebarMode);
+                                                    }}
+                                                    title="Edit this Layout"
+                                                >
+                                                    <Pencil className="h-3.5 w-3.5 text-indigo-600" />
+                                                </Button>
                                             </div>
-                                        </button>
+                                        </div>
                                     ))}
                                 </div>
                             ) : (
                                 customTemplates.length > 0 ? (
                                     <div className="space-y-6">
                                         {/* Full Spread Group */}
-                                        {customTemplates.some(t => t.type === 'spread') && (
+                                        {filteredCustom.some(t => t.type === 'spread') && (
                                             <div className="space-y-2">
                                                 <div className="flex items-center gap-2 px-1">
                                                     <span className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-widest">Full Spreads</span>
                                                     <div className="h-[1px] flex-1 bg-border/50" />
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-2">
-                                                    {customTemplates
+                                                    {filteredCustom
                                                         .filter(t => t.type === 'spread')
                                                         .map((template) => (
-                                                            <button
-                                                                key={template.id}
-                                                                onClick={() => onSelectAdvancedTemplate(template, sidebarMode)}
-                                                                className={cn(
-                                                                    "rounded-md border-2 p-1 transition-all hover:border-primary/50 relative overflow-hidden col-span-2 aspect-[2/1]",
-                                                                    selectedAdvancedTemplate?.id === template.id
-                                                                        ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                                                                        : "border-muted bg-muted/30"
-                                                                )}
-                                                                title={`${template.name} (${getPhotoCount(template)} photos)`}
-                                                            >
-                                                                <div className="w-full h-full relative overflow-hidden bg-muted rounded-sm">
-                                                                    <TemplatePreview template={template} />
+                                                            <div key={template.id} className="relative group col-span-2">
+                                                                <button
+                                                                    onClick={() => onSelectAdvancedTemplate(template, sidebarMode)}
+                                                                    className={cn(
+                                                                        "w-full rounded-md border-2 p-1 transition-all hover:border-primary/50 relative overflow-hidden aspect-[2/1]",
+                                                                        selectedAdvancedTemplate?.id === template.id
+                                                                            ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                                                                            : "border-muted bg-muted/30",
+                                                                        editingTemplateId === template.id && "ring-2 ring-indigo-500/50 border-indigo-500"
+                                                                    )}
+                                                                    title={`${template.name} (${getPhotoCount(template)} photos)`}
+                                                                >
+                                                                    <div className="w-full h-full relative overflow-hidden bg-muted rounded-sm">
+                                                                        <TemplatePreview template={template} />
+                                                                    </div>
+                                                                    <span className="absolute bottom-0 left-0 right-0 text-[8px] text-center bg-background/80 py-0.5 font-medium truncate px-1">
+                                                                        {template.name}
+                                                                        {editingTemplateId === template.id && " (Editing)"}
+                                                                    </span>
+                                                                </button>
+
+                                                                {/* Edit Overlay Actions */}
+                                                                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                                    <Button
+                                                                        variant="secondary"
+                                                                        size="icon"
+                                                                        className="h-7 w-7 rounded-full shadow-lg bg-white hover:bg-gray-100"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            onEditAdvancedTemplate?.(template, sidebarMode);
+                                                                        }}
+                                                                        title="Edit Template"
+                                                                    >
+                                                                        <Pencil className="h-3.5 w-3.5 text-indigo-600" />
+                                                                    </Button>
                                                                 </div>
-                                                                <span className="absolute bottom-0 left-0 right-0 text-[8px] text-center bg-background/80 py-0.5 font-medium truncate px-1">
-                                                                    {template.name}
-                                                                </span>
-                                                            </button>
+                                                            </div>
                                                         ))}
                                                 </div>
                                             </div>
                                         )}
 
                                         {/* Single Page Group */}
-                                        {customTemplates.some(t => t.type === 'single' || !t.type) && (
+                                        {filteredCustom.some(t => t.type === 'single' || !t.type) && (
                                             <div className="space-y-2">
                                                 <div className="flex items-center gap-2 px-1">
                                                     <span className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-widest">Single Pages</span>
                                                     <div className="h-[1px] flex-1 bg-border/50" />
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-2">
-                                                    {customTemplates
+                                                    {filteredCustom
                                                         .filter(t => t.type === 'single' || !t.type)
                                                         .map((template) => (
-                                                            <button
-                                                                key={template.id}
-                                                                onClick={() => onSelectAdvancedTemplate(template, sidebarMode)}
-                                                                className={cn(
-                                                                    "rounded-md border-2 p-1 transition-all hover:border-primary/50 relative overflow-hidden aspect-square",
-                                                                    selectedAdvancedTemplate?.id === template.id
-                                                                        ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                                                                        : "border-muted bg-muted/30"
-                                                                )}
-                                                                title={`${template.name} (${getPhotoCount(template)} photos)`}
-                                                            >
-                                                                <div className="w-full h-full relative overflow-hidden bg-muted rounded-sm">
-                                                                    <TemplatePreview template={template} />
+                                                            <div key={template.id} className="relative group">
+                                                                <button
+                                                                    onClick={() => onSelectAdvancedTemplate(template, sidebarMode)}
+                                                                    className={cn(
+                                                                        "w-full rounded-md border-2 p-1 transition-all hover:border-primary/50 relative overflow-hidden aspect-square",
+                                                                        selectedAdvancedTemplate?.id === template.id
+                                                                            ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                                                                            : "border-muted bg-muted/30",
+                                                                        editingTemplateId === template.id && "ring-2 ring-indigo-500/50 border-indigo-500"
+                                                                    )}
+                                                                    title={`${template.name} (${getPhotoCount(template)} photos)`}
+                                                                >
+                                                                    <div className="w-full h-full relative overflow-hidden bg-muted rounded-sm">
+                                                                        <TemplatePreview template={template} />
+                                                                    </div>
+                                                                    <span className="absolute bottom-0 left-0 right-0 text-[8px] text-center bg-background/80 py-0.5 font-medium truncate px-1">
+                                                                        {template.name}
+                                                                        {editingTemplateId === template.id && " (Editing)"}
+                                                                    </span>
+                                                                </button>
+
+                                                                {/* Edit Overlay Actions */}
+                                                                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                                    <Button
+                                                                        variant="secondary"
+                                                                        size="icon"
+                                                                        className="h-7 w-7 rounded-full shadow-lg bg-white hover:bg-gray-100"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            onEditAdvancedTemplate?.(template, sidebarMode);
+                                                                        }}
+                                                                        title="Edit Template"
+                                                                    >
+                                                                        <Pencil className="h-3.5 w-3.5 text-indigo-600" />
+                                                                    </Button>
                                                                 </div>
-                                                                <span className="absolute bottom-0 left-0 right-0 text-[8px] text-center bg-background/80 py-0.5 font-medium truncate px-1">
-                                                                    {template.name}
-                                                                </span>
-                                                            </button>
+                                                            </div>
                                                         ))}
                                                 </div>
                                             </div>

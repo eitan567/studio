@@ -1159,7 +1159,7 @@ export const LayoutCanvas = ({
                     >
                         {/* Content Layer */}
                         <div className={cn("absolute inset-0 w-full h-full", toolMode !== 'select' && "pointer-events-none")}>
-                            {advancedTemplate ? (
+                            {advancedTemplate && vectorObjects.length === 0 ? (
                                 <div
                                     className="absolute bg-background overflow-hidden shadow-sm"
                                     style={{
@@ -1205,8 +1205,8 @@ export const LayoutCanvas = ({
                             )}
                         </div>
 
-                        {/* Vector Overlay - Only show during editing (not when displaying a processed template) */}
-                        {!advancedTemplate && (vectorObjects.length > 0 || currentStroke || previewShape) && (
+                        {/* Vector Overlay - Show during editing or when drawing */}
+                        {(vectorObjects.length > 0 || currentStroke || previewShape) && (
                             <svg
                                 className="absolute z-50 overflow-visible"
                                 style={{
