@@ -114,9 +114,12 @@ export const LayoutSidebarRight = ({
                         </Label>
                         <div className="flex gap-1.5">
                             <Button
-                                variant={activeTab === 'standard' && sidebarMode === 'full' ? 'default' : 'outline'}
+                                variant="outline"
                                 size="sm"
-                                className="flex-1 h-8 text-[11px] px-2"
+                                className={cn(
+                                    "flex-1 h-8 text-[11px] px-2",
+                                    activeTab === 'standard' && sidebarMode === 'full' && "bg-primary hover:bg-primary/90 text-primary-foreground border-primary"
+                                )}
                                 onClick={() => {
                                     setActiveTab('standard');
                                     setSidebarMode('full');
@@ -125,9 +128,12 @@ export const LayoutSidebarRight = ({
                                 Double Page
                             </Button>
                             <Button
-                                variant={activeTab === 'standard' && sidebarMode === 'split' ? 'default' : 'outline'}
+                                variant="outline"
                                 size="sm"
-                                className="flex-1 h-8 text-[11px] px-2"
+                                className={cn(
+                                    "flex-1 h-8 text-[11px] px-2",
+                                    activeTab === 'standard' && sidebarMode === 'split' && "bg-primary hover:bg-primary/90 text-primary-foreground border-primary"
+                                )}
                                 onClick={() => {
                                     setActiveTab('standard');
                                     setSidebarMode('split');
@@ -136,9 +142,12 @@ export const LayoutSidebarRight = ({
                                 Single Page
                             </Button>
                             <Button
-                                variant={activeTab === 'new' ? 'default' : 'outline'}
+                                variant="outline"
                                 size="sm"
-                                className="flex-1 h-8 text-[11px] px-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border-indigo-500/20 hover:from-indigo-500/20 hover:to-purple-500/20"
+                                className={cn(
+                                    "flex-1 h-8 text-[11px] px-2",
+                                    activeTab === 'new' && "bg-primary hover:bg-primary/90 text-primary-foreground border-primary"
+                                )}
                                 onClick={() => setActiveTab('new')}
                             >
                                 New Templates
