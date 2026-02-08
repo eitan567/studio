@@ -14,16 +14,18 @@ import { TemplatePreview } from '@/components/album/shared/template-preview';
 import { AlbumConfig } from '@/lib/types';
 import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { getPhotoCount } from '@/hooks/useTemplates';
-import { Pencil, Play } from 'lucide-react';
+import { Pencil, Play, Trash2 } from 'lucide-react';
 
 interface LayoutSidebarRightProps {
     selectedLayout: string;
     onSelectLayout: (layoutId: string, mode?: 'full' | 'split') => void;
     onSelectAdvancedTemplate: (template: AdvancedTemplate, mode?: 'full' | 'split') => void;
     onEditAdvancedTemplate?: (template: AdvancedTemplate, mode?: 'full' | 'split') => void;
+    onDeleteTemplate?: (template: AdvancedTemplate) => void;
     selectedAdvancedTemplate: AdvancedTemplate | null;
     editingTemplateId?: string | number | null;
     customTemplates: AdvancedTemplate[];
+    systemTemplates?: AdvancedTemplate[];
     spreadMode: 'full' | 'split';
     onSpreadModeChange: (mode: 'full' | 'split') => void;
     config?: AlbumConfig;
@@ -55,10 +57,17 @@ export const LayoutSidebarRight = ({
     useDummyPhotos,
     onUseDummyPhotosChange,
     onEditAdvancedTemplate,
-    editingTemplateId
+    onDeleteTemplate,
+    editingTemplateId,
+    systemTemplates: propSystemTemplates
 }: LayoutSidebarRightProps) => {
-    const { allTemplates } = useTemplates();
+    const { allTemplates: hookTemplates } = useTemplates();
     const [activeTab, setActiveTab] = React.useState<'standard' | 'new'>('standard');
+
+    // Use prop if available (reactive from parent), otherwise fall back to hook
+    // This fixes the issue where parent refresh() doesn't update sidebar
+    const systemTemplates = propSystemTemplates || hookTemplates;
+
     // Local state for filtering, independent of global canvas spreadMode
     const [sidebarMode, setSidebarMode] = React.useState<'full' | 'split'>(spreadMode);
 
@@ -74,9 +83,6 @@ export const LayoutSidebarRight = ({
         return sidebarMode === 'split' ? singlePageRatio : (singlePageRatio * 2);
     }, [config?.size, sidebarMode]);
 
-    // Filter templates by category and type
-    // User requested NO filtering by system/created status - show all available templates
-    const systemTemplates = allTemplates;
 
     // Remove local filtering by mode here if we want to show all in "My Templates"
     // or keep it consistent. Let's keep it consistent but ensure we use sidebarMode.
@@ -94,6 +100,17 @@ export const LayoutSidebarRight = ({
         if (t.type) return (t.type === mode || t.type === 'both');
         return true;
     });
+
+    // Calculate counts for tabs
+    const doublePageCount = React.useMemo(() => systemTemplates.filter(t =>
+        !t.type || t.type === 'both' || t.type === 'spread' || (t.type as string) === 'grid'
+    ).length, [systemTemplates]);
+
+    const singlePageCount = React.useMemo(() => systemTemplates.filter(t =>
+        !t.type || t.type === 'both' || t.type === 'single' || (t.type as string) === 'grid'
+    ).length, [systemTemplates]);
+
+    const customCount = customTemplates.length;
 
     return (
         <div className="w-full h-full border-l bg-background flex flex-col shrink-0 overflow-hidden">
@@ -125,7 +142,7 @@ export const LayoutSidebarRight = ({
                                     setSidebarMode('full');
                                 }}
                             >
-                                Double Page
+                                Double ({doublePageCount})
                             </Button>
                             <Button
                                 variant="outline"
@@ -139,7 +156,7 @@ export const LayoutSidebarRight = ({
                                     setSidebarMode('split');
                                 }}
                             >
-                                Single Page
+                                Single ({singlePageCount})
                             </Button>
                             <Button
                                 variant="outline"
@@ -150,7 +167,7 @@ export const LayoutSidebarRight = ({
                                 )}
                                 onClick={() => setActiveTab('new')}
                             >
-                                New Templates
+                                New ({customCount})
                             </Button>
                         </div>
                     </div>
@@ -188,19 +205,35 @@ export const LayoutSidebarRight = ({
                                                 </div>
                                             </button>
 
-                                            {/* Edit Overlay Actions */}
-                                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-20 z-10">
+                                            {/* Edit Action (Top Right) */}
+                                            <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
                                                 <Button
                                                     variant="secondary"
                                                     size="icon"
-                                                    className="h-7 w-7 rounded-full shadow-lg bg-white hover:bg-gray-100"
+                                                    className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         onEditAdvancedTemplate?.(template, sidebarMode);
                                                     }}
                                                     title="Edit this Layout"
                                                 >
-                                                    <Pencil className="h-3.5 w-3.5 text-indigo-600" />
+                                                    <Pencil className="h-2.5 w-2.5 text-foreground" />
+                                                </Button>
+                                            </div>
+
+                                            {/* Delete Action (Top Left) */}
+                                            <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-destructive hover:text-destructive-foreground text-destructive border border-border/10 backdrop-blur-[2px] p-0"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onDeleteTemplate?.(template);
+                                                    }}
+                                                    title="Delete Template"
+                                                >
+                                                    <Trash2 className="h-2.5 w-2.5" />
                                                 </Button>
                                             </div>
                                         </div>
@@ -241,19 +274,35 @@ export const LayoutSidebarRight = ({
                                                                     </span>
                                                                 </button>
 
-                                                                {/* Edit Overlay Actions */}
-                                                                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                                {/* Edit Action (Top Right) */}
+                                                                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
                                                                     <Button
                                                                         variant="secondary"
                                                                         size="icon"
-                                                                        className="h-7 w-7 rounded-full shadow-lg bg-white hover:bg-gray-100"
+                                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
                                                                             onEditAdvancedTemplate?.(template, sidebarMode);
                                                                         }}
                                                                         title="Edit Template"
                                                                     >
-                                                                        <Pencil className="h-3.5 w-3.5 text-indigo-600" />
+                                                                        <Pencil className="h-2.5 w-2.5 text-foreground" />
+                                                                    </Button>
+                                                                </div>
+
+                                                                {/* Delete Action (Top Left) */}
+                                                                <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-destructive hover:text-destructive-foreground text-destructive border border-border/10 backdrop-blur-[2px] p-0"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            onDeleteTemplate?.(template);
+                                                                        }}
+                                                                        title="Delete Template"
+                                                                    >
+                                                                        <Trash2 className="h-2.5 w-2.5" />
                                                                     </Button>
                                                                 </div>
                                                             </div>
@@ -294,19 +343,35 @@ export const LayoutSidebarRight = ({
                                                                     </span>
                                                                 </button>
 
-                                                                {/* Edit Overlay Actions */}
-                                                                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                                {/* Edit Action (Top Right) */}
+                                                                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
                                                                     <Button
                                                                         variant="secondary"
                                                                         size="icon"
-                                                                        className="h-7 w-7 rounded-full shadow-lg bg-white hover:bg-gray-100"
+                                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
                                                                             onEditAdvancedTemplate?.(template, sidebarMode);
                                                                         }}
                                                                         title="Edit Template"
                                                                     >
-                                                                        <Pencil className="h-3.5 w-3.5 text-indigo-600" />
+                                                                        <Pencil className="h-2.5 w-2.5 text-foreground" />
+                                                                    </Button>
+                                                                </div>
+
+                                                                {/* Delete Action (Top Left) */}
+                                                                <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-destructive hover:text-destructive-foreground text-destructive border border-border/10 backdrop-blur-[2px] p-0"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            onDeleteTemplate?.(template);
+                                                                        }}
+                                                                        title="Delete Template"
+                                                                    >
+                                                                        <Trash2 className="h-2.5 w-2.5" />
                                                                     </Button>
                                                                 </div>
                                                             </div>

@@ -23,6 +23,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { ModeToggle } from "@/components/mode-toggle";
 import { UserNav } from "@/components/user-nav";
 import { AdminSettingsDialog } from "@/components/admin/admin-settings-dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export type ToolMode = 'select' | 'pencil' | 'rect' | 'circle';
 
@@ -36,10 +46,11 @@ interface CustomLayoutEditorOverlayProps {
 import { useTheme } from 'next-themes';
 
 export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, onAddTemplate }: CustomLayoutEditorOverlayProps) => {
-    const { findGridTemplate, defaultGridTemplate, allTemplates } = useTemplates();
+    const { findGridTemplate, defaultGridTemplate, allTemplates, refresh } = useTemplates();
     const { resolvedTheme } = useTheme();
     const { isAdmin } = useAuth();
     const [adminOpen, setAdminOpen] = useState(false);
+    const [deleteConfirmation, setDeleteConfirmation] = useState<AdvancedTemplate | null>(null);
 
     // Use only templates passed via props (if any) or start empty for session
     // Do NOT auto-load all custom templates from the global cache to avoid cluttering "New Templates"
@@ -519,6 +530,50 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         onClose();
     };
 
+    const handleDeleteTemplate = (template: AdvancedTemplate) => {
+        setDeleteConfirmation(template);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteConfirmation) return;
+
+        const template = deleteConfirmation;
+        setDeleteConfirmation(null); // Close dialog immediately
+
+        try {
+            const isNew = typeof template.id === 'string' && template.id.includes('-');
+
+            if (isNew) {
+                // Delete from local state only
+                setCreatedTemplates(prev => prev.filter(t => t.id !== template.id));
+                // If the deleted template was selected, clear selection
+                if (selectedAdvancedTemplate?.id === template.id) {
+                    handleClearAll();
+                }
+            } else {
+                // Delete from Database
+                const supabase = createClient();
+                const { error } = await supabase
+                    .from('templates')
+                    .delete()
+                    .eq('id', template.id);
+
+                if (error) throw error;
+
+                // Refresh cache to update UI
+                await refresh();
+
+                // If the deleted template was selected, clear selection
+                if (selectedAdvancedTemplate?.id === template.id) {
+                    handleClearAll();
+                }
+            }
+        } catch (error) {
+            console.error('Failed to delete template:', error);
+            alert('Failed to delete template. Please try again.');
+        }
+    };
+
     const handleCancel = () => {
         onClose();
     };
@@ -799,6 +854,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         onSelectAdvancedTemplate={handleSelectAdvancedTemplate}
                         selectedAdvancedTemplate={selectedAdvancedTemplate}
                         customTemplates={createdTemplates}
+                        systemTemplates={allTemplates}
                         spreadMode={spreadMode}
                         onSpreadModeChange={handleSpreadModeChange}
                         config={config}
@@ -811,6 +867,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         useDummyPhotos={useDummyPhotos}
                         onUseDummyPhotosChange={handleUseDummyPhotosChange}
                         onEditAdvancedTemplate={(t, m) => handleSelectAdvancedTemplate(t, m, true)}
+                        onDeleteTemplate={handleDeleteTemplate}
                         editingTemplateId={editingTemplateId}
                     />
                 </div>
@@ -925,6 +982,20 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                     </Button>
                 </div>
             </div>
+            <AlertDialog open={!!deleteConfirmation} onOpenChange={(open) => !open && setDeleteConfirmation(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will permanently delete the template "{deleteConfirmation?.name}". This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 };

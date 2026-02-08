@@ -10,6 +10,7 @@ import {
     getTemplatesSync,
     getCoverTemplatesSync,
     preloadCache,
+    invalidateCache, // Add this
     AdvancedTemplate
 } from '@/lib/templates-cache';
 import { useSettings } from '@/hooks/use-settings';
@@ -126,6 +127,13 @@ export function useTemplates() {
 
         defaultGridTemplate: templates[0] || allRawTemplates[0],
         defaultCoverTemplate: coverTemplates[0] || rawCoverTemplates[0],
+
+        // Refresh function
+        refresh: async () => {
+            invalidateCache();
+            await preloadCache();
+            setTrigger(t => t + 1);
+        }
     };
 }
 

@@ -1483,7 +1483,7 @@ export const LayoutCanvas = ({
                 {showGuides && (
                     <>
                         {/* Ruler Intersection Corner */}
-                        <div
+                        {/* <div
                             className="absolute border border-border/40 backdrop-blur-sm z-20"
                             style={{
                                 left: pageMargin - 26,
@@ -1491,7 +1491,7 @@ export const LayoutCanvas = ({
                                 width: '26px',
                                 height: '26px'
                             }}
-                        />
+                        /> */}
 
                         {/* Vertical Ruler (Left) */}
                         <div

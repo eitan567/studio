@@ -325,26 +325,11 @@ async function initializeCache(): Promise<void> {
                 return template;
             });
 
-            // Merge with static templates (Canva templates, etc.)
-            // Deduplicate by ID, prioritizing database templates
-            const seenIds = new Map<string, AdvancedTemplate>();
-
-            // Add static templates first
-            for (const template of LAYOUT_TEMPLATES) {
-                seenIds.set(String(template.id), template);
-            }
-
-            // Add/Overwrite with database templates
-            for (const template of mappedTemplates) {
-                seenIds.set(String(template.id), template);
-            }
-
-            templatesCache = Array.from(seenIds.values());
-
-            // Covers use same templates
+            // Assign directly - DO NOT merge with static templates (User request: DB is single source of truth)
+            templatesCache = mappedTemplates;
             coverTemplatesCache = [...templatesCache];
 
-            logger.info(`Loaded ${templatesCache.length} unified templates from DB (deduplicated from ${data.length})`);
+            logger.info(`Loaded ${templatesCache.length} templates from DB`);
         } else {
             logger.warn('No templates found in DB, using static fallback.');
             // Use static templates from templates.tsx
