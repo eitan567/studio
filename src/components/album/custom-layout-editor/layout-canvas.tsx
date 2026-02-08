@@ -1077,6 +1077,11 @@ export const LayoutCanvas = ({
         const handleKeyDown = (e: KeyboardEvent) => {
             if (toolMode !== 'select' || !onUpdateVectorObjects) return;
 
+            // Ignore if user is typing in an input
+            if (document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement) {
+                return;
+            }
+
             if (e.key === 'Delete' || e.key === 'Backspace') {
                 e.preventDefault();
                 const idsToRemove = new Set<string>();
