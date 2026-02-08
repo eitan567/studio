@@ -4,7 +4,7 @@ import { LayoutSidebarLeft } from './layout-sidebar-left';
 import { LayoutSidebarRight } from './layout-sidebar-right';
 import { LayoutCanvas } from './layout-canvas';
 import { FloatingToolbar } from './floating-toolbar';
-import { BottomToolbar } from './bottom-toolbar';
+import { LayersPanel } from './layers-panel';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
@@ -574,6 +574,58 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         }
     };
 
+    // Handle changing layer (z-index)
+    const handleReorderObjects = (index: number, direction: 'up' | 'down') => {
+        // Change Z-index, not array index (though we sort by z-index implicitly in some places, here we just update the property)
+
+        const newObjects = [...vectorObjects];
+        const currentObj = newObjects[index];
+        const currentZ = currentObj.zIndex ?? 0;
+
+        let newZ = direction === 'up' ? currentZ + 1 : currentZ - 1;
+        if (newZ < 1) newZ = 1; // Minimum Z-index is 1 (0 is background/base?) Actually base logic uses 0? Let's check logic. Previous logic used sort, so lowest was base. Let's clamp to 1 to be safe/consistent if we used 1-based everywhere, but 0 if we want base. 
+        // The user logic implies ZIndex determines layer group.
+        // Let's allow 0? The code I wrote earlier sorts ZIndices: const baseZ = zIndices[0] ?? 0;
+        // If I make newZ = 0, it might become Base Grid.
+        // Let's allow it to go to existing Zs or new Zs.
+
+        if (newZ === currentZ) return;
+
+        // update the object
+        newObjects[index] = { ...currentObj, zIndex: newZ };
+
+        // We should PROBABLY resort the vectorObjects by zIndex to keep rendering order strictly matching Z-Index?
+        // LayoutCanvas renders vectorObjects in array order.
+        // If we have ObjA(Z=2) before ObjB(Z=1) in array:
+        // SVG renders ObjA then ObjB. ObjB is on top of ObjA visually.
+        // This contradicts Z=2 being "higher".
+        // So we MUST sort the array by Z-Index whenever we change it.
+
+        newObjects.sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
+
+        // Update selection index mapping because sorting changed indices
+        // Find where our object went
+        // Actually, just clear selection or re-find.
+        // Re-finding is better UX.
+        // But `selectedShapeIndices` is array of indices.
+        // With UUIDs we could track better.
+        // Let's just find the index of the object with the same ID.
+
+        setVectorObjects(newObjects);
+
+        // Update selection
+        const newIndex = newObjects.findIndex(o => o.id === currentObj.id);
+        if (newIndex !== -1) {
+            setSelectedShapeIndices([newIndex]);
+        }
+    };
+
+    const handleDeleteObject = (index: number) => {
+        setVectorObjects(prev => prev.filter((_, i) => i !== index));
+        setSelectedShapeIndices([]); // Clear selection
+    };
+
+
     const handleCancel = () => {
         onClose();
     };
@@ -625,58 +677,87 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
         const logicalWidthUnits = aspect * 100;
 
-        // Separate vector objects into calculated (lines) and direct (paths)
-        const lineSegments = vectorObjects
-            .filter(obj => obj.type !== 'path')
-            .flatMap(obj => obj.segments);
+        // Group objects by zIndex to separate layers
+        const zIndices = Array.from(new Set(vectorObjects.map(o => o.zIndex ?? 0))).sort((a, b) => a - b);
+        const baseZ = zIndices[0] ?? 0; // The lowest layer is the "Grid" (Base Layer)
 
-        const pathRegions: LayoutRegion[] = vectorObjects
-            .filter(obj => obj.type === 'path')
-            .map(obj => {
-                // Calculate bounds from obj.points (the 4-corner bounding box)
-                // Points are in canvas coordinate system (0..100*aspect x 0..100)
-                const pts = obj.points || [];
-                const minX = pts.length ? Math.min(...pts.map(p => p[0])) : 0;
-                const minY = pts.length ? Math.min(...pts.map(p => p[1])) : 0;
-                const maxX = pts.length ? Math.max(...pts.map(p => p[0])) : logicalWidthUnits;
-                const maxY = pts.length ? Math.max(...pts.map(p => p[1])) : 100;
+        let allNewRegions: LayoutRegion[] = [];
 
-                // Convert from canvas units to percentage (0-100)
-                const boundsX = (minX / logicalWidthUnits) * 100;
-                const boundsY = minY; // Y is already in 0-100
-                const boundsW = ((maxX - minX) / logicalWidthUnits) * 100;
-                const boundsH = maxY - minY;
+        // Process "Path" objects separately (they are explicit regions)
+        // Actually, we can process them per-layer too to keep Z-index correct relative to generated regions
+        // But for simplicity, let's process non-path objects per layer, and add path objects with their specific Z.
 
-                return {
-                    id: obj.id,
-                    shape: 'path' as const,
-                    path: obj.path,
-                    viewBox: obj.viewBox,
-                    bounds: { x: boundsX, y: boundsY, width: boundsW, height: boundsH },
-                    stroke: obj.stroke !== 'transparent' ? obj.stroke : undefined,
-                    strokeWidth: obj.strokeWidth > 0 ? obj.strokeWidth : undefined,
-                    fill: obj.fill !== 'transparent' ? obj.fill : undefined,
-                    zIndex: obj.zIndex,
-                    rotation: obj.rotation
-                };
-            });
+        // Actually, the user wants interaction within layers.
+        // So we should iterate layers.
 
-        // Core Geometry Calculation for lines
-        const newRegions = processLayoutGeometry(lineSegments, 0, logicalWidthUnits);
+        zIndices.forEach(z => {
+            const layerObjects = vectorObjects.filter(o => (o.zIndex ?? 0) === z);
 
-        // Combine regions
-        const finalRegions = [...newRegions, ...pathRegions];
+            // 1. Path Objects in this layer (Frames/Shapes that are already fully defined)
+            const layerPathRegions: LayoutRegion[] = layerObjects
+                .filter(obj => obj.type === 'path')
+                .map(obj => {
+                    const pts = obj.points || [];
+                    const minX = pts.length ? Math.min(...pts.map(p => p[0])) : 0;
+                    const minY = pts.length ? Math.min(...pts.map(p => p[1])) : 0;
+                    const maxX = pts.length ? Math.max(...pts.map(p => p[0])) : logicalWidthUnits;
+                    const maxY = pts.length ? Math.max(...pts.map(p => p[1])) : 100;
 
-        // Map properties from vector objects to regions if possible
-        const updatedRegions = finalRegions.map(region => {
-            if (region.shape === 'path') return region; // Already mapped
-            return {
-                ...region,
-                stroke: strokeColor !== 'transparent' ? strokeColor : undefined,
-                strokeWidth: strokeWidth > 0 ? strokeWidth : undefined,
-                fill: fillColor !== 'transparent' ? fillColor : undefined
-            };
+                    const boundsX = (minX / logicalWidthUnits) * 100;
+                    const boundsY = minY;
+                    const boundsW = ((maxX - minX) / logicalWidthUnits) * 100;
+                    const boundsH = maxY - minY;
+
+                    return {
+                        id: obj.id,
+                        shape: 'path',
+                        path: obj.path,
+                        viewBox: obj.viewBox,
+                        bounds: { x: boundsX, y: boundsY, width: boundsW, height: boundsH },
+                        stroke: obj.stroke !== 'transparent' ? obj.stroke : undefined,
+                        strokeWidth: obj.strokeWidth > 0 ? obj.strokeWidth : undefined,
+                        fill: obj.fill !== 'transparent' ? obj.fill : undefined,
+                        zIndex: z,
+                        rotation: obj.rotation
+                    };
+                });
+
+            // 2. Geometric Objects (Lines, Rects, Polygons) in this layer
+            // Treat them as segments to be processed by geometry engine
+            // If this is the Base Layer, include page bounds (create grid).
+            // If Floating Layer, exclude page bounds (create floating shapes/cuts).
+
+            const layerSegments = layerObjects
+                .filter(obj => obj.type !== 'path') // rect, circle, polygon
+                .flatMap(obj => obj.segments || []);
+
+            if (layerSegments.length > 0 || (z === baseZ)) {
+
+                const isBaseLayer = (z === baseZ);
+
+                // Generate regions from segments
+                const generatedRegions = processLayoutGeometry(
+                    layerSegments,
+                    0, // gap handled later? no, gap param of processLayoutGeometry
+                    logicalWidthUnits,
+                    isBaseLayer // includePageBounds
+                );
+
+                const mappedRegions = generatedRegions.map(r => ({
+                    ...r,
+                    zIndex: z,
+                    stroke: strokeColor !== 'transparent' ? strokeColor : undefined,
+                    strokeWidth: strokeWidth > 0 ? strokeWidth : undefined,
+                    fill: fillColor !== 'transparent' ? fillColor : undefined
+                }));
+
+                allNewRegions.push(...mappedRegions);
+            }
+
+            allNewRegions.push(...layerPathRegions);
         });
+
+        const finalRegions = allNewRegions;
 
         // Generate a unique name for the new template
         const templateCount = createdTemplates.length + 1;
@@ -686,10 +767,6 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         // If we are cloning a system template (editingTemplateId is null), generate a new UUID.
         // If we are creating a brand new template (selectedAdvancedTemplate is null), generate a new UUID.
         const baseId = (editingTemplateId) ? editingTemplateId : uuidv4();
-
-        // If selectedAdvancedTemplate exists but we are NOT editing it (i.e. system clone),
-        // we must ensure we don't accidentally use its system ID.
-        // The logic above handles this: if editingTemplateId is null, we generate a UUID.
 
         const targetTemplate: AdvancedTemplate = selectedAdvancedTemplate || {
             id: baseId,
@@ -708,8 +785,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             ...targetTemplate,
             id: baseId, // Ensure we use the determined ID (either existing custom ID or new UUID)
             name: templateName || targetTemplate.name, // Use the input name if available
-            regions: updatedRegions,
-            photoCount: updatedRegions.length,
+            regions: finalRegions,
+            photoCount: finalRegions.length,
             type: spreadMode === 'full' ? 'spread' : 'single',
             isCustom: true, // Always mark as custom
             createdBy: null, // Custom templates owned by user (handled by RLS/context)
@@ -794,11 +871,11 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 </div>
 
                 {/* Main Canvas Area */}
-                <div className="flex-1 flex flex-col relative bg-muted/10 h-full overflow-hidden">
+                <div className="flex-1 flex relative bg-muted/10 h-full overflow-hidden">
 
 
                     {/* Canvas */}
-                    <div className="flex-1 relative overflow-hidden">
+                    <div className="flex-1 relative overflow-hidden flex flex-col">
                         <FloatingToolbar
                             toolMode={toolMode}
                             onToolChange={setToolMode}
@@ -844,6 +921,15 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             showGuides={showGuides}
                         />
                     </div>
+
+                    {/* Layers Panel */}
+                    <LayersPanel
+                        vectorObjects={vectorObjects}
+                        selectedIndices={selectedShapeIndices}
+                        onSelect={setSelectedShapeIndices}
+                        onDelete={handleDeleteObject}
+                        onReorder={handleReorderObjects}
+                    />
                 </div>
 
                 {/* Right Sidebar */}

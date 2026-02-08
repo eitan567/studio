@@ -20,7 +20,8 @@ const BORDER_SNAP = 0.5;     // Strong magnetism for actual page borders
 export function processLayoutGeometry(
     rawStrokes: Segment[],
     gap: number = 0,
-    width: number = 100
+    width: number = 100,
+    includePageBounds: boolean = true
 ): LayoutRegion[] {
     // 1. GRID NORMALIZE & BOUNDARY SNAP
     const strokes = rawStrokes.map(s => ({
@@ -37,7 +38,7 @@ export function processLayoutGeometry(
     ];
 
     // 3. SOUP OF SEGMENTS (Bounds + Strokes)
-    const allSegments = [...bounds, ...strokes];
+    const allSegments = includePageBounds ? [...bounds, ...strokes] : [...strokes];
 
     // 4. TOPOLOGICAL CLEANUP (Merging close vertices & splitting intersections)
     const atomicSegments = buildRobustPlanarGraph(allSegments);

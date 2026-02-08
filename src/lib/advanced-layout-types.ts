@@ -65,6 +65,7 @@ export interface LayoutRegion {
 // Complete vector object definition for the editor
 export interface VectorObject {
     id: string;
+    name?: string;
     type: 'rect' | 'circle' | 'polygon' | 'line' | 'freehand' | 'path';
     segments: Segment[]; // The atomic lines
     points?: Point[];    // The original points if applicable (e.g. for rect/circle)
