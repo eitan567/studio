@@ -9,6 +9,9 @@ import { useMemo, useEffect, useState } from 'react';
 import {
     getTemplatesSync,
     getCoverTemplatesSync,
+    getTemplateTypesSync,
+    getTemplateCategoriesSync,
+    getTemplateClassificationsSync,
     preloadCache,
     invalidateCache, // Add this
     AdvancedTemplate
@@ -40,6 +43,11 @@ export function useTemplates() {
     // All templates - unified
     const allRawTemplates = useMemo(() => getTemplatesSync(), [trigger]);
     const rawCoverTemplates = useMemo(() => getCoverTemplatesSync(), [trigger]);
+
+    // Reference data
+    const templateTypes = useMemo(() => getTemplateTypesSync(), [trigger]);
+    const templateCategories = useMemo(() => getTemplateCategoriesSync(), [trigger]);
+    const templateClassifications = useMemo(() => getTemplateClassificationsSync(), [trigger]);
 
     // Filter by visibility settings
     const templates = useMemo(() => {
@@ -98,6 +106,11 @@ export function useTemplates() {
 
         // Combined templates for dropdowns
         allCoverTemplates: coverTemplates,
+
+        // Reference data
+        templateTypes,
+        templateCategories,
+        templateClassifications,
 
         // Utility functions
         findTemplate: (id: string | number | null | undefined) => {

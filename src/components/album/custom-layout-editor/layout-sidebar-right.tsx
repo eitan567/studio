@@ -5,18 +5,17 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useTemplates } from '@/hooks/useTemplates';
 import { cn } from '@/lib/utils';
-import { Settings2, Layout } from 'lucide-react';
+import { Settings2, Layout, Settings, Pencil, Play, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { TemplatePreview } from '@/components/album/shared/template-preview';
+import { TemplateMetadataDialog } from './template-metadata-dialog';
 
 import { AlbumConfig } from '@/lib/types';
 import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { getPhotoCount } from '@/hooks/useTemplates';
-import { Pencil, Play, Trash2 } from 'lucide-react';
-
-interface LayoutSidebarRightProps {
+export interface LayoutSidebarRightProps {
     selectedLayout: string;
     onSelectLayout: (layoutId: string, mode?: 'full' | 'split') => void;
     onSelectAdvancedTemplate: (template: AdvancedTemplate, mode?: 'full' | 'split') => void;
@@ -37,6 +36,7 @@ interface LayoutSidebarRightProps {
     onCornerRadiusChange: (radius: number) => void;
     useDummyPhotos: boolean;
     onUseDummyPhotosChange: (use: boolean) => void;
+    onRefresh?: () => void;
 }
 
 export const LayoutSidebarRight = ({
@@ -59,9 +59,10 @@ export const LayoutSidebarRight = ({
     onEditAdvancedTemplate,
     onDeleteTemplate,
     editingTemplateId,
-    systemTemplates: propSystemTemplates
+    systemTemplates: propSystemTemplates,
+    onRefresh
 }: LayoutSidebarRightProps) => {
-    const { allTemplates: hookTemplates } = useTemplates();
+    const { allTemplates: hookTemplates, refresh } = useTemplates();
     const [activeTab, setActiveTab] = React.useState<'standard' | 'new'>('standard');
 
     // Use prop if available (reactive from parent), otherwise fall back to hook
@@ -70,6 +71,7 @@ export const LayoutSidebarRight = ({
 
     // Local state for filtering, independent of global canvas spreadMode
     const [sidebarMode, setSidebarMode] = React.useState<'full' | 'split'>(spreadMode);
+    const [metadataInfoTemplate, setMetadataInfoTemplate] = React.useState<AdvancedTemplate | null>(null);
 
     // Calculate aspect ratio from config
     const aspectRatio = React.useMemo(() => {
@@ -236,6 +238,22 @@ export const LayoutSidebarRight = ({
                                                     <Trash2 className="h-2.5 w-2.5" />
                                                 </Button>
                                             </div>
+
+                                            {/* Metadata Action (Bottom Left) */}
+                                            <div className="absolute bottom-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                <Button
+                                                    variant="secondary"
+                                                    size="icon"
+                                                    className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setMetadataInfoTemplate(template);
+                                                    }}
+                                                    title="Edit Metadata"
+                                                >
+                                                    <Settings className="h-2.5 w-2.5 text-foreground" />
+                                                </Button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -243,73 +261,83 @@ export const LayoutSidebarRight = ({
                                 customTemplates.length > 0 ? (
                                     <div className="space-y-6">
                                         {/* Full Spread Group */}
-                                        {filteredCustom.some(t => t.type === 'spread') && (
-                                            <div className="space-y-2">
-                                                <div className="flex items-center gap-2 px-1">
-                                                    <span className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-widest">Full Spreads</span>
-                                                    <div className="h-[1px] flex-1 bg-border/50" />
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    {filteredCustom
-                                                        .filter(t => t.type === 'spread')
-                                                        .map((template) => (
-                                                            <div key={template.id} className="relative group col-span-2">
-                                                                <button
-                                                                    onClick={() => onSelectAdvancedTemplate(template, sidebarMode)}
-                                                                    className={cn(
-                                                                        "w-full rounded-md border-2 p-1 transition-all hover:border-primary/50 relative overflow-hidden aspect-[2/1]",
-                                                                        selectedAdvancedTemplate?.id === template.id
-                                                                            ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                                                                            : "border-muted bg-muted/30",
-                                                                        editingTemplateId === template.id && "ring-2 ring-indigo-500/50 border-indigo-500"
-                                                                    )}
-                                                                    title={`${template.name} (${getPhotoCount(template)} photos)`}
-                                                                >
-                                                                    <div className="w-full h-full relative overflow-hidden bg-muted rounded-sm">
-                                                                        <TemplatePreview template={template} />
-                                                                    </div>
-                                                                    <span className="absolute bottom-0 left-0 right-0 text-[8px] text-center bg-background/80 py-0.5 font-medium truncate px-1">
-                                                                        {template.name}
-                                                                        {editingTemplateId === template.id && " (Editing)"}
-                                                                    </span>
-                                                                </button>
 
-                                                                {/* Edit Action (Top Right) */}
-                                                                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                                                                    <Button
-                                                                        variant="secondary"
-                                                                        size="icon"
-                                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            onEditAdvancedTemplate?.(template, sidebarMode);
-                                                                        }}
-                                                                        title="Edit Template"
-                                                                    >
-                                                                        <Pencil className="h-2.5 w-2.5 text-foreground" />
-                                                                    </Button>
-                                                                </div>
-
-                                                                {/* Delete Action (Top Left) */}
-                                                                <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-destructive hover:text-destructive-foreground text-destructive border border-border/10 backdrop-blur-[2px] p-0"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            onDeleteTemplate?.(template);
-                                                                        }}
-                                                                        title="Delete Template"
-                                                                    >
-                                                                        <Trash2 className="h-2.5 w-2.5" />
-                                                                    </Button>
-                                                                </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {filteredCustom
+                                                .filter(t => t.type === 'spread')
+                                                .map((template) => (
+                                                    <div key={template.id} className="relative group col-span-2">
+                                                        <button
+                                                            onClick={() => onSelectAdvancedTemplate(template, sidebarMode)}
+                                                            className={cn(
+                                                                "w-full rounded-md border-2 p-1 transition-all hover:border-primary/50 relative overflow-hidden aspect-[2/1]",
+                                                                selectedAdvancedTemplate?.id === template.id
+                                                                    ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                                                                    : "border-muted bg-muted/30",
+                                                                editingTemplateId === template.id && "ring-2 ring-indigo-500/50 border-indigo-500"
+                                                            )}
+                                                            title={`${template.name} (${getPhotoCount(template)} photos)`}
+                                                        >
+                                                            <div className="w-full h-full relative overflow-hidden bg-muted rounded-sm">
+                                                                <TemplatePreview template={template} />
                                                             </div>
-                                                        ))}
-                                                </div>
-                                            </div>
-                                        )}
+                                                            <span className="absolute bottom-0 left-0 right-0 text-[8px] text-center bg-background/80 py-0.5 font-medium truncate px-1">
+                                                                {template.name}
+                                                                {editingTemplateId === template.id && " (Editing)"}
+                                                            </span>
+                                                        </button>
+
+                                                        {/* Edit Action (Top Right) */}
+                                                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                            <Button
+                                                                variant="secondary"
+                                                                size="icon"
+                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    onEditAdvancedTemplate?.(template, sidebarMode);
+                                                                }}
+                                                                title="Edit Template"
+                                                            >
+                                                                <Pencil className="h-2.5 w-2.5 text-foreground" />
+                                                            </Button>
+                                                        </div>
+
+                                                        {/* Delete Action (Top Left) */}
+                                                        <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-destructive hover:text-destructive-foreground text-destructive border border-border/10 backdrop-blur-[2px] p-0"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    onDeleteTemplate?.(template);
+                                                                }}
+                                                                title="Delete Template"
+                                                            >
+                                                                <Trash2 className="h-2.5 w-2.5" />
+                                                            </Button>
+                                                        </div>
+
+                                                        {/* Metadata Action (Bottom Left) */}
+                                                        <div className="absolute bottom-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                            <Button
+                                                                variant="secondary"
+                                                                size="icon"
+                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setMetadataInfoTemplate(template);
+                                                                }}
+                                                                title="Edit Metadata"
+                                                            >
+                                                                <Settings className="h-2.5 w-2.5 text-foreground" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                        </div>
+
 
                                         {/* Single Page Group */}
                                         {filteredCustom.some(t => t.type === 'single' || !t.type) && (
@@ -374,6 +402,22 @@ export const LayoutSidebarRight = ({
                                                                         <Trash2 className="h-2.5 w-2.5" />
                                                                     </Button>
                                                                 </div>
+
+                                                                {/* Metadata Action (Bottom Left) */}
+                                                                <div className="absolute bottom-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                                    <Button
+                                                                        variant="secondary"
+                                                                        size="icon"
+                                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setMetadataInfoTemplate(template);
+                                                                        }}
+                                                                        title="Edit Metadata"
+                                                                    >
+                                                                        <Settings className="h-2.5 w-2.5 text-foreground" />
+                                                                    </Button>
+                                                                </div>
                                                             </div>
                                                         ))}
                                                 </div>
@@ -391,8 +435,20 @@ export const LayoutSidebarRight = ({
                             )}
                         </div>
                     </ScrollArea>
+
+                    <TemplateMetadataDialog
+                        open={!!metadataInfoTemplate}
+                        onOpenChange={(open) => !open && setMetadataInfoTemplate(null)}
+                        template={metadataInfoTemplate}
+                        onSaveSuccess={() => {
+                            // Trigger refresh if passed, or rely on global cache invalidation
+                            if (onRefresh) onRefresh();
+                            refresh();
+                        }}
+                    />
                 </div>
             </div>
         </div>
     );
 };
+

@@ -23,6 +23,7 @@ export interface DBTemplate {
     name: string;
     type_id: number;
     category_id: number;
+    classification_type_id?: number;
     template_type?: { code: string };
     template_category?: { code: string };
     photo_count: number;
@@ -43,6 +44,12 @@ export interface DBTemplate {
 // Unified cache storage
 let templatesCache: AdvancedTemplate[] | null = null;
 let coverTemplatesCache: AdvancedTemplate[] | null = null;
+
+// Cache for reference tables
+let templateTypesCache: { id: number; code: string; description: string }[] | null = null;
+let templateCategoriesCache: { id: number; code: string; label: string }[] | null = null;
+let templateClassificationsCache: { id: number; code: string; label: string }[] | null = null;
+
 let cacheInitialized = false;
 let cacheError: Error | null = null;
 
@@ -102,43 +109,7 @@ function convertGridToAdvanced(dbTemplate: DBTemplate): AdvancedTemplate {
 
     // Parse all grid classes to get dimensions and explicit positions
     const parsed = gridClasses.map((gridClass, index) => {
-        let x = -1, y = -1, width = 100, height = 100; // -1 means "needs calculation"
-
-        // Column parsing
-        const colSpan = gridClass.match(/col-span-(\d+)/);
-        const colStart = gridClass.match(/col-start-(\d+)/);
-        const colEnd = gridClass.match(/col-end-(\d+)/);
-
-        if (colStart && colEnd) {
-            const start = parseInt(colStart[1]) - 1;
-            const end = parseInt(colEnd[1]) - 1;
-            x = (start / 12) * 100;
-            width = ((end - start) / 12) * 100;
-        } else if (colStart) {
-            x = ((parseInt(colStart[1]) - 1) / 12) * 100;
-            width = colSpan ? (parseInt(colSpan[1]) / 12) * 100 : 100;
-        } else if (colSpan) {
-            width = (parseInt(colSpan[1]) / 12) * 100;
-        }
-
-        // Row parsing
-        const rowSpan = gridClass.match(/row-span-(\d+)/);
-        const rowStart = gridClass.match(/row-start-(\d+)/);
-        const rowEnd = gridClass.match(/row-end-(\d+)/);
-
-        if (rowStart && rowEnd) {
-            const start = parseInt(rowStart[1]) - 1;
-            const end = parseInt(rowEnd[1]) - 1;
-            y = (start / 12) * 100;
-            height = ((end - start) / 12) * 100;
-        } else if (rowStart) {
-            y = ((parseInt(rowStart[1]) - 1) / 12) * 100;
-            height = rowSpan ? (parseInt(rowSpan[1]) / 12) * 100 : 100;
-        } else if (rowSpan) {
-            height = (parseInt(rowSpan[1]) / 12) * 100;
-        }
-
-        return { id: `r${index + 1}`, x, y, width, height };
+        return gridClassToRegion(`r${index + 1}`, gridClass);
     });
 
     // Smart layout: fill in missing X/Y positions
@@ -149,11 +120,11 @@ function convertGridToAdvanced(dbTemplate: DBTemplate): AdvancedTemplate {
 
     const regions: LayoutRegion[] = parsed.map((p, index) => {
         // If explicit position not set, calculate based on flow
-        let x = p.x >= 0 ? p.x : currentX;
-        let y = p.y >= 0 ? p.y : currentY;
+        let x = p.bounds.x >= 0 && p.bounds.x < 100 ? p.bounds.x : currentX;
+        let y = p.bounds.y >= 0 && p.bounds.y < 100 ? p.bounds.y : currentY;
 
         // Check if it fits in current row
-        if (p.x < 0 && currentX + p.width > 100.01) {
+        if (currentX + p.bounds.width > 100.01) {
             // Move to next row
             currentY += rowHeight;
             currentX = 0;
@@ -163,15 +134,13 @@ function convertGridToAdvanced(dbTemplate: DBTemplate): AdvancedTemplate {
         }
 
         // Update tracking for next region
-        if (p.x < 0) {
-            currentX = x + p.width;
-            rowHeight = Math.max(rowHeight, p.height);
-        }
+        currentX = x + p.bounds.width;
+        rowHeight = Math.max(rowHeight, p.bounds.height);
 
         return {
             id: p.id,
             shape: 'rect' as const,
-            bounds: { x, y, width: p.width, height: p.height }
+            bounds: { x, y, width: p.bounds.width, height: p.bounds.height }
         };
     });
 
@@ -181,6 +150,7 @@ function convertGridToAdvanced(dbTemplate: DBTemplate): AdvancedTemplate {
         // Map native fields
         type_id: dbTemplate.type_id,
         category_id: dbTemplate.category_id,
+        classification_type_id: dbTemplate.classification_type_id,
         is_system: dbTemplate.is_system,
         is_active: dbTemplate.is_active,
         sort_order: dbTemplate.sort_order,
@@ -217,6 +187,27 @@ function parseTemplateDescription(description?: string): { _pageMargin?: number;
 }
 
 /**
+ * Get all template types
+ */
+export function getTemplateTypesSync() {
+    return templateTypesCache || [];
+}
+
+/**
+ * Get all template categories
+ */
+export function getTemplateCategoriesSync() {
+    return templateCategoriesCache || [];
+}
+
+/**
+ * Get all template classifications
+ */
+export function getTemplateClassificationsSync() {
+    return templateClassificationsCache || [];
+}
+
+/**
  * Initialize the cache from Supabase
  */
 async function initializeCache(): Promise<void> {
@@ -232,6 +223,17 @@ async function initializeCache(): Promise<void> {
 
         // Force cache refresh by invalidating before query
         cacheExpiry = 0;
+
+        // Fetch reference tables (parallel)
+        const [typesResult, categoriesResult, classificationsResult] = await Promise.all([
+            supabase.from('template_types').select('*').order('id'),
+            supabase.from('template_categories').select('*').order('id'),
+            supabase.from('template_classifications').select('*').order('id')
+        ]);
+
+        if (typesResult.data) templateTypesCache = typesResult.data;
+        if (categoriesResult.data) templateCategoriesCache = categoriesResult.data;
+        if (classificationsResult.data) templateClassificationsCache = classificationsResult.data;
 
         // Fetch all active templates with joins
         const { data: templatesData, error } = await supabase
@@ -269,6 +271,10 @@ async function initializeCache(): Promise<void> {
                     isCustom: !t.is_system,
                     // Use template_classification code if available
                     type: (t.template_classification?.code?.toLowerCase() || descSettings.type) as AdvancedTemplate['type'],
+                    // Store IDs for editing
+                    type_id: t.type_id,
+                    category_id: t.category_id,
+                    classification_type_id: t.classification_type_id,
                     _pageMargin: descSettings._pageMargin,
                     _photoGap: descSettings._photoGap,
                 };
@@ -416,6 +422,9 @@ export function invalidateCache(): void {
     cacheExpiry = 0;
     templatesCache = null;
     coverTemplatesCache = null;
+    templateTypesCache = null;
+    templateCategoriesCache = null;
+    templateClassificationsCache = null;
     logger.info('Cache invalidated');
 }
 

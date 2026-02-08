@@ -869,6 +869,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         onEditAdvancedTemplate={(t, m) => handleSelectAdvancedTemplate(t, m, true)}
                         onDeleteTemplate={handleDeleteTemplate}
                         editingTemplateId={editingTemplateId}
+                        onRefresh={refresh}
                     />
                 </div>
             </div>
