@@ -444,8 +444,10 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         type_id: typeId
                     };
 
-                    // If we have an editingTemplateId (and it's an integer), update that specific record
-                    const targetId = editingTemplateId || template.id;
+                    // Use the template's own ID. It adheres to logic:
+                    // - If it was a system clone, handleProcessLayout assigned a UUID.
+                    // - If it was a custom edit, handleProcessLayout kept the original ID.
+                    const targetId = template.id;
                     const isNew = typeof targetId === 'string' && targetId.includes('-');
 
                     if (isNew) {
@@ -598,8 +600,17 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         const templateCount = createdTemplates.length + 1;
 
         // Update or Create Template
+        // If we are editing an existing custom template, use its ID.
+        // If we are cloning a system template (editingTemplateId is null), generate a new UUID.
+        // If we are creating a brand new template (selectedAdvancedTemplate is null), generate a new UUID.
+        const baseId = (editingTemplateId) ? editingTemplateId : uuidv4();
+
+        // If selectedAdvancedTemplate exists but we are NOT editing it (i.e. system clone),
+        // we must ensure we don't accidentally use its system ID.
+        // The logic above handles this: if editingTemplateId is null, we generate a UUID.
+
         const targetTemplate: AdvancedTemplate = selectedAdvancedTemplate || {
-            id: uuidv4(),
+            id: baseId,
             name: `Custom Template ${templateCount}`,
             category: 'custom',
             regions: [],
@@ -613,9 +624,13 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
         const updated: AdvancedTemplate = {
             ...targetTemplate,
+            id: baseId, // Ensure we use the determined ID (either existing custom ID or new UUID)
+            name: templateName || targetTemplate.name, // Use the input name if available
             regions: updatedRegions,
             photoCount: updatedRegions.length,
             type: spreadMode === 'full' ? 'spread' : 'single',
+            isCustom: true, // Always mark as custom
+            createdBy: 'user', // Always mark as user-created
             _pageMargin: pageMargin,
             _photoGap: photoGap
         };
