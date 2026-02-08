@@ -209,72 +209,78 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         const isFullSpread = targetSpreadMode === 'full';
         const scaleX = isFullSpread ? 2 : 1;
 
-        // Convert template regions to VectorObjects for interactivity
-        const newVectorObjects: VectorObject[] = template.regions.map((region, index) => {
-            const isPath = region.shape === 'path';
-            let points: Point[] = region.points || [];
 
-            // For path objects, generate a bounding box to allow manipulation (points will be used for translation)
-            let pathPoints: Point[] | undefined = undefined;
-            if (isPath) {
-                const { x, y, width, height } = region.bounds;
-                pathPoints = [
-                    [x * scaleX, y],
-                    [(x + width) * scaleX, y],
-                    [(x + width) * scaleX, y + height],
-                    [x * scaleX, y + height]
-                ];
-            }
+        // Only load vector objects for editing mode
+        if (isEdit) {
+            // Convert template regions to VectorObjects for interactivity
+            const newVectorObjects: VectorObject[] = template.regions.map((region, index) => {
+                const isPath = region.shape === 'path';
+                let points: Point[] = region.points || [];
 
-            // For polygons, generate segments
-            const segments: Segment[] = [];
-            if (!isPath && points.length > 1) {
-                for (let i = 0; i < points.length - 1; i++) {
-                    segments.push({ p1: [points[i][0] * scaleX, points[i][1]] as Point, p2: [points[i + 1][0] * scaleX, points[i + 1][1]] as Point });
+                // For path objects, generate a bounding box to allow manipulation (points will be used for translation)
+                let pathPoints: Point[] | undefined = undefined;
+                if (isPath) {
+                    const { x, y, width, height } = region.bounds;
+                    pathPoints = [
+                        [x * scaleX, y],
+                        [(x + width) * scaleX, y],
+                        [(x + width) * scaleX, y + height],
+                        [x * scaleX, y + height]
+                    ];
                 }
-                // Close polygon if needed
-                if (points.length > 2 && (points[0][0] !== points[points.length - 1][0] || points[0][1] !== points[points.length - 1][1])) {
-                    segments.push({ p1: [points[points.length - 1][0] * scaleX, points[points.length - 1][1]] as Point, p2: [points[0][0] * scaleX, points[0][1]] as Point });
+
+                // For polygons, generate segments
+                const segments: Segment[] = [];
+                if (!isPath && points.length > 1) {
+                    for (let i = 0; i < points.length - 1; i++) {
+                        segments.push({ p1: [points[i][0] * scaleX, points[i][1]] as Point, p2: [points[i + 1][0] * scaleX, points[i + 1][1]] as Point });
+                    }
+                    // Close polygon if needed
+                    if (points.length > 2 && (points[0][0] !== points[points.length - 1][0] || points[0][1] !== points[points.length - 1][1])) {
+                        segments.push({ p1: [points[points.length - 1][0] * scaleX, points[points.length - 1][1]] as Point, p2: [points[0][0] * scaleX, points[0][1]] as Point });
+                    }
+                } else if (!isPath && region.shape === 'rect') {
+                    const { x, y, width, height } = region.bounds;
+                    const rectPoints: Point[] = [
+                        [x * scaleX, y],
+                        [(x + width) * scaleX, y],
+                        [(x + width) * scaleX, y + height],
+                        [x * scaleX, y + height]
+                    ];
+                    for (let i = 0; i < 4; i++) {
+                        segments.push({ p1: rectPoints[i], p2: rectPoints[(i + 1) % 4] });
+                    }
+                    // For rect shapes, we MUST ensure points are populated so LayoutCanvas can render the polygon
+                    points = rectPoints;
                 }
-            } else if (!isPath && region.shape === 'rect') {
-                const { x, y, width, height } = region.bounds;
-                const rectPoints: Point[] = [
-                    [x * scaleX, y],
-                    [(x + width) * scaleX, y],
-                    [(x + width) * scaleX, y + height],
-                    [x * scaleX, y + height]
-                ];
-                for (let i = 0; i < 4; i++) {
-                    segments.push({ p1: rectPoints[i], p2: rectPoints[(i + 1) % 4] });
-                }
-                // For rect shapes, we MUST ensure points are populated so LayoutCanvas can render the polygon
-                points = rectPoints;
-            }
 
-            // For other polygons/points, scale them if needed
-            const finalPoints = (region.shape === 'rect') ? points : points.map(p => [p[0] * scaleX, p[1]] as Point);
+                // For other polygons/points, scale them if needed
+                const finalPoints = (region.shape === 'rect') ? points : points.map(p => [p[0] * scaleX, p[1]] as Point);
 
-            // Background frame (index 0) gets a distinct color
-            const isBackground = index === 0;
-            const isDark = resolvedTheme === 'dark';
-            const bgFill = isDark ? '#1f1f1f' : '#f5f5f5';
+                // Background frame (index 0) gets a distinct color
+                const isBackground = index === 0;
+                const isDark = resolvedTheme === 'dark';
+                const bgFill = isDark ? '#1f1f1f' : '#f5f5f5';
 
-            return {
-                id: region.id || uuidv4(),
-                type: isPath ? 'path' : (region.shape === 'rect' ? 'rect' : (region.shape === 'circle' ? 'circle' : 'polygon')),
-                segments,
-                points: isPath ? pathPoints : finalPoints,
-                path: region.path,
-                viewBox: region.viewBox,
-                stroke: strokeColor,
-                strokeWidth: region.strokeWidth || 0.5,
-                fill: isBackground ? bgFill : fillColor,
-                zIndex: region.zIndex || index,
-                rotation: region.rotation || 0
-            };
-        });
-
-        setVectorObjects(newVectorObjects);
+                return {
+                    id: region.id || uuidv4(),
+                    type: isPath ? 'path' : (region.shape === 'rect' ? 'rect' : (region.shape === 'circle' ? 'circle' : 'polygon')),
+                    segments,
+                    points: isPath ? pathPoints : finalPoints,
+                    path: region.path,
+                    viewBox: region.viewBox,
+                    stroke: strokeColor,
+                    strokeWidth: region.strokeWidth || 0.5,
+                    fill: isBackground ? bgFill : fillColor,
+                    zIndex: region.zIndex || index,
+                    rotation: region.rotation || 0
+                };
+            });
+            setVectorObjects(newVectorObjects);
+        } else {
+            // Preview mode: clear vector objects so we see the final rendered result
+            setVectorObjects([]);
+        }
 
         if (targetSpreadMode !== spreadMode) {
             setSpreadMode(targetSpreadMode);
