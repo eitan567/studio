@@ -111,6 +111,10 @@ export const LayoutCanvas = ({
     const innerLogicalHeight = logicalHeight - pageMargin * 2;
     const coordinateAspect = innerLogicalWidth / innerLogicalHeight;
     const logicalWidthUnits = 100 * coordinateAspect;
+    // Ruler labels are shown on 10-unit steps; cap visible ticks to the last full 10.
+    const rulerMaxMajorUnit = Math.floor((logicalWidthUnits + 1e-6) / 10) * 10;
+    const rulerMajorTicks = Math.max(1, Math.round(rulerMaxMajorUnit / 10) + 1);
+    const rulerMinorTicks = Math.max(1, Math.round(rulerMaxMajorUnit / 2) + 1);
 
     // --- STATE ---
     const [scale, setScale] = useState(1);
@@ -1503,9 +1507,17 @@ export const LayoutCanvas = ({
                             }}
                         >
                             {Array.from({ length: 11 }).map((_, i) => (
-                                <div key={i} className="absolute left-0 right-0 flex items-center justify-end pr-1.5" style={{ top: `${i * 10}%`, height: '0px' }}>
-                                    <div className="absolute right-0 w-3 border-b border-border/40" />
-                                    <span className="text-[8px] font-medium text-muted-foreground/90 mr-4 translate-y-[2px]">{i * 10}</span>
+                                <div key={i} className="absolute left-0 right-0" style={{ top: `${i * 10}%`, height: '0px' }}>
+                                    <div className="absolute right-0 w-2 border-b border-border/40" />
+                                    <span
+                                        className="absolute right-4 text-[8px] font-medium leading-none text-muted-foreground/90"
+                                        style={{
+                                            top: 0,
+                                            transform: 'translateY(-50%)'
+                                        }}
+                                    >
+                                        {i * 10}
+                                    </span>
                                 </div>
                             ))}
                             {Array.from({ length: 51 }).map((_, i) => (
@@ -1522,13 +1534,21 @@ export const LayoutCanvas = ({
                                 right: pageMargin
                             }}
                         >
-                            {Array.from({ length: Math.ceil(logicalWidthUnits / 10) + 1 }).map((_, i) => (
-                                <div key={i} className="absolute top-0 bottom-0 flex flex-col justify-end pb-1.5" style={{ left: `${(i * 10 / logicalWidthUnits) * 100}%`, width: '0px' }}>
-                                    <div className="absolute bottom-0 h-3 border-r border-border/40" />
-                                    <span className="text-[8px] font-medium text-muted-foreground/90 ml-1.5 mb-2.5">{i * 10}</span>
+                            {Array.from({ length: rulerMajorTicks }).map((_, i) => (
+                                <div key={i} className="absolute top-0 bottom-0" style={{ left: `${(i * 10 / logicalWidthUnits) * 100}%`, width: '0px' }}>
+                                    <div className="absolute bottom-0 h-2 border-r border-border/40" />
+                                    <span
+                                        className="absolute bottom-[14px] text-[8px] font-medium leading-none text-muted-foreground/90"
+                                        style={{
+                                            left: 0,
+                                            transform: 'translateX(-50%)'
+                                        }}
+                                    >
+                                        {i * 10}
+                                    </span>
                                 </div>
                             ))}
-                            {Array.from({ length: Math.ceil(logicalWidthUnits / 2) + 1 }).map((_, i) => (
+                            {Array.from({ length: rulerMinorTicks }).map((_, i) => (
                                 <div key={i} className={cn("absolute bottom-0 border-r border-border/20", i % 5 === 0 ? "h-2.5" : "h-1.5")} style={{ left: `${(i * 2 / logicalWidthUnits) * 100}%`, width: '0px' }} />
                             ))}
                         </div>
