@@ -352,6 +352,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         // We scale it to be placed at a reasonable size on the canvas while maintaining aspect ratio
         const firstRegion = template.regions[0];
         if (!firstRegion || !firstRegion.path) return;
+        const snapToGrid = (value: number) => Math.round(value / 2) * 2;
 
         // Parse viewBox to get natural aspect ratio
         const viewBox = firstRegion.viewBox || '0 0 100 100';
@@ -378,10 +379,12 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         // Center position on canvas
         const centerX = 35;
         const centerY = 35;
+        const snappedX = snapToGrid(centerX);
+        const snappedY = snapToGrid(centerY);
 
         // Calculate bounding box points for the frame
-        const x = centerX;
-        const y = centerY;
+        const x = snappedX;
+        const y = snappedY;
         const pathPoints: Point[] = [
             [x, y],
             [x + frameWidth, y],

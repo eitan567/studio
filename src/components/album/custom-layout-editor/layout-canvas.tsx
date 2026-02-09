@@ -115,6 +115,13 @@ export const LayoutCanvas = ({
     const rulerMaxMajorUnit = Math.floor((logicalWidthUnits + 1e-6) / 10) * 10;
     const rulerMajorTicks = Math.max(1, Math.round(rulerMaxMajorUnit / 10) + 1);
     const rulerMinorTicks = Math.max(1, Math.round(rulerMaxMajorUnit / 2) + 1);
+    // Snap-to-grid settings (magnetic, not hard lock).
+    const SNAP_GRID_STEP = 2; // Matches the minor ruler/grid spacing.
+    const SNAP_THRESHOLD = 0.9; // How close to a grid line snapping starts.
+    const SNAP_STRENGTH = 0.8; // 0..1 (higher = stronger pull to the grid).
+    const SNAP_BORDER_THRESHOLD = 1.6; // Strong snapping window near page borders.
+    const SNAP_BORDER_STRENGTH = 1; // Hard snap on borders for exact edges/corners.
+    const SNAP_MOVE_BORDER_THRESHOLD = 2.0; // Move-mode boundary capture tolerance.
 
     // --- STATE ---
     const [scale, setScale] = useState(1);
@@ -158,6 +165,87 @@ export const LayoutCanvas = ({
             maxY = Math.max(maxY, p[1]);
         });
         return { minX, minY, maxX, maxY, centerX: (minX + maxX) / 2, centerY: (minY + maxY) / 2, width: maxX - minX, height: maxY - minY };
+    };
+
+    const snapScalarToGrid = (value: number): number => {
+        const nearest = Math.round(value / SNAP_GRID_STEP) * SNAP_GRID_STEP;
+        const delta = nearest - value;
+        if (Math.abs(delta) > SNAP_THRESHOLD) return value;
+        return value + (delta * SNAP_STRENGTH);
+    };
+
+    const snapScalarToTargets = (value: number, targets: number[], threshold: number, strength: number = 1): number => {
+        let bestTarget: number | null = null;
+        let bestDistance = Infinity;
+
+        for (const target of targets) {
+            const d = Math.abs(target - value);
+            if (d <= threshold && d < bestDistance) {
+                bestDistance = d;
+                bestTarget = target;
+            }
+        }
+
+        if (bestTarget === null) return value;
+        return value + ((bestTarget - value) * strength);
+    };
+
+    const snapPointToGrid = (p: Point): Point => {
+        const gx = snapScalarToGrid(p[0]);
+        const gy = snapScalarToGrid(p[1]);
+
+        // Prioritize exact border snap after grid snap for precise page corners/edges.
+        const bx = snapScalarToTargets(gx, [0, logicalWidthUnits], SNAP_BORDER_THRESHOLD, SNAP_BORDER_STRENGTH);
+        const by = snapScalarToTargets(gy, [0, 100], SNAP_BORDER_THRESHOLD, SNAP_BORDER_STRENGTH);
+        return [bx, by];
+    };
+
+    const getObjectsBounds = (objects: VectorObject[], ids: Set<string>) => {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        objects.forEach((obj) => {
+            if (!ids.has(obj.id) || !obj.points || obj.points.length === 0) return;
+            obj.points.forEach((p) => {
+                minX = Math.min(minX, p[0]);
+                minY = Math.min(minY, p[1]);
+                maxX = Math.max(maxX, p[0]);
+                maxY = Math.max(maxY, p[1]);
+            });
+        });
+
+        if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY)) return null;
+        return { minX, minY, maxX, maxY };
+    };
+
+    const getAxisBoundaryAdjustment = (
+        movedMin: number,
+        movedMax: number,
+        boundMin: number,
+        boundMax: number,
+        threshold: number
+    ): number => {
+        const candidates: number[] = [];
+        const toMin = boundMin - movedMin;
+        const toMax = boundMax - movedMax;
+
+        if (Math.abs(toMin) <= threshold) candidates.push(toMin);
+        if (Math.abs(toMax) <= threshold) candidates.push(toMax);
+        if (candidates.length === 0) return 0;
+
+        return candidates.reduce((best, curr) => Math.abs(curr) < Math.abs(best) ? curr : best, candidates[0]);
+    };
+
+    const applyBoundarySnapToDelta = (objects: VectorObject[], ids: Set<string>, dx: number, dy: number): Point => {
+        const bounds = getObjectsBounds(objects, ids);
+        if (!bounds) return [dx, dy];
+
+        const movedMinX = bounds.minX + dx;
+        const movedMaxX = bounds.maxX + dx;
+        const movedMinY = bounds.minY + dy;
+        const movedMaxY = bounds.maxY + dy;
+
+        const adjustX = getAxisBoundaryAdjustment(movedMinX, movedMaxX, 0, logicalWidthUnits, SNAP_MOVE_BORDER_THRESHOLD);
+        const adjustY = getAxisBoundaryAdjustment(movedMinY, movedMaxY, 0, 100, SNAP_MOVE_BORDER_THRESHOLD);
+        return [dx + adjustX, dy + adjustY];
     };
 
     const getSmartBBox = (points: Point[], preferredAngle?: number): ShapeData['obb'] => {
@@ -463,8 +551,9 @@ export const LayoutCanvas = ({
         // This function handles drawing new shapes (not selection/manipulation)
         if (toolMode === 'select' || !onUpdateVectorObjects) return;
         const rect = e.currentTarget.getBoundingClientRect();
-        const point = getPointFromEvent(e.clientX, e.clientY, rect);
-        if (!point) return;
+        const rawPoint = getPointFromEvent(e.clientX, e.clientY, rect);
+        if (!rawPoint) return;
+        const point = snapPointToGrid(rawPoint);
 
         setIsDrawing(true);
         isDrawingRef.current = true;
@@ -579,7 +668,7 @@ export const LayoutCanvas = ({
             }
 
             dragStartRef.current = {
-                point,
+                point: snapPointToGrid(point),
                 origPoints: shapes[foundIdx].polygon,
                 bbox: shapes[foundIdx].bbox,
                 startObb: shapes[foundIdx].obb,
@@ -643,11 +732,12 @@ export const LayoutCanvas = ({
         isDrawingRef.current = false;
 
         const rect = e.currentTarget.getBoundingClientRect();
-        const point = getPointFromEvent(e.clientX, e.clientY, rect);
-        if (!point) {
+        const rawPoint = getPointFromEvent(e.clientX, e.clientY, rect);
+        if (!rawPoint) {
             handleMouseUpCleanup();
             return;
         }
+        const point = snapPointToGrid(rawPoint);
 
         let newObjects = [...vectorObjects];
 
@@ -711,13 +801,14 @@ export const LayoutCanvas = ({
         const rect = e.currentTarget.getBoundingClientRect();
         const point = getPointFromEvent(e.clientX, e.clientY, rect);
         if (!point || !onUpdateVectorObjects) return;
+        const snappedPoint = snapPointToGrid(point);
 
         // Drawing mode - show preview shape
         if (isDrawing && (toolMode === 'rect' || toolMode === 'circle')) {
             const stroke = currentStrokeRef.current;
             if (stroke) {
                 const p1 = stroke.p1;
-                const p2 = point;
+                const p2 = snappedPoint;
 
                 if (toolMode === 'rect') {
                     const x1 = Math.min(p1[0], p2[0]);
@@ -746,7 +837,7 @@ export const LayoutCanvas = ({
         }
 
         if (isDrawing) {
-            currentStrokeRef.current = currentStrokeRef.current ? { ...currentStrokeRef.current, p2: point } : null;
+            currentStrokeRef.current = currentStrokeRef.current ? { ...currentStrokeRef.current, p2: snappedPoint } : null;
             setCurrentStroke(currentStrokeRef.current);
             return;
         }
@@ -829,10 +920,11 @@ export const LayoutCanvas = ({
 
         // Multi-Move Logic
         if (transformMode === 'move') {
-            const dx = point[0] - start.point[0];
-            const dy = point[1] - start.point[1];
+            const movePoint = snapPointToGrid(point);
+            const dx = movePoint[0] - start.point[0];
+            const dy = movePoint[1] - start.point[1];
 
-            if (distance(point, start.point) > 0.5) {
+            if (distance(movePoint, start.point) > 0.5) {
                 let currentObjects = vectorObjects;
                 let objectIdsToMove = start.affectedObjectIds || new Set<string>();
 
@@ -890,23 +982,34 @@ export const LayoutCanvas = ({
                 }
 
                 if (objectIdsToMove.size > 0 || mirrorIds.size > 0) {
+                    let finalDx = dx;
+                    let finalDy = dy;
+                    if (objectIdsToMove.size > 0) {
+                        const snappedDelta = applyBoundarySnapToDelta(currentObjects, objectIdsToMove, dx, dy);
+                        finalDx = snappedDelta[0];
+                        finalDy = snappedDelta[1];
+                    }
+
                     const newObjects = currentObjects.map((obj: VectorObject) => {
                         if (objectIdsToMove.has(obj.id)) {
                             if (obj.points) {
-                                const newPoints = obj.points.map((p: Point) => [p[0] + dx, p[1] + dy] as Point);
+                                const newPoints = obj.points.map((p: Point) => [p[0] + finalDx, p[1] + finalDy] as Point);
                                 return updateObjectPoints(obj, newPoints);
                             }
                         }
                         if (mirrorIds.has(obj.id)) {
                             if (obj.points) {
-                                const newPoints = obj.points.map((p: Point) => [p[0] - dx, p[1] + dy] as Point);
+                                const newPoints = obj.points.map((p: Point) => [p[0] - finalDx, p[1] + finalDy] as Point);
                                 return updateObjectPoints(obj, newPoints);
                             }
                         }
                         return obj;
                     });
                     onUpdateVectorObjects?.(newObjects);
-                    dragStartRef.current = { ...start, point };
+                    dragStartRef.current = {
+                        ...start,
+                        point: [start.point[0] + finalDx, start.point[1] + finalDy] as Point
+                    };
                 }
             }
         } else if (transformMode === 'resize' && selectedShapeIndices.length === 1) {
@@ -916,7 +1019,8 @@ export const LayoutCanvas = ({
             const startObb = start.startObb;
             if (!startObb) return;
 
-            const localMouse = transformPointToLocal(point, startObb.center, startObb.angle);
+            const resizePoint = snapPointToGrid(point);
+            const localMouse = transformPointToLocal(resizePoint, startObb.center, startObb.angle);
             const handles = getResizeHandles(startObb).map(h => transformPointToLocal(h, startObb.center, startObb.angle));
 
             const oppHandles = [4, 5, 6, 7, 0, 1, 2, 3];
