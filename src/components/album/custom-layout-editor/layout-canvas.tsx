@@ -153,6 +153,8 @@ export const LayoutCanvas = ({
         mirrorPartnerIndex?: number;
         mirrorPartnerIds?: Set<string>;
     } | null>(null);
+    const moveBasePointsRef = useRef<Map<string, Point[]> | null>(null);
+    const moveBaseBoundsRef = useRef<{ minX: number; minY: number; maxX: number; maxY: number } | null>(null);
 
     // --- UTILS ---
     const getBoundingBox = (polygon: Point[]) => {
@@ -200,22 +202,6 @@ export const LayoutCanvas = ({
         return [bx, by];
     };
 
-    const getObjectsBounds = (objects: VectorObject[], ids: Set<string>) => {
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        objects.forEach((obj) => {
-            if (!ids.has(obj.id) || !obj.points || obj.points.length === 0) return;
-            obj.points.forEach((p) => {
-                minX = Math.min(minX, p[0]);
-                minY = Math.min(minY, p[1]);
-                maxX = Math.max(maxX, p[0]);
-                maxY = Math.max(maxY, p[1]);
-            });
-        });
-
-        if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY)) return null;
-        return { minX, minY, maxX, maxY };
-    };
-
     const getAxisBoundaryAdjustment = (
         movedMin: number,
         movedMax: number,
@@ -232,20 +218,6 @@ export const LayoutCanvas = ({
         if (candidates.length === 0) return 0;
 
         return candidates.reduce((best, curr) => Math.abs(curr) < Math.abs(best) ? curr : best, candidates[0]);
-    };
-
-    const applyBoundarySnapToDelta = (objects: VectorObject[], ids: Set<string>, dx: number, dy: number): Point => {
-        const bounds = getObjectsBounds(objects, ids);
-        if (!bounds) return [dx, dy];
-
-        const movedMinX = bounds.minX + dx;
-        const movedMaxX = bounds.maxX + dx;
-        const movedMinY = bounds.minY + dy;
-        const movedMaxY = bounds.maxY + dy;
-
-        const adjustX = getAxisBoundaryAdjustment(movedMinX, movedMaxX, 0, logicalWidthUnits, SNAP_MOVE_BORDER_THRESHOLD);
-        const adjustY = getAxisBoundaryAdjustment(movedMinY, movedMaxY, 0, 100, SNAP_MOVE_BORDER_THRESHOLD);
-        return [dx + adjustX, dy + adjustY];
     };
 
     const getSmartBBox = (points: Point[], preferredAngle?: number): ShapeData['obb'] => {
@@ -668,7 +640,7 @@ export const LayoutCanvas = ({
             }
 
             dragStartRef.current = {
-                point: snapPointToGrid(point),
+                point,
                 origPoints: shapes[foundIdx].polygon,
                 bbox: shapes[foundIdx].bbox,
                 startObb: shapes[foundIdx].obb,
@@ -676,6 +648,8 @@ export const LayoutCanvas = ({
                 isDuplicating: false,
                 mirrorPartnerIndex: mirrorPartnerIdx
             };
+            moveBasePointsRef.current = null;
+            moveBaseBoundsRef.current = null;
 
         } else {
             onSelectionChange([]);
@@ -695,6 +669,8 @@ export const LayoutCanvas = ({
         setResizeHandle(null);
         setIsSymmetric(false);
         dragStartRef.current = null;
+        moveBasePointsRef.current = null;
+        moveBaseBoundsRef.current = null;
     };
 
     const handleMouseUp = (e: React.MouseEvent) => {
@@ -921,8 +897,8 @@ export const LayoutCanvas = ({
         // Multi-Move Logic
         if (transformMode === 'move') {
             const movePoint = snapPointToGrid(point);
-            const dx = movePoint[0] - start.point[0];
-            const dy = movePoint[1] - start.point[1];
+            const totalDx = movePoint[0] - start.point[0];
+            const totalDy = movePoint[1] - start.point[1];
 
             if (distance(movePoint, start.point) > 0.5) {
                 let currentObjects = vectorObjects;
@@ -978,38 +954,77 @@ export const LayoutCanvas = ({
                         start.affectedObjectIds = newIds;
                         start.mirrorPartnerIds = newMirrorIds;
                         onSelectionChange([]);
+                        moveBasePointsRef.current = null;
+                        moveBaseBoundsRef.current = null;
                     }
                 }
 
                 if (objectIdsToMove.size > 0 || mirrorIds.size > 0) {
-                    let finalDx = dx;
-                    let finalDy = dy;
-                    if (objectIdsToMove.size > 0) {
-                        const snappedDelta = applyBoundarySnapToDelta(currentObjects, objectIdsToMove, dx, dy);
-                        finalDx = snappedDelta[0];
-                        finalDy = snappedDelta[1];
+                    if (!moveBasePointsRef.current) {
+                        const basePoints = new Map<string, Point[]>();
+                        currentObjects.forEach((obj: VectorObject) => {
+                            if ((!objectIdsToMove.has(obj.id) && !mirrorIds.has(obj.id)) || !obj.points) return;
+                            basePoints.set(obj.id, obj.points.map((p: Point) => [p[0], p[1]] as Point));
+                        });
+                        moveBasePointsRef.current = basePoints;
+
+                        if (objectIdsToMove.size > 0) {
+                            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                            objectIdsToMove.forEach((id: string) => {
+                                const pts = basePoints.get(id);
+                                if (!pts) return;
+                                pts.forEach((p: Point) => {
+                                    minX = Math.min(minX, p[0]);
+                                    minY = Math.min(minY, p[1]);
+                                    maxX = Math.max(maxX, p[0]);
+                                    maxY = Math.max(maxY, p[1]);
+                                });
+                            });
+                            moveBaseBoundsRef.current = (isFinite(minX) && isFinite(minY) && isFinite(maxX) && isFinite(maxY))
+                                ? { minX, minY, maxX, maxY }
+                                : null;
+                        } else {
+                            moveBaseBoundsRef.current = null;
+                        }
                     }
 
+                    let finalDx = totalDx;
+                    let finalDy = totalDy;
+                    const moveBounds = moveBaseBoundsRef.current;
+                    if (moveBounds) {
+                        const adjustX = getAxisBoundaryAdjustment(
+                            moveBounds.minX + finalDx,
+                            moveBounds.maxX + finalDx,
+                            0,
+                            logicalWidthUnits,
+                            SNAP_MOVE_BORDER_THRESHOLD
+                        );
+                        const adjustY = getAxisBoundaryAdjustment(
+                            moveBounds.minY + finalDy,
+                            moveBounds.maxY + finalDy,
+                            0,
+                            100,
+                            SNAP_MOVE_BORDER_THRESHOLD
+                        );
+                        finalDx += adjustX;
+                        finalDy += adjustY;
+                    }
+
+                    const basePoints = moveBasePointsRef.current;
                     const newObjects = currentObjects.map((obj: VectorObject) => {
                         if (objectIdsToMove.has(obj.id)) {
-                            if (obj.points) {
-                                const newPoints = obj.points.map((p: Point) => [p[0] + finalDx, p[1] + finalDy] as Point);
-                                return updateObjectPoints(obj, newPoints);
-                            }
+                            const base = basePoints?.get(obj.id);
+                            if (base) return updateObjectPoints(obj, base.map((p: Point) => [p[0] + finalDx, p[1] + finalDy] as Point));
+                            if (obj.points) return updateObjectPoints(obj, obj.points.map((p: Point) => [p[0] + finalDx, p[1] + finalDy] as Point));
                         }
                         if (mirrorIds.has(obj.id)) {
-                            if (obj.points) {
-                                const newPoints = obj.points.map((p: Point) => [p[0] - finalDx, p[1] + finalDy] as Point);
-                                return updateObjectPoints(obj, newPoints);
-                            }
+                            const base = basePoints?.get(obj.id);
+                            if (base) return updateObjectPoints(obj, base.map((p: Point) => [p[0] - finalDx, p[1] + finalDy] as Point));
+                            if (obj.points) return updateObjectPoints(obj, obj.points.map((p: Point) => [p[0] - finalDx, p[1] + finalDy] as Point));
                         }
                         return obj;
                     });
                     onUpdateVectorObjects?.(newObjects);
-                    dragStartRef.current = {
-                        ...start,
-                        point: [start.point[0] + finalDx, start.point[1] + finalDy] as Point
-                    };
                 }
             }
         } else if (transformMode === 'resize' && selectedShapeIndices.length === 1) {
