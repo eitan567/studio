@@ -366,6 +366,60 @@ export const LayoutCanvas = ({
 
     const distance = (p1: Point, p2: Point): number => Math.sqrt(Math.pow(p1[0] - p2[0], 2) + Math.pow(p1[1] - p2[1], 2));
 
+    const distancePointToSegment = (p: Point, a: Point, b: Point): number => {
+        const abx = b[0] - a[0];
+        const aby = b[1] - a[1];
+        const apx = p[0] - a[0];
+        const apy = p[1] - a[1];
+        const abLenSq = (abx * abx) + (aby * aby);
+        if (abLenSq < 1e-9) return distance(p, a);
+        const t = Math.max(0, Math.min(1, ((apx * abx) + (apy * aby)) / abLenSq));
+        const proj: Point = [a[0] + (abx * t), a[1] + (aby * t)];
+        return distance(p, proj);
+    };
+
+    const isPointInPolygon = (p: Point, polygon: Point[]): boolean => {
+        if (polygon.length < 3) return false;
+        let inside = false;
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+            const xi = polygon[i][0], yi = polygon[i][1];
+            const xj = polygon[j][0], yj = polygon[j][1];
+            const intersects = ((yi > p[1]) !== (yj > p[1])) &&
+                (p[0] < ((xj - xi) * (p[1] - yi)) / ((yj - yi) || 1e-9) + xi);
+            if (intersects) inside = !inside;
+        }
+        return inside;
+    };
+
+    const isPointNearPolygonEdges = (p: Point, polygon: Point[], threshold: number): boolean => {
+        if (polygon.length < 2) return false;
+        for (let i = 0; i < polygon.length; i++) {
+            const a = polygon[i];
+            const b = polygon[(i + 1) % polygon.length];
+            if (distancePointToSegment(p, a, b) <= threshold) return true;
+        }
+        return false;
+    };
+
+    const isShapeHit = (shape: ShapeData, p: Point): boolean => {
+        const EDGE_HIT_TOLERANCE = 0.8;
+        const LINE_HIT_TOLERANCE = 1.2;
+
+        if (shape.object.type === 'line' || shape.polygon.length < 3) {
+            const segments = shape.object.segments || [];
+            if (segments.length > 0) {
+                return segments.some(seg => distancePointToSegment(p, seg.p1, seg.p2) <= LINE_HIT_TOLERANCE);
+            }
+            if (shape.polygon.length === 2) {
+                return distancePointToSegment(p, shape.polygon[0], shape.polygon[1]) <= LINE_HIT_TOLERANCE;
+            }
+            return false;
+        }
+
+        if (isPointInPolygon(p, shape.polygon)) return true;
+        return isPointNearPolygonEdges(p, shape.polygon, EDGE_HIT_TOLERANCE);
+    };
+
 
 
     const scheduleVectorObjectsUpdate = useCallback((nextObjects: VectorObject[]) => {
@@ -734,9 +788,7 @@ export const LayoutCanvas = ({
         // 2. Check Shape Hit
         let foundIdx = -1;
         for (let i = shapes.length - 1; i >= 0; i--) {
-            const bbox = shapes[i].bbox;
-            if (point[0] >= bbox.minX - 3 && point[0] <= bbox.maxX + 3 &&
-                point[1] >= bbox.minY - 3 && point[1] <= bbox.maxY + 3) {
+            if (isShapeHit(shapes[i], point)) {
                 foundIdx = i;
                 break;
             }
@@ -1018,9 +1070,7 @@ export const LayoutCanvas = ({
                                 // Check Shape Body (for move)
                                 let overShape = false;
                                 for (let i = shapes.length - 1; i >= 0; i--) {
-                                    const bbox = shapes[i].bbox;
-                                    if (point[0] >= bbox.minX && point[0] <= bbox.maxX &&
-                                        point[1] >= bbox.minY && point[1] <= bbox.maxY) {
+                                    if (isShapeHit(shapes[i], point)) {
                                         overShape = true;
                                         break;
                                     }
@@ -1033,9 +1083,7 @@ export const LayoutCanvas = ({
                     // Check Shape Body (No selection or multi-selection)
                     let overShape = false;
                     for (let i = shapes.length - 1; i >= 0; i--) {
-                        const bbox = shapes[i].bbox;
-                        if (point[0] >= bbox.minX && point[0] <= bbox.maxX &&
-                            point[1] >= bbox.minY && point[1] <= bbox.maxY) {
+                        if (isShapeHit(shapes[i], point)) {
                             overShape = true;
                             break;
                         }
