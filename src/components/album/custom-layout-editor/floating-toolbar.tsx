@@ -2,11 +2,10 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Layout, Pencil, Square, Circle, Trash2, FlipHorizontal, X, MousePointer2, BookOpen, Book, Ruler, Play } from 'lucide-react';
+import { Pencil, Square, Circle, Trash2, FlipHorizontal, X, MousePointer2, BookOpen, Ruler, Play, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ToolMode } from './custom-layout-editor-overlay';
 import { Separator } from '@/components/ui/separator';
-import { Label } from '@/components/ui/label';
 
 // Interface
 interface FloatingToolbarProps {
@@ -26,6 +25,8 @@ interface FloatingToolbarProps {
     onToggleSpreadMode: () => void;
     showGuides: boolean;
     onToggleGuides: () => void;
+    isLayersPanelOpen: boolean;
+    onToggleLayersPanel: () => void;
     // Action Controls
     onClearStrokes: () => void;
     onProcessLayout: () => void;
@@ -46,6 +47,8 @@ export const FloatingToolbar = ({
     onToggleSpreadMode,
     showGuides,
     onToggleGuides,
+    isLayersPanelOpen,
+    onToggleLayersPanel,
     onClearStrokes,
     onProcessLayout
 }: FloatingToolbarProps) => {
@@ -132,6 +135,16 @@ export const FloatingToolbar = ({
                     title="Toggle Rulers & Grid"
                 >
                     <Ruler className="h-4 w-4" />
+                </Button>
+
+                <Button
+                    variant={isLayersPanelOpen ? "secondary" : "ghost"}
+                    size="icon"
+                    className={cn("h-8 w-8", isLayersPanelOpen && "text-primary")}
+                    onClick={onToggleLayersPanel}
+                    title={isLayersPanelOpen ? "Hide Layers Panel" : "Show Layers Panel"}
+                >
+                    <Layers className="h-4 w-4" />
                 </Button>
             </div>
 

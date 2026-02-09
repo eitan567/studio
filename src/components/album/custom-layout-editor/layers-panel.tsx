@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { ChevronUp, ChevronDown, Trash2, Box, Circle, Rat, Frame } from 'lucide-react';
+import { ChevronUp, ChevronDown, Trash2, Box, Circle, Frame, X } from 'lucide-react';
 import { VectorObject } from '@/lib/advanced-layout-types';
 
 interface LayersPanelProps {
@@ -11,6 +11,9 @@ interface LayersPanelProps {
     onSelect: (indices: number[]) => void;
     onDelete: (index: number) => void;
     onReorder: (index: number, direction: 'up' | 'down') => void;
+    onClose?: () => void;
+    onDragStart?: (e: React.PointerEvent<HTMLDivElement>) => void;
+    className?: string;
 }
 
 export const LayersPanel = ({
@@ -18,7 +21,10 @@ export const LayersPanel = ({
     selectedIndices,
     onSelect,
     onDelete,
-    onReorder
+    onReorder,
+    onClose,
+    onDragStart,
+    className
 }: LayersPanelProps) => {
 
     // Helper to get icon based on type
@@ -62,10 +68,30 @@ export const LayersPanel = ({
     }, [vectorObjects]);
 
     return (
-        <div className="flex flex-col h-full bg-background border-l w-64 pointer-events-auto shadow-sm">
-            <div className="p-3 border-b flex items-center justify-between bg-muted/20">
+        <div className={cn("flex flex-col h-full w-full bg-background border rounded-lg pointer-events-auto shadow-lg overflow-hidden", className)}>
+            <div
+                className="p-3 border-b flex items-center justify-between bg-muted/20 cursor-move select-none"
+                onPointerDown={onDragStart}
+            >
                 <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Layers</span>
-                <span className="text-[10px] text-muted-foreground">{vectorObjects.length} objects</span>
+                <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground">{vectorObjects.length} objects</span>
+                    {onClose && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onClose();
+                            }}
+                            title="Close Layers Panel"
+                        >
+                            <X className="h-3.5 w-3.5" />
+                        </Button>
+                    )}
+                </div>
             </div>
 
             <ScrollArea className="flex-1">

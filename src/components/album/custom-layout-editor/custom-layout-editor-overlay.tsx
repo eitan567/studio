@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AlbumPage, AlbumConfig } from '@/lib/types';
 import { LayoutSidebarLeft } from './layout-sidebar-left';
 import { LayoutSidebarRight } from './layout-sidebar-right';
@@ -127,6 +127,10 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const [isMirrorMode, setIsMirrorMode] = useState(false);
     const [selectedShapeIndices, setSelectedShapeIndices] = useState<number[]>([]);
     const [showGuides, setShowGuides] = useState(true);
+    const [isLayersPanelOpen, setIsLayersPanelOpen] = useState(true);
+    const [layersPanelPosition, setLayersPanelPosition] = useState({ x: 24, y: 24 });
+    const canvasWorkspaceRef = useRef<HTMLDivElement>(null);
+    const floatingLayersRef = useRef<HTMLDivElement>(null);
 
     // Dynamic Theme Update: When theme changes, update state AND existing objects
     useEffect(() => {
@@ -647,6 +651,39 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         setSelectedShapeIndices([]);
     }, []);
 
+    const handleStartDragLayersPanel = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+        if (e.button !== 0) return;
+        const workspace = canvasWorkspaceRef.current;
+        const panel = floatingLayersRef.current;
+        if (!workspace || !panel) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const workspaceRect = workspace.getBoundingClientRect();
+        const panelRect = panel.getBoundingClientRect();
+        const offsetX = e.clientX - panelRect.left;
+        const offsetY = e.clientY - panelRect.top;
+        const maxX = Math.max(8, workspaceRect.width - panelRect.width - 8);
+        const maxY = Math.max(8, workspaceRect.height - panelRect.height - 8);
+
+        const onPointerMove = (ev: PointerEvent) => {
+            const rawX = ev.clientX - workspaceRect.left - offsetX;
+            const rawY = ev.clientY - workspaceRect.top - offsetY;
+            const nextX = Math.max(8, Math.min(maxX, rawX));
+            const nextY = Math.max(8, Math.min(maxY, rawY));
+            setLayersPanelPosition({ x: nextX, y: nextY });
+        };
+
+        const onPointerUp = () => {
+            window.removeEventListener('pointermove', onPointerMove);
+            window.removeEventListener('pointerup', onPointerUp);
+        };
+
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+    }, []);
+
     // Process the drawn strokes into regions
     const handleProcessLayout = useCallback(() => {
         if (vectorObjects.length === 0) return;
@@ -874,7 +911,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 </div>
 
                 {/* Main Canvas Area */}
-                <div className="flex-1 flex relative bg-muted/10 h-full overflow-hidden">
+                <div ref={canvasWorkspaceRef} className="flex-1 flex relative bg-muted/10 h-full overflow-hidden">
 
 
                     {/* Canvas */}
@@ -894,6 +931,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             onToggleSpreadMode={() => handleSpreadModeChange(spreadMode === 'full' ? 'split' : 'full')}
                             showGuides={showGuides}
                             onToggleGuides={() => setShowGuides(!showGuides)}
+                            isLayersPanelOpen={isLayersPanelOpen}
+                            onToggleLayersPanel={() => setIsLayersPanelOpen(prev => !prev)}
                             onClearStrokes={handleClearAll}
                             onProcessLayout={handleProcessLayout}
                         />
@@ -923,16 +962,28 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             activeFillColor={fillColor}
                             showGuides={showGuides}
                         />
-                    </div>
 
-                    {/* Layers Panel */}
-                    <LayersPanel
-                        vectorObjects={vectorObjects}
-                        selectedIndices={selectedShapeIndices}
-                        onSelect={setSelectedShapeIndices}
-                        onDelete={handleDeleteObject}
-                        onReorder={handleReorderObjects}
-                    />
+                        {isLayersPanelOpen && (
+                            <div
+                                ref={floatingLayersRef}
+                                className="absolute z-40 w-72 h-[420px]"
+                                style={{
+                                    left: layersPanelPosition.x,
+                                    top: layersPanelPosition.y
+                                }}
+                            >
+                                <LayersPanel
+                                    vectorObjects={vectorObjects}
+                                    selectedIndices={selectedShapeIndices}
+                                    onSelect={setSelectedShapeIndices}
+                                    onDelete={handleDeleteObject}
+                                    onReorder={handleReorderObjects}
+                                    onClose={() => setIsLayersPanelOpen(false)}
+                                    onDragStart={handleStartDragLayersPanel}
+                                />
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Right Sidebar */}
