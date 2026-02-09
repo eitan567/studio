@@ -231,8 +231,8 @@ export const LayoutCanvas = ({
     };
 
     const normalizeAngleDeg = (angleDeg: number): number => {
-        const a = ((angleDeg + 180) % 360 + 360) % 360 - 180;
-        return Math.abs(a) < 0.0001 ? 0 : a;
+        const a = ((angleDeg % 360) + 360) % 360;
+        return (Math.abs(a) < 0.0001 || Math.abs(a - 360) < 0.0001) ? 0 : a;
     };
 
     const getAxisBoundaryAdjustment = (
@@ -1764,7 +1764,7 @@ export const LayoutCanvas = ({
                                         ? (obj.rotation || 0)
                                         : ((shapeData.obb.angle || 0) * 180 / Math.PI);
                                     const angleDeg = normalizeAngleDeg(rawAngleDeg);
-                                    if (Math.abs(angleDeg) < 0.5) return null;
+                                    if (Math.min(angleDeg, 360 - angleDeg) < 0.5) return null;
 
                                     return (
                                         <text

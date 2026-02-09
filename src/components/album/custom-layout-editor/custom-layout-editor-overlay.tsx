@@ -9,7 +9,27 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
-import { Check, X, Layout, BookOpen, Book, Maximize, FolderOpen, Trash2, Shield } from 'lucide-react';
+import {
+    Check,
+    X,
+    Layout,
+    BookOpen,
+    Book,
+    Maximize,
+    FolderOpen,
+    Trash2,
+    Shield,
+    AlignStartVertical,
+    AlignCenterVertical,
+    AlignEndVertical,
+    AlignStartHorizontal,
+    AlignCenterHorizontal,
+    AlignEndHorizontal,
+    AlignHorizontalDistributeCenter,
+    AlignVerticalDistributeCenter,
+    AlignHorizontalJustifyCenter,
+    AlignVerticalJustifyCenter
+} from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
 import { Sheet } from '@/components/ui/sheet';
@@ -146,6 +166,41 @@ const getSmartAngleRad = (points: Point[]): number => {
     return normalizeAngleRad(bestAngle);
 };
 
+type SelectionBounds = {
+    index: number;
+    id: string;
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+    centerX: number;
+    centerY: number;
+    width: number;
+    height: number;
+};
+
+const getObjectBounds = (obj: VectorObject): Omit<SelectionBounds, 'index' | 'id'> | null => {
+    const sourcePoints: Point[] =
+        obj.points && obj.points.length > 0
+            ? obj.points
+            : (obj.segments || []).flatMap(s => [s.p1, s.p2]);
+
+    if (sourcePoints.length === 0) return null;
+    return getPointsBoundingBox(sourcePoints);
+};
+
+const translateObjectBy = (obj: VectorObject, dx: number, dy: number): VectorObject => {
+    const shift = (p: Point): Point => [p[0] + dx, p[1] + dy];
+    return {
+        ...obj,
+        points: obj.points?.map(shift),
+        segments: obj.segments?.map(s => ({ p1: shift(s.p1), p2: shift(s.p2) }))
+    };
+};
+
+type AlignMode = 'left' | 'h-center' | 'right' | 'top' | 'v-center' | 'bottom';
+type DistributeMode = 'horizontal' | 'vertical';
+
 export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, onAddTemplate }: CustomLayoutEditorOverlayProps) => {
     const { findGridTemplate, defaultGridTemplate, allTemplates, refresh } = useTemplates();
     const { resolvedTheme } = useTheme();
@@ -233,6 +288,27 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const [layersPanelPosition, setLayersPanelPosition] = useState({ x: 24, y: 24 });
     const canvasWorkspaceRef = useRef<HTMLDivElement>(null);
     const floatingLayersRef = useRef<HTMLDivElement>(null);
+
+    const canvasLogicalWidthUnits = useMemo(() => {
+        let configW = 20;
+        let configH = 20;
+
+        if (config?.size) {
+            const parts = config.size.split('x').map(Number);
+            if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+                configW = parts[0];
+                configH = parts[1];
+            }
+        }
+
+        const BASE_PAGE_PX = 450;
+        const pxPerUnit = BASE_PAGE_PX / configH;
+        const pageW_px = configW * pxPerUnit;
+        const pageH_px = BASE_PAGE_PX;
+        const logicalWidthPx = spreadMode === 'full' ? pageW_px * 2 : pageW_px;
+
+        return (logicalWidthPx / pageH_px) * 100;
+    }, [config?.size, spreadMode]);
 
     // Dynamic Theme Update: When theme changes, update state AND existing objects
     useEffect(() => {
@@ -789,6 +865,111 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         });
     }, []);
 
+    const getSelectedBounds = useCallback((): SelectionBounds[] => {
+        return selectedShapeIndices
+            .map((index) => {
+                const obj = vectorObjects[index];
+                if (!obj) return null;
+                const bounds = getObjectBounds(obj);
+                if (!bounds) return null;
+                return { index, id: obj.id, ...bounds };
+            })
+            .filter((item): item is SelectionBounds => !!item);
+    }, [selectedShapeIndices, vectorObjects]);
+
+    const applySelectionOffsets = useCallback((offsetsById: Map<string, { dx: number; dy: number }>) => {
+        if (offsetsById.size === 0) return;
+
+        setVectorObjects((prev) =>
+            prev.map((obj) => {
+                const offset = offsetsById.get(obj.id);
+                if (!offset) return obj;
+                if (Math.abs(offset.dx) < 0.0001 && Math.abs(offset.dy) < 0.0001) return obj;
+                return translateObjectBy(obj, offset.dx, offset.dy);
+            })
+        );
+    }, []);
+
+    const handleAlignSelection = useCallback((mode: AlignMode) => {
+        const selected = getSelectedBounds();
+        if (selected.length < 2) return;
+
+        const groupMinX = Math.min(...selected.map(s => s.minX));
+        const groupMaxX = Math.max(...selected.map(s => s.maxX));
+        const groupMinY = Math.min(...selected.map(s => s.minY));
+        const groupMaxY = Math.max(...selected.map(s => s.maxY));
+        const groupCenterX = (groupMinX + groupMaxX) / 2;
+        const groupCenterY = (groupMinY + groupMaxY) / 2;
+
+        const offsets = new Map<string, { dx: number; dy: number }>();
+
+        selected.forEach((item) => {
+            let dx = 0;
+            let dy = 0;
+
+            if (mode === 'left') dx = groupMinX - item.minX;
+            if (mode === 'h-center') dx = groupCenterX - item.centerX;
+            if (mode === 'right') dx = groupMaxX - item.maxX;
+            if (mode === 'top') dy = groupMinY - item.minY;
+            if (mode === 'v-center') dy = groupCenterY - item.centerY;
+            if (mode === 'bottom') dy = groupMaxY - item.maxY;
+
+            offsets.set(item.id, { dx, dy });
+        });
+
+        applySelectionOffsets(offsets);
+    }, [applySelectionOffsets, getSelectedBounds]);
+
+    const handleDistributeSelection = useCallback((mode: DistributeMode) => {
+        const selected = getSelectedBounds();
+        if (selected.length < 3) return;
+
+        const sorted = [...selected].sort((a, b) =>
+            mode === 'horizontal' ? a.centerX - b.centerX : a.centerY - b.centerY
+        );
+
+        const firstCenter = mode === 'horizontal' ? sorted[0].centerX : sorted[0].centerY;
+        const lastCenter = mode === 'horizontal'
+            ? sorted[sorted.length - 1].centerX
+            : sorted[sorted.length - 1].centerY;
+        const step = (lastCenter - firstCenter) / (sorted.length - 1);
+
+        const offsets = new Map<string, { dx: number; dy: number }>();
+
+        sorted.forEach((item, idx) => {
+            const target = firstCenter + (step * idx);
+            if (mode === 'horizontal') {
+                offsets.set(item.id, { dx: target - item.centerX, dy: 0 });
+            } else {
+                offsets.set(item.id, { dx: 0, dy: target - item.centerY });
+            }
+        });
+
+        applySelectionOffsets(offsets);
+    }, [applySelectionOffsets, getSelectedBounds]);
+
+    const handleCenterSelectionOnCanvas = useCallback((axis: 'horizontal' | 'vertical') => {
+        const selected = getSelectedBounds();
+        if (selected.length === 0) return;
+
+        const groupMinX = Math.min(...selected.map(s => s.minX));
+        const groupMaxX = Math.max(...selected.map(s => s.maxX));
+        const groupMinY = Math.min(...selected.map(s => s.minY));
+        const groupMaxY = Math.max(...selected.map(s => s.maxY));
+        const groupCenterX = (groupMinX + groupMaxX) / 2;
+        const groupCenterY = (groupMinY + groupMaxY) / 2;
+
+        const targetCenterX = canvasLogicalWidthUnits / 2;
+        const targetCenterY = 50;
+
+        const dx = axis === 'horizontal' ? (targetCenterX - groupCenterX) : 0;
+        const dy = axis === 'vertical' ? (targetCenterY - groupCenterY) : 0;
+
+        const offsets = new Map<string, { dx: number; dy: number }>();
+        selected.forEach((item) => offsets.set(item.id, { dx, dy }));
+        applySelectionOffsets(offsets);
+    }, [applySelectionOffsets, canvasLogicalWidthUnits, getSelectedBounds]);
+
 
     const handleCancel = () => {
         onClose();
@@ -1009,6 +1190,10 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         setSelectedShapeIndices([]);
     }, [vectorObjects, config?.size, selectedAdvancedTemplate, handleSelectAdvancedTemplate, createdTemplates.length, pageMargin, photoGap, strokeColor, strokeWidth, fillColor, spreadMode]);
 
+    const hasSelection = selectedShapeIndices.length > 0;
+    const canAlignSelection = selectedShapeIndices.length >= 2;
+    const canDistributeSelection = selectedShapeIndices.length >= 3;
+
     return (
         <div className="fixed inset-0 z-[100] bg-background flex flex-col">
             {/* 1. Global Header */}
@@ -1117,6 +1302,124 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             activeFillColor={fillColor}
                             showGuides={showGuides}
                         />
+
+                        {/* Left Vertical Toolbar (reserved for future tools) */}
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 z-30 bg-background/95 backdrop-blur-sm border shadow-md rounded-full p-2 pointer-events-auto">
+                            <div className="h-8 w-8" />
+                        </div>
+
+                        {/* Right Vertical Toolbar (Selection Alignment/Distribution) */}
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 z-30 bg-background/95 backdrop-blur-sm border shadow-md rounded-full p-2 flex flex-col items-center gap-1 pointer-events-auto">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleAlignSelection('left')}
+                                disabled={!canAlignSelection}
+                                title="Align Left"
+                            >
+                                <AlignStartVertical className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleAlignSelection('h-center')}
+                                disabled={!canAlignSelection}
+                                title="Align Horizontal Center"
+                            >
+                                <AlignCenterVertical className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleAlignSelection('right')}
+                                disabled={!canAlignSelection}
+                                title="Align Right"
+                            >
+                                <AlignEndVertical className="h-4 w-4" />
+                            </Button>
+
+                            <div className="w-6 h-px bg-border/60 my-1" />
+
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleAlignSelection('top')}
+                                disabled={!canAlignSelection}
+                                title="Align Top"
+                            >
+                                <AlignStartHorizontal className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleAlignSelection('v-center')}
+                                disabled={!canAlignSelection}
+                                title="Align Vertical Center"
+                            >
+                                <AlignCenterHorizontal className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleAlignSelection('bottom')}
+                                disabled={!canAlignSelection}
+                                title="Align Bottom"
+                            >
+                                <AlignEndHorizontal className="h-4 w-4" />
+                            </Button>
+
+                            <div className="w-6 h-px bg-border/60 my-1" />
+
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleDistributeSelection('horizontal')}
+                                disabled={!canDistributeSelection}
+                                title="Distribute Horizontally"
+                            >
+                                <AlignHorizontalDistributeCenter className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleDistributeSelection('vertical')}
+                                disabled={!canDistributeSelection}
+                                title="Distribute Vertically"
+                            >
+                                <AlignVerticalDistributeCenter className="h-4 w-4" />
+                            </Button>
+
+                            <div className="w-6 h-px bg-border/60 my-1" />
+
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleCenterSelectionOnCanvas('horizontal')}
+                                disabled={!hasSelection}
+                                title="Center Selection on Canvas (Horizontal)"
+                            >
+                                <AlignHorizontalJustifyCenter className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleCenterSelectionOnCanvas('vertical')}
+                                disabled={!hasSelection}
+                                title="Center Selection on Canvas (Vertical)"
+                            >
+                                <AlignVerticalJustifyCenter className="h-4 w-4" />
+                            </Button>
+                        </div>
 
                         {isLayersPanelOpen && (
                             <div
