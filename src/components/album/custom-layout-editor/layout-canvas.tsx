@@ -103,6 +103,7 @@ export const LayoutCanvas = ({
     const cornerRadius = page.cornerRadius ?? config?.cornerRadius ?? 0;
     // Use config background color directly
     const backgroundColor = config?.backgroundColor;
+    const resolvedBackgroundColor = backgroundColor || 'hsl(var(--background))';
 
     // Coordinate system must stay tied to the actual page area, not to page margin.
     // In Single mode, we still show the spread, but editing happens on the right half.
@@ -1395,13 +1396,11 @@ export const LayoutCanvas = ({
                 <div
                     ref={canvasRef}
                     className={cn(
-                        "relative overflow-hidden ring-1 ring-border flex-none shadow-sm box-border transition-colors duration-200",
-                        !backgroundColor && "bg-background" // Use theme class if no specific color
+                        "relative overflow-hidden ring-1 ring-border flex-none shadow-sm box-border transition-colors duration-200"
                     )}
                     style={{
                         width: logicalWidth,
-                        height: logicalHeight,
-                        // backgroundColor: backgroundColor || undefined
+                        height: logicalHeight
                     }}
                 >
                     <div
@@ -1424,12 +1423,13 @@ export const LayoutCanvas = ({
                         <div className={cn("absolute inset-0 w-full h-full", toolMode !== 'select' && "pointer-events-none")}>
                             {advancedTemplate && vectorObjects.length === 0 ? (
                                 <div
-                                    className="absolute bg-background overflow-hidden shadow-sm"
+                                    className="absolute overflow-hidden shadow-sm"
                                     style={{
                                         top: 0,
                                         left: activeCanvasLeft,
                                         width: activeCanvasWidth,
                                         height: activeCanvasHeight,
+                                        backgroundColor: pageMargin > 0 ? resolvedBackgroundColor : undefined,
                                     }}
                                 >
                                     <div
@@ -1447,7 +1447,7 @@ export const LayoutCanvas = ({
                                                 region={region}
                                                 photo={page.photos[index]}
                                                 photoGap={photoGap}
-                                                backgroundColor={backgroundColor || 'hsl(var(--background))'}
+                                                backgroundColor={resolvedBackgroundColor}
                                                 containerWidth={previewInnerWidth}
                                                 containerHeight={previewInnerHeight}
                                                 onUpdatePanAndZoom={() => { }}
@@ -1471,7 +1471,7 @@ export const LayoutCanvas = ({
                                         <div className="text-[10px] text-muted-foreground/70 mt-1">Single Page designs the right side</div>
                                     </div>
                                     {/* ACTIVE RIGHT SIDE */}
-                                    <div className="flex-1 bg-background relative overflow-hidden flex items-center justify-center">
+                                    <div className="flex-1 relative overflow-hidden flex items-center justify-center">
                                         <div className="text-muted-foreground text-sm">Design Area</div>
                                     </div>
                                 </div>
@@ -1593,7 +1593,7 @@ export const LayoutCanvas = ({
                                                         <path
                                                             d={obj.path}
                                                             fill="none"
-                                                            stroke={backgroundColor || 'hsl(var(--background))'}
+                                                            stroke={resolvedBackgroundColor}
                                                             strokeWidth={photoGap}
                                                             vectorEffect="non-scaling-stroke"
                                                             pointerEvents="none"

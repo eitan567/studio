@@ -45,6 +45,11 @@ interface CustomLayoutEditorOverlayProps {
 
 import { useTheme } from 'next-themes';
 
+const normalizeHexColor = (value?: string): string => {
+    if (!value) return '#ffffff';
+    return /^#[0-9A-Fa-f]{6}$/.test(value) ? value : '#ffffff';
+};
+
 const updateVectorObjectPoints = (obj: VectorObject, newPoints: Point[]): VectorObject => {
     const newSegments: Segment[] = [];
     for (let i = 0; i < newPoints.length - 1; i++) {
@@ -205,6 +210,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const [photoGap, setPhotoGap] = useState(() => config?.photoGap ?? 2);
     const [pageMargin, setPageMargin] = useState(() => config?.pageMargin ?? 0);
     const [cornerRadius, setCornerRadius] = useState(() => config?.cornerRadius ?? 0);
+    const [backgroundColor, setBackgroundColor] = useState(() => normalizeHexColor(config?.backgroundColor));
     const [useDummyPhotos, setUseDummyPhotos] = useState(true);
     const [dummyPage, setDummyPage] = useState<AlbumPage>(() => createDummyPage('4-grid', true));
     const [selectedAdvancedTemplate, setSelectedAdvancedTemplate] = useState<AdvancedTemplate | null>(null);
@@ -549,6 +555,12 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const handleCornerRadiusChange = (radius: number) => {
         setCornerRadius(radius);
         setDummyPage(prev => ({ ...prev, cornerRadius: radius }));
+    };
+
+    const handleBackgroundColorChange = (color: string) => {
+        const normalized = normalizeHexColor(color);
+        setBackgroundColor(normalized);
+        setDummyPage(prev => ({ ...prev, backgroundColor: normalized }));
     };
 
     const handleSave = async () => {
@@ -1084,7 +1096,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             page={dummyPage}
                             config={{
                                 size: config?.size ?? '20x20',
-                                backgroundColor: config?.backgroundColor ?? '#ffffff',
+                                backgroundColor,
                                 backgroundImage: config?.backgroundImage,
                                 photoGap,
                                 pageMargin,
@@ -1230,6 +1242,35 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                                 min={0}
                                 max={20}
                                 onChange={(e) => handleCornerRadiusChange(Math.max(0, Math.min(20, Number(e.target.value))))}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Background Color */}
+                    <div className="flex items-center gap-4 min-w-[170px]">
+                        <Label className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Background</Label>
+                        <div className="flex items-center gap-2">
+                            <div
+                                className="relative h-7 w-8 overflow-hidden rounded border border-border"
+                                style={{ backgroundColor }}
+                                title={backgroundColor}
+                            >
+                                <input
+                                    type="color"
+                                    value={backgroundColor}
+                                    onChange={(e) => handleBackgroundColorChange(e.target.value)}
+                                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                                />
+                            </div>
+                            <Input
+                                type="text"
+                                className="w-20 h-7 text-[10px] font-mono text-center px-1 bg-muted/30"
+                                value={backgroundColor}
+                                onChange={(e) => {
+                                    const val = e.target.value.trim();
+                                    if (/^#[0-9A-Fa-f]{6}$/.test(val)) handleBackgroundColorChange(val);
+                                    if (val === '') handleBackgroundColorChange('#ffffff');
+                                }}
                             />
                         </div>
                     </div>
