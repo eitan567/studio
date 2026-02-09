@@ -198,8 +198,31 @@ const translateObjectBy = (obj: VectorObject, dx: number, dy: number): VectorObj
     };
 };
 
+const scaleObjectAroundCenter = (obj: VectorObject, scaleX: number, scaleY: number): VectorObject => {
+    const sourcePoints: Point[] =
+        obj.points && obj.points.length > 0
+            ? obj.points
+            : (obj.segments || []).flatMap(s => [s.p1, s.p2]);
+
+    if (sourcePoints.length === 0) return obj;
+
+    const bounds = getPointsBoundingBox(sourcePoints);
+    const center: Point = [bounds.centerX, bounds.centerY];
+    const scale = (p: Point): Point => [
+        center[0] + ((p[0] - center[0]) * scaleX),
+        center[1] + ((p[1] - center[1]) * scaleY)
+    ];
+
+    return {
+        ...obj,
+        points: obj.points?.map(scale),
+        segments: obj.segments?.map(s => ({ p1: scale(s.p1), p2: scale(s.p2) }))
+    };
+};
+
 type AlignMode = 'left' | 'h-center' | 'right' | 'top' | 'v-center' | 'bottom';
 type DistributeMode = 'horizontal' | 'vertical';
+type SizeMatchMode = 'size' | 'width' | 'height';
 
 export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, onAddTemplate }: CustomLayoutEditorOverlayProps) => {
     const { findGridTemplate, defaultGridTemplate, allTemplates, refresh } = useTemplates();
@@ -970,6 +993,42 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         applySelectionOffsets(offsets);
     }, [applySelectionOffsets, canvasLogicalWidthUnits, getSelectedBounds]);
 
+    const handleMatchSelectionSize = useCallback((mode: SizeMatchMode) => {
+        if (selectedShapeIndices.length < 2) return;
+
+        const masterIndex = selectedShapeIndices[0];
+        const masterObject = vectorObjects[masterIndex];
+        const masterBounds = masterObject ? getObjectBounds(masterObject) : null;
+        if (!masterBounds) return;
+
+        const targetWidth = masterBounds.width;
+        const targetHeight = masterBounds.height;
+        const EPS = 0.0001;
+        const selectedSet = new Set(selectedShapeIndices);
+
+        setVectorObjects((prev) =>
+            prev.map((obj, idx) => {
+                if (!selectedSet.has(idx) || idx === masterIndex) return obj;
+
+                const bounds = getObjectBounds(obj);
+                if (!bounds) return obj;
+
+                let scaleX = 1;
+                let scaleY = 1;
+
+                if (mode === 'size' || mode === 'width') {
+                    if (Math.abs(bounds.width) > EPS) scaleX = targetWidth / bounds.width;
+                }
+
+                if (mode === 'size' || mode === 'height') {
+                    if (Math.abs(bounds.height) > EPS) scaleY = targetHeight / bounds.height;
+                }
+
+                return scaleObjectAroundCenter(obj, scaleX, scaleY);
+            })
+        );
+    }, [selectedShapeIndices, vectorObjects]);
+
 
     const handleCancel = () => {
         onClose();
@@ -1193,6 +1252,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const hasSelection = selectedShapeIndices.length > 0;
     const canAlignSelection = selectedShapeIndices.length >= 2;
     const canDistributeSelection = selectedShapeIndices.length >= 3;
+    const canMatchSizeSelection = selectedShapeIndices.length >= 2;
 
     return (
         <div className="fixed inset-0 z-[100] bg-background flex flex-col">
@@ -1403,11 +1463,44 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8"
+                                onClick={() => handleMatchSelectionSize('size')}
+                                disabled={!canMatchSizeSelection}
+                                title="Match Size (from first selected)"
+                            >
+                                <Maximize className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleMatchSelectionSize('width')}
+                                disabled={!canMatchSizeSelection}
+                                title="Match Width (from first selected)"
+                            >
+                                <AlignHorizontalJustifyCenter className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleMatchSelectionSize('height')}
+                                disabled={!canMatchSizeSelection}
+                                title="Match Height (from first selected)"
+                            >
+                                <AlignVerticalJustifyCenter className="h-4 w-4" />
+                            </Button>
+
+                            <div className="w-6 h-px bg-border/60 my-1" />
+
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
                                 onClick={() => handleCenterSelectionOnCanvas('horizontal')}
                                 disabled={!hasSelection}
                                 title="Center Selection on Canvas (Horizontal)"
                             >
-                                <AlignHorizontalJustifyCenter className="h-4 w-4" />
+                                <AlignCenterVertical className="h-4 w-4" />
                             </Button>
                             <Button
                                 variant="ghost"
@@ -1417,7 +1510,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                                 disabled={!hasSelection}
                                 title="Center Selection on Canvas (Vertical)"
                             >
-                                <AlignVerticalJustifyCenter className="h-4 w-4" />
+                                <AlignCenterHorizontal className="h-4 w-4" />
                             </Button>
                         </div>
 
