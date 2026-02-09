@@ -28,7 +28,8 @@ import {
     AlignHorizontalDistributeCenter,
     AlignVerticalDistributeCenter,
     AlignHorizontalJustifyCenter,
-    AlignVerticalJustifyCenter
+    AlignVerticalJustifyCenter,
+    RotateCw
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
@@ -309,6 +310,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const [showGuides, setShowGuides] = useState(true);
     const [isLayersPanelOpen, setIsLayersPanelOpen] = useState(true);
     const [layersPanelPosition, setLayersPanelPosition] = useState({ x: 24, y: 24 });
+    const [isLeaderGroupRotateEnabled, setIsLeaderGroupRotateEnabled] = useState(false);
     const canvasWorkspaceRef = useRef<HTMLDivElement>(null);
     const floatingLayersRef = useRef<HTMLDivElement>(null);
 
@@ -1356,6 +1358,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             selectedShapeIndices={selectedShapeIndices}
                             onSelectionChange={setSelectedShapeIndices}
                             isMirrorMode={isMirrorMode}
+                            isLeaderGroupRotateEnabled={isLeaderGroupRotateEnabled}
                             // Active Styles
                             activeStrokeColor={strokeColor}
                             activeStrokeWidth={strokeWidth}
@@ -1370,6 +1373,18 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
                         {/* Right Vertical Toolbar (Selection Alignment/Distribution) */}
                         <div className="absolute right-4 top-1/2 -translate-y-1/2 z-30 bg-background/95 backdrop-blur-sm border shadow-md rounded-full p-2 flex flex-col items-center gap-1 pointer-events-auto">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className={cn("h-8 w-8", isLeaderGroupRotateEnabled && "bg-primary/15 text-primary")}
+                                onClick={() => setIsLeaderGroupRotateEnabled(prev => !prev)}
+                                title="Rotate selected objects with leader"
+                            >
+                                <RotateCw className="h-4 w-4" />
+                            </Button>
+
+                            <div className="w-6 h-px bg-border/60 my-1" />
+
                             <Button
                                 variant="ghost"
                                 size="icon"
@@ -1526,6 +1541,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                                 <LayersPanel
                                     vectorObjects={vectorObjects}
                                     selectedIndices={selectedShapeIndices}
+                                    leaderIndex={selectedShapeIndices.length > 0 ? selectedShapeIndices[0] : null}
                                     onSelect={setSelectedShapeIndices}
                                     onDelete={handleDeleteObject}
                                     onReorder={handleReorderObjects}

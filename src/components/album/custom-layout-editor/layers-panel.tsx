@@ -8,6 +8,7 @@ import { VectorObject } from '@/lib/advanced-layout-types';
 interface LayersPanelProps {
     vectorObjects: VectorObject[];
     selectedIndices: number[];
+    leaderIndex?: number | null;
     onSelect: (indices: number[]) => void;
     onDelete: (index: number) => void;
     onReorder: (index: number, direction: 'up' | 'down') => void;
@@ -20,6 +21,7 @@ interface LayersPanelProps {
 export const LayersPanel = ({
     vectorObjects,
     selectedIndices,
+    leaderIndex = null,
     onSelect,
     onDelete,
     onReorder,
@@ -114,6 +116,7 @@ export const LayersPanel = ({
                             <div className="space-y-0.5 pl-1">
                                 {layer.items.map((item) => {
                                     const isSelected = selectedIndices.includes(item.originalIndex);
+                                    const isLeader = selectedIndices.length > 1 && leaderIndex === item.originalIndex;
 
                                     return (
                                         <div
@@ -131,9 +134,16 @@ export const LayersPanel = ({
                                                 {getIcon(item.obj.type)}
                                             </div>
 
-                                            <span className="flex-1 truncate text-xs font-medium">
-                                                {getName(item.obj, item.originalIndex)}
-                                            </span>
+                                            <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                                                <span className="truncate text-xs font-medium">
+                                                    {getName(item.obj, item.originalIndex)}
+                                                </span>
+                                                {isLeader && (
+                                                    <span className="shrink-0 rounded-sm bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-1 py-[1px] text-[9px] font-semibold leading-none">
+                                                        Lead
+                                                    </span>
+                                                )}
+                                            </div>
 
                                             <div className="flex items-center opacity-70 group-hover:opacity-100 transition-opacity gap-0.5">
                                                 <Button
