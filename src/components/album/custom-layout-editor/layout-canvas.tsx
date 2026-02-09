@@ -123,6 +123,9 @@ export const LayoutCanvas = ({
     const SNAP_BORDER_STRENGTH = 1; // Hard snap on borders for exact edges/corners.
     const SNAP_MOVE_BORDER_THRESHOLD = 2.0; // Move-mode boundary capture tolerance.
     const ROTATION_SNAP_STEP_RAD = Math.PI / 4; // 45 degrees.
+    const ROTATION_SNAP_THRESHOLD_RAD = (6 * Math.PI) / 180; // Magnetic zone around 45deg multiples.
+    const ROTATION_SNAP_LOCK_THRESHOLD_RAD = (1.2 * Math.PI) / 180; // Hard lock only when very close.
+    const ROTATION_SNAP_STRENGTH = 1; // 30% magnetic pull.
 
     // --- STATE ---
     const [scale, setScale] = useState(1);
@@ -214,7 +217,11 @@ export const LayoutCanvas = ({
     };
 
     const snapAngleRad = (angle: number): number => {
-        return Math.round(angle / ROTATION_SNAP_STEP_RAD) * ROTATION_SNAP_STEP_RAD;
+        const nearest = Math.round(angle / ROTATION_SNAP_STEP_RAD) * ROTATION_SNAP_STEP_RAD;
+        const delta = normalizeAngleRad(nearest - angle);
+        if (Math.abs(delta) > ROTATION_SNAP_THRESHOLD_RAD) return angle;
+        if (Math.abs(delta) <= ROTATION_SNAP_LOCK_THRESHOLD_RAD) return normalizeAngleRad(nearest);
+        return normalizeAngleRad(angle + (delta * ROTATION_SNAP_STRENGTH));
     };
 
     const normalizeAngleDeg = (angleDeg: number): number => {
