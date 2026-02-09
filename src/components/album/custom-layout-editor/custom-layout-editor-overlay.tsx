@@ -287,7 +287,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                     stroke: strokeColor,
                     strokeWidth: region.strokeWidth || 0.5,
                     fill: isBackground ? bgFill : fillColor,
-                    zIndex: region.zIndex || index,
+                    zIndex: region.zIndex ?? 0,
                     rotation: region.rotation || 0
                 };
             });
@@ -396,6 +396,10 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             [x, y + frameHeight]
         ];
 
+        const selectedZ = selectedShapeIndices.length > 0
+            ? (vectorObjects[selectedShapeIndices[0]]?.zIndex ?? 0)
+            : 0;
+
         const newVectorObject: VectorObject = {
             id: uuidv4(),
             type: 'path' as const,
@@ -407,7 +411,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             strokeWidth: strokeWidth,
             // Use a visible default fill - a soft gray/blue that looks like a frame placeholder
             fill: fillColor !== 'transparent' ? fillColor : 'rgba(100, 130, 180, 0.3)',
-            zIndex: vectorObjects.length + 1,
+            zIndex: selectedZ,
             rotation: 0
         };
 
@@ -590,11 +594,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         const currentZ = currentObj.zIndex ?? 0;
 
         let newZ = direction === 'up' ? currentZ + 1 : currentZ - 1;
-        if (newZ < 1) newZ = 1; // Minimum Z-index is 1 (0 is background/base?) Actually base logic uses 0? Let's check logic. Previous logic used sort, so lowest was base. Let's clamp to 1 to be safe/consistent if we used 1-based everywhere, but 0 if we want base. 
-        // The user logic implies ZIndex determines layer group.
-        // Let's allow 0? The code I wrote earlier sorts ZIndices: const baseZ = zIndices[0] ?? 0;
-        // If I make newZ = 0, it might become Base Grid.
-        // Let's allow it to go to existing Zs or new Zs.
+        if (newZ < 0) newZ = 0;
 
         if (newZ === currentZ) return;
 

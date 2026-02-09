@@ -783,6 +783,10 @@ export const LayoutCanvas = ({
 
         let newObjects = [...vectorObjects];
 
+        const selectedZ = selectedShapeIndices.length > 0
+            ? (vectorObjects[selectedShapeIndices[0]]?.zIndex ?? 0)
+            : 0;
+
         const createObject = (type: VectorObject['type'], points: Point[]): VectorObject => {
             const segments: Segment[] = [];
             for (let i = 0; i < points.length - 1; i++) {
@@ -796,7 +800,7 @@ export const LayoutCanvas = ({
                 stroke: activeStrokeColor,
                 strokeWidth: activeStrokeWidth,
                 fill: activeFillColor,
-                zIndex: (vectorObjects?.length || 0),
+                zIndex: selectedZ,
                 rotation: 0
             };
         };
@@ -1418,13 +1422,6 @@ export const LayoutCanvas = ({
                                 {vectorObjects.map((obj, i) => {
                                     const isSelected = selectedShapeIndices.includes(i);
                                     const pointsStr = (obj.points || []).map(p => `${p[0]},${p[1]}`).join(' ');
-                                    const shapeData = shapeById.get(obj.id);
-                                    const rawAngleDeg = obj.type === 'path'
-                                        ? (obj.rotation || 0)
-                                        : ((shapeData?.obb.angle || 0) * 180 / Math.PI);
-                                    const angleDeg = normalizeAngleDeg(rawAngleDeg);
-                                    const showAngleLabel = Math.abs(angleDeg) >= 0.5 && !!shapeData;
-                                    const angleLabel = `${Math.round(angleDeg)}°`;
 
                                     if (obj.type === 'path') {
                                         // Calculate current bounding box from points
@@ -1542,24 +1539,6 @@ export const LayoutCanvas = ({
                                                         />
                                                     )}
                                                 </svg>
-                                                {showAngleLabel && (
-                                                    <text
-                                                        x={cx}
-                                                        y={cy}
-                                                        textAnchor="middle"
-                                                        dominantBaseline="middle"
-                                                        fontSize="3.6"
-                                                        fontWeight="700"
-                                                        fill="white"
-                                                        stroke="rgba(0,0,0,0.55)"
-                                                        strokeWidth="0.55"
-                                                        paintOrder="stroke"
-                                                        vectorEffect="non-scaling-stroke"
-                                                        pointerEvents="none"
-                                                    >
-                                                        {angleLabel}
-                                                    </text>
-                                                )}
                                             </g>
                                         );
                                     }
@@ -1575,25 +1554,163 @@ export const LayoutCanvas = ({
                                                 fillOpacity={obj.opacity ?? 1}
                                                 vectorEffect="non-scaling-stroke"
                                             />
-                                            {showAngleLabel && (
-                                                <text
-                                                    x={shapeData!.obb.center[0]}
-                                                    y={shapeData!.obb.center[1]}
-                                                    textAnchor="middle"
-                                                    dominantBaseline="middle"
-                                                    fontSize="3.6"
-                                                    fontWeight="700"
-                                                    fill="white"
-                                                    stroke="rgba(0,0,0,0.55)"
-                                                    strokeWidth="0.55"
-                                                    paintOrder="stroke"
-                                                    vectorEffect="non-scaling-stroke"
-                                                    pointerEvents="none"
-                                                >
-                                                    {angleLabel}
-                                                </text>
-                                            )}
                                         </g>
+                                    );
+                                })}
+
+                                {/* Same-layer overlap style: black fill + dashed contour */}
+                                {vectorObjects.map((objA, idxA) => {
+                                    if (objA.type === 'path' || !objA.points || objA.points.length < 3) return null;
+                                    const pointsA = objA.points.map(p => `${p[0]},${p[1]}`).join(' ');
+                                    const zA = objA.zIndex ?? 0;
+
+                                    return vectorObjects.slice(idxA + 1).map((objB, offset) => {
+                                        const idxB = idxA + 1 + offset;
+                                        if (objB.type === 'path' || !objB.points || objB.points.length < 3) return null;
+                                        const zB = objB.zIndex ?? 0;
+                                        if (zA !== zB) return null;
+
+                                        const pointsB = objB.points.map(p => `${p[0]},${p[1]}`).join(' ');
+                                        const overlapId = `overlap-${idxA}-${idxB}`;
+                                        const clipAByB = `${overlapId}-a-by-b`;
+                                        const clipBByA = `${overlapId}-b-by-a`;
+
+                                        return (
+                                            <g key={overlapId}>
+                                                <defs>
+                                                    <clipPath id={clipAByB}>
+                                                        <polygon points={pointsB} />
+                                                    </clipPath>
+                                                    <clipPath id={clipBByA}>
+                                                        <polygon points={pointsA} />
+                                                    </clipPath>
+                                                </defs>
+
+                                                <polygon
+                                                    points={pointsA}
+                                                    clipPath={`url(#${clipAByB})`}
+                                                    fill="rgba(0,0,0,0.35)"
+                                                    stroke="none"
+                                                    vectorEffect="non-scaling-stroke"
+                                                />
+                                                <polygon
+                                                    points={pointsB}
+                                                    clipPath={`url(#${clipBByA})`}
+                                                    fill="rgba(0,0,0,0.35)"
+                                                    stroke="none"
+                                                    vectorEffect="non-scaling-stroke"
+                                                />
+                                            </g>
+                                        );
+                                    });
+                                })}
+
+                                {/* Draw non-path outlines again on top so same-layer overlaps keep both contours visible */}
+                                {vectorObjects.map((obj, i) => {
+                                    if (obj.type === 'path') return null;
+                                    const sameLayerCount = vectorObjects.reduce((count, candidate) => {
+                                        return count + (((candidate.zIndex ?? 0) === (obj.zIndex ?? 0)) ? 1 : 0);
+                                    }, 0);
+                                    if (sameLayerCount <= 1) return null;
+                                    const pointsStr = (obj.points || []).map(p => `${p[0]},${p[1]}`).join(' ');
+                                    const isSelected = selectedShapeIndices.includes(i);
+                                    return (
+                                        <polygon
+                                            key={`${obj.id}-outline`}
+                                            points={pointsStr}
+                                            fill="none"
+                                            stroke={(obj.strokeWidth ?? 0) > 0 ? (isSelected ? "#3b82f6" : (obj.stroke || "black")) : "none"}
+                                            strokeWidth={(obj.strokeWidth ?? 0) > 0 ? (isSelected ? Math.max(0.75, (obj.strokeWidth || 0.5) * 1.5) : (obj.strokeWidth || 0.5)) : 0}
+                                            strokeOpacity={obj.opacity ?? 1}
+                                            vectorEffect="non-scaling-stroke"
+                                        />
+                                    );
+                                })}
+
+                                {/* Same-layer overlap perimeter (dashed) drawn above shape outlines */}
+                                {vectorObjects.map((objA, idxA) => {
+                                    if (objA.type === 'path' || !objA.points || objA.points.length < 3) return null;
+                                    const pointsA = objA.points.map(p => `${p[0]},${p[1]}`).join(' ');
+                                    const zA = objA.zIndex ?? 0;
+
+                                    return vectorObjects.slice(idxA + 1).map((objB, offset) => {
+                                        const idxB = idxA + 1 + offset;
+                                        if (objB.type === 'path' || !objB.points || objB.points.length < 3) return null;
+                                        const zB = objB.zIndex ?? 0;
+                                        if (zA !== zB) return null;
+
+                                        const pointsB = objB.points.map(p => `${p[0]},${p[1]}`).join(' ');
+                                        const overlapId = `overlap-outline-${idxA}-${idxB}`;
+                                        const clipAByB = `${overlapId}-a-by-b`;
+                                        const clipBByA = `${overlapId}-b-by-a`;
+
+                                        return (
+                                            <g key={overlapId}>
+                                                <defs>
+                                                    <clipPath id={clipAByB}>
+                                                        <polygon points={pointsB} />
+                                                    </clipPath>
+                                                    <clipPath id={clipBByA}>
+                                                        <polygon points={pointsA} />
+                                                    </clipPath>
+                                                </defs>
+
+                                                <polygon
+                                                    points={pointsA}
+                                                    clipPath={`url(#${clipAByB})`}
+                                                    fill="none"
+                                                    stroke="rgba(0,0,0,0.9)"
+                                                    strokeWidth="0.5"
+                                                    strokeDasharray="2.4 1.8"
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    vectorEffect="non-scaling-stroke"
+                                                />
+                                                <polygon
+                                                    points={pointsB}
+                                                    clipPath={`url(#${clipBByA})`}
+                                                    fill="none"
+                                                    stroke="rgba(0,0,0,0.9)"
+                                                    strokeWidth="0.5"
+                                                    strokeDasharray="2.4 1.8"
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    vectorEffect="non-scaling-stroke"
+                                                />
+                                            </g>
+                                        );
+                                    });
+                                })}
+
+                                {/* Angle labels always on top (above overlap fill/outline) */}
+                                {vectorObjects.map((obj) => {
+                                    const shapeData = shapeById.get(obj.id);
+                                    if (!shapeData) return null;
+
+                                    const rawAngleDeg = obj.type === 'path'
+                                        ? (obj.rotation || 0)
+                                        : ((shapeData.obb.angle || 0) * 180 / Math.PI);
+                                    const angleDeg = normalizeAngleDeg(rawAngleDeg);
+                                    if (Math.abs(angleDeg) < 0.5) return null;
+
+                                    return (
+                                        <text
+                                            key={`${obj.id}-angle-top`}
+                                            x={shapeData.obb.center[0]}
+                                            y={shapeData.obb.center[1]}
+                                            textAnchor="middle"
+                                            dominantBaseline="middle"
+                                            fontSize="3.6"
+                                            fontWeight="700"
+                                            fill="white"
+                                            stroke="rgba(0,0,0,0.55)"
+                                            strokeWidth="0.55"
+                                            paintOrder="stroke"
+                                            vectorEffect="non-scaling-stroke"
+                                            pointerEvents="none"
+                                        >
+                                            {`${Math.round(angleDeg)}°`}
+                                        </text>
                                     );
                                 })}
 
