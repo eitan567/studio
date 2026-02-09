@@ -71,6 +71,7 @@ type GroupRotationStartEntry = {
 type GroupResizeStartEntry = {
     center: Point;
     angle: number;
+    obb: ShapeData['obb'];
     origPoints: Point[];
     type: VectorObject['type'];
 };
@@ -793,6 +794,16 @@ export const LayoutCanvas = ({
                                     groupResizeStart!.set(selObj.id, {
                                         center: [selShape.obb.center[0], selShape.obb.center[1]],
                                         angle: selShape.obb.angle || 0,
+                                        obb: {
+                                            center: [selShape.obb.center[0], selShape.obb.center[1]],
+                                            width: selShape.obb.width,
+                                            height: selShape.obb.height,
+                                            angle: selShape.obb.angle,
+                                            minX: selShape.obb.minX,
+                                            maxX: selShape.obb.maxX,
+                                            minY: selShape.obb.minY,
+                                            maxY: selShape.obb.maxY
+                                        },
                                         origPoints,
                                         type: selObj.type
                                     });
@@ -1388,13 +1399,43 @@ export const LayoutCanvas = ({
                         return updateObjectPoints(obj, leaderPoly);
                     }
 
-                    // Other selected objects scale by leader ratio around their own center/orientation.
-                    const scaledPoly = entry.origPoints.map(p => {
-                        const pl = transformPointToLocal(p, entry.center, entry.angle);
-                        const plNew: Point = [pl[0] * scaleU, pl[1] * scaleV];
-                        return transformPointToWorld(plNew, entry.center, entry.angle);
-                    });
+                    // Other selected objects keep the same anchored resize behavior as leader.
+                    const entryHandlesLocal = getResizeHandles(entry.obb).map(h =>
+                        transformPointToLocal(h, entry.center, entry.angle)
+                    );
+                    const entryOppHandleLocal = entryHandlesLocal[oppIdx];
 
+                    const localPoints = entry.origPoints.map(p => transformPointToLocal(p, entry.center, entry.angle));
+                    const scaledLocalPoints = localPoints.map(pl => [
+                        entryOppHandleLocal[0] + (pl[0] - entryOppHandleLocal[0]) * scaleU,
+                        entryOppHandleLocal[1] + (pl[1] - entryOppHandleLocal[1]) * scaleV
+                    ] as Point);
+
+                    if (entry.type === 'path' || obj.type === 'path') {
+                        const minU = Math.min(...scaledLocalPoints.map(p => p[0]));
+                        const maxU = Math.max(...scaledLocalPoints.map(p => p[0]));
+                        const minV = Math.min(...scaledLocalPoints.map(p => p[1]));
+                        const maxV = Math.max(...scaledLocalPoints.map(p => p[1]));
+                        const shiftU = (minU + maxU) / 2;
+                        const shiftV = (minV + maxV) / 2;
+
+                        const cos = Math.cos(entry.angle);
+                        const sin = Math.sin(entry.angle);
+                        const rotShiftU = shiftU * cos - shiftV * sin;
+                        const rotShiftV = shiftU * sin + shiftV * cos;
+                        const correctionU = rotShiftU - shiftU;
+                        const correctionV = rotShiftV - shiftV;
+
+                        const correctedPoints = scaledLocalPoints.map(p => [
+                            entry.center[0] + p[0] + correctionU,
+                            entry.center[1] + p[1] + correctionV
+                        ] as Point);
+                        return updateObjectPoints(obj, correctedPoints);
+                    }
+
+                    const scaledPoly = scaledLocalPoints.map(plNew =>
+                        transformPointToWorld(plNew, entry.center, entry.angle)
+                    );
                     return updateObjectPoints(obj, scaledPoly);
                 });
                 scheduleVectorObjectsUpdate(newObjects);
