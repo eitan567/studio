@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { processLayoutGeometry } from '@/lib/layout-geometry';
 import { createClient } from '@/lib/supabase';
 import { invalidateCache } from '@/lib/templates-cache';
@@ -122,6 +122,7 @@ export const LayoutCanvas = ({
     const SNAP_BORDER_THRESHOLD = 1.6; // Strong snapping window near page borders.
     const SNAP_BORDER_STRENGTH = 1; // Hard snap on borders for exact edges/corners.
     const SNAP_MOVE_BORDER_THRESHOLD = 2.0; // Move-mode boundary capture tolerance.
+    const ROTATION_SNAP_STEP_RAD = Math.PI / 4; // 45 degrees.
 
     // --- STATE ---
     const [scale, setScale] = useState(1);
@@ -155,6 +156,8 @@ export const LayoutCanvas = ({
     } | null>(null);
     const moveBasePointsRef = useRef<Map<string, Point[]> | null>(null);
     const moveBaseBoundsRef = useRef<{ minX: number; minY: number; maxX: number; maxY: number } | null>(null);
+    const pendingVectorObjectsRef = useRef<VectorObject[] | null>(null);
+    const rafUpdateRef = useRef<number | null>(null);
 
     // --- UTILS ---
     const getBoundingBox = (polygon: Point[]) => {
@@ -200,6 +203,23 @@ export const LayoutCanvas = ({
         const bx = snapScalarToTargets(gx, [0, logicalWidthUnits], SNAP_BORDER_THRESHOLD, SNAP_BORDER_STRENGTH);
         const by = snapScalarToTargets(gy, [0, 100], SNAP_BORDER_THRESHOLD, SNAP_BORDER_STRENGTH);
         return [bx, by];
+    };
+
+    const normalizeAngleRad = (angle: number): number => {
+        const twoPi = Math.PI * 2;
+        let a = angle % twoPi;
+        if (a <= -Math.PI) a += twoPi;
+        if (a > Math.PI) a -= twoPi;
+        return a;
+    };
+
+    const snapAngleRad = (angle: number): number => {
+        return Math.round(angle / ROTATION_SNAP_STEP_RAD) * ROTATION_SNAP_STEP_RAD;
+    };
+
+    const normalizeAngleDeg = (angleDeg: number): number => {
+        const a = ((angleDeg + 180) % 360 + 360) % 360 - 180;
+        return Math.abs(a) < 0.0001 ? 0 : a;
     };
 
     const getAxisBoundaryAdjustment = (
@@ -325,13 +345,47 @@ export const LayoutCanvas = ({
 
 
 
+    const scheduleVectorObjectsUpdate = useCallback((nextObjects: VectorObject[]) => {
+        pendingVectorObjectsRef.current = nextObjects;
+        if (rafUpdateRef.current !== null) return;
+
+        rafUpdateRef.current = requestAnimationFrame(() => {
+            rafUpdateRef.current = null;
+            const pending = pendingVectorObjectsRef.current;
+            pendingVectorObjectsRef.current = null;
+            if (pending) onUpdateVectorObjects?.(pending);
+        });
+    }, [onUpdateVectorObjects]);
+
+    const flushScheduledVectorUpdate = useCallback(() => {
+        if (rafUpdateRef.current !== null) {
+            cancelAnimationFrame(rafUpdateRef.current);
+            rafUpdateRef.current = null;
+        }
+        if (pendingVectorObjectsRef.current) {
+            const pending = pendingVectorObjectsRef.current;
+            pendingVectorObjectsRef.current = null;
+            onUpdateVectorObjects?.(pending);
+        }
+    }, [onUpdateVectorObjects]);
+
+    useEffect(() => {
+        return () => {
+            if (rafUpdateRef.current !== null) {
+                cancelAnimationFrame(rafUpdateRef.current);
+                rafUpdateRef.current = null;
+            }
+            pendingVectorObjectsRef.current = null;
+        };
+    }, []);
+
     // --- SHAPE DETECTION ---
     const shapesRef = useRef<ShapeData[]>([]);
+    const shapes = useMemo(() => {
+        const prevShapes = shapesRef.current;
+        const nextShapes: ShapeData[] = [];
 
-    const detectShapes = useCallback((objects: VectorObject[]) => {
-        const shapes: ShapeData[] = [];
-
-        objects.forEach(obj => {
+        vectorObjects.forEach(obj => {
             // Collect points from segments
             const pointSet = new Map<string, Point>();
             obj.segments?.forEach(s => {
@@ -383,7 +437,7 @@ export const LayoutCanvas = ({
                     [centerX - dx1 + dx2, centerY - dy1 + dy2]
                 ];
 
-                shapes.push({
+                nextShapes.push({
                     id: obj.id,
                     polygon: pathPolygon,
                     bbox: box,
@@ -395,12 +449,12 @@ export const LayoutCanvas = ({
 
             // Try to find matching previous shape to preserve angle
             let preferredAngle: number | undefined;
-            if (shapesRef.current) {
-                const prev = shapesRef.current.find(s => s.id === obj.id);
+            if (prevShapes) {
+                const prev = prevShapes.find(s => s.id === obj.id);
                 if (prev && !isRotatingRef.current) preferredAngle = prev.obb.angle;
             }
 
-            shapes.push({
+            nextShapes.push({
                 id: obj.id,
                 polygon,
                 bbox: getBoundingBox(polygon),
@@ -409,10 +463,14 @@ export const LayoutCanvas = ({
             });
         });
 
-        shapesRef.current = shapes;
-    }, [coordinateAspect]);
-
-    useEffect(() => { detectShapes(vectorObjects); }, [vectorObjects, detectShapes]);
+        return nextShapes;
+    }, [vectorObjects, coordinateAspect]);
+    shapesRef.current = shapes;
+    const shapeById = useMemo(() => {
+        const m = new Map<string, ShapeData>();
+        shapes.forEach(s => m.set(s.id, s));
+        return m;
+    }, [shapes]);
 
     // --- AUTO-SCALE ---
     useEffect(() => {
@@ -695,6 +753,7 @@ export const LayoutCanvas = ({
             setTransformMode('none');
             setCursorMode('default');
             dragStartRef.current = null;
+            flushScheduledVectorUpdate();
             handleMouseUpCleanup();
             return;
         }
@@ -1024,7 +1083,7 @@ export const LayoutCanvas = ({
                         }
                         return obj;
                     });
-                    onUpdateVectorObjects?.(newObjects);
+                    scheduleVectorObjectsUpdate(newObjects);
                 }
             }
         } else if (transformMode === 'resize' && selectedShapeIndices.length === 1) {
@@ -1144,7 +1203,7 @@ export const LayoutCanvas = ({
                 }
                 return obj;
             });
-            onUpdateVectorObjects?.(newObjects);
+            scheduleVectorObjectsUpdate(newObjects);
 
         } else if (transformMode === 'rotate' && selectedShapeIndices.length === 1) {
             const shape = shapesRef.current[selectedShapeIndices[0]];
@@ -1154,22 +1213,25 @@ export const LayoutCanvas = ({
             const startAngle = Math.atan2(start.point[1] - center[1], start.point[0] - center[0]);
             const currentAngle = Math.atan2(point[1] - center[1], point[0] - center[0]);
             const dTheta = currentAngle - startAngle;
+            const startAngleRad = normalizeAngleRad(start.startObb?.angle || 0);
+            const rawTargetAngle = normalizeAngleRad(startAngleRad + dTheta);
+            const snappedTargetAngle = normalizeAngleRad(snapAngleRad(rawTargetAngle));
+            const snappedDelta = normalizeAngleRad(snappedTargetAngle - startAngleRad);
 
             const newObjects = vectorObjects.map(obj => {
                 if (obj.id === shape.id && obj.points) {
                     // For path objects, only update the rotation property - don't rotate points
                     // Points represent the axis-aligned bounding box, rotation is applied via CSS
                     if (obj.type === 'path') {
-                        // Calculate new absolute rotation from start OBB angle + delta
-                        const startAngleRad = start.startObb?.angle || 0;
-                        const newRotationRad = startAngleRad + dTheta;
+                        // Calculate snapped absolute rotation from start OBB angle + delta
+                        const newRotationRad = snappedTargetAngle;
                         return {
                             ...obj,
                             rotation: newRotationRad * 180 / Math.PI
                         };
                     }
                     // For regular shapes, rotate the points
-                    const newPolyWorld = start.origPoints.map(p => rotatePoint(p, center, dTheta));
+                    const newPolyWorld = start.origPoints.map(p => rotatePoint(p, center, snappedDelta));
                     return updateObjectPoints(obj, newPolyWorld);
                 }
                 if (start.mirrorPartnerIndex !== undefined && coordinateAspect) {
@@ -1177,22 +1239,21 @@ export const LayoutCanvas = ({
                     if (mShape && obj.id === mShape.id && obj.points) {
                         // For path objects in mirror mode
                         if (obj.type === 'path') {
-                            const startAngleRad = start.startObb?.angle || 0;
-                            const newRotationRad = -(startAngleRad + dTheta);
+                            const newRotationRad = -snappedTargetAngle;
                             return {
                                 ...obj,
                                 rotation: newRotationRad * 180 / Math.PI
                             };
                         }
                         const totalWidth = 100 * coordinateAspect;
-                        const newPolyWorld = start.origPoints.map(p => rotatePoint(p, center, dTheta));
+                        const newPolyWorld = start.origPoints.map(p => rotatePoint(p, center, snappedDelta));
                         const mirroredPoints = newPolyWorld.map(p => [totalWidth - p[0], p[1]] as Point);
                         return updateObjectPoints(obj, mirroredPoints);
                     }
                 }
                 return obj;
             });
-            onUpdateVectorObjects?.(newObjects);
+            scheduleVectorObjectsUpdate(newObjects);
         }
     };
 
@@ -1252,7 +1313,7 @@ export const LayoutCanvas = ({
 
     // Derived state for rendering
     const primaryShapeIndex = selectedShapeIndices.length === 1 ? selectedShapeIndices[0] : null;
-    const primaryShape = primaryShapeIndex !== null ? shapesRef.current[primaryShapeIndex] : null;
+    const primaryShape = primaryShapeIndex !== null ? shapes[primaryShapeIndex] : null;
 
     return (
         <div ref={wrapperRef} className="w-full h-full bg-muted/20 overflow-hidden relative flex items-center justify-center select-none">
@@ -1350,6 +1411,13 @@ export const LayoutCanvas = ({
                                 {vectorObjects.map((obj, i) => {
                                     const isSelected = selectedShapeIndices.includes(i);
                                     const pointsStr = (obj.points || []).map(p => `${p[0]},${p[1]}`).join(' ');
+                                    const shapeData = shapeById.get(obj.id);
+                                    const rawAngleDeg = obj.type === 'path'
+                                        ? (obj.rotation || 0)
+                                        : ((shapeData?.obb.angle || 0) * 180 / Math.PI);
+                                    const angleDeg = normalizeAngleDeg(rawAngleDeg);
+                                    const showAngleLabel = Math.abs(angleDeg) >= 0.5 && !!shapeData;
+                                    const angleLabel = `${Math.round(angleDeg)}°`;
 
                                     if (obj.type === 'path') {
                                         // Calculate current bounding box from points
@@ -1467,21 +1535,58 @@ export const LayoutCanvas = ({
                                                         />
                                                     )}
                                                 </svg>
+                                                {showAngleLabel && (
+                                                    <text
+                                                        x={cx}
+                                                        y={cy}
+                                                        textAnchor="middle"
+                                                        dominantBaseline="middle"
+                                                        fontSize="3.6"
+                                                        fontWeight="700"
+                                                        fill="white"
+                                                        stroke="rgba(0,0,0,0.55)"
+                                                        strokeWidth="0.55"
+                                                        paintOrder="stroke"
+                                                        vectorEffect="non-scaling-stroke"
+                                                        pointerEvents="none"
+                                                    >
+                                                        {angleLabel}
+                                                    </text>
+                                                )}
                                             </g>
                                         );
                                     }
 
                                     return (
-                                        <polygon
-                                            key={obj.id}
-                                            points={pointsStr}
-                                            fill={obj.fill || 'none'}
-                                            stroke={(obj.strokeWidth ?? 0) > 0 ? (isSelected ? "#3b82f6" : (obj.stroke || "black")) : "none"}
-                                            strokeWidth={(obj.strokeWidth ?? 0) > 0 ? (isSelected ? Math.max(0.75, (obj.strokeWidth || 0.5) * 1.5) : (obj.strokeWidth || 0.5)) : 0}
-                                            strokeOpacity={obj.opacity ?? 1}
-                                            fillOpacity={obj.opacity ?? 1}
-                                            vectorEffect="non-scaling-stroke"
-                                        />
+                                        <g key={obj.id}>
+                                            <polygon
+                                                points={pointsStr}
+                                                fill={obj.fill || 'none'}
+                                                stroke={(obj.strokeWidth ?? 0) > 0 ? (isSelected ? "#3b82f6" : (obj.stroke || "black")) : "none"}
+                                                strokeWidth={(obj.strokeWidth ?? 0) > 0 ? (isSelected ? Math.max(0.75, (obj.strokeWidth || 0.5) * 1.5) : (obj.strokeWidth || 0.5)) : 0}
+                                                strokeOpacity={obj.opacity ?? 1}
+                                                fillOpacity={obj.opacity ?? 1}
+                                                vectorEffect="non-scaling-stroke"
+                                            />
+                                            {showAngleLabel && (
+                                                <text
+                                                    x={shapeData!.obb.center[0]}
+                                                    y={shapeData!.obb.center[1]}
+                                                    textAnchor="middle"
+                                                    dominantBaseline="middle"
+                                                    fontSize="3.6"
+                                                    fontWeight="700"
+                                                    fill="white"
+                                                    stroke="rgba(0,0,0,0.55)"
+                                                    strokeWidth="0.55"
+                                                    paintOrder="stroke"
+                                                    vectorEffect="non-scaling-stroke"
+                                                    pointerEvents="none"
+                                                >
+                                                    {angleLabel}
+                                                </text>
+                                            )}
+                                        </g>
                                     );
                                 })}
 
