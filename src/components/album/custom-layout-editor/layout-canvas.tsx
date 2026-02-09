@@ -104,12 +104,15 @@ export const LayoutCanvas = ({
     // Use config background color directly
     const backgroundColor = config?.backgroundColor;
 
-    // FIX: Aspect Ratio for corrections
-    // In Single mode, we still show the spread, but logical usage is on the right half
+    // Coordinate system must stay tied to the actual page area, not to page margin.
+    // In Single mode, we still show the spread, but editing happens on the right half.
     const halfWidth = logicalWidth / 2;
-    const innerLogicalWidth = isFull ? (logicalWidth - pageMargin * 2) : (halfWidth - pageMargin * 2);
-    const innerLogicalHeight = logicalHeight - pageMargin * 2;
-    const coordinateAspect = innerLogicalWidth / innerLogicalHeight;
+    const activeCanvasLeft = isFull ? 0 : halfWidth;
+    const activeCanvasWidth = isFull ? logicalWidth : halfWidth;
+    const activeCanvasHeight = logicalHeight;
+    const previewInnerWidth = Math.max(1, activeCanvasWidth - (pageMargin * 2));
+    const previewInnerHeight = Math.max(1, activeCanvasHeight - (pageMargin * 2));
+    const coordinateAspect = activeCanvasWidth / activeCanvasHeight;
     const logicalWidthUnits = 100 * coordinateAspect;
     // Ruler labels are shown on 10-unit steps; cap visible ticks to the last full 10.
     const rulerMaxMajorUnit = Math.floor((logicalWidthUnits + 1e-6) / 10) * 10;
@@ -580,7 +583,7 @@ export const LayoutCanvas = ({
     };
 
 
-    // Updated to use coordinateAspect based on inner drawing area to prevent skew
+    // Uses active drawing area aspect (full page or right half in split mode).
     const getPointFromEvent = (clientX: number, clientY: number, rect: DOMRect) => {
         if (!rect.width || !rect.height) return null;
 
@@ -1406,10 +1409,10 @@ export const LayoutCanvas = ({
                         className={cn("absolute z-10", toolMode === 'select' ? "" : "cursor-crosshair")}
                         style={{
                             padding: 0,
-                            top: pageMargin,
-                            left: pageMargin,
-                            right: pageMargin,
-                            bottom: pageMargin,
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
                             cursor: toolMode === 'select' ? cursorMode : undefined
                         }}
                         onMouseDown={toolMode === 'select' ? handleSelectMouseDown : handleMouseDown}
@@ -1424,26 +1427,36 @@ export const LayoutCanvas = ({
                                     className="absolute bg-background overflow-hidden shadow-sm"
                                     style={{
                                         top: 0,
-                                        left: isFull ? 0 : (logicalWidth / 2) - pageMargin,
-                                        width: innerLogicalWidth,
-                                        height: innerLogicalHeight,
+                                        left: activeCanvasLeft,
+                                        width: activeCanvasWidth,
+                                        height: activeCanvasHeight,
                                     }}
                                 >
-                                    {advancedTemplate.regions.sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)).map((region, index) => (
-                                        <ShapeRegion
-                                            key={region.id || index}
-                                            region={region}
-                                            photo={page.photos[index]}
-                                            photoGap={photoGap}
-                                            backgroundColor={backgroundColor || 'hsl(var(--background))'}
-                                            containerWidth={innerLogicalWidth}
-                                            containerHeight={innerLogicalHeight}
-                                            onUpdatePanAndZoom={() => { }}
-                                            onInteractionChange={() => { }}
-                                            pageId={page.id}
-                                            cornerRadius={cornerRadius}
-                                        />
-                                    ))}
+                                    <div
+                                        className="absolute overflow-hidden"
+                                        style={{
+                                            top: pageMargin,
+                                            left: pageMargin,
+                                            width: previewInnerWidth,
+                                            height: previewInnerHeight,
+                                        }}
+                                    >
+                                        {advancedTemplate.regions.sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)).map((region, index) => (
+                                            <ShapeRegion
+                                                key={region.id || index}
+                                                region={region}
+                                                photo={page.photos[index]}
+                                                photoGap={photoGap}
+                                                backgroundColor={backgroundColor || 'hsl(var(--background))'}
+                                                containerWidth={previewInnerWidth}
+                                                containerHeight={previewInnerHeight}
+                                                onUpdatePanAndZoom={() => { }}
+                                                onInteractionChange={() => { }}
+                                                pageId={page.id}
+                                                cornerRadius={cornerRadius}
+                                            />
+                                        ))}
+                                    </div>
                                 </div>
                             ) : isFull ? (
                                 <div className="flex h-full w-full">
@@ -1472,9 +1485,9 @@ export const LayoutCanvas = ({
                                 style={{
                                     pointerEvents: 'none',
                                     top: 0,
-                                    left: isFull ? 0 : (logicalWidth / 2) - pageMargin,
-                                    width: innerLogicalWidth,
-                                    height: innerLogicalHeight
+                                    left: activeCanvasLeft,
+                                    width: activeCanvasWidth,
+                                    height: activeCanvasHeight
                                 }}
                                 viewBox={`0 0 ${100 * coordinateAspect} 100`}
                                 preserveAspectRatio="none"
@@ -1817,9 +1830,9 @@ export const LayoutCanvas = ({
                                 style={{
                                     pointerEvents: 'none',
                                     top: 0,
-                                    left: isFull ? 0 : (logicalWidth / 2) - pageMargin,
-                                    width: innerLogicalWidth,
-                                    height: innerLogicalHeight
+                                    left: activeCanvasLeft,
+                                    width: activeCanvasWidth,
+                                    height: activeCanvasHeight
                                 }}
                                 viewBox={`0 0 ${100 * coordinateAspect} 100`}
                                 preserveAspectRatio="none"
@@ -1870,8 +1883,12 @@ export const LayoutCanvas = ({
                         {/* GRID OVERLAY */}
                         {showGuides && (
                             <div
-                                className="absolute inset-0 pointer-events-none z-0"
+                                className="absolute pointer-events-none z-0"
                                 style={{
+                                    left: activeCanvasLeft,
+                                    top: 0,
+                                    width: activeCanvasWidth,
+                                    height: activeCanvasHeight,
                                     backgroundImage: `
                                     linear-gradient(to right, rgba(128, 128, 128, 0.08) 1px, transparent 1px),
                                     linear-gradient(to bottom, rgba(128, 128, 128, 0.08) 1px, transparent 1px),
@@ -1909,9 +1926,9 @@ export const LayoutCanvas = ({
                         <div
                             className="absolute w-[26px] flex flex-col pointer-events-none select-none border-r border-border/40 backdrop-blur-sm"
                             style={{
-                                left: pageMargin - 26,
-                                top: pageMargin,
-                                bottom: pageMargin
+                                left: activeCanvasLeft - 26,
+                                top: 0,
+                                bottom: 0
                             }}
                         >
                             {Array.from({ length: 11 }).map((_, i) => (
@@ -1937,9 +1954,9 @@ export const LayoutCanvas = ({
                         <div
                             className="absolute h-[26px] flex pointer-events-none select-none border-b border-border/40 backdrop-blur-sm"
                             style={{
-                                top: pageMargin - 26,
-                                left: pageMargin,
-                                right: pageMargin
+                                top: -26,
+                                left: activeCanvasLeft,
+                                width: activeCanvasWidth
                             }}
                         >
                             {Array.from({ length: rulerMajorTicks }).map((_, i) => (

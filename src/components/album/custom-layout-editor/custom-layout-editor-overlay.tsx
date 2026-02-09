@@ -854,11 +854,9 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         const logicalWidthPx = isFull ? pageW_px * 2 : pageW_px;
         const logicalHeightPx = pageH_px;
 
-        // Determine the coordinate system aspect ratio used during drawing
-        // Note: Strokes are captured in a coordinate system of [0..Aspect*100] x [0..100]
-        const innerW = logicalWidthPx - (pageMargin * 2);
-        const innerH = logicalHeightPx - (pageMargin * 2);
-        const aspect = innerW / innerH;
+        // Determine the coordinate system aspect ratio used during drawing.
+        // Page margin is a layout property, but editor coordinates stay on full page area.
+        const aspect = logicalWidthPx / logicalHeightPx;
 
         const logicalWidthUnits = aspect * 100;
 
