@@ -34,6 +34,7 @@ interface LayoutCanvasProps {
     onUpdateVectorObjects?: (objects: VectorObject[]) => void;
     isMirrorMode: boolean;
     isLeaderGroupRotateEnabled?: boolean;
+    isLeaderGroupResizeEnabled?: boolean;
     activeStrokeColor: string;
     activeStrokeWidth: number;
     activeFillColor: string;
@@ -67,6 +68,13 @@ type GroupRotationStartEntry = {
     type: VectorObject['type'];
 };
 
+type GroupResizeStartEntry = {
+    center: Point;
+    angle: number;
+    origPoints: Point[];
+    type: VectorObject['type'];
+};
+
 export const LayoutCanvas = ({
     page,
     config,
@@ -77,6 +85,7 @@ export const LayoutCanvas = ({
     onUpdateVectorObjects,
     isMirrorMode,
     isLeaderGroupRotateEnabled = false,
+    isLeaderGroupResizeEnabled = false,
     activeStrokeColor,
     activeStrokeWidth,
     activeFillColor,
@@ -172,7 +181,9 @@ export const LayoutCanvas = ({
         mirrorPartnerIndex?: number;
         mirrorPartnerIds?: Set<string>;
         groupRotationStart?: Map<string, GroupRotationStartEntry>;
+        groupResizeStart?: Map<string, GroupResizeStartEntry>;
     } | null>(null);
+    const selectionAdditiveRef = useRef(false);
     const moveBasePointsRef = useRef<Map<string, Point[]> | null>(null);
     const moveBaseBoundsRef = useRef<{ minX: number; minY: number; maxX: number; maxY: number } | null>(null);
     const pendingVectorObjectsRef = useRef<VectorObject[] | null>(null);
@@ -706,6 +717,7 @@ export const LayoutCanvas = ({
         const shapes = shapesRef.current;
         const primaryIdx = selectedShapeIndices.length > 0 ? selectedShapeIndices[0] : null;
         const hasSingleSelection = selectedShapeIndices.length === 1;
+        const canUseLeaderResize = isLeaderGroupResizeEnabled && selectedShapeIndices.length > 1;
 
         // 1. Check rotate handle for leader, resize handles only for single selection
         if (primaryIdx !== null) {
@@ -764,19 +776,37 @@ export const LayoutCanvas = ({
                 }
 
                 // Resize Handles
-                if (hasSingleSelection) {
+                if (hasSingleSelection || canUseLeaderResize) {
                     const handles = getResizeHandles(shape.obb);
                     const hitRadius = 1.5;
 
                     for (let i = 0; i < 8; i++) {
                         if (distance(point, handles[i]) < hitRadius) {
+                            let groupResizeStart: Map<string, GroupResizeStartEntry> | undefined;
+                            if (canUseLeaderResize) {
+                                groupResizeStart = new Map<string, GroupResizeStartEntry>();
+                                selectedShapeIndices.forEach((idx) => {
+                                    const selShape = shapes[idx];
+                                    if (!selShape) return;
+                                    const selObj = selShape.object;
+                                    const origPoints = selShape.polygon.map((p) => [p[0], p[1]] as Point);
+                                    groupResizeStart!.set(selObj.id, {
+                                        center: [selShape.obb.center[0], selShape.obb.center[1]],
+                                        angle: selShape.obb.angle || 0,
+                                        origPoints,
+                                        type: selObj.type
+                                    });
+                                });
+                            }
+
                             setResizeHandle(i);
                             setTransformMode('resize');
                             isRotatingRef.current = false;
                             // Use shape.polygon for all objects (path objects now have rotated OBB corners as polygon)
                             dragStartRef.current = {
                                 point, origPoints: shape.polygon, bbox: shape.bbox, startObb: shape.obb,
-                                mirrorPartnerIndex: mirrorPartnerIdx
+                                mirrorPartnerIndex: mirrorPartnerIdx,
+                                groupResizeStart
                             };
                             return;
                         }
@@ -796,6 +826,19 @@ export const LayoutCanvas = ({
 
         if (foundIdx >= 0) {
             let newSelection = [...selectedShapeIndices];
+            if (e.shiftKey) {
+                if (newSelection.includes(foundIdx)) {
+                    newSelection = newSelection.filter((idx) => idx !== foundIdx);
+                } else {
+                    newSelection = [...newSelection, foundIdx];
+                }
+                onSelectionChange(newSelection);
+                setTransformMode('none');
+                setCursorMode('default');
+                dragStartRef.current = null;
+                return;
+            }
+
             if (!newSelection.includes(foundIdx)) {
                 newSelection = [foundIdx];
                 onSelectionChange(newSelection);
@@ -839,7 +882,10 @@ export const LayoutCanvas = ({
             moveBaseBoundsRef.current = null;
 
         } else {
-            onSelectionChange([]);
+            selectionAdditiveRef.current = !!e.shiftKey;
+            if (!e.shiftKey) {
+                onSelectionChange([]);
+            }
             setSelectionBox({ start: point, end: point });
             setTransformMode('none');
             isRotatingRef.current = false;
@@ -856,6 +902,7 @@ export const LayoutCanvas = ({
         setResizeHandle(null);
         setIsSymmetric(false);
         dragStartRef.current = null;
+        selectionAdditiveRef.current = false;
         moveBasePointsRef.current = null;
         moveBaseBoundsRef.current = null;
     };
@@ -876,9 +923,15 @@ export const LayoutCanvas = ({
                         newSelection.push(idx);
                     }
                 });
-                onSelectionChange(newSelection);
+                if (selectionAdditiveRef.current) {
+                    const mergedSelection = Array.from(new Set([...selectedShapeIndices, ...newSelection]));
+                    onSelectionChange(mergedSelection);
+                } else {
+                    onSelectionChange(newSelection);
+                }
             }
             setSelectionBox(null);
+            selectionAdditiveRef.current = false;
             setTransformMode('none');
             setCursorMode('default');
             dragStartRef.current = null;
@@ -1037,6 +1090,7 @@ export const LayoutCanvas = ({
                 const shapes = shapesRef.current;
                 const primaryIdx = selectedShapeIndices.length > 0 ? selectedShapeIndices[0] : null;
                 const hasSingleSelection = selectedShapeIndices.length === 1;
+                const canUseLeaderResizeHover = isLeaderGroupResizeEnabled && selectedShapeIndices.length > 1;
 
                 if (primaryIdx !== null) {
                     const shape = shapes[primaryIdx];
@@ -1054,7 +1108,7 @@ export const LayoutCanvas = ({
                             newCursor = 'alias';
                         } else {
                             let overResize = false;
-                            if (hasSingleSelection) {
+                            if (hasSingleSelection || canUseLeaderResizeHover) {
                                 // Check Resize Handles
                                 const handles = getResizeHandles(shape.obb);
                                 for (let i = 0; i < 8; i++) {
@@ -1231,7 +1285,7 @@ export const LayoutCanvas = ({
                     scheduleVectorObjectsUpdate(newObjects);
                 }
             }
-        } else if (transformMode === 'resize' && selectedShapeIndices.length === 1) {
+        } else if (transformMode === 'resize' && selectedShapeIndices.length >= 1) {
             const shape = shapesRef.current[selectedShapeIndices[0]];
             if (!shape) return;
 
@@ -1284,6 +1338,68 @@ export const LayoutCanvas = ({
             const minSize = 2;
             if (Math.abs(baseW * scaleU) < minSize) scaleU = (minSize / baseW) * (scaleU < 0 ? -1 : 1);
             if (Math.abs(baseH * scaleV) < minSize) scaleV = (minSize / baseH) * (scaleV < 0 ? -1 : 1);
+
+            const groupResizeStart = start.groupResizeStart;
+            if (groupResizeStart && groupResizeStart.size > 1) {
+                const newObjects = vectorObjects.map(obj => {
+                    const entry = groupResizeStart.get(obj.id);
+                    if (!entry || !obj.points) return obj;
+
+                    // Leader keeps the anchored resize behavior (same as single resize).
+                    if (obj.id === shape.id) {
+                        if (obj.type === 'path') {
+                            const localPoints = start.origPoints.map(p => {
+                                const pl = transformPointToLocal(p, startObb.center, startObb.angle);
+                                return [
+                                    oppHandleLocal[0] + (pl[0] - oppHandleLocal[0]) * scaleU,
+                                    oppHandleLocal[1] + (pl[1] - oppHandleLocal[1]) * scaleV
+                                ] as Point;
+                            });
+
+                            const minU = Math.min(...localPoints.map(p => p[0]));
+                            const maxU = Math.max(...localPoints.map(p => p[0]));
+                            const minV = Math.min(...localPoints.map(p => p[1]));
+                            const maxV = Math.max(...localPoints.map(p => p[1]));
+                            const shiftU = (minU + maxU) / 2;
+                            const shiftV = (minV + maxV) / 2;
+
+                            const cos = Math.cos(startObb.angle);
+                            const sin = Math.sin(startObb.angle);
+                            const rotShiftU = shiftU * cos - shiftV * sin;
+                            const rotShiftV = shiftU * sin + shiftV * cos;
+                            const correctionU = rotShiftU - shiftU;
+                            const correctionV = rotShiftV - shiftV;
+
+                            const correctedPoints = localPoints.map(p => [
+                                startObb.center[0] + p[0] + correctionU,
+                                startObb.center[1] + p[1] + correctionV
+                            ] as Point);
+                            return updateObjectPoints(obj, correctedPoints);
+                        }
+
+                        const leaderPoly = start.origPoints.map(p => {
+                            const pl = transformPointToLocal(p, startObb.center, startObb.angle);
+                            const plNew: Point = [
+                                oppHandleLocal[0] + (pl[0] - oppHandleLocal[0]) * scaleU,
+                                oppHandleLocal[1] + (pl[1] - oppHandleLocal[1]) * scaleV
+                            ];
+                            return transformPointToWorld(plNew, startObb.center, startObb.angle);
+                        });
+                        return updateObjectPoints(obj, leaderPoly);
+                    }
+
+                    // Other selected objects scale by leader ratio around their own center/orientation.
+                    const scaledPoly = entry.origPoints.map(p => {
+                        const pl = transformPointToLocal(p, entry.center, entry.angle);
+                        const plNew: Point = [pl[0] * scaleU, pl[1] * scaleV];
+                        return transformPointToWorld(plNew, entry.center, entry.angle);
+                    });
+
+                    return updateObjectPoints(obj, scaledPoly);
+                });
+                scheduleVectorObjectsUpdate(newObjects);
+                return;
+            }
 
             const newObjects = vectorObjects.map(obj => {
                 if (obj.id === shape.id && obj.points) {
@@ -2016,7 +2132,7 @@ export const LayoutCanvas = ({
                                 ))}
 
                                 {/* Resize Handles (Circles) */}
-                                {hasSingleSelection && getResizeHandles(primaryShape.obb).map((h, i) => {
+                                {(hasSingleSelection || (isLeaderGroupResizeEnabled && hasMultiSelection)) && getResizeHandles(primaryShape.obb).map((h, i) => {
                                     return (
                                         <circle key={i}
                                             cx={h[0]} cy={h[1]}

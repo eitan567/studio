@@ -311,6 +311,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const [isLayersPanelOpen, setIsLayersPanelOpen] = useState(true);
     const [layersPanelPosition, setLayersPanelPosition] = useState({ x: 24, y: 24 });
     const [isLeaderGroupRotateEnabled, setIsLeaderGroupRotateEnabled] = useState(false);
+    const [isLeaderGroupResizeEnabled, setIsLeaderGroupResizeEnabled] = useState(false);
     const canvasWorkspaceRef = useRef<HTMLDivElement>(null);
     const floatingLayersRef = useRef<HTMLDivElement>(null);
 
@@ -1359,6 +1360,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             onSelectionChange={setSelectedShapeIndices}
                             isMirrorMode={isMirrorMode}
                             isLeaderGroupRotateEnabled={isLeaderGroupRotateEnabled}
+                            isLeaderGroupResizeEnabled={isLeaderGroupResizeEnabled}
                             // Active Styles
                             activeStrokeColor={strokeColor}
                             activeStrokeWidth={strokeWidth}
@@ -1381,6 +1383,15 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                                 title="Rotate selected objects with leader"
                             >
                                 <RotateCw className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className={cn("h-8 w-8", isLeaderGroupResizeEnabled && "bg-primary/15 text-primary")}
+                                onClick={() => setIsLeaderGroupResizeEnabled(prev => !prev)}
+                                title="Resize selected objects with leader"
+                            >
+                                <Maximize className="h-4 w-4" />
                             </Button>
 
                             <div className="w-6 h-px bg-border/60 my-1" />
