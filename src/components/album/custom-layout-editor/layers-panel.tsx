@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { ChevronUp, ChevronDown, Trash2, Box, Circle, Frame, X } from 'lucide-react';
+import { ChevronUp, ChevronDown, Trash2, Box, Circle, Frame, RotateCcw, X } from 'lucide-react';
 import { VectorObject } from '@/lib/advanced-layout-types';
 
 interface LayersPanelProps {
@@ -11,6 +11,7 @@ interface LayersPanelProps {
     onSelect: (indices: number[]) => void;
     onDelete: (index: number) => void;
     onReorder: (index: number, direction: 'up' | 'down') => void;
+    onResetRotation: (index: number) => void;
     onClose?: () => void;
     onDragStart?: (e: React.PointerEvent<HTMLDivElement>) => void;
     className?: string;
@@ -22,6 +23,7 @@ export const LayersPanel = ({
     onSelect,
     onDelete,
     onReorder,
+    onResetRotation,
     onClose,
     onDragStart,
     className
@@ -133,7 +135,7 @@ export const LayersPanel = ({
                                                 {getName(item.obj, item.originalIndex)}
                                             </span>
 
-                                            <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity gap-0.5">
+                                            <div className="flex items-center opacity-70 group-hover:opacity-100 transition-opacity gap-0.5">
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
@@ -158,6 +160,18 @@ export const LayersPanel = ({
                                                     title="Layer Down"
                                                 >
                                                     <ChevronDown className="h-3 w-3" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onResetRotation(item.originalIndex);
+                                                    }}
+                                                    title="Reset Rotation"
+                                                >
+                                                    <RotateCcw className="h-3 w-3" />
                                                 </Button>
                                                 <Button
                                                     variant="ghost"

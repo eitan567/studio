@@ -45,6 +45,102 @@ interface CustomLayoutEditorOverlayProps {
 
 import { useTheme } from 'next-themes';
 
+const updateVectorObjectPoints = (obj: VectorObject, newPoints: Point[]): VectorObject => {
+    const newSegments: Segment[] = [];
+    for (let i = 0; i < newPoints.length - 1; i++) {
+        newSegments.push({ p1: newPoints[i], p2: newPoints[i + 1] });
+    }
+    if (newPoints.length >= 3) {
+        newSegments.push({ p1: newPoints[newPoints.length - 1], p2: newPoints[0] });
+    }
+    return { ...obj, points: newPoints, segments: newSegments };
+};
+
+const normalizeAngleRad = (angle: number): number => {
+    const twoPi = Math.PI * 2;
+    let a = angle % twoPi;
+    if (a <= -Math.PI) a += twoPi;
+    if (a > Math.PI) a -= twoPi;
+    return a;
+};
+
+const rotatePointAround = (p: Point, center: Point, angleRad: number): Point => {
+    const dx = p[0] - center[0];
+    const dy = p[1] - center[1];
+    const cos = Math.cos(angleRad);
+    const sin = Math.sin(angleRad);
+    return [
+        center[0] + dx * cos - dy * sin,
+        center[1] + dx * sin + dy * cos
+    ];
+};
+
+const getPointsBoundingBox = (points: Point[]) => {
+    const xs = points.map(p => p[0]);
+    const ys = points.map(p => p[1]);
+    const minX = Math.min(...xs);
+    const minY = Math.min(...ys);
+    const maxX = Math.max(...xs);
+    const maxY = Math.max(...ys);
+    return {
+        minX,
+        minY,
+        maxX,
+        maxY,
+        width: maxX - minX,
+        height: maxY - minY,
+        centerX: (minX + maxX) / 2,
+        centerY: (minY + maxY) / 2
+    };
+};
+
+const getSmartAngleRad = (points: Point[]): number => {
+    if (points.length < 2) return 0;
+
+    if (points.length === 2) {
+        return normalizeAngleRad(Math.atan2(points[1][1] - points[0][1], points[1][0] - points[0][0]));
+    }
+
+    const computeAreaAtAngle = (rad: number): number => {
+        const cos = Math.cos(-rad);
+        const sin = Math.sin(-rad);
+        let minU = Infinity, maxU = -Infinity;
+        let minV = Infinity, maxV = -Infinity;
+
+        for (const p of points) {
+            const u = p[0] * cos - p[1] * sin;
+            const v = p[0] * sin + p[1] * cos;
+            minU = Math.min(minU, u);
+            maxU = Math.max(maxU, u);
+            minV = Math.min(minV, v);
+            maxV = Math.max(maxV, v);
+        }
+
+        return (maxU - minU) * (maxV - minV);
+    };
+
+    let bestAngle = 0;
+    let minArea = Infinity;
+
+    for (let i = 0; i < points.length; i++) {
+        const p1 = points[i];
+        const p2 = points[(i + 1) % points.length];
+        const dx = p2[0] - p1[0];
+        const dy = p2[1] - p1[1];
+        if (Math.abs(dx) < 0.000001 && Math.abs(dy) < 0.000001) continue;
+
+        const angle = Math.atan2(dy, dx);
+        const area = computeAreaAtAngle(angle);
+
+        if (area < minArea - 0.001) {
+            minArea = area;
+            bestAngle = angle;
+        }
+    }
+
+    return normalizeAngleRad(bestAngle);
+};
+
 export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, onAddTemplate }: CustomLayoutEditorOverlayProps) => {
     const { findGridTemplate, defaultGridTemplate, allTemplates, refresh } = useTemplates();
     const { resolvedTheme } = useTheme();
@@ -632,6 +728,55 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         setSelectedShapeIndices([]); // Clear selection
     };
 
+    const handleResetObjectRotation = useCallback((index: number) => {
+        setVectorObjects(prev => {
+            const target = prev[index];
+            if (!target) return prev;
+
+            const explicitAngleRad = ((target.rotation || 0) * Math.PI) / 180;
+
+            if (target.type === 'path') {
+                if (Math.abs(explicitAngleRad) < 0.0001) return prev;
+                const next = [...prev];
+                next[index] = { ...target, rotation: 0 };
+                return next;
+            }
+
+            if (!target.points || target.points.length < 2) {
+                if (Math.abs(explicitAngleRad) < 0.0001) return prev;
+                const next = [...prev];
+                next[index] = { ...target, rotation: 0 };
+                return next;
+            }
+
+            const box = getPointsBoundingBox(target.points);
+            let angleRad = getSmartAngleRad(target.points);
+
+            if (target.type === 'circle') {
+                const axisDelta = Math.abs(box.width - box.height);
+                if (axisDelta <= 0.35 && Math.abs(explicitAngleRad) > 0.0001) {
+                    angleRad = explicitAngleRad;
+                }
+            } else if (Math.abs(angleRad) < (0.5 * Math.PI / 180) && Math.abs(explicitAngleRad) > (0.5 * Math.PI / 180)) {
+                angleRad = explicitAngleRad;
+            }
+
+            if (Math.abs(angleRad) < (0.5 * Math.PI / 180) && Math.abs(explicitAngleRad) < (0.5 * Math.PI / 180)) {
+                return prev;
+            }
+
+            const center: Point = [box.centerX, box.centerY];
+            const normalizedPoints = target.points.map((p) => rotatePointAround(p, center, -angleRad));
+
+            const next = [...prev];
+            next[index] = {
+                ...updateVectorObjectPoints(target, normalizedPoints),
+                rotation: 0
+            };
+            return next;
+        });
+    }, []);
+
 
     const handleCancel = () => {
         onClose();
@@ -978,6 +1123,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                                     onSelect={setSelectedShapeIndices}
                                     onDelete={handleDeleteObject}
                                     onReorder={handleReorderObjects}
+                                    onResetRotation={handleResetObjectRotation}
                                     onClose={() => setIsLayersPanelOpen(false)}
                                     onDragStart={handleStartDragLayersPanel}
                                 />
