@@ -126,6 +126,8 @@ export const LayoutCanvas = ({
     const ROTATION_SNAP_THRESHOLD_RAD = (6 * Math.PI) / 180; // Magnetic zone around 45deg multiples.
     const ROTATION_SNAP_LOCK_THRESHOLD_RAD = (1.2 * Math.PI) / 180; // Hard lock only when very close.
     const ROTATION_SNAP_STRENGTH = 1; // 30% magnetic pull.
+    const CIRCLE_SNAP_THRESHOLD_ABS = 0.45; // Small absolute tolerance so ellipse remains easy to draw.
+    const CIRCLE_SNAP_THRESHOLD_RATIO = 0.025; // Relative tolerance for larger circles.
 
     // --- STATE ---
     const [scale, setScale] = useState(1);
@@ -454,9 +456,36 @@ export const LayoutCanvas = ({
                 return;
             }
 
-            // Try to find matching previous shape to preserve angle
+            if (obj.type === 'circle') {
+                const box = getBoundingBox(polygon);
+
+                let preferredAngle: number | undefined;
+                if (prevShapes) {
+                    const prev = prevShapes.find(s => s.id === obj.id);
+                    if (prev && !isRotatingRef.current) preferredAngle = prev.obb.angle;
+                }
+
+                // For near-perfect circles any angle is geometrically valid; pin to explicit rotation
+                // to avoid random angle jumps while keeping true ellipse OBB behavior at 90/-90.
+                const angleRad = (obj.rotation || 0) * Math.PI / 180;
+                const axisDelta = Math.abs(box.width - box.height);
+                if (axisDelta <= 0.35) preferredAngle = angleRad;
+
+                const obb = getSmartBBox(polygon, preferredAngle);
+
+                nextShapes.push({
+                    id: obj.id,
+                    polygon,
+                    bbox: box,
+                    obb,
+                    object: obj
+                });
+                return;
+            }
+
             let preferredAngle: number | undefined;
-            if (prevShapes) {
+
+            if (preferredAngle === undefined && prevShapes) {
                 const prev = prevShapes.find(s => s.id === obj.id);
                 if (prev && !isRotatingRef.current) preferredAngle = prev.obb.angle;
             }
@@ -868,8 +897,21 @@ export const LayoutCanvas = ({
                 } else if (toolMode === 'circle') {
                     const cx = (p1[0] + p2[0]) / 2;
                     const cy = (p1[1] + p2[1]) / 2;
-                    const rx = Math.abs(p2[0] - p1[0]) / 2;
-                    const ry = Math.abs(p2[1] - p1[1]) / 2;
+                    const rawRx = Math.abs(p2[0] - p1[0]) / 2;
+                    const rawRy = Math.abs(p2[1] - p1[1]) / 2;
+                    let rx = rawRx;
+                    let ry = rawRy;
+
+                    const maxRadius = Math.max(rawRx, rawRy);
+                    const axisDelta = Math.abs(rawRx - rawRy);
+                    const snapThreshold = Math.max(CIRCLE_SNAP_THRESHOLD_ABS, maxRadius * CIRCLE_SNAP_THRESHOLD_RATIO);
+
+                    if (axisDelta <= snapThreshold) {
+                        const r = (rawRx + rawRy) / 2;
+                        rx = r;
+                        ry = r;
+                    }
+
                     const steps = 48;
                     const poly: Point[] = [];
                     for (let i = 0; i <= steps; i++) {
@@ -1241,6 +1283,14 @@ export const LayoutCanvas = ({
                             rotation: newRotationRad * 180 / Math.PI
                         };
                     }
+                    if (obj.type === 'circle') {
+                        const newPolyWorld = start.origPoints.map(p => rotatePoint(p, center, snappedDelta));
+                        const newRotationRad = snappedTargetAngle;
+                        return {
+                            ...updateObjectPoints(obj, newPolyWorld),
+                            rotation: newRotationRad * 180 / Math.PI
+                        };
+                    }
                     // For regular shapes, rotate the points
                     const newPolyWorld = start.origPoints.map(p => rotatePoint(p, center, snappedDelta));
                     return updateObjectPoints(obj, newPolyWorld);
@@ -1253,6 +1303,16 @@ export const LayoutCanvas = ({
                             const newRotationRad = -snappedTargetAngle;
                             return {
                                 ...obj,
+                                rotation: newRotationRad * 180 / Math.PI
+                            };
+                        }
+                        if (obj.type === 'circle') {
+                            const totalWidth = 100 * coordinateAspect;
+                            const newPolyWorld = start.origPoints.map(p => rotatePoint(p, center, snappedDelta));
+                            const mirroredPoints = newPolyWorld.map(p => [totalWidth - p[0], p[1]] as Point);
+                            const newRotationRad = -snappedTargetAngle;
+                            return {
+                                ...updateObjectPoints(obj, mirroredPoints),
                                 rotation: newRotationRad * 180 / Math.PI
                             };
                         }
