@@ -414,27 +414,27 @@ export const ShapeRegion = ({
             ref={rootRef}
             id={shapeId}
             className={cn(
-                "absolute pointer-events-auto transition-all duration-200 group",
-                (!photo || !photo.src) && "cursor-pointer"
+                "absolute pointer-events-none transition-all duration-200 group"
             )}
             style={commonStyle}
-            onClick={(e) => {
-                if ((!photo || !photo.src) && onReplace) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onReplace(e, rootRef.current || undefined);
-                }
-            }}
         >
             <div
                 className={cn(
                     "absolute inset-0 pointer-events-auto overflow-hidden transition-all duration-200",
-                    isDragOver && (!photo || !photo.src) && "bg-primary/10"
+                    isDragOver && (!photo || !photo.src) && "bg-primary/10",
+                    (!photo || !photo.src) && "cursor-pointer"
                 )}
                 style={{
                     backgroundColor: photoGapNum > 0 ? backgroundColor : 'transparent',
                     clipPath: clipPathStyle,
                     WebkitClipPath: clipPathStyle,
+                }}
+                onClick={(e) => {
+                    if ((!photo || !photo.src) && onReplace) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onReplace(e, rootRef.current || undefined);
+                    }
                 }}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
