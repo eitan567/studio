@@ -1924,7 +1924,7 @@ export const LayoutCanvas = ({
                     >
                         {/* Content Layer */}
                         <div className={cn("absolute inset-0 w-full h-full", toolMode !== 'select' && "pointer-events-none")}>
-                            {advancedTemplate && vectorObjects.length === 0 ? (
+                            {advancedTemplate && vectorObjects.length === 0 && !gridDesignerEnabled ? (
                                 <div
                                     className="absolute overflow-hidden shadow-sm"
                                     style={{

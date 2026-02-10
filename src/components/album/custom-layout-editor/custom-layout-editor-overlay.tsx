@@ -244,6 +244,65 @@ const parseTemplateDescriptionObject = (description?: string | null): Record<str
     }
 };
 
+type EditorGridSnapshot = {
+    rows: number;
+    cols: number;
+    mode: GridDesignerMode;
+    segments: GridDesignerSegment[];
+};
+
+const cloneGridDesignerSegments = (segments: GridDesignerSegment[]): GridDesignerSegment[] =>
+    segments.map((segment) => ({
+        id: segment.id,
+        orientation: segment.orientation,
+        p1: [segment.p1[0], segment.p1[1]] as Point,
+        p2: [segment.p2[0], segment.p2[1]] as Point,
+        active: !!segment.active
+    }));
+
+const parseEditorGridSnapshot = (value: unknown): EditorGridSnapshot | null => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const raw = value as Record<string, unknown>;
+    const rows = typeof raw.rows === 'number' ? Math.max(1, Math.min(12, Math.floor(raw.rows))) : 3;
+    const cols = typeof raw.cols === 'number' ? Math.max(1, Math.min(12, Math.floor(raw.cols))) : 4;
+    const modeRaw = raw.mode;
+    const mode: GridDesignerMode =
+        modeRaw === 'move' || modeRaw === 'delete' || modeRaw === 'add-horizontal' || modeRaw === 'add-vertical'
+            ? modeRaw
+            : 'move';
+
+    if (!Array.isArray(raw.segments)) return null;
+
+    const segments: GridDesignerSegment[] = raw.segments
+        .map((seg) => {
+            if (!seg || typeof seg !== 'object' || Array.isArray(seg)) return null;
+            const s = seg as Record<string, unknown>;
+            const p1 = s.p1;
+            const p2 = s.p2;
+            const orientation = s.orientation;
+            if (
+                !Array.isArray(p1) || p1.length !== 2 ||
+                !Array.isArray(p2) || p2.length !== 2 ||
+                typeof p1[0] !== 'number' || typeof p1[1] !== 'number' ||
+                typeof p2[0] !== 'number' || typeof p2[1] !== 'number' ||
+                (orientation !== 'horizontal' && orientation !== 'vertical')
+            ) {
+                return null;
+            }
+            return {
+                id: typeof s.id === 'string' ? s.id : uuidv4(),
+                orientation,
+                p1: [p1[0], p1[1]] as Point,
+                p2: [p2[0], p2[1]] as Point,
+                active: typeof s.active === 'boolean' ? s.active : true
+            } as GridDesignerSegment;
+        })
+        .filter((seg): seg is GridDesignerSegment => !!seg);
+
+    if (segments.length === 0) return null;
+    return { rows, cols, mode, segments };
+};
+
 const getLayerObjectDisplayName = (obj: VectorObject, index: number) => {
     if (obj.type === 'path') return `Frame ${index + 1}`;
     if (obj.type === 'rect') return `Rectangle ${index + 1}`;
@@ -627,81 +686,101 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         const scaleX = isFullSpread ? 2 : 1;
 
 
-        // Only load vector objects for editing mode
+        const descriptionData = parseTemplateDescriptionObject(template.description);
+        const gridSnapshot = parseEditorGridSnapshot(descriptionData._editorGrid);
+
+        // Only load editable data for editing mode
         if (isEdit) {
-            const editorSnapshot = cloneVectorObjects(template._editorObjects);
-            if (editorSnapshot.length > 0) {
-                setVectorObjects(editorSnapshot);
+            if (gridSnapshot) {
+                // Restore full Grid Designer editing state exactly as it was before processing.
+                setGridRows(gridSnapshot.rows);
+                setGridCols(gridSnapshot.cols);
+                setGridDesignerMode(gridSnapshot.mode);
+                setGridDesignerSegments(cloneGridDesignerSegments(gridSnapshot.segments));
+                setIsGridDesignerEnabled(true);
+                setToolMode('select');
+                setSelectedShapeIndices([]);
+                setVectorObjects([]);
             } else {
-                // Backward compatibility: Convert template regions to VectorObjects
-                const newVectorObjects: VectorObject[] = template.regions.map((region, index) => {
-                    const isPath = region.shape === 'path';
-                    let points: Point[] = region.points || [];
+                setGridDesignerSegments([]);
+                setIsGridDesignerEnabled(false);
 
-                    // For path objects, generate a bounding box to allow manipulation (points will be used for translation)
-                    let pathPoints: Point[] | undefined = undefined;
-                    if (isPath) {
-                        const { x, y, width, height } = region.bounds;
-                        pathPoints = [
-                            [x * scaleX, y],
-                            [(x + width) * scaleX, y],
-                            [(x + width) * scaleX, y + height],
-                            [x * scaleX, y + height]
-                        ];
-                    }
+                const editorSnapshot = cloneVectorObjects(template._editorObjects);
+                if (editorSnapshot.length > 0) {
+                    setVectorObjects(editorSnapshot);
+                } else {
+                    // Backward compatibility: Convert template regions to VectorObjects
+                    const newVectorObjects: VectorObject[] = template.regions.map((region, index) => {
+                        const isPath = region.shape === 'path';
+                        let points: Point[] = region.points || [];
 
-                    // For polygons, generate segments
-                    const segments: Segment[] = [];
-                    if (!isPath && points.length > 1) {
-                        for (let i = 0; i < points.length - 1; i++) {
-                            segments.push({ p1: [points[i][0] * scaleX, points[i][1]] as Point, p2: [points[i + 1][0] * scaleX, points[i + 1][1]] as Point });
+                        // For path objects, generate a bounding box to allow manipulation (points will be used for translation)
+                        let pathPoints: Point[] | undefined = undefined;
+                        if (isPath) {
+                            const { x, y, width, height } = region.bounds;
+                            pathPoints = [
+                                [x * scaleX, y],
+                                [(x + width) * scaleX, y],
+                                [(x + width) * scaleX, y + height],
+                                [x * scaleX, y + height]
+                            ];
                         }
-                        // Close polygon if needed
-                        if (points.length > 2 && (points[0][0] !== points[points.length - 1][0] || points[0][1] !== points[points.length - 1][1])) {
-                            segments.push({ p1: [points[points.length - 1][0] * scaleX, points[points.length - 1][1]] as Point, p2: [points[0][0] * scaleX, points[0][1]] as Point });
+
+                        // For polygons, generate segments
+                        const segments: Segment[] = [];
+                        if (!isPath && points.length > 1) {
+                            for (let i = 0; i < points.length - 1; i++) {
+                                segments.push({ p1: [points[i][0] * scaleX, points[i][1]] as Point, p2: [points[i + 1][0] * scaleX, points[i + 1][1]] as Point });
+                            }
+                            // Close polygon if needed
+                            if (points.length > 2 && (points[0][0] !== points[points.length - 1][0] || points[0][1] !== points[points.length - 1][1])) {
+                                segments.push({ p1: [points[points.length - 1][0] * scaleX, points[points.length - 1][1]] as Point, p2: [points[0][0] * scaleX, points[0][1]] as Point });
+                            }
+                        } else if (!isPath && region.shape === 'rect') {
+                            const { x, y, width, height } = region.bounds;
+                            const rectPoints: Point[] = [
+                                [x * scaleX, y],
+                                [(x + width) * scaleX, y],
+                                [(x + width) * scaleX, y + height],
+                                [x * scaleX, y + height]
+                            ];
+                            for (let i = 0; i < 4; i++) {
+                                segments.push({ p1: rectPoints[i], p2: rectPoints[(i + 1) % 4] });
+                            }
+                            // For rect shapes, we MUST ensure points are populated so LayoutCanvas can render the polygon
+                            points = rectPoints;
                         }
-                    } else if (!isPath && region.shape === 'rect') {
-                        const { x, y, width, height } = region.bounds;
-                        const rectPoints: Point[] = [
-                            [x * scaleX, y],
-                            [(x + width) * scaleX, y],
-                            [(x + width) * scaleX, y + height],
-                            [x * scaleX, y + height]
-                        ];
-                        for (let i = 0; i < 4; i++) {
-                            segments.push({ p1: rectPoints[i], p2: rectPoints[(i + 1) % 4] });
-                        }
-                        // For rect shapes, we MUST ensure points are populated so LayoutCanvas can render the polygon
-                        points = rectPoints;
-                    }
 
-                    // For other polygons/points, scale them if needed
-                    const finalPoints = (region.shape === 'rect') ? points : points.map(p => [p[0] * scaleX, p[1]] as Point);
+                        // For other polygons/points, scale them if needed
+                        const finalPoints = (region.shape === 'rect') ? points : points.map(p => [p[0] * scaleX, p[1]] as Point);
 
-                    // Background frame (index 0) gets a distinct color
-                    const isBackground = index === 0;
-                    const isDark = resolvedTheme === 'dark';
-                    const bgFill = isDark ? '#1f1f1f' : '#f5f5f5';
+                        // Background frame (index 0) gets a distinct color
+                        const isBackground = index === 0;
+                        const isDark = resolvedTheme === 'dark';
+                        const bgFill = isDark ? '#1f1f1f' : '#f5f5f5';
 
-                    return {
-                        id: region.id || uuidv4(),
-                        type: isPath ? 'path' : (region.shape === 'rect' ? 'rect' : (region.shape === 'circle' ? 'circle' : 'polygon')),
-                        segments,
-                        points: isPath ? pathPoints : finalPoints,
-                        path: region.path,
-                        viewBox: region.viewBox,
-                        stroke: strokeColor,
-                        strokeWidth: region.strokeWidth || 0.5,
-                        fill: isBackground ? bgFill : fillColor,
-                        zIndex: region.zIndex ?? 0,
-                        rotation: region.rotation || 0
-                    };
-                });
-                setVectorObjects(newVectorObjects);
+                        return {
+                            id: region.id || uuidv4(),
+                            type: isPath ? 'path' : (region.shape === 'rect' ? 'rect' : (region.shape === 'circle' ? 'circle' : 'polygon')),
+                            segments,
+                            points: isPath ? pathPoints : finalPoints,
+                            path: region.path,
+                            viewBox: region.viewBox,
+                            stroke: strokeColor,
+                            strokeWidth: region.strokeWidth || 0.5,
+                            fill: isBackground ? bgFill : fillColor,
+                            zIndex: region.zIndex ?? 0,
+                            rotation: region.rotation || 0
+                        };
+                    });
+                    setVectorObjects(newVectorObjects);
+                }
             }
         } else {
-            // Preview mode: clear vector objects so we see the final rendered result
+            // Preview mode: clear editing overlays/objects so we see the final rendered result
             setVectorObjects([]);
+            setGridDesignerSegments([]);
+            setIsGridDesignerEnabled(false);
         }
 
         if (targetSpreadMode !== spreadMode) {
@@ -1334,7 +1413,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         window.addEventListener('pointerup', onPointerUp);
     }, [isLayersPanelDockLocked, layersPanelPosition]);
 
-    const processObjectsToTemplate = useCallback((objectsToProcess: VectorObject[]) => {
+    const processObjectsToTemplate = useCallback((objectsToProcess: VectorObject[], gridSnapshot?: EditorGridSnapshot | null) => {
         if (objectsToProcess.length === 0) return;
 
         // Calculate aspect ratio to pass to geometry engine
@@ -1468,20 +1547,44 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             _photoGap: photoGap
         };
 
+        const nextType = spreadMode === 'full' ? 'spread' : 'single';
+        const existingDescription = parseTemplateDescriptionObject(targetTemplate.description);
+        const descriptionPayload: Record<string, unknown> = {
+            ...existingDescription,
+            _pageMargin: pageMargin,
+            _photoGap: photoGap,
+            type: nextType,
+            _editorVersion: 1,
+            _editorSpreadMode: spreadMode,
+            _editorObjects: cloneVectorObjects(objectsToProcess)
+        };
+
+        if (gridSnapshot && gridSnapshot.segments.length > 0) {
+            descriptionPayload._editorGrid = {
+                rows: gridSnapshot.rows,
+                cols: gridSnapshot.cols,
+                mode: gridSnapshot.mode,
+                segments: cloneGridDesignerSegments(gridSnapshot.segments)
+            };
+        } else {
+            delete descriptionPayload._editorGrid;
+        }
+
         const updated: AdvancedTemplate = {
             ...targetTemplate,
             id: baseId, // Ensure we use the determined ID (either existing custom ID or new UUID)
             name: templateName || targetTemplate.name, // Use the input name if available
             regions: finalRegions,
             photoCount: finalRegions.length,
-            type: spreadMode === 'full' ? 'spread' : 'single',
+            type: nextType,
             isCustom: true, // Always mark as custom
             createdBy: null, // Custom templates owned by user (handled by RLS/context)
             _pageMargin: pageMargin,
             _photoGap: photoGap,
             _editorVersion: 1,
             _editorSpreadMode: spreadMode,
-            _editorObjects: cloneVectorObjects(objectsToProcess)
+            _editorObjects: cloneVectorObjects(objectsToProcess),
+            description: JSON.stringify(descriptionPayload)
         };
 
         // Add to local created templates (avoid duplicates)
@@ -1516,7 +1619,13 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 rotation: 0
             }));
 
-            processObjectsToTemplate(gridObjects);
+            const gridSnapshot: EditorGridSnapshot = {
+                rows: gridRows,
+                cols: gridCols,
+                mode: gridDesignerMode,
+                segments: cloneGridDesignerSegments(gridDesignerSegments)
+            };
+            processObjectsToTemplate(gridObjects, gridSnapshot);
             setGridDesignerSegments([]);
             setIsGridDesignerEnabled(false);
             setToolMode('select');
@@ -1524,11 +1633,22 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             return;
         }
 
-        processObjectsToTemplate(vectorObjects);
+        processObjectsToTemplate(vectorObjects, null);
         setToolMode('select');
         setVectorObjects([]);
         setSelectedShapeIndices([]);
-    }, [activeGridSegments, isGridDesignerEnabled, processObjectsToTemplate, vectorObjects, strokeColor, strokeWidth]);
+    }, [
+        activeGridSegments,
+        isGridDesignerEnabled,
+        processObjectsToTemplate,
+        vectorObjects,
+        strokeColor,
+        strokeWidth,
+        gridRows,
+        gridCols,
+        gridDesignerMode,
+        gridDesignerSegments
+    ]);
 
     const hasSelection = selectedShapeIndices.length > 0;
     const canAlignSelection = selectedShapeIndices.length >= 2;
