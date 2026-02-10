@@ -393,7 +393,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         const itemRowHeight = 34;
         const itemRowGap = 2;
         const layerHeaderItemsGap = 4;
-        const groupGap = 14;
+        const groupGap = 16;
         const contentPadding = 24;
         // Header is a single row (title + controls + count)
         const headerHeight = 56;
@@ -407,13 +407,16 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             const itemGaps = Math.max(0, count - 1) * itemRowGap;
             return sum + layerHeaderItemsGap + (count * itemRowHeight) + itemGaps;
         }, 0);
+        const allLayersCollapsed = layerCount > 0 && layerEntries.every(([z]) => layersPanelCollapsedState[z]);
+        const collapsedBottomPadding = allLayersCollapsed ? 8 : 0;
 
         const listHeight = layerCount === 0
             ? emptyStateHeight
             : (layerCount * layerHeaderHeight)
                 + expandedContentHeight
                 + (Math.max(0, layerCount - 1) * groupGap)
-                + contentPadding;
+                + contentPadding
+                + collapsedBottomPadding;
 
         const naturalHeight = Math.max(LAYERS_PANEL_MIN_HEIGHT, headerHeight + listHeight + footerHeight);
 
@@ -1545,7 +1548,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 <div ref={canvasWorkspaceRef} className="flex-1 flex relative bg-muted/10 h-full overflow-hidden">
                     {isLayersPanelOpen && isLayersDocked && layersPanelDockSide === 'left' && (
                         <div
-                            className="relative z-40 h-full py-2 pl-2 pr-0 flex-shrink-0 border-r bg-background/60"
+                            className="relative z-[60] h-full py-2 pl-2 pr-0 flex-shrink-0 border-r bg-background/60"
                             style={{ width: layersPanelSizing.width + LAYERS_PANEL_DOCK_GUTTER }}
                         >
                             <div style={{ width: layersPanelSizing.width, height: layersPanelHeight }}>
@@ -1781,7 +1784,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         {isLayersPanelOpen && !isLayersDocked && (
                             <div
                                 ref={floatingLayersRef}
-                                className="absolute z-40"
+                                className="absolute z-[60]"
                                 style={{
                                     left: layersPanelPosition.x,
                                     top: layersPanelTop,
@@ -1797,7 +1800,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
                     {isLayersPanelOpen && isLayersDocked && layersPanelDockSide === 'right' && (
                         <div
-                            className="relative z-40 h-full py-2 pr-2 pl-0 flex-shrink-0 border-l bg-background/60"
+                            className="relative z-[60] h-full py-2 pr-2 pl-0 flex-shrink-0 border-l bg-background/60"
                             style={{ width: layersPanelSizing.width + LAYERS_PANEL_DOCK_GUTTER }}
                         >
                             <div style={{ width: layersPanelSizing.width, height: layersPanelHeight }}>
