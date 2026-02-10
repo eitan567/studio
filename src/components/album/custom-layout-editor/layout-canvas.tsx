@@ -7,6 +7,7 @@ import { invalidateCache } from '@/lib/templates-cache';
 import { AlbumPage, AlbumConfig } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { AdvancedTemplate, VectorObject, Point, Segment, LayoutRegion } from '@/lib/advanced-layout-types';
+import { GridDesignerMode, GridDesignerSegment } from './grid-designer-types';
 import { v4 as uuidv4 } from 'uuid';
 import { ShapeRegion } from '../layouts/shape-region';
 import { ToolMode } from './custom-layout-editor-overlay';
@@ -41,6 +42,10 @@ interface LayoutCanvasProps {
     selectedShapeIndices: number[];
     onSelectionChange: (indices: number[]) => void;
     showGuides?: boolean;
+    gridDesignerEnabled?: boolean;
+    gridDesignerMode?: GridDesignerMode;
+    gridDesignerSegments?: GridDesignerSegment[];
+    onGridDesignerSegmentsChange?: (segments: GridDesignerSegment[]) => void;
 }
 
 type TransformMode = 'none' | 'move' | 'resize' | 'rotate';
@@ -92,7 +97,11 @@ export const LayoutCanvas = ({
     activeFillColor,
     selectedShapeIndices,
     onSelectionChange,
-    showGuides = false
+    showGuides = false,
+    gridDesignerEnabled = false,
+    gridDesignerMode = 'move',
+    gridDesignerSegments = [],
+    onGridDesignerSegmentsChange
 }: LayoutCanvasProps) => {
     const wrapperRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLDivElement>(null);
@@ -151,6 +160,8 @@ export const LayoutCanvas = ({
     const ROTATION_SNAP_STRENGTH = 1; // 30% magnetic pull.
     const CIRCLE_SNAP_THRESHOLD_ABS = 0.45; // Small absolute tolerance so ellipse remains easy to draw.
     const CIRCLE_SNAP_THRESHOLD_RATIO = 0.025; // Relative tolerance for larger circles.
+    const GRID_SEGMENT_HIT_TOLERANCE = 1.4;
+    const GRID_SNAP_STEP = 0.5;
 
     // --- STATE ---
     const [scale, setScale] = useState(1);
@@ -160,6 +171,8 @@ export const LayoutCanvas = ({
     const [resizeHandle, setResizeHandle] = useState<number | null>(null);
     const [selectionBox, setSelectionBox] = useState<{ start: Point; end: Point } | null>(null);
     const [cursorMode, setCursorMode] = useState<string>('default');
+    const [gridHoveredSegmentId, setGridHoveredSegmentId] = useState<string | null>(null);
+    const [gridSelectedSegmentId, setGridSelectedSegmentId] = useState<string | null>(null);
 
     // Preview state for shapes being drawn
     const [previewShape, setPreviewShape] = useState<{ type: 'rect' | 'circle'; points: Point[] } | null>(null);
@@ -189,6 +202,11 @@ export const LayoutCanvas = ({
     const moveBaseBoundsRef = useRef<{ minX: number; minY: number; maxX: number; maxY: number } | null>(null);
     const pendingVectorObjectsRef = useRef<VectorObject[] | null>(null);
     const rafUpdateRef = useRef<number | null>(null);
+    const gridDragRef = useRef<{
+        segmentId: string;
+        startPoint: Point;
+        originalSegment: GridDesignerSegment;
+    } | null>(null);
 
     // --- UTILS ---
     const getBoundingBox = (polygon: Point[]) => {
@@ -468,6 +486,65 @@ export const LayoutCanvas = ({
         };
     }, []);
 
+    const activeGridSegments = useMemo(
+        () => gridDesignerSegments.filter((segment) => segment.active),
+        [gridDesignerSegments]
+    );
+
+    const gridCells = useMemo(() => {
+        if (!gridDesignerEnabled || activeGridSegments.length === 0) return [];
+        try {
+            const regions = processLayoutGeometry(
+                activeGridSegments.map((segment) => ({ p1: segment.p1, p2: segment.p2 })),
+                0,
+                logicalWidthUnits,
+                true
+            );
+
+            return regions.map((region) => {
+                const minX = (region.bounds.x / 100) * logicalWidthUnits;
+                const maxX = ((region.bounds.x + region.bounds.width) / 100) * logicalWidthUnits;
+                const minY = region.bounds.y;
+                const maxY = region.bounds.y + region.bounds.height;
+                const centerX = (minX + maxX) / 2;
+                const centerY = (minY + maxY) / 2;
+                const widthPx = Math.max(1, Math.round((region.bounds.width / 100) * activeCanvasWidth));
+                const heightPx = Math.max(1, Math.round((region.bounds.height / 100) * activeCanvasHeight));
+                const polygon = region.points && region.points.length > 2
+                    ? region.points.map(([x, y]) => [(x / 100) * logicalWidthUnits, y] as Point)
+                    : ([
+                        [minX, minY],
+                        [maxX, minY],
+                        [maxX, maxY],
+                        [minX, maxY]
+                    ] as Point[]);
+
+                return {
+                    id: region.id,
+                    minX,
+                    maxX,
+                    minY,
+                    maxY,
+                    centerX,
+                    centerY,
+                    widthPx,
+                    heightPx,
+                    polygon
+                };
+            });
+        } catch {
+            return [];
+        }
+    }, [gridDesignerEnabled, activeGridSegments, logicalWidthUnits, activeCanvasWidth, activeCanvasHeight]);
+
+    useEffect(() => {
+        if (!gridDesignerEnabled) {
+            setGridHoveredSegmentId(null);
+            setGridSelectedSegmentId(null);
+            gridDragRef.current = null;
+        }
+    }, [gridDesignerEnabled]);
+
     // --- SHAPE DETECTION ---
     const shapesRef = useRef<ShapeData[]>([]);
     const shapes = useMemo(() => {
@@ -692,6 +769,153 @@ export const LayoutCanvas = ({
 
         return [x, y] as Point;
     };
+
+    const snapGridValue = (value: number): number => Math.round(value / GRID_SNAP_STEP) * GRID_SNAP_STEP;
+
+    const findNearestGridSegment = useCallback((point: Point): GridDesignerSegment | null => {
+        let nearest: GridDesignerSegment | null = null;
+        let bestDistance = Infinity;
+
+        for (const segment of activeGridSegments) {
+            const d = distancePointToSegment(point, segment.p1, segment.p2);
+            if (d <= GRID_SEGMENT_HIT_TOLERANCE && d < bestDistance) {
+                bestDistance = d;
+                nearest = segment;
+            }
+        }
+
+        return nearest;
+    }, [activeGridSegments]);
+
+    const handleGridOverlayMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+        if (!gridDesignerEnabled || !onGridDesignerSegmentsChange) return;
+
+        const rect = e.currentTarget.getBoundingClientRect();
+        const point = getPointFromEvent(e.clientX, e.clientY, rect);
+        if (!point) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (gridDesignerMode === 'move') {
+            const hit = findNearestGridSegment(point);
+            setGridSelectedSegmentId(hit?.id ?? null);
+            if (hit) {
+                gridDragRef.current = {
+                    segmentId: hit.id,
+                    startPoint: [point[0], point[1]],
+                    originalSegment: hit
+                };
+            }
+            return;
+        }
+
+        if (gridDesignerMode === 'delete') {
+            const hit = findNearestGridSegment(point);
+            if (!hit) return;
+            onGridDesignerSegmentsChange(
+                gridDesignerSegments.map((segment) =>
+                    segment.id === hit.id ? { ...segment, active: false } : segment
+                )
+            );
+            if (gridSelectedSegmentId === hit.id) setGridSelectedSegmentId(null);
+            return;
+        }
+
+        if (gridDesignerMode === 'add-horizontal' || gridDesignerMode === 'add-vertical') {
+            const targetCell = gridCells.find((cell) => isPointInPolygon(point, cell.polygon));
+            if (!targetCell) return;
+
+            if (gridDesignerMode === 'add-horizontal') {
+                const y = Math.max(targetCell.minY + 0.2, Math.min(targetCell.maxY - 0.2, snapGridValue(point[1])));
+                const newSegment: GridDesignerSegment = {
+                    id: uuidv4(),
+                    orientation: 'horizontal',
+                    p1: [targetCell.minX, y],
+                    p2: [targetCell.maxX, y],
+                    active: true
+                };
+                onGridDesignerSegmentsChange([...gridDesignerSegments, newSegment]);
+                setGridSelectedSegmentId(newSegment.id);
+            } else {
+                const x = Math.max(targetCell.minX + 0.2, Math.min(targetCell.maxX - 0.2, snapGridValue(point[0])));
+                const newSegment: GridDesignerSegment = {
+                    id: uuidv4(),
+                    orientation: 'vertical',
+                    p1: [x, targetCell.minY],
+                    p2: [x, targetCell.maxY],
+                    active: true
+                };
+                onGridDesignerSegmentsChange([...gridDesignerSegments, newSegment]);
+                setGridSelectedSegmentId(newSegment.id);
+            }
+        }
+    }, [
+        gridDesignerEnabled,
+        onGridDesignerSegmentsChange,
+        gridDesignerMode,
+        gridDesignerSegments,
+        gridCells,
+        gridSelectedSegmentId,
+        findNearestGridSegment
+    ]);
+
+    const handleGridOverlayMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+        if (!gridDesignerEnabled || !onGridDesignerSegmentsChange) return;
+
+        const rect = e.currentTarget.getBoundingClientRect();
+        const point = getPointFromEvent(e.clientX, e.clientY, rect);
+        if (!point) return;
+
+        if (gridDesignerMode === 'move' && gridDragRef.current) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const drag = gridDragRef.current;
+            const original = drag.originalSegment;
+
+            if (original.orientation === 'horizontal') {
+                const deltaY = point[1] - drag.startPoint[1];
+                const nextY = Math.max(0, Math.min(100, snapGridValue(original.p1[1] + deltaY)));
+                onGridDesignerSegmentsChange(
+                    gridDesignerSegments.map((segment) =>
+                        segment.id === drag.segmentId
+                            ? { ...segment, p1: [segment.p1[0], nextY], p2: [segment.p2[0], nextY] }
+                            : segment
+                    )
+                );
+            } else {
+                const deltaX = point[0] - drag.startPoint[0];
+                const nextX = Math.max(0, Math.min(logicalWidthUnits, snapGridValue(original.p1[0] + deltaX)));
+                onGridDesignerSegmentsChange(
+                    gridDesignerSegments.map((segment) =>
+                        segment.id === drag.segmentId
+                            ? { ...segment, p1: [nextX, segment.p1[1]], p2: [nextX, segment.p2[1]] }
+                            : segment
+                    )
+                );
+            }
+            return;
+        }
+
+        const hit = findNearestGridSegment(point);
+        setGridHoveredSegmentId(hit?.id ?? null);
+    }, [
+        gridDesignerEnabled,
+        onGridDesignerSegmentsChange,
+        gridDesignerMode,
+        gridDesignerSegments,
+        logicalWidthUnits,
+        findNearestGridSegment
+    ]);
+
+    const handleGridOverlayMouseUp = useCallback((e?: React.MouseEvent<HTMLDivElement>) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        gridDragRef.current = null;
+    }, []);
 
     const handleMouseDown = (e: React.MouseEvent) => {
         // This function handles drawing new shapes (not selection/manipulation)
@@ -2130,8 +2354,78 @@ export const LayoutCanvas = ({
                             </svg>
                         )}
 
+                        {gridDesignerEnabled && (
+                            <div
+                                className={cn(
+                                    "absolute z-40",
+                                    gridDesignerMode === 'move'
+                                        ? "cursor-move"
+                                        : gridDesignerMode === 'delete'
+                                            ? "cursor-not-allowed"
+                                            : "cursor-copy"
+                                )}
+                                style={{
+                                    left: activeCanvasLeft,
+                                    top: 0,
+                                    width: activeCanvasWidth,
+                                    height: activeCanvasHeight
+                                }}
+                                onMouseDown={handleGridOverlayMouseDown}
+                                onMouseMove={handleGridOverlayMouseMove}
+                                onMouseUp={handleGridOverlayMouseUp}
+                                onMouseLeave={handleGridOverlayMouseUp}
+                            >
+                                <svg
+                                    className="absolute inset-0 w-full h-full"
+                                    viewBox={`0 0 ${100 * coordinateAspect} 100`}
+                                    preserveAspectRatio="none"
+                                >
+                                    {activeGridSegments.map((segment) => {
+                                        const isSelected = gridSelectedSegmentId === segment.id;
+                                        const isHovered = gridHoveredSegmentId === segment.id;
+                                        return (
+                                            <line
+                                                key={segment.id}
+                                                x1={segment.p1[0]}
+                                                y1={segment.p1[1]}
+                                                x2={segment.p2[0]}
+                                                y2={segment.p2[1]}
+                                                stroke={isSelected ? "#22c55e" : (isHovered ? "#f59e0b" : "#60a5fa")}
+                                                strokeWidth={isSelected ? "0.9" : "0.65"}
+                                                strokeDasharray={isSelected ? "none" : "1.8 1.2"}
+                                                vectorEffect="non-scaling-stroke"
+                                            />
+                                        );
+                                    })}
+
+                                    {gridCells.map((cell) => {
+                                        if (cell.widthPx < 20 || cell.heightPx < 14) return null;
+                                        return (
+                                            <text
+                                                key={`grid-cell-size-${cell.id}`}
+                                                x={cell.centerX}
+                                                y={cell.centerY}
+                                                textAnchor="middle"
+                                                dominantBaseline="middle"
+                                                fontSize="2.6"
+                                                fontWeight="600"
+                                                fill="rgba(255,255,255,0.95)"
+                                                stroke="rgba(0,0,0,0.55)"
+                                                strokeWidth="0.35"
+                                                paintOrder="stroke"
+                                                vectorEffect="non-scaling-stroke"
+                                                pointerEvents="none"
+                                            >
+                                                {`${cell.widthPx}x${cell.heightPx}px`}
+                                            </text>
+                                        );
+                                    })}
+                                </svg>
+                            </div>
+                        )}
+
                         {/* Selection Handles (Leader shape when selected) */}
-                        {primaryShape && (
+                        {!gridDesignerEnabled && primaryShape && (
                             <svg
                                 className="absolute z-50 overflow-visible"
                                 style={{

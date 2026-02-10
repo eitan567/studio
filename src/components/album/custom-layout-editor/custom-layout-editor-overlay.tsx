@@ -40,6 +40,7 @@ import { processLayoutGeometry } from '@/lib/layout-geometry';
 import { createClient } from '@/lib/supabase';
 import { invalidateCache } from '@/lib/templates-cache';
 import { VectorObject, Point, Segment, LayoutRegion, AdvancedTemplate } from '@/lib/advanced-layout-types';
+import { GridDesignerMode, GridDesignerSegment } from './grid-designer-types';
 import { useAuth } from "@/hooks/useAuth";
 import { ModeToggle } from "@/components/mode-toggle";
 import { UserNav } from "@/components/user-nav";
@@ -350,6 +351,11 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const [workspaceSize, setWorkspaceSize] = useState({ width: 0, height: 0 });
     const [isLeaderGroupRotateEnabled, setIsLeaderGroupRotateEnabled] = useState(false);
     const [isLeaderGroupResizeEnabled, setIsLeaderGroupResizeEnabled] = useState(false);
+    const [isGridDesignerEnabled, setIsGridDesignerEnabled] = useState(false);
+    const [gridRows, setGridRows] = useState(3);
+    const [gridCols, setGridCols] = useState(4);
+    const [gridDesignerMode, setGridDesignerMode] = useState<GridDesignerMode>('move');
+    const [gridDesignerSegments, setGridDesignerSegments] = useState<GridDesignerSegment[]>([]);
     const canvasWorkspaceRef = useRef<HTMLDivElement>(null);
     const floatingLayersRef = useRef<HTMLDivElement>(null);
 
@@ -442,6 +448,63 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             return next;
         });
     }, []);
+
+    const createGridSegments = useCallback((rows: number, cols: number): GridDesignerSegment[] => {
+        const safeRows = Math.max(1, Math.floor(rows));
+        const safeCols = Math.max(1, Math.floor(cols));
+        const xStep = canvasLogicalWidthUnits / safeCols;
+        const yStep = 100 / safeRows;
+
+        const segments: GridDesignerSegment[] = [];
+
+        for (let r = 1; r < safeRows; r++) {
+            const y = yStep * r;
+            for (let c = 0; c < safeCols; c++) {
+                const x1 = xStep * c;
+                const x2 = xStep * (c + 1);
+                segments.push({
+                    id: uuidv4(),
+                    orientation: 'horizontal',
+                    p1: [x1, y],
+                    p2: [x2, y],
+                    active: true
+                });
+            }
+        }
+
+        for (let c = 1; c < safeCols; c++) {
+            const x = xStep * c;
+            for (let r = 0; r < safeRows; r++) {
+                const y1 = yStep * r;
+                const y2 = yStep * (r + 1);
+                segments.push({
+                    id: uuidv4(),
+                    orientation: 'vertical',
+                    p1: [x, y1],
+                    p2: [x, y2],
+                    active: true
+                });
+            }
+        }
+
+        return segments;
+    }, [canvasLogicalWidthUnits]);
+
+    const handleCreateGrid = useCallback(() => {
+        const rows = Math.max(1, Math.min(12, Math.floor(gridRows)));
+        const cols = Math.max(1, Math.min(12, Math.floor(gridCols)));
+        setGridRows(rows);
+        setGridCols(cols);
+        setGridDesignerSegments(createGridSegments(rows, cols));
+        setIsGridDesignerEnabled(true);
+        setToolMode('select');
+        setSelectedShapeIndices([]);
+    }, [createGridSegments, gridRows, gridCols]);
+
+    const activeGridSegments = useMemo(
+        () => gridDesignerSegments.filter((segment) => segment.active),
+        [gridDesignerSegments]
+    );
 
     useEffect(() => {
         const workspace = canvasWorkspaceRef.current;
@@ -1195,6 +1258,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     // Clear all vector objects and reset canvas for new template creation
     const handleClearAll = useCallback(() => {
         setVectorObjects([]);
+        setGridDesignerSegments([]);
+        setIsGridDesignerEnabled(false);
         setCurrentStroke(null);
         // Clear the selected template so user can create a new one
         setSelectedAdvancedTemplate(null);
@@ -1269,9 +1334,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         window.addEventListener('pointerup', onPointerUp);
     }, [isLayersPanelDockLocked, layersPanelPosition]);
 
-    // Process the drawn strokes into regions
-    const handleProcessLayout = useCallback(() => {
-        if (vectorObjects.length === 0) return;
+    const processObjectsToTemplate = useCallback((objectsToProcess: VectorObject[]) => {
+        if (objectsToProcess.length === 0) return;
 
         // Calculate aspect ratio to pass to geometry engine
         let configW = 20;
@@ -1301,7 +1365,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         const logicalWidthUnits = aspect * 100;
 
         // Group objects by zIndex to separate layers
-        const zIndices = Array.from(new Set(vectorObjects.map(o => o.zIndex ?? 0))).sort((a, b) => a - b);
+        const zIndices = Array.from(new Set(objectsToProcess.map(o => o.zIndex ?? 0))).sort((a, b) => a - b);
         const baseZ = zIndices[0] ?? 0; // The lowest layer is the "Grid" (Base Layer)
 
         let allNewRegions: LayoutRegion[] = [];
@@ -1314,7 +1378,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         // So we should iterate layers.
 
         zIndices.forEach(z => {
-            const layerObjects = vectorObjects.filter(o => (o.zIndex ?? 0) === z);
+            const layerObjects = objectsToProcess.filter(o => (o.zIndex ?? 0) === z);
 
             // 1. Path Objects in this layer (Frames/Shapes that are already fully defined)
             const layerPathRegions: LayoutRegion[] = layerObjects
@@ -1417,7 +1481,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             _photoGap: photoGap,
             _editorVersion: 1,
             _editorSpreadMode: spreadMode,
-            _editorObjects: cloneVectorObjects(vectorObjects)
+            _editorObjects: cloneVectorObjects(objectsToProcess)
         };
 
         // Add to local created templates (avoid duplicates)
@@ -1433,12 +1497,38 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
         // Select the updated template
         handleSelectAdvancedTemplate(updated);
+    }, [config?.size, selectedAdvancedTemplate, handleSelectAdvancedTemplate, createdTemplates.length, pageMargin, photoGap, strokeColor, strokeWidth, fillColor, spreadMode, templateName]);
 
-        // Auto-switch back to select mode to see results
+    // Process the drawn strokes into regions
+    const handleProcessLayout = useCallback(() => {
+        const shouldProcessGrid = activeGridSegments.length > 0 && (isGridDesignerEnabled || vectorObjects.length === 0);
+
+        if (shouldProcessGrid) {
+            const gridObjects: VectorObject[] = activeGridSegments.map((segment) => ({
+                id: uuidv4(),
+                type: 'line',
+                segments: [{ p1: [segment.p1[0], segment.p1[1]], p2: [segment.p2[0], segment.p2[1]] }],
+                points: [[segment.p1[0], segment.p1[1]], [segment.p2[0], segment.p2[1]]],
+                stroke: strokeColor,
+                strokeWidth: Math.max(0.25, strokeWidth),
+                fill: 'transparent',
+                zIndex: 0,
+                rotation: 0
+            }));
+
+            processObjectsToTemplate(gridObjects);
+            setGridDesignerSegments([]);
+            setIsGridDesignerEnabled(false);
+            setToolMode('select');
+            setSelectedShapeIndices([]);
+            return;
+        }
+
+        processObjectsToTemplate(vectorObjects);
         setToolMode('select');
         setVectorObjects([]);
         setSelectedShapeIndices([]);
-    }, [vectorObjects, config?.size, selectedAdvancedTemplate, handleSelectAdvancedTemplate, createdTemplates.length, pageMargin, photoGap, strokeColor, strokeWidth, fillColor, spreadMode]);
+    }, [activeGridSegments, isGridDesignerEnabled, processObjectsToTemplate, vectorObjects, strokeColor, strokeWidth]);
 
     const hasSelection = selectedShapeIndices.length > 0;
     const canAlignSelection = selectedShapeIndices.length >= 2;
@@ -1606,11 +1696,101 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             activeStrokeWidth={strokeWidth}
                             activeFillColor={fillColor}
                             showGuides={showGuides}
+                            gridDesignerEnabled={isGridDesignerEnabled}
+                            gridDesignerMode={gridDesignerMode}
+                            gridDesignerSegments={gridDesignerSegments}
+                            onGridDesignerSegmentsChange={setGridDesignerSegments}
                         />
 
-                        {/* Left Vertical Toolbar (reserved for future tools) */}
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 z-30 bg-background/95 backdrop-blur-sm border shadow-md rounded-full p-2 pointer-events-auto">
-                            <div className="h-8 w-8" />
+                        {/* Left Vertical Toolbar (Grid Designer) */}
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 z-30 bg-background/95 backdrop-blur-sm border shadow-md rounded-full p-2 flex flex-col items-center gap-1 pointer-events-auto">
+                            <Input
+                                type="number"
+                                className="h-8 w-8 text-center text-[10px] px-0"
+                                min={1}
+                                max={12}
+                                value={gridRows}
+                                onChange={(e) => setGridRows(Math.max(1, Math.min(12, Number(e.target.value) || 1)))}
+                                title="Rows"
+                            />
+                            <Input
+                                type="number"
+                                className="h-8 w-8 text-center text-[10px] px-0"
+                                min={1}
+                                max={12}
+                                value={gridCols}
+                                onChange={(e) => setGridCols(Math.max(1, Math.min(12, Number(e.target.value) || 1)))}
+                                title="Columns"
+                            />
+                            <Button
+                                variant="secondary"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={handleCreateGrid}
+                                title="Create equal grid"
+                            >
+                                <Layout className="h-4 w-4" />
+                            </Button>
+
+                            <div className="w-6 h-px bg-border/60 my-1" />
+
+                            <Button
+                                variant={isGridDesignerEnabled && gridDesignerMode === 'move' ? "secondary" : "ghost"}
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => {
+                                    setIsGridDesignerEnabled(true);
+                                    setGridDesignerMode('move');
+                                    setToolMode('select');
+                                }}
+                                disabled={activeGridSegments.length === 0}
+                                title="Move segments"
+                            >
+                                <Maximize className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant={isGridDesignerEnabled && gridDesignerMode === 'delete' ? "secondary" : "ghost"}
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => {
+                                    setIsGridDesignerEnabled(true);
+                                    setGridDesignerMode('delete');
+                                    setToolMode('select');
+                                }}
+                                disabled={activeGridSegments.length === 0}
+                                title="Delete segment"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant={isGridDesignerEnabled && gridDesignerMode === 'add-horizontal' ? "secondary" : "ghost"}
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => {
+                                    setIsGridDesignerEnabled(true);
+                                    setGridDesignerMode('add-horizontal');
+                                    setToolMode('select');
+                                }}
+                                disabled={activeGridSegments.length === 0}
+                                title="Add horizontal segment inside a cell"
+                            >
+                                <AlignVerticalJustifyCenter className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant={isGridDesignerEnabled && gridDesignerMode === 'add-vertical' ? "secondary" : "ghost"}
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => {
+                                    setIsGridDesignerEnabled(true);
+                                    setGridDesignerMode('add-vertical');
+                                    setToolMode('select');
+                                }}
+                                disabled={activeGridSegments.length === 0}
+                                title="Add vertical segment inside a cell"
+                            >
+                                <AlignHorizontalJustifyCenter className="h-4 w-4" />
+                            </Button>
+
                         </div>
 
                         {/* Right Vertical Toolbar (Selection Alignment/Distribution) */}
