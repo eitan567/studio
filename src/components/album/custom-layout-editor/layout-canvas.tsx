@@ -48,7 +48,7 @@ interface LayoutCanvasProps {
     onGridDesignerSegmentsChange?: (segments: GridDesignerSegment[]) => void;
 }
 
-type TransformMode = 'none' | 'move' | 'resize' | 'rotate';
+type TransformMode = 'none' | 'move' | 'resize' | 'rotate' | 'line-endpoint';
 
 type Obb = {
     center: Point;
@@ -171,6 +171,9 @@ export const LayoutCanvas = ({
     const LINE_TOOL_SEGMENT_SNAP_PIXELS = 8;
     const LINE_TOOL_ENDPOINT_SNAP_THRESHOLD_UNITS = (LINE_TOOL_ENDPOINT_SNAP_PIXELS / Math.max(1, activeCanvasHeight)) * 100;
     const LINE_TOOL_SEGMENT_SNAP_THRESHOLD_UNITS = (LINE_TOOL_SEGMENT_SNAP_PIXELS / Math.max(1, activeCanvasHeight)) * 100;
+    const LINE_ENDPOINT_HANDLE_HIT_RADIUS = 1.8;
+    // Keep line snap coordinates aligned with layout-geometry grid normalization.
+    const PROCESS_GEOMETRY_SNAP_STEP = 0.001;
 
     // --- STATE ---
     const [scale, setScale] = useState(1);
@@ -205,6 +208,9 @@ export const LayoutCanvas = ({
         mirrorPartnerIds?: Set<string>;
         groupRotationStart?: Map<string, GroupRotationStartEntry>;
         groupResizeStart?: Map<string, GroupResizeStartEntry>;
+        lineEndpointIndex?: 0 | 1;
+        lineOppositePoint?: Point;
+        lineObjectId?: string;
     } | null>(null);
     const selectionAdditiveRef = useRef(false);
     const moveBasePointsRef = useRef<Map<string, Point[]> | null>(null);
@@ -417,6 +423,24 @@ export const LayoutCanvas = ({
         return distance(p, proj);
     };
 
+    const getLineEndpoints = (obj: VectorObject): [Point, Point] | null => {
+        if (obj.type !== 'line') return null;
+        if (obj.points && obj.points.length >= 2) {
+            return [
+                [obj.points[0][0], obj.points[0][1]],
+                [obj.points[1][0], obj.points[1][1]]
+            ];
+        }
+        if (obj.segments && obj.segments.length > 0) {
+            const seg = obj.segments[0];
+            return [
+                [seg.p1[0], seg.p1[1]],
+                [seg.p2[0], seg.p2[1]]
+            ];
+        }
+        return null;
+    };
+
     const getClosestPointOnSegment = (p: Point, a: Point, b: Point): Point => {
         const abx = b[0] - a[0];
         const aby = b[1] - a[1];
@@ -428,8 +452,20 @@ export const LayoutCanvas = ({
         return [a[0] + (abx * t), a[1] + (aby * t)];
     };
 
-    const getLineToolSnapPoint = useCallback((rawPoint: Point, strokeStart?: Point): Point => {
-        const base = snapPointToGrid(rawPoint);
+    const quantizeForProcess = (value: number): number =>
+        Math.round(value / PROCESS_GEOMETRY_SNAP_STEP) * PROCESS_GEOMETRY_SNAP_STEP;
+
+    const quantizePointForProcess = (p: Point): Point => [
+        quantizeForProcess(p[0]),
+        quantizeForProcess(p[1])
+    ];
+
+    const getLineToolSnapPoint = useCallback((
+        rawPoint: Point,
+        options?: { strokeStart?: Point; excludeObjectId?: string }
+    ): Point => {
+        const { strokeStart, excludeObjectId } = options || {};
+        const base = quantizePointForProcess(snapPointToGrid(rawPoint));
         const pageBorders: Segment[] = [
             { p1: [0, 0], p2: [logicalWidthUnits, 0] },
             { p1: [logicalWidthUnits, 0], p2: [logicalWidthUnits, 100] },
@@ -437,10 +473,16 @@ export const LayoutCanvas = ({
             { p1: [0, 100], p2: [0, 0] }
         ];
 
-        const objectSegments = vectorObjects.flatMap((obj) => obj.segments || []);
+        const objectSegments = vectorObjects
+            .filter((obj) => !excludeObjectId || obj.id !== excludeObjectId)
+            .flatMap((obj) => obj.segments || [])
+            .map((segment) => ({
+                p1: quantizePointForProcess(segment.p1),
+                p2: quantizePointForProcess(segment.p2)
+            }));
         const gridSegments = (gridDesignerEnabled ? gridDesignerSegments.filter((segment) => segment.active) : []).map((segment) => ({
-            p1: [segment.p1[0], segment.p1[1]] as Point,
-            p2: [segment.p2[0], segment.p2[1]] as Point
+            p1: quantizePointForProcess([segment.p1[0], segment.p1[1]] as Point),
+            p2: quantizePointForProcess([segment.p2[0], segment.p2[1]] as Point)
         }));
         const allSegments = [...objectSegments, ...gridSegments, ...pageBorders];
 
@@ -448,7 +490,7 @@ export const LayoutCanvas = ({
         let bestEndpointDistance = Infinity;
         const endpointCandidates: Point[] = [];
 
-        if (strokeStart) endpointCandidates.push(strokeStart);
+        if (strokeStart) endpointCandidates.push(quantizePointForProcess(strokeStart));
         allSegments.forEach((segment) => {
             endpointCandidates.push(segment.p1, segment.p2);
         });
@@ -483,15 +525,18 @@ export const LayoutCanvas = ({
 
         if (endpointEligible && lineEligible) {
             // Endpoints get slight priority for precise connections.
-            return bestEndpointDistance <= (bestLineDistance + 0.15) ? bestEndpoint! : bestLineProjection!;
+            return quantizePointForProcess(
+                bestEndpointDistance <= (bestLineDistance + 0.15) ? bestEndpoint! : bestLineProjection!
+            );
         }
-        if (endpointEligible) return bestEndpoint!;
-        if (lineEligible) return bestLineProjection!;
-        return base;
+        if (endpointEligible) return quantizePointForProcess(bestEndpoint!);
+        if (lineEligible) return quantizePointForProcess(bestLineProjection!);
+        return quantizePointForProcess(base);
     }, [
         gridDesignerEnabled,
         gridDesignerSegments,
         logicalWidthUnits,
+        quantizePointForProcess,
         snapPointToGrid,
         vectorObjects,
         LINE_TOOL_ENDPOINT_SNAP_THRESHOLD_UNITS,
@@ -1188,6 +1233,34 @@ export const LayoutCanvas = ({
                     if (mirrorPartnerIdx === -1) mirrorPartnerIdx = undefined;
                 }
 
+                // Line Endpoint Handles (single selection)
+                if (hasSingleSelection && shape.object.type === 'line') {
+                    const endpoints = getLineEndpoints(shape.object);
+                    if (endpoints) {
+                        const startHit = distance(point, endpoints[0]) < LINE_ENDPOINT_HANDLE_HIT_RADIUS;
+                        const endHit = distance(point, endpoints[1]) < LINE_ENDPOINT_HANDLE_HIT_RADIUS;
+
+                        if (startHit || endHit) {
+                            const endpointIndex: 0 | 1 = startHit ? 0 : 1;
+                            const oppositePoint = endpointIndex === 0 ? endpoints[1] : endpoints[0];
+
+                            setTransformMode('line-endpoint');
+                            isRotatingRef.current = false;
+                            dragStartRef.current = {
+                                point,
+                                origPoints: shape.polygon,
+                                bbox: shape.bbox,
+                                startObb: shape.obb,
+                                lineEndpointIndex: endpointIndex,
+                                lineOppositePoint: [oppositePoint[0], oppositePoint[1]],
+                                lineObjectId: shape.object.id
+                            };
+                            setCursorMode('pointer');
+                            return;
+                        }
+                    }
+                }
+
                 // Rotation Handles
                 const rotHandles = getRotationHandles(shape.obb);
                 for (let i = 0; i < 4; i++) {
@@ -1413,7 +1486,7 @@ export const LayoutCanvas = ({
             return;
         }
         const point = toolMode === 'pencil'
-            ? getLineToolSnapPoint(rawPoint, currentStrokeRef.current?.p1)
+            ? getLineToolSnapPoint(rawPoint, { strokeStart: currentStrokeRef.current?.p1 })
             : snapPointToGrid(rawPoint);
 
         let newObjects = [...vectorObjects];
@@ -1531,7 +1604,7 @@ export const LayoutCanvas = ({
         }
 
         if (isDrawing) {
-            const linePoint = getLineToolSnapPoint(point, currentStrokeRef.current?.p1);
+            const linePoint = getLineToolSnapPoint(point, { strokeStart: currentStrokeRef.current?.p1 });
             currentStrokeRef.current = currentStrokeRef.current ? { ...currentStrokeRef.current, p2: linePoint } : null;
             setCurrentStroke(currentStrokeRef.current);
             return;
@@ -1556,6 +1629,23 @@ export const LayoutCanvas = ({
                 if (primaryIdx !== null) {
                     const shape = shapes[primaryIdx];
                     if (shape) {
+                        if (hasSingleSelection && shape.object.type === 'line') {
+                            const endpoints = getLineEndpoints(shape.object);
+                            if (endpoints) {
+                                const overLineEndpoint =
+                                    distance(point, endpoints[0]) < LINE_ENDPOINT_HANDLE_HIT_RADIUS ||
+                                    distance(point, endpoints[1]) < LINE_ENDPOINT_HANDLE_HIT_RADIUS;
+                                if (overLineEndpoint) {
+                                    newCursor = 'pointer';
+                                } else if (isShapeHit(shape, point)) {
+                                    newCursor = 'grab';
+                                }
+                                if (cursorMode !== newCursor) setCursorMode(newCursor);
+                                if (!dragStartRef.current) return;
+                                return;
+                            }
+                        }
+
                         // Check Rotation Handles
                         const rotHandles = getRotationHandles(shape.obb);
                         let overRot = false;
@@ -1612,6 +1702,31 @@ export const LayoutCanvas = ({
 
         if (!dragStartRef.current) return;
         const start = dragStartRef.current;
+
+        if (transformMode === 'line-endpoint' && selectedShapeIndices.length === 1) {
+            const lineObjectId = start.lineObjectId || shapesRef.current[selectedShapeIndices[0]]?.id;
+            const endpointIndex = start.lineEndpointIndex;
+            const oppositePoint = start.lineOppositePoint;
+            if (!lineObjectId || endpointIndex === undefined || !oppositePoint) return;
+
+            const snappedEndpoint = getLineToolSnapPoint(point, {
+                strokeStart: oppositePoint,
+                excludeObjectId: lineObjectId
+            });
+
+            const nextEndpoints: [Point, Point] = endpointIndex === 0
+                ? [snappedEndpoint, oppositePoint]
+                : [oppositePoint, snappedEndpoint];
+
+            const newObjects = vectorObjects.map((obj) => {
+                if (obj.id !== lineObjectId) return obj;
+                if (obj.type !== 'line') return obj;
+                return updateObjectPoints(obj, [nextEndpoints[0], nextEndpoints[1]]);
+            });
+
+            scheduleVectorObjectsUpdate(newObjects);
+            return;
+        }
 
         // Multi-Move Logic
         if (transformMode === 'move') {
@@ -2719,46 +2834,67 @@ export const LayoutCanvas = ({
                                 viewBox={`0 0 ${100 * coordinateAspect} 100`}
                                 preserveAspectRatio="none"
                             >
-                                {/* Rotated Rect Outline */}
-                                <polygon
-                                    points={getResizeHandles(primaryShape.obb)
-                                        .filter((_, i) => [0, 2, 4, 6].includes(i)) // corners only for the rect polygon
-                                        .map(p => `${p[0]},${p[1]}`)
-                                        .join(' ')}
-                                    fill="none"
-                                    stroke={hasMultiSelection ? "#22c55e" : (isSymmetric ? "#10b981" : "#3b82f6")}
-                                    strokeWidth={isSymmetric ? "2" : "0.5"}
-                                    strokeDasharray={isSymmetric ? "none" : "3 3"}
-                                    vectorEffect="non-scaling-stroke"
-                                />
-
-                                {/* Rotation Handles (Pink Circles at Corners, Offset) */}
-                                {getRotationHandles(primaryShape.obb).map((h, i) => (
-                                    <g key={`rot-${i}`} transform={`translate(${h[0]}, ${h[1]})`}>
-                                        {/* Connector Line from Corner to Rot Handle */}
-                                        {(() => {
-                                            const cornerIdx = [0, 2, 4, 6][i]; // TL, TR, BR, BL
-                                            const corner = getResizeHandles(primaryShape.obb)[cornerIdx];
-                                            return (
-                                                <line x1={corner[0] - h[0]} y1={corner[1] - h[1]} x2={0} y2={0} stroke="#ec4899" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
-                                            )
-                                        })()}
-                                        <circle r={1.6} fill="#ec4899" stroke="white" strokeWidth="1" vectorEffect="non-scaling-stroke" cursor="crosshair" />
-                                    </g>
-                                ))}
-
-                                {/* Resize Handles (Circles) */}
-                                {(hasSingleSelection || (isLeaderGroupResizeEnabled && hasMultiSelection)) && getResizeHandles(primaryShape.obb).map((h, i) => {
-                                    return (
-                                        <circle key={i}
-                                            cx={h[0]} cy={h[1]}
-                                            r={1.2}
-                                            fill="white" stroke="#3b82f6" strokeWidth="0.5"
+                                {hasSingleSelection && primaryShape.object.type === 'line' ? (
+                                    (() => {
+                                        const endpoints = getLineEndpoints(primaryShape.object);
+                                        if (!endpoints) return null;
+                                        return endpoints.map((ep, i) => (
+                                            <circle
+                                                key={`line-endpoint-${i}`}
+                                                cx={ep[0]}
+                                                cy={ep[1]}
+                                                r={1.2}
+                                                fill="white"
+                                                stroke="#3b82f6"
+                                                strokeWidth="0.5"
+                                                vectorEffect="non-scaling-stroke"
+                                            />
+                                        ));
+                                    })()
+                                ) : (
+                                    <>
+                                        {/* Rotated Rect Outline */}
+                                        <polygon
+                                            points={getResizeHandles(primaryShape.obb)
+                                                .filter((_, i) => [0, 2, 4, 6].includes(i)) // corners only for the rect polygon
+                                                .map(p => `${p[0]},${p[1]}`)
+                                                .join(' ')}
+                                            fill="none"
+                                            stroke={hasMultiSelection ? "#22c55e" : (isSymmetric ? "#10b981" : "#3b82f6")}
+                                            strokeWidth={isSymmetric ? "2" : "0.5"}
+                                            strokeDasharray={isSymmetric ? "none" : "3 3"}
                                             vectorEffect="non-scaling-stroke"
-                                            transform={`rotate(${primaryShape.obb.angle * 180 / Math.PI}, ${h[0]}, ${h[1]})`}
                                         />
-                                    );
-                                })}
+
+                                        {/* Rotation Handles (Pink Circles at Corners, Offset) */}
+                                        {getRotationHandles(primaryShape.obb).map((h, i) => (
+                                            <g key={`rot-${i}`} transform={`translate(${h[0]}, ${h[1]})`}>
+                                                {/* Connector Line from Corner to Rot Handle */}
+                                                {(() => {
+                                                    const cornerIdx = [0, 2, 4, 6][i]; // TL, TR, BR, BL
+                                                    const corner = getResizeHandles(primaryShape.obb)[cornerIdx];
+                                                    return (
+                                                        <line x1={corner[0] - h[0]} y1={corner[1] - h[1]} x2={0} y2={0} stroke="#ec4899" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
+                                                    )
+                                                })()}
+                                                <circle r={1.6} fill="#ec4899" stroke="white" strokeWidth="1" vectorEffect="non-scaling-stroke" cursor="crosshair" />
+                                            </g>
+                                        ))}
+
+                                        {/* Resize Handles (Circles) */}
+                                        {(hasSingleSelection || (isLeaderGroupResizeEnabled && hasMultiSelection)) && getResizeHandles(primaryShape.obb).map((h, i) => {
+                                            return (
+                                                <circle key={i}
+                                                    cx={h[0]} cy={h[1]}
+                                                    r={1.2}
+                                                    fill="white" stroke="#3b82f6" strokeWidth="0.5"
+                                                    vectorEffect="non-scaling-stroke"
+                                                    transform={`rotate(${primaryShape.obb.angle * 180 / Math.PI}, ${h[0]}, ${h[1]})`}
+                                                />
+                                            );
+                                        })}
+                                    </>
+                                )}
                             </svg>
                         )}
 
