@@ -167,6 +167,10 @@ export const LayoutCanvas = ({
     const GRID_KEYBOARD_NUDGE_UNITS = 100 / Math.max(1, activeCanvasHeight);
     const GRID_KEYBOARD_NUDGE_FAST_UNITS = GRID_KEYBOARD_NUDGE_UNITS * 10;
     const GRID_LINE_ENDPOINT_EPSILON = 1e-4;
+    const LINE_TOOL_ENDPOINT_SNAP_PIXELS = 12;
+    const LINE_TOOL_SEGMENT_SNAP_PIXELS = 8;
+    const LINE_TOOL_ENDPOINT_SNAP_THRESHOLD_UNITS = (LINE_TOOL_ENDPOINT_SNAP_PIXELS / Math.max(1, activeCanvasHeight)) * 100;
+    const LINE_TOOL_SEGMENT_SNAP_THRESHOLD_UNITS = (LINE_TOOL_SEGMENT_SNAP_PIXELS / Math.max(1, activeCanvasHeight)) * 100;
 
     // --- STATE ---
     const [scale, setScale] = useState(1);
@@ -412,6 +416,87 @@ export const LayoutCanvas = ({
         const proj: Point = [a[0] + (abx * t), a[1] + (aby * t)];
         return distance(p, proj);
     };
+
+    const getClosestPointOnSegment = (p: Point, a: Point, b: Point): Point => {
+        const abx = b[0] - a[0];
+        const aby = b[1] - a[1];
+        const apx = p[0] - a[0];
+        const apy = p[1] - a[1];
+        const abLenSq = (abx * abx) + (aby * aby);
+        if (abLenSq < 1e-9) return [a[0], a[1]];
+        const t = Math.max(0, Math.min(1, ((apx * abx) + (apy * aby)) / abLenSq));
+        return [a[0] + (abx * t), a[1] + (aby * t)];
+    };
+
+    const getLineToolSnapPoint = useCallback((rawPoint: Point, strokeStart?: Point): Point => {
+        const base = snapPointToGrid(rawPoint);
+        const pageBorders: Segment[] = [
+            { p1: [0, 0], p2: [logicalWidthUnits, 0] },
+            { p1: [logicalWidthUnits, 0], p2: [logicalWidthUnits, 100] },
+            { p1: [logicalWidthUnits, 100], p2: [0, 100] },
+            { p1: [0, 100], p2: [0, 0] }
+        ];
+
+        const objectSegments = vectorObjects.flatMap((obj) => obj.segments || []);
+        const gridSegments = (gridDesignerEnabled ? gridDesignerSegments.filter((segment) => segment.active) : []).map((segment) => ({
+            p1: [segment.p1[0], segment.p1[1]] as Point,
+            p2: [segment.p2[0], segment.p2[1]] as Point
+        }));
+        const allSegments = [...objectSegments, ...gridSegments, ...pageBorders];
+
+        let bestEndpoint: Point | null = null;
+        let bestEndpointDistance = Infinity;
+        const endpointCandidates: Point[] = [];
+
+        if (strokeStart) endpointCandidates.push(strokeStart);
+        allSegments.forEach((segment) => {
+            endpointCandidates.push(segment.p1, segment.p2);
+        });
+        endpointCandidates.push(
+            [0, 0] as Point,
+            [logicalWidthUnits, 0] as Point,
+            [logicalWidthUnits, 100] as Point,
+            [0, 100] as Point
+        );
+
+        endpointCandidates.forEach((candidate) => {
+            const d = distance(base, candidate);
+            if (d < bestEndpointDistance) {
+                bestEndpointDistance = d;
+                bestEndpoint = candidate;
+            }
+        });
+
+        let bestLineProjection: Point | null = null;
+        let bestLineDistance = Infinity;
+        allSegments.forEach((segment) => {
+            const projection = getClosestPointOnSegment(base, segment.p1, segment.p2);
+            const d = distance(base, projection);
+            if (d < bestLineDistance) {
+                bestLineDistance = d;
+                bestLineProjection = projection;
+            }
+        });
+
+        const endpointEligible = !!bestEndpoint && bestEndpointDistance <= LINE_TOOL_ENDPOINT_SNAP_THRESHOLD_UNITS;
+        const lineEligible = !!bestLineProjection && bestLineDistance <= LINE_TOOL_SEGMENT_SNAP_THRESHOLD_UNITS;
+
+        if (endpointEligible && lineEligible) {
+            // Endpoints get slight priority for precise connections.
+            return bestEndpointDistance <= (bestLineDistance + 0.15) ? bestEndpoint! : bestLineProjection!;
+        }
+        if (endpointEligible) return bestEndpoint!;
+        if (lineEligible) return bestLineProjection!;
+        return base;
+    }, [
+        gridDesignerEnabled,
+        gridDesignerSegments,
+        logicalWidthUnits,
+        snapPointToGrid,
+        vectorObjects,
+        LINE_TOOL_ENDPOINT_SNAP_THRESHOLD_UNITS,
+        LINE_TOOL_SEGMENT_SNAP_THRESHOLD_UNITS
+    ]);
 
     const isPointInPolygon = (p: Point, polygon: Point[]): boolean => {
         if (polygon.length < 3) return false;
@@ -1059,7 +1144,9 @@ export const LayoutCanvas = ({
         const rect = e.currentTarget.getBoundingClientRect();
         const rawPoint = getPointFromEvent(e.clientX, e.clientY, rect);
         if (!rawPoint) return;
-        const point = snapPointToGrid(rawPoint);
+        const point = toolMode === 'pencil'
+            ? getLineToolSnapPoint(rawPoint)
+            : snapPointToGrid(rawPoint);
 
         setIsDrawing(true);
         isDrawingRef.current = true;
@@ -1325,7 +1412,9 @@ export const LayoutCanvas = ({
             handleMouseUpCleanup();
             return;
         }
-        const point = snapPointToGrid(rawPoint);
+        const point = toolMode === 'pencil'
+            ? getLineToolSnapPoint(rawPoint, currentStrokeRef.current?.p1)
+            : snapPointToGrid(rawPoint);
 
         let newObjects = [...vectorObjects];
 
@@ -1442,7 +1531,8 @@ export const LayoutCanvas = ({
         }
 
         if (isDrawing) {
-            currentStrokeRef.current = currentStrokeRef.current ? { ...currentStrokeRef.current, p2: snappedPoint } : null;
+            const linePoint = getLineToolSnapPoint(point, currentStrokeRef.current?.p1);
+            currentStrokeRef.current = currentStrokeRef.current ? { ...currentStrokeRef.current, p2: linePoint } : null;
             setCurrentStroke(currentStrokeRef.current);
             return;
         }
