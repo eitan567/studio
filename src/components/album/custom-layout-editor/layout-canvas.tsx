@@ -619,26 +619,16 @@ export const LayoutCanvas = ({
             }
 
             if (obj.type === 'circle') {
-                const box = getBoundingBox(polygon);
-
-                let preferredAngle: number | undefined;
-                if (prevShapes) {
-                    const prev = prevShapes.find(s => s.id === obj.id);
-                    if (prev && !isRotatingRef.current) preferredAngle = prev.obb.angle;
-                }
-
-                // For near-perfect circles any angle is geometrically valid; pin to explicit rotation
-                // to avoid random angle jumps while keeping true ellipse OBB behavior at 90/-90.
+                const bbox = getBoundingBox(polygon);
                 const angleRad = (obj.rotation || 0) * Math.PI / 180;
-                const axisDelta = Math.abs(box.width - box.height);
-                if (axisDelta <= 0.35) preferredAngle = angleRad;
-
-                const obb = getSmartBBox(polygon, preferredAngle);
+                // Use explicit object rotation as the canonical orientation for circle/ellipse tools.
+                // This prevents random OBB angles on creation (e.g. 176deg on a fresh ellipse).
+                const obb = getSmartBBox(polygon, angleRad);
 
                 nextShapes.push({
                     id: obj.id,
                     polygon,
-                    bbox: box,
+                    bbox,
                     obb,
                     object: obj
                 });
