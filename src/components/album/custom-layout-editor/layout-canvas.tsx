@@ -6,11 +6,12 @@ import { createClient } from '@/lib/supabase';
 import { invalidateCache } from '@/lib/templates-cache';
 import { AlbumPage, AlbumConfig } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { AdvancedTemplate, VectorObject, Point, Segment, LayoutRegion } from '@/lib/advanced-layout-types';
+import { AdvancedTemplate, TemplateImageRotationMode, VectorObject, Point, Segment, LayoutRegion } from '@/lib/advanced-layout-types';
 import { GridDesignerMode, GridDesignerSegment } from './grid-designer-types';
 import { v4 as uuidv4 } from 'uuid';
 import { ShapeRegion } from '../layouts/shape-region';
 import { ToolMode } from './custom-layout-editor-overlay';
+import { isLikelyBackgroundRegion } from '@/lib/layout-background-region';
 
 const updateObjectPoints = (obj: VectorObject, newPoints: Point[]): VectorObject => {
     const newSegments: Segment[] = [];
@@ -46,6 +47,7 @@ interface LayoutCanvasProps {
     gridDesignerMode?: GridDesignerMode;
     gridDesignerSegments?: GridDesignerSegment[];
     onGridDesignerSegmentsChange?: (segments: GridDesignerSegment[]) => void;
+    templateImageRotationMode?: TemplateImageRotationMode;
 }
 
 type TransformMode = 'none' | 'move' | 'resize' | 'rotate' | 'line-endpoint';
@@ -101,7 +103,8 @@ export const LayoutCanvas = ({
     gridDesignerEnabled = false,
     gridDesignerMode = 'none',
     gridDesignerSegments = [],
-    onGridDesignerSegmentsChange
+    onGridDesignerSegmentsChange,
+    templateImageRotationMode = 'follow-frame'
 }: LayoutCanvasProps) => {
     const wrapperRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLDivElement>(null);
@@ -2447,21 +2450,26 @@ export const LayoutCanvas = ({
                                             height: previewInnerHeight,
                                         }}
                                     >
-                                        {advancedTemplate.regions.sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)).map((region, index) => (
-                                            <ShapeRegion
-                                                key={region.id || index}
-                                                region={region}
-                                                photo={page.photos[index]}
-                                                photoGap={photoGap}
-                                                backgroundColor={resolvedBackgroundColor}
-                                                containerWidth={previewInnerWidth}
-                                                containerHeight={previewInnerHeight}
-                                                onUpdatePanAndZoom={() => { }}
-                                                onInteractionChange={() => { }}
-                                                pageId={page.id}
-                                                cornerRadius={cornerRadius}
-                                            />
-                                        ))}
+                                        {(() => {
+                                            const sortedRegions = [...advancedTemplate.regions].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
+                                            const templateMode = templateImageRotationMode || advancedTemplate._imageRotationMode || 'follow-frame';
+                                            return sortedRegions.map((region, index) => (
+                                                <ShapeRegion
+                                                    key={region.id || index}
+                                                    region={region}
+                                                    photo={page.photos[index]}
+                                                    photoGap={photoGap}
+                                                    backgroundColor={resolvedBackgroundColor}
+                                                    containerWidth={previewInnerWidth}
+                                                    containerHeight={previewInnerHeight}
+                                                    onUpdatePanAndZoom={() => { }}
+                                                    onInteractionChange={() => { }}
+                                                    pageId={page.id}
+                                                    cornerRadius={cornerRadius}
+                                                    imageRotationMode={isLikelyBackgroundRegion(region, sortedRegions) ? 'keep-horizontal' : templateMode}
+                                                />
+                                            ));
+                                        })()}
                                     </div>
                                 </div>
                             ) : isFull ? (
@@ -2520,6 +2528,9 @@ export const LayoutCanvas = ({
                                         // viewBox format: "minX minY width height"
                                         const pathViewBox = obj.viewBox || '0 0 100 100';
                                         const clipId = `clip-${obj.id}`;
+                                        const objectVisualAngleDeg = obj.rotation || 0;
+                                        const objectGroundAngleDeg = templateImageRotationMode === 'follow-frame' ? objectVisualAngleDeg : 0;
+                                        const placeholderRelativeRotationDeg = objectGroundAngleDeg - objectVisualAngleDeg;
 
                                         return (
                                             <g key={obj.id} transform={`rotate(${obj.rotation || 0}, ${cx}, ${cy})`}>
@@ -2556,7 +2567,18 @@ export const LayoutCanvas = ({
                                                     </defs>
 
                                                     {/* Placeholder content clipped to frame shape */}
-                                                    <g clipPath={`url(#${clipId})`}>
+                                                    <g
+                                                        clipPath={`url(#${clipId})`}
+                                                        transform={(() => {
+                                                            if (Math.abs(placeholderRelativeRotationDeg) < 0.0001) return undefined;
+                                                            const vb = pathViewBox.split(' ').map(Number);
+                                                            const vbX = vb[0] || 0;
+                                                            const vbY = vb[1] || 0;
+                                                            const vbW = vb[2] || 100;
+                                                            const vbH = vb[3] || 100;
+                                                            return `rotate(${placeholderRelativeRotationDeg}, ${vbX + (vbW / 2)}, ${vbY + (vbH / 2)})`;
+                                                        })()}
+                                                    >
                                                         {/* Parse viewBox to get bounds */}
                                                         {(() => {
                                                             const vb = pathViewBox.split(' ').map(Number);
@@ -2626,9 +2648,83 @@ export const LayoutCanvas = ({
 
                                     return (
                                         <g key={obj.id}>
+                                            {(() => {
+                                                const shapeData = shapeById.get(obj.id);
+                                                const hasPolygonSurface = !!obj.points && obj.points.length >= 3;
+                                                if (!isSelected || !shapeData || !hasPolygonSurface) return null;
+
+                                                const points = obj.points || [];
+                                                const pointsStrSelected = points.map(p => `${p[0]},${p[1]}`).join(' ');
+                                                const clipId = `ground-preview-clip-${obj.id}`;
+                                                const visualAngleDeg = (() => {
+                                                    // Prefer intrinsic object rotation where available.
+                                                    if (obj.type === 'circle' && typeof obj.rotation === 'number') {
+                                                        return obj.rotation;
+                                                    }
+                                                    // For regular drawn polygons/rectangles, edge[0->1] keeps stable direction
+                                                    // across rotate/move/resize operations and avoids OBB sign flips.
+                                                    if (obj.points && obj.points.length >= 2) {
+                                                        const p0 = obj.points[0];
+                                                        const p1 = obj.points[1];
+                                                        const dx = p1[0] - p0[0];
+                                                        const dy = p1[1] - p0[1];
+                                                        if (Math.abs(dx) > 1e-6 || Math.abs(dy) > 1e-6) {
+                                                            return Math.atan2(dy, dx) * 180 / Math.PI;
+                                                        }
+                                                    }
+                                                    return (shapeData.obb.angle || 0) * 180 / Math.PI;
+                                                })();
+                                                // For polygon/ellipse tools, points are already in world orientation.
+                                                // So preview rotation should be absolute in world space:
+                                                // - keep-horizontal: 0deg
+                                                // - follow-frame: match the visual angle
+                                                const previewRelativeRotationDeg = templateImageRotationMode === 'follow-frame'
+                                                    ? visualAngleDeg
+                                                    : 0;
+                                                const { minX, minY, width, height, centerX, centerY } = shapeData.bbox;
+                                                const spanW = Math.max(width, 6) * 3;
+                                                const spanH = Math.max(height, 6) * 3;
+
+                                                return (
+                                                    <>
+                                                        <defs>
+                                                            <clipPath id={clipId}>
+                                                                <polygon points={pointsStrSelected} />
+                                                            </clipPath>
+                                                        </defs>
+                                                        <g clipPath={`url(#${clipId})`} opacity={0.95}>
+                                                            <g
+                                                                transform={`rotate(${previewRelativeRotationDeg}, ${centerX}, ${centerY})`}
+                                                            >
+                                                                <rect
+                                                                    x={centerX - spanW / 2}
+                                                                    y={centerY - spanH / 2}
+                                                                    width={spanW}
+                                                                    height={spanH}
+                                                                    fill="#b8e4f9"
+                                                                />
+                                                                <circle
+                                                                    cx={centerX + (width * 0.35)}
+                                                                    cy={centerY - (height * 0.3)}
+                                                                    r={Math.max(width, height) * 0.08}
+                                                                    fill="#fdf2a4"
+                                                                />
+                                                                <path
+                                                                    d={`M ${centerX - spanW / 2} ${centerY + (height * 0.15)} Q ${centerX} ${centerY - (height * 0.35)} ${centerX + spanW / 2} ${centerY + (height * 0.15)} L ${centerX + spanW / 2} ${centerY + spanH / 2} L ${centerX - spanW / 2} ${centerY + spanH / 2} Z`}
+                                                                    fill="#90d5ac"
+                                                                />
+                                                                <path
+                                                                    d={`M ${centerX - spanW / 2} ${centerY + (height * 0.35)} Q ${centerX - (width * 0.2)} ${centerY - (height * 0.05)} ${centerX + spanW / 2} ${centerY + (height * 0.35)} L ${centerX + spanW / 2} ${centerY + spanH / 2} L ${centerX - spanW / 2} ${centerY + spanH / 2} Z`}
+                                                                    fill="#76c893"
+                                                                />
+                                                            </g>
+                                                        </g>
+                                                    </>
+                                                );
+                                            })()}
                                             <polygon
                                                 points={pointsStr}
-                                                fill={obj.fill || 'none'}
+                                                fill={isSelected ? 'none' : (obj.fill || 'none')}
                                                 stroke={(obj.strokeWidth ?? 0) > 0 ? (isSelected ? selectedStroke : (obj.stroke || "black")) : "none"}
                                                 strokeWidth={(obj.strokeWidth ?? 0) > 0 ? (isSelected ? Math.max(0.75, (obj.strokeWidth || 0.5) * 1.5) : (obj.strokeWidth || 0.5)) : 0}
                                                 strokeOpacity={obj.opacity ?? 1}
@@ -3034,6 +3130,7 @@ export const LayoutCanvas = ({
                                 }}
                             />
                         )}
+
                     </div> {/* End interactionRef */}
                 </div> {/* End canvasRef */}
 

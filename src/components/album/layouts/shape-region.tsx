@@ -1,9 +1,10 @@
 import React from 'react';
 import { Photo } from '@/lib/types';
-import { LayoutRegion, regionToClipPath } from '@/lib/advanced-layout-types';
+import { LayoutRegion, TemplateImageRotationMode, regionToClipPath } from '@/lib/advanced-layout-types';
 import { PhotoRenderer } from './photo-renderer';
 import { EmptyPhotoSlot } from '../album-editor/empty-photo-slot';
 import { cn } from '@/lib/utils';
+import { getRegionVisualRotationDeg } from '@/lib/layout-region-rotation';
 
 // Canva-like placeholder background
 const CanvaPlaceholder = ({ className }: { className?: string }) => (
@@ -85,6 +86,7 @@ export const ShapeRegion = ({
     onReplace,
     pageId,
     cornerRadius = 0,
+    imageRotationMode = 'follow-frame',
     priority,
     chronologicalIndex,
 }: {
@@ -105,6 +107,7 @@ export const ShapeRegion = ({
     onReplace?: (e: React.MouseEvent, anchorElement?: HTMLElement) => void;
     pageId?: string;
     cornerRadius?: number;
+    imageRotationMode?: TemplateImageRotationMode;
     priority?: boolean;
     chronologicalIndex?: Record<string, number>;
 }) => {
@@ -217,6 +220,12 @@ export const ShapeRegion = ({
         return segments;
     };
 
+    const frameRotationDeg = typeof region.rotation === 'number' ? region.rotation : 0;
+    const visualFrameRotationDeg = getRegionVisualRotationDeg(region);
+    const targetPhotoWorldRotationDeg = imageRotationMode === 'keep-horizontal' ? 0 : visualFrameRotationDeg;
+    const photoExtraRotationDeg = targetPhotoWorldRotationDeg - frameRotationDeg;
+    const shouldAdjustPhotoRotation = Math.abs(photoExtraRotationDeg) > 0.0001;
+
     const renderContent = () => {
         if (!photo || !photo.src) {
             if (region.shape === 'path') {
@@ -233,7 +242,7 @@ export const ShapeRegion = ({
             );
         }
 
-        return (
+        const photoRenderer = (
             <PhotoRenderer
                 photo={photo}
                 onUpdate={(pz) => onUpdatePanAndZoom?.(pz)}
@@ -248,6 +257,22 @@ export const ShapeRegion = ({
                 chronologicalIndex={chronologicalIndex}
                 preserveAspectRatio={region.preserveAspectRatio}
             />
+        );
+
+        if (!shouldAdjustPhotoRotation) {
+            return photoRenderer;
+        }
+
+        return (
+            <div
+                className="absolute inset-0"
+                style={{
+                    transform: `rotate(${photoExtraRotationDeg}deg)`,
+                    transformOrigin: '50% 50%'
+                }}
+            >
+                {photoRenderer}
+            </div>
         );
     };
 

@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { AlbumPage, Photo, PhotoPanAndZoom } from '@/lib/types';
 import { ADVANCED_TEMPLATES, AdvancedTemplate } from '@/hooks/useTemplates';
 import { ShapePhotoFrame } from './shape-photo-frame';
+import { isLikelyBackgroundRegion } from '@/lib/layout-background-region';
 
 export interface AdvancedPageLayoutProps {
     page: AlbumPage;
@@ -30,14 +31,17 @@ export const AdvancedPageLayout = ({
     className,
 }: AdvancedPageLayoutProps) => {
     const photos = overridePhotos || page.photos;
+    const sortedRegions = [...template.regions].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
+    const templateMode = template._imageRotationMode || 'follow-frame';
 
     return (
         <div
             className={cn("relative w-full h-full overflow-hidden", className)}
             style={{ position: 'relative' }}
         >
-            {template.regions.map((region, index) => {
+            {sortedRegions.map((region, index) => {
                 const photo = photos[index];
+                const regionImageMode = isLikelyBackgroundRegion(region, sortedRegions) ? 'keep-horizontal' : templateMode;
 
                 return (
                     <ShapePhotoFrame
@@ -51,6 +55,7 @@ export const AdvancedPageLayout = ({
                         onDropPhoto={onDropPhoto}
                         useSimpleImage={useSimpleImage}
                         gap={photoGap}
+                        imageRotationMode={regionImageMode}
                     />
                 );
             })}

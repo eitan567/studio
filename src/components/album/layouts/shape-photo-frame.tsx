@@ -2,10 +2,11 @@
 
 import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { LayoutRegion, regionToClipPath } from '@/lib/advanced-layout-types';
+import { LayoutRegion, TemplateImageRotationMode, regionToClipPath } from '@/lib/advanced-layout-types';
 import { Photo, PhotoPanAndZoom } from '@/lib/types';
 import { PhotoRenderer } from './photo-renderer';
 import { Image as ImageIcon, Plus } from 'lucide-react';
+import { getRegionVisualRotationDeg } from '@/lib/layout-region-rotation';
 
 interface ShapePhotoFrameProps {
     region: LayoutRegion;
@@ -18,6 +19,7 @@ interface ShapePhotoFrameProps {
     useSimpleImage?: boolean;
     gap?: number; // Gap as pixels to apply as inset
     onRemovePhoto?: (pageId: string, photoId: string) => void;
+    imageRotationMode?: TemplateImageRotationMode;
 }
 
 export const ShapePhotoFrame = ({
@@ -31,6 +33,7 @@ export const ShapePhotoFrame = ({
     useSimpleImage,
     gap = 0,
     onRemovePhoto,
+    imageRotationMode = 'follow-frame',
 }: ShapePhotoFrameProps) => {
     const [isDragOver, setIsDragOver] = useState(false);
 
@@ -117,6 +120,22 @@ export const ShapePhotoFrame = ({
         );
     }
 
+    const frameRotationDeg = typeof region.rotation === 'number' ? region.rotation : 0;
+    const visualFrameRotationDeg = getRegionVisualRotationDeg(region);
+    const targetPhotoWorldRotationDeg = imageRotationMode === 'keep-horizontal' ? 0 : visualFrameRotationDeg;
+    const photoExtraRotationDeg = targetPhotoWorldRotationDeg - frameRotationDeg;
+    const shouldAdjustPhotoRotation = Math.abs(photoExtraRotationDeg) > 0.0001;
+
+    const photoNode = (
+        <PhotoRenderer
+            photo={photo}
+            onUpdate={(panAndZoom) => onUpdatePhotoPanAndZoom(pageId, photo.id, panAndZoom)}
+            onInteractionChange={onInteractionChange}
+            useSimpleImage={useSimpleImage}
+            onRemove={() => onRemovePhoto?.(pageId, photo.id)}
+        />
+    );
+
     // Render photo with shape mask
     return (
         <div
@@ -134,13 +153,19 @@ export const ShapePhotoFrame = ({
                 className="overflow-hidden"
             >
                 <div className="w-full h-full relative">
-                    <PhotoRenderer
-                        photo={photo}
-                        onUpdate={(panAndZoom) => onUpdatePhotoPanAndZoom(pageId, photo.id, panAndZoom)}
-                        onInteractionChange={onInteractionChange}
-                        useSimpleImage={useSimpleImage}
-                        onRemove={() => onRemovePhoto?.(pageId, photo.id)}
-                    />
+                    {shouldAdjustPhotoRotation ? (
+                        <div
+                            className="absolute inset-0"
+                            style={{
+                                transform: `rotate(${photoExtraRotationDeg}deg)`,
+                                transformOrigin: '50% 50%'
+                            }}
+                        >
+                            {photoNode}
+                        </div>
+                    ) : (
+                        photoNode
+                    )}
                 </div>
             </div>
         </div>

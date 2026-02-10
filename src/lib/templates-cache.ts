@@ -180,6 +180,7 @@ function parseTemplateDescription(description?: string): {
     _editorVersion?: number;
     _editorSpreadMode?: 'full' | 'split';
     _editorObjects?: AdvancedTemplate['_editorObjects'];
+    _imageRotationMode?: AdvancedTemplate['_imageRotationMode'];
 } {
     if (!description) return {};
     try {
@@ -192,7 +193,10 @@ function parseTemplateDescription(description?: string): {
             _editorSpreadMode: parsed._editorSpreadMode === 'full' || parsed._editorSpreadMode === 'split'
                 ? parsed._editorSpreadMode
                 : undefined,
-            _editorObjects: Array.isArray(parsed._editorObjects) ? parsed._editorObjects : undefined
+            _editorObjects: Array.isArray(parsed._editorObjects) ? parsed._editorObjects : undefined,
+            _imageRotationMode: parsed._imageRotationMode === 'keep-horizontal' || parsed._imageRotationMode === 'follow-frame'
+                ? parsed._imageRotationMode
+                : undefined
         };
     } catch {
         return {};
@@ -294,6 +298,7 @@ async function initializeCache(): Promise<void> {
                     _editorVersion: descSettings._editorVersion,
                     _editorSpreadMode: descSettings._editorSpreadMode,
                     _editorObjects: descSettings._editorObjects,
+                    _imageRotationMode: descSettings._imageRotationMode,
                 };
 
                 // Safely parse regions if it's a string (in case Supabase returns JSON as string)

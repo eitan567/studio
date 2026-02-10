@@ -35,8 +35,9 @@ import { Sheet } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { processLayoutGeometry } from '@/lib/layout-geometry';
+import { markLikelyBackgroundRegions } from '@/lib/layout-background-region';
 import { createClient } from '@/lib/supabase';
-import { VectorObject, Point, Segment, LayoutRegion, AdvancedTemplate } from '@/lib/advanced-layout-types';
+import { VectorObject, Point, Segment, LayoutRegion, AdvancedTemplate, TemplateImageRotationMode } from '@/lib/advanced-layout-types';
 import { GridDesignerMode, GridDesignerSegment } from './grid-designer-types';
 import { useAuth } from "@/hooks/useAuth";
 import { ModeToggle } from "@/components/mode-toggle";
@@ -188,6 +189,49 @@ const getObjectBounds = (obj: VectorObject): Omit<SelectionBounds, 'index' | 'id
     return getPointsBoundingBox(sourcePoints);
 };
 
+const normalizeSignedDeg = (deg: number): number => {
+    let d = ((deg % 360) + 360) % 360;
+    if (d > 180) d -= 360;
+    return Math.abs(d) < 0.0001 ? 0 : d;
+};
+
+const isPointInPolygon = (point: Point, polygon: Point[]): boolean => {
+    if (!polygon || polygon.length < 3) return false;
+    const [px, py] = point;
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i][0], yi = polygon[i][1];
+        const xj = polygon[j][0], yj = polygon[j][1];
+        const intersects = ((yi > py) !== (yj > py))
+            && (px < ((xj - xi) * (py - yi)) / ((yj - yi) || 1e-12) + xi);
+        if (intersects) inside = !inside;
+    }
+    return inside;
+};
+
+const getVectorObjectGroundRotationDeg = (obj: VectorObject): number => {
+    if (obj.type === 'circle') {
+        return normalizeSignedDeg(obj.rotation || 0);
+    }
+
+    const points =
+        obj.points && obj.points.length >= 2
+            ? obj.points
+            : ((obj.segments && obj.segments.length > 0)
+                ? [obj.segments[0].p1, obj.segments[0].p2]
+                : []);
+
+    if (points.length >= 2) {
+        const dx = points[1][0] - points[0][0];
+        const dy = points[1][1] - points[0][1];
+        if (Math.abs(dx) > 1e-6 || Math.abs(dy) > 1e-6) {
+            return normalizeSignedDeg(Math.atan2(dy, dx) * (180 / Math.PI));
+        }
+    }
+
+    return normalizeSignedDeg(obj.rotation || 0);
+};
+
 const translateObjectBy = (obj: VectorObject, dx: number, dy: number): VectorObject => {
     const shift = (p: Point): Point => [p[0] + dx, p[1] + dy];
     return {
@@ -240,6 +284,9 @@ const parseTemplateDescriptionObject = (description?: string | null): Record<str
         return {};
     }
 };
+
+const normalizeTemplateImageRotationMode = (value: unknown): TemplateImageRotationMode =>
+    value === 'keep-horizontal' ? 'keep-horizontal' : 'follow-frame';
 
 type EditorGridSnapshot = {
     rows: number;
@@ -436,6 +483,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const [gridDesignerMode, setGridDesignerMode] = useState<GridDesignerMode>('none');
     const [gridRotationDeg, setGridRotationDeg] = useState(0);
     const [gridDesignerSegments, setGridDesignerSegments] = useState<GridDesignerSegment[]>([]);
+    const [imageRotationMode, setImageRotationMode] = useState<TemplateImageRotationMode>('follow-frame');
     const canvasWorkspaceRef = useRef<HTMLDivElement>(null);
     const floatingLayersRef = useRef<HTMLDivElement>(null);
 
@@ -821,6 +869,16 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         }
     }, [strokeColor, strokeWidth, fillColor]);
 
+    // Keep active template snapshot in sync when image mode changes
+    useEffect(() => {
+        if (!selectedAdvancedTemplate) return;
+        const selectedId = selectedAdvancedTemplate.id;
+        setSelectedAdvancedTemplate(prev => prev ? { ...prev, _imageRotationMode: imageRotationMode } : prev);
+        setCreatedTemplates(prev =>
+            prev.map(t => t.id === selectedId ? { ...t, _imageRotationMode: imageRotationMode } : t)
+        );
+    }, [imageRotationMode, selectedAdvancedTemplate?.id]);
+
     // Handle advanced template selection
     const handleSelectAdvancedTemplate = (template: AdvancedTemplate, preferredMode?: 'full' | 'split', isEdit: boolean = false) => {
         setSelectedAdvancedTemplate(template);
@@ -855,6 +913,10 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
         const descriptionData = parseTemplateDescriptionObject(template.description);
         const gridSnapshot = parseEditorGridSnapshot(descriptionData._editorGrid);
+        const templateMode = normalizeTemplateImageRotationMode(
+            template._imageRotationMode ?? descriptionData._imageRotationMode
+        );
+        setImageRotationMode(templateMode);
 
         const editorSnapshot = cloneVectorObjects(template._editorObjects);
 
@@ -1122,8 +1184,28 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     };
 
     const handleSave = async () => {
+        const templatesToPersist: AdvancedTemplate[] = [...createdTemplates];
+        if (editingTemplateId && selectedAdvancedTemplate) {
+            const alreadyQueued = templatesToPersist.some(t => String(t.id) === String(editingTemplateId));
+            if (!alreadyQueued) {
+                templatesToPersist.push({
+                    ...selectedAdvancedTemplate,
+                    _pageMargin: typeof selectedAdvancedTemplate._pageMargin === 'number'
+                        ? selectedAdvancedTemplate._pageMargin
+                        : pageMargin,
+                    _photoGap: typeof selectedAdvancedTemplate._photoGap === 'number'
+                        ? selectedAdvancedTemplate._photoGap
+                        : photoGap,
+                    _imageRotationMode: imageRotationMode,
+                    _editorVersion: selectedAdvancedTemplate._editorVersion ?? 1,
+                    _editorSpreadMode: selectedAdvancedTemplate._editorSpreadMode ?? spreadMode,
+                    _editorObjects: cloneVectorObjects(selectedAdvancedTemplate._editorObjects)
+                });
+            }
+        }
+
         // Save all created templates to Supabase
-        if (createdTemplates.length > 0) {
+        if (templatesToPersist.length > 0) {
             try {
                 const supabase = createClient();
 
@@ -1141,7 +1223,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 let nextId = (maxIdResult && maxIdResult.length > 0) ? (maxIdResult[0].id + 1) : 1000;
 
                 // Prepare templates for insertion/update
-                const templatesToProcess = createdTemplates.map(template => {
+                const templatesToProcess = templatesToPersist.map(template => {
                     // Map type to type_id
                     let typeId = 3; // default BOTH
                     if (template.type === 'single') typeId = 1;
@@ -1151,6 +1233,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         ...existingDescription,
                         _pageMargin: typeof template._pageMargin === 'number' ? template._pageMargin : pageMargin,
                         _photoGap: typeof template._photoGap === 'number' ? template._photoGap : photoGap,
+                        _imageRotationMode: normalizeTemplateImageRotationMode(template._imageRotationMode ?? imageRotationMode),
                         type: template.type,
                         _editorVersion: template._editorVersion ?? 1,
                         _editorSpreadMode: template._editorSpreadMode ?? spreadMode,
@@ -1209,8 +1292,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         }
 
         // Call parent callback if provided
-        if (onAddTemplate && createdTemplates.length > 0) {
-            createdTemplates.forEach(template => onAddTemplate(template));
+        if (onAddTemplate && templatesToPersist.length > 0) {
+            templatesToPersist.forEach(template => onAddTemplate(template));
         }
 
         onClose();
@@ -1506,6 +1589,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         setIsGridDesignerEnabled(false);
         setGridRotationDeg(0);
         setGridDesignerMode('none');
+        setImageRotationMode('follow-frame');
         setCurrentStroke(null);
         // Clear the selected template so user can create a new one
         setSelectedAdvancedTemplate(null);
@@ -1686,7 +1770,28 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                     stroke: strokeColor !== 'transparent' ? strokeColor : undefined,
                     strokeWidth: strokeWidth > 0 ? strokeWidth : undefined,
                     fill: fillColor !== 'transparent' ? fillColor : undefined
-                }));
+                })).map((region) => {
+                    // Preserve per-object "ground" orientation for follow-frame mode,
+                    // even when geometry processing bakes polygons with rotation=0
+                    // (e.g. squares/ellipses where orientation is visually ambiguous).
+                    const center: Point = [
+                        ((region.bounds.x + (region.bounds.width / 2)) / 100) * logicalWidthUnits,
+                        region.bounds.y + (region.bounds.height / 2)
+                    ];
+
+                    const candidateObjects = layerObjects.filter((obj) => {
+                        if (obj.type === 'line' || obj.type === 'path') return false;
+                        if (!obj.points || obj.points.length < 3) return false;
+                        return isPointInPolygon(center, obj.points);
+                    });
+
+                    if (candidateObjects.length !== 1) return region;
+
+                    return {
+                        ...region,
+                        imageGroundRotation: getVectorObjectGroundRotationDeg(candidateObjects[0])
+                    };
+                });
 
                 allNewRegions.push(...mappedRegions);
             }
@@ -1694,7 +1799,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             allNewRegions.push(...layerPathRegions);
         });
 
-        const finalRegions = allNewRegions;
+        const finalRegions = markLikelyBackgroundRegions(allNewRegions);
 
         // Generate a unique name for the new template
         const templateCount = createdTemplates.length + 1;
@@ -1715,7 +1820,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             createdBy: null,
             type: spreadMode === 'full' ? 'spread' : 'single',
             _pageMargin: pageMargin,
-            _photoGap: photoGap
+            _photoGap: photoGap,
+            _imageRotationMode: imageRotationMode
         };
 
         const nextType = spreadMode === 'full' ? 'spread' : 'single';
@@ -1726,6 +1832,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             ...existingDescription,
             _pageMargin: pageMargin,
             _photoGap: photoGap,
+            _imageRotationMode: imageRotationMode,
             type: nextType,
             _editorVersion: 1,
             _editorSpreadMode: spreadMode,
@@ -1755,6 +1862,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             createdBy: null, // Custom templates owned by user (handled by RLS/context)
             _pageMargin: pageMargin,
             _photoGap: photoGap,
+            _imageRotationMode: imageRotationMode,
             _editorVersion: 1,
             _editorSpreadMode: spreadMode,
             _editorObjects: cloneVectorObjects(editorObjectsSnapshot),
@@ -1774,7 +1882,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
         // Select the updated template
         handleSelectAdvancedTemplate(updated);
-    }, [config?.size, selectedAdvancedTemplate, handleSelectAdvancedTemplate, createdTemplates.length, pageMargin, photoGap, strokeColor, strokeWidth, fillColor, spreadMode, templateName]);
+    }, [config?.size, selectedAdvancedTemplate, handleSelectAdvancedTemplate, createdTemplates.length, pageMargin, photoGap, imageRotationMode, strokeColor, strokeWidth, fillColor, spreadMode, templateName]);
 
     // Process the drawn strokes into regions
     const handleProcessLayout = useCallback(() => {
@@ -2017,6 +2125,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             gridDesignerMode={gridDesignerMode}
                             gridDesignerSegments={gridDesignerSegments}
                             onGridDesignerSegmentsChange={setGridDesignerSegments}
+                            templateImageRotationMode={imageRotationMode}
                         />
 
                         {/* Right Vertical Toolbar (Selection Alignment/Distribution) */}
@@ -2345,6 +2454,31 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                                     if (val === '') handleBackgroundColorChange('#ffffff');
                                 }}
                             />
+                        </div>
+                    </div>
+
+                    {/* Image Rotation Mode (per-template) */}
+                    <div className="flex items-center gap-4 min-w-[240px]">
+                        <Label className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Image Mode</Label>
+                        <div className="flex items-center gap-1 rounded-md border border-border/60 bg-muted/20 p-1">
+                            <Button
+                                type="button"
+                                variant={imageRotationMode === 'follow-frame' ? 'secondary' : 'ghost'}
+                                size="sm"
+                                className="h-7 px-2 text-[10px]"
+                                onClick={() => setImageRotationMode('follow-frame')}
+                            >
+                                Follow Frame
+                            </Button>
+                            <Button
+                                type="button"
+                                variant={imageRotationMode === 'keep-horizontal' ? 'secondary' : 'ghost'}
+                                size="sm"
+                                className="h-7 px-2 text-[10px]"
+                                onClick={() => setImageRotationMode('keep-horizontal')}
+                            >
+                                Keep Horizontal
+                            </Button>
                         </div>
                     </div>
 

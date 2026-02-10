@@ -8,6 +8,7 @@ import { rotateAdvancedTemplate, RotationAngle } from '@/lib/template-rotation';
 import { parseLayoutId } from '@/lib/layout-id-utils';
 import { SuggestionFan } from '../album-editor/suggestion-fan';
 import { generateJustifiedLayout, generateSmartJustifiedLayout } from '@/lib/justified-layout-util';
+import { isLikelyBackgroundRegion } from '@/lib/layout-background-region';
 
 
 export interface PageLayoutProps {
@@ -178,6 +179,7 @@ const PageLayoutComponent = ({
 
     // Ensure gap is formatted correctly
     const gapValueNum = typeof photoGap === 'number' ? photoGap : parseInt(String(photoGap || 0), 10) || 0;
+    const templateImageRotationMode = template?._imageRotationMode || 'follow-frame';
 
     // Sort regions by zIndex
     const sortedRegions = template?.regions ? [...template.regions].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)) : [];
@@ -192,6 +194,9 @@ const PageLayoutComponent = ({
             {W > 0 && H > 0 && sortedRegions.map((region, index) => {
                 const photo = photos[index];
                 const actualIndex = index + photoIndexOffset;
+                const regionImageMode = isLikelyBackgroundRegion(region, sortedRegions)
+                    ? 'keep-horizontal'
+                    : templateImageRotationMode;
 
                 return (
                     <ShapeRegion
@@ -238,6 +243,7 @@ const PageLayoutComponent = ({
                         onReplace={(e, anchor) => handleEmptySlotClick(e, actualIndex, anchor)}
                         pageId={page.id}
                         cornerRadius={cornerRadius}
+                        imageRotationMode={regionImageMode}
                         priority={priority}
                         chronologicalIndex={chronologicalIndex}
                     />

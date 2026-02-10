@@ -47,6 +47,11 @@ export interface LayoutRegion {
 
     // Optional rotation in degrees
     rotation?: number;
+    // Optional "ground" orientation used for image placement logic.
+    // Unlike `rotation`, this does not imply visual frame transform.
+    imageGroundRotation?: number;
+    // Marks a background-like frame region. Background regions always keep image horizontal.
+    isBackground?: boolean;
 
     // Styling properties
     stroke?: string;
@@ -84,6 +89,7 @@ export interface VectorObject {
 
 // Template categories
 export type TemplateCategory = 'grid' | 'geometric' | 'artistic' | 'diagonal' | 'custom';
+export type TemplateImageRotationMode = 'follow-frame' | 'keep-horizontal';
 
 // Complete advanced template definition
 // Complete advanced template definition aligned with DB
@@ -132,6 +138,8 @@ export interface AdvancedTemplate {
     _editorVersion?: number;
     _editorSpreadMode?: 'full' | 'split';
     _editorObjects?: VectorObject[];
+    // Controls how photos are oriented inside rotated regions for this template
+    _imageRotationMode?: TemplateImageRotationMode;
 }
 
 
