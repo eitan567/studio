@@ -17,7 +17,9 @@ import {
     AlignHorizontalJustifyCenter,
     AlignVerticalJustifyCenter,
     Layout,
-    Maximize
+    Maximize,
+    RotateCcw,
+    RotateCw
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ToolMode } from './custom-layout-editor-overlay';
@@ -54,6 +56,9 @@ interface FloatingToolbarProps {
     gridDesignerMode: GridDesignerMode;
     onGridModeChange: (mode: GridDesignerMode) => void;
     hasGridSegments: boolean;
+    gridRotationDeg: number;
+    onRotateGrid: (deltaDeg: number) => void;
+    isGridRotationActive: boolean;
     // Action Controls
     onClearStrokes: () => void;
     onProcessLayout: () => void;
@@ -85,6 +90,9 @@ export const FloatingToolbar = ({
     gridDesignerMode,
     onGridModeChange,
     hasGridSegments,
+    gridRotationDeg,
+    onRotateGrid,
+    isGridRotationActive,
     onClearStrokes,
     onProcessLayout
 }: FloatingToolbarProps) => {
@@ -216,6 +224,30 @@ export const FloatingToolbar = ({
                     <Layout className="h-4 w-4" />
                 </Button>
 
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => onRotateGrid(-5)}
+                    disabled={!hasGridSegments}
+                    title="Rotate grid -5deg"
+                >
+                    <RotateCcw className="h-4 w-4" />
+                </Button>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => onRotateGrid(5)}
+                    disabled={!hasGridSegments}
+                    title="Rotate grid +5deg"
+                >
+                    <RotateCw className="h-4 w-4" />
+                </Button>
+                <span className="w-10 text-center text-[10px] font-mono text-muted-foreground">
+                    {`${Math.round(gridRotationDeg)}°`}
+                </span>
+
                 <Separator orientation="vertical" className="h-6 mx-1" />
 
                 <Button
@@ -223,8 +255,8 @@ export const FloatingToolbar = ({
                     size="icon"
                     className="h-8 w-8"
                     onClick={() => onGridModeChange('move')}
-                    disabled={!hasGridSegments}
-                    title="Move segments"
+                    disabled={!hasGridSegments || isGridRotationActive}
+                    title={isGridRotationActive ? "Move disabled while grid is rotated" : "Move segments"}
                 >
                     <Maximize className="h-4 w-4" />
                 </Button>
@@ -243,8 +275,8 @@ export const FloatingToolbar = ({
                     size="icon"
                     className="h-8 w-8"
                     onClick={() => onGridModeChange('add-horizontal')}
-                    disabled={!hasGridSegments}
-                    title="Add horizontal segment inside a cell"
+                    disabled={!hasGridSegments || isGridRotationActive}
+                    title={isGridRotationActive ? "Add disabled while grid is rotated" : "Add horizontal segment inside a cell"}
                 >
                     <AlignVerticalJustifyCenter className="h-4 w-4" />
                 </Button>
@@ -253,8 +285,8 @@ export const FloatingToolbar = ({
                     size="icon"
                     className="h-8 w-8"
                     onClick={() => onGridModeChange('add-vertical')}
-                    disabled={!hasGridSegments}
-                    title="Add vertical segment inside a cell"
+                    disabled={!hasGridSegments || isGridRotationActive}
+                    title={isGridRotationActive ? "Add disabled while grid is rotated" : "Add vertical segment inside a cell"}
                 >
                     <AlignHorizontalJustifyCenter className="h-4 w-4" />
                 </Button>

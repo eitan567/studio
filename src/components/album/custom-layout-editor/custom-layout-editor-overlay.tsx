@@ -246,6 +246,7 @@ type EditorGridSnapshot = {
     rows: number;
     cols: number;
     mode: GridDesignerMode;
+    rotationDeg: number;
     segments: GridDesignerSegment[];
 };
 
@@ -268,6 +269,10 @@ const parseEditorGridSnapshot = (value: unknown): EditorGridSnapshot | null => {
         modeRaw === 'none' || modeRaw === 'move' || modeRaw === 'delete' || modeRaw === 'add-horizontal' || modeRaw === 'add-vertical'
             ? modeRaw
             : 'none';
+    const rawRotation = typeof raw.rotationDeg === 'number' ? raw.rotationDeg : 0;
+    const rotationDeg = Number.isFinite(rawRotation)
+        ? (((rawRotation % 360) + 360) % 360)
+        : 0;
 
     if (!Array.isArray(raw.segments)) return null;
 
@@ -298,7 +303,7 @@ const parseEditorGridSnapshot = (value: unknown): EditorGridSnapshot | null => {
         .filter((seg): seg is GridDesignerSegment => !!seg);
 
     if (segments.length === 0) return null;
-    return { rows, cols, mode, segments };
+    return { rows, cols, mode, rotationDeg, segments };
 };
 
 const GRID_EDITOR_SEGMENT_EPSILON = 1e-4;
@@ -430,6 +435,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const [gridRows, setGridRows] = useState(3);
     const [gridCols, setGridCols] = useState(4);
     const [gridDesignerMode, setGridDesignerMode] = useState<GridDesignerMode>('none');
+    const [gridRotationDeg, setGridRotationDeg] = useState(0);
     const [gridDesignerSegments, setGridDesignerSegments] = useState<GridDesignerSegment[]>([]);
     const canvasWorkspaceRef = useRef<HTMLDivElement>(null);
     const floatingLayersRef = useRef<HTMLDivElement>(null);
@@ -532,6 +538,67 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         });
     }, []);
 
+    const GRID_ROTATION_BOUNDARY_EPSILON = 0.001;
+    const GRID_ROTATION_SNAP_STEP = 0.001;
+
+    const quantizeGridValue = useCallback((value: number): number => {
+        return Math.round(value / GRID_ROTATION_SNAP_STEP) * GRID_ROTATION_SNAP_STEP;
+    }, []);
+
+    const quantizeGridPoint = useCallback((p: Point): Point => {
+        return [quantizeGridValue(p[0]), quantizeGridValue(p[1])];
+    }, [quantizeGridValue]);
+
+    const isPointOnGridBoundary = useCallback((p: Point, width: number): boolean => {
+        return (
+            Math.abs(p[0]) <= GRID_ROTATION_BOUNDARY_EPSILON ||
+            Math.abs(p[0] - width) <= GRID_ROTATION_BOUNDARY_EPSILON ||
+            Math.abs(p[1]) <= GRID_ROTATION_BOUNDARY_EPSILON ||
+            Math.abs(p[1] - 100) <= GRID_ROTATION_BOUNDARY_EPSILON
+        );
+    }, []);
+
+    const rotatePointAround = useCallback((point: Point, center: Point, angleRad: number): Point => {
+        const dx = point[0] - center[0];
+        const dy = point[1] - center[1];
+        const cos = Math.cos(angleRad);
+        const sin = Math.sin(angleRad);
+        return [
+            center[0] + (dx * cos) - (dy * sin),
+            center[1] + (dx * sin) + (dy * cos)
+        ];
+    }, []);
+
+    const getLineRectangleIntersections = useCallback((anchor: Point, direction: Point, width: number): Point[] => {
+        const dx = direction[0];
+        const dy = direction[1];
+        const eps = 1e-8;
+        const candidates: Point[] = [];
+
+        const pushIfValid = (x: number, y: number) => {
+            if (x < -eps || x > width + eps || y < -eps || y > 100 + eps) return;
+            const clamped: Point = [Math.min(width, Math.max(0, x)), Math.min(100, Math.max(0, y))];
+            if (!candidates.some((p) => Math.abs(p[0] - clamped[0]) < 1e-6 && Math.abs(p[1] - clamped[1]) < 1e-6)) {
+                candidates.push(clamped);
+            }
+        };
+
+        if (Math.abs(dx) > eps) {
+            const tLeft = (0 - anchor[0]) / dx;
+            pushIfValid(0, anchor[1] + (dy * tLeft));
+            const tRight = (width - anchor[0]) / dx;
+            pushIfValid(width, anchor[1] + (dy * tRight));
+        }
+        if (Math.abs(dy) > eps) {
+            const tTop = (0 - anchor[1]) / dy;
+            pushIfValid(anchor[0] + (dx * tTop), 0);
+            const tBottom = (100 - anchor[1]) / dy;
+            pushIfValid(anchor[0] + (dx * tBottom), 100);
+        }
+
+        return candidates;
+    }, []);
+
     const createGridSegments = useCallback((rows: number, cols: number): GridDesignerSegment[] => {
         const safeRows = Math.max(1, Math.floor(rows));
         const safeCols = Math.max(1, Math.floor(cols));
@@ -579,16 +646,95 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         setGridRows(rows);
         setGridCols(cols);
         setGridDesignerSegments(createGridSegments(rows, cols));
+        setGridRotationDeg(0);
         setIsGridDesignerEnabled(true);
         setGridDesignerMode('none');
         setToolMode('select');
         setSelectedShapeIndices([]);
     }, [createGridSegments, gridRows, gridCols]);
 
+    const handleRotateGrid = useCallback((deltaDeg: number) => {
+        if (!Number.isFinite(deltaDeg) || Math.abs(deltaDeg) < 0.0001) return;
+        if (gridDesignerSegments.length === 0) return;
+
+        const width = canvasLogicalWidthUnits;
+        const center: Point = [width / 2, 50];
+        const angleRad = (deltaDeg * Math.PI) / 180;
+
+        setGridDesignerSegments((prev) => prev.map((segment) => {
+            const oldP1: Point = [segment.p1[0], segment.p1[1]];
+            const oldP2: Point = [segment.p2[0], segment.p2[1]];
+            const touchesBoundaryP1 = isPointOnGridBoundary(oldP1, width);
+            const touchesBoundaryP2 = isPointOnGridBoundary(oldP2, width);
+
+            let p1 = rotatePointAround(oldP1, center, angleRad);
+            let p2 = rotatePointAround(oldP2, center, angleRad);
+
+            // Infinite-grid clipping behavior for segments that touched the page border.
+            if (touchesBoundaryP1 || touchesBoundaryP2) {
+                const dir: Point = [p2[0] - p1[0], p2[1] - p1[1]];
+                const intersections = getLineRectangleIntersections(p1, dir, width);
+
+                if (intersections.length >= 2) {
+                    if (touchesBoundaryP1 && touchesBoundaryP2) {
+                        const first = intersections[0];
+                        const second = intersections[1];
+                        const keepOrder =
+                            (Math.hypot(first[0] - p1[0], first[1] - p1[1]) + Math.hypot(second[0] - p2[0], second[1] - p2[1])) <=
+                            (Math.hypot(second[0] - p1[0], second[1] - p1[1]) + Math.hypot(first[0] - p2[0], first[1] - p2[1]));
+                        p1 = keepOrder ? first : second;
+                        p2 = keepOrder ? second : first;
+                    } else if (touchesBoundaryP1) {
+                        p1 = intersections.reduce((best, candidate) =>
+                            Math.hypot(candidate[0] - p1[0], candidate[1] - p1[1]) < Math.hypot(best[0] - p1[0], best[1] - p1[1])
+                                ? candidate
+                                : best
+                        );
+                    } else if (touchesBoundaryP2) {
+                        p2 = intersections.reduce((best, candidate) =>
+                            Math.hypot(candidate[0] - p2[0], candidate[1] - p2[1]) < Math.hypot(best[0] - p2[0], best[1] - p2[1])
+                                ? candidate
+                                : best
+                        );
+                    }
+                }
+            }
+
+            const nextP1 = quantizeGridPoint(p1);
+            const nextP2 = quantizeGridPoint(p2);
+            const orientation: GridDesignerSegment['orientation'] =
+                Math.abs(nextP2[0] - nextP1[0]) >= Math.abs(nextP2[1] - nextP1[1]) ? 'horizontal' : 'vertical';
+
+            return {
+                ...segment,
+                p1: nextP1,
+                p2: nextP2,
+                orientation
+            };
+        }));
+
+        setGridRotationDeg((prev) => {
+            const next = ((prev + deltaDeg) % 360 + 360) % 360;
+            return Math.abs(next) < 0.0001 ? 0 : next;
+        });
+        setIsGridDesignerEnabled(true);
+        setGridDesignerMode('none');
+        setToolMode('select');
+        setSelectedShapeIndices([]);
+    }, [
+        gridDesignerSegments.length,
+        canvasLogicalWidthUnits,
+        isPointOnGridBoundary,
+        rotatePointAround,
+        getLineRectangleIntersections,
+        quantizeGridPoint
+    ]);
+
     const activeGridSegments = useMemo(
         () => gridDesignerSegments.filter((segment) => segment.active),
         [gridDesignerSegments]
     );
+    const isGridRotationActive = Math.abs(gridRotationDeg) > 0.0001;
 
     useEffect(() => {
         const workspace = canvasWorkspaceRef.current;
@@ -722,7 +868,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 // Restore full Grid Designer editing state exactly as it was before processing.
                 setGridRows(gridSnapshot.rows);
                 setGridCols(gridSnapshot.cols);
-                setGridDesignerMode(gridSnapshot.mode);
+                setGridRotationDeg(gridSnapshot.rotationDeg || 0);
+                setGridDesignerMode((gridSnapshot.rotationDeg || 0) > 0.0001 ? 'none' : gridSnapshot.mode);
                 setGridDesignerSegments(cloneGridDesignerSegments(gridSnapshot.segments));
                 setIsGridDesignerEnabled(true);
                 setToolMode('select');
@@ -732,6 +879,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 );
                 setVectorObjects(cleanedEditorSnapshot);
             } else {
+                setGridRotationDeg(0);
                 setGridDesignerSegments([]);
                 setIsGridDesignerEnabled(false);
 
@@ -808,6 +956,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         } else {
             // Preview mode: clear editing overlays/objects so we see the final rendered result
             setVectorObjects([]);
+            setGridRotationDeg(0);
             setGridDesignerSegments([]);
             setIsGridDesignerEnabled(false);
         }
@@ -1361,6 +1510,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         setVectorObjects([]);
         setGridDesignerSegments([]);
         setIsGridDesignerEnabled(false);
+        setGridRotationDeg(0);
+        setGridDesignerMode('none');
         setCurrentStroke(null);
         // Clear the selected template so user can create a new one
         setSelectedAdvancedTemplate(null);
@@ -1592,6 +1743,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 rows: gridSnapshot.rows,
                 cols: gridSnapshot.cols,
                 mode: gridSnapshot.mode,
+                rotationDeg: gridSnapshot.rotationDeg ?? 0,
                 segments: cloneGridDesignerSegments(gridSnapshot.segments)
             };
         } else {
@@ -1651,6 +1803,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 rows: gridRows,
                 cols: gridCols,
                 mode: gridDesignerMode,
+                rotationDeg: gridRotationDeg,
                 segments: cloneGridDesignerSegments(gridDesignerSegments)
             };
             const combinedObjects = [...vectorObjects, ...gridObjects];
@@ -1658,6 +1811,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             setVectorObjects([]);
             setGridDesignerSegments([]);
             setIsGridDesignerEnabled(false);
+            setGridRotationDeg(0);
             setGridDesignerMode('none');
             setToolMode('select');
             setSelectedShapeIndices([]);
@@ -1678,6 +1832,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         gridRows,
         gridCols,
         gridDesignerMode,
+        gridRotationDeg,
         gridDesignerSegments
     ]);
 
@@ -1831,6 +1986,9 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                                 setToolMode('select');
                             }}
                             hasGridSegments={activeGridSegments.length > 0}
+                            gridRotationDeg={gridRotationDeg}
+                            onRotateGrid={handleRotateGrid}
+                            isGridRotationActive={isGridRotationActive}
                             onClearStrokes={handleClearAll}
                             onProcessLayout={handleProcessLayout}
                         />
