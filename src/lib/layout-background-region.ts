@@ -1,6 +1,7 @@
 import { LayoutRegion } from './advanced-layout-types';
 
 const EDGE_EPS = 0.35;
+const PAGE_AREA = 100 * 100;
 
 const getPolygonArea = (points: [number, number][]): number => {
     if (!points || points.length < 3) return 0;
@@ -41,43 +42,55 @@ export const getRegionBoundaryTouchCount = (region: LayoutRegion): number => {
 };
 
 export const isLikelyBackgroundRegion = (region: LayoutRegion, allRegions: LayoutRegion[]): boolean => {
-    if (region.isBackground) return true;
     if (!allRegions || allRegions.length === 0) return false;
+
+    const area = getRegionAreaPercent(region);
+    const areaRatio = area / PAGE_AREA;
+    const touchCount = getRegionBoundaryTouchCount(region);
+
+    // Backward compatibility:
+    // Older saved templates may contain incorrect `isBackground` flags on small regions.
+    // Trust explicit flags only for reasonably large/edge-participating regions.
+    if (region.isBackground) {
+        return areaRatio >= 0.25 || (areaRatio >= 0.18 && touchCount >= 2);
+    }
 
     const minZ = Math.min(...allRegions.map((r) => r.zIndex ?? 0));
     if ((region.zIndex ?? 0) !== minZ) return false;
+    const baseLayerCount = allRegions.filter((r) => (r.zIndex ?? 0) === minZ).length;
 
-    const baseLayerRegions = allRegions.filter((r) => (r.zIndex ?? 0) === minZ);
-    if (baseLayerRegions.length === 0) return false;
-    const area = getRegionAreaPercent(region);
-    const sortedAreas = baseLayerRegions.map(getRegionAreaPercent).sort((a, b) => b - a);
-    const maxArea = sortedAreas[0] ?? 0;
-    const secondArea = sortedAreas[1] ?? 0;
-    const isLargest = Math.abs(area - maxArea) <= 0.001;
-    const touchCount = getRegionBoundaryTouchCount(region);
-
-    // Heuristics:
-    // - Strong boundary participation indicates "page background" frame.
-    // - Only largest base-layer region can become background by heuristic.
-    // - Must dominate next largest region (avoid marking grid corners/cells).
-    if (!isLargest) return false;
-    if (touchCount >= 3 && area >= 18) return true;
-    if (touchCount >= 2 && area >= 25 && (secondArea <= 0 || area >= secondArea * 1.35)) return true;
-    if (area >= 70) return true;
+    // Conservative fallback for legacy templates:
+    // Only very large regions can be treated as background automatically.
+    // This prevents rotated-grid corner cells from being mistaken as background.
+    if (baseLayerCount >= 8 && areaRatio < 0.7) return false;
+    if (areaRatio >= 0.7) return true;
+    if (areaRatio >= 0.55 && touchCount >= 2) return true;
+    if (areaRatio >= 0.45 && touchCount >= 3) return true;
 
     return false;
 };
 
 export const markLikelyBackgroundRegions = (regions: LayoutRegion[]): LayoutRegion[] => {
     if (!regions || regions.length === 0) return regions;
-    return regions.map((region) => {
-        if (isLikelyBackgroundRegion(region, regions)) {
+    const candidates = regions
+        .map((region, index) => ({ region, index, area: getRegionAreaPercent(region) }))
+        .filter(({ region }) => isLikelyBackgroundRegion(region, regions));
+
+    if (candidates.length === 0) {
+        return regions.map((region) => (region.isBackground ? { ...region, isBackground: false } : region));
+    }
+
+    // Keep exactly one background region (largest candidate).
+    const primary = candidates.reduce((best, curr) => (curr.area > best.area ? curr : best), candidates[0]);
+
+    return regions.map((region, index) => {
+        if (index === primary.index) {
             return {
                 ...region,
                 isBackground: true,
                 imageGroundRotation: 0
             };
         }
-        return region;
+        return region.isBackground ? { ...region, isBackground: false } : region;
     });
 };

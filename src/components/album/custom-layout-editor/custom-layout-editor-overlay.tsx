@@ -296,6 +296,21 @@ type EditorGridSnapshot = {
     segments: GridDesignerSegment[];
 };
 
+const GRID_PADDING_LAYERS_PER_SIDE = 3;
+
+const doesRegionIntersectPageBounds = (region: LayoutRegion, epsilon: number = 0.35): boolean => {
+    const { x, y, width, height } = region.bounds;
+    const maxX = x + width;
+    const maxY = y + height;
+
+    return !(
+        maxX < (0 - epsilon) ||
+        x > (100 + epsilon) ||
+        maxY < (0 - epsilon) ||
+        y > (100 + epsilon)
+    );
+};
+
 const cloneGridDesignerSegments = (segments: GridDesignerSegment[]): GridDesignerSegment[] =>
     segments.map((segment) => ({
         id: segment.id,
@@ -651,14 +666,21 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         const safeCols = Math.max(1, Math.floor(cols));
         const xStep = canvasLogicalWidthUnits / safeCols;
         const yStep = 100 / safeRows;
+        const paddedRows = safeRows + (GRID_PADDING_LAYERS_PER_SIDE * 2);
+        const paddedCols = safeCols + (GRID_PADDING_LAYERS_PER_SIDE * 2);
+        const xStart = -GRID_PADDING_LAYERS_PER_SIDE * xStep;
+        const yStart = -GRID_PADDING_LAYERS_PER_SIDE * yStep;
+        const xEnd = xStart + (paddedCols * xStep);
+        const yEnd = yStart + (paddedRows * yStep);
 
         const segments: GridDesignerSegment[] = [];
 
-        for (let r = 1; r < safeRows; r++) {
-            const y = yStep * r;
-            for (let c = 0; c < safeCols; c++) {
-                const x1 = xStep * c;
-                const x2 = xStep * (c + 1);
+        // Horizontal separators for the full padded grid
+        for (let r = 1; r < paddedRows; r++) {
+            const y = yStart + (yStep * r);
+            for (let c = 0; c < paddedCols; c++) {
+                const x1 = xStart + (xStep * c);
+                const x2 = xStart + (xStep * (c + 1));
                 segments.push({
                     id: uuidv4(),
                     orientation: 'horizontal',
@@ -669,11 +691,12 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             }
         }
 
-        for (let c = 1; c < safeCols; c++) {
-            const x = xStep * c;
-            for (let r = 0; r < safeRows; r++) {
-                const y1 = yStep * r;
-                const y2 = yStep * (r + 1);
+        // Vertical separators for the full padded grid
+        for (let c = 1; c < paddedCols; c++) {
+            const x = xStart + (xStep * c);
+            for (let r = 0; r < paddedRows; r++) {
+                const y1 = yStart + (yStep * r);
+                const y2 = yStart + (yStep * (r + 1));
                 segments.push({
                     id: uuidv4(),
                     orientation: 'vertical',
@@ -682,6 +705,49 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                     active: true
                 });
             }
+        }
+
+        // Closed outer border around the padded grid
+        for (let c = 0; c < paddedCols; c++) {
+            const x1 = xStart + (xStep * c);
+            const x2 = xStart + (xStep * (c + 1));
+
+            segments.push({
+                id: uuidv4(),
+                orientation: 'horizontal',
+                p1: [x1, yStart],
+                p2: [x2, yStart],
+                active: true
+            });
+
+            segments.push({
+                id: uuidv4(),
+                orientation: 'horizontal',
+                p1: [x1, yEnd],
+                p2: [x2, yEnd],
+                active: true
+            });
+        }
+
+        for (let r = 0; r < paddedRows; r++) {
+            const y1 = yStart + (yStep * r);
+            const y2 = yStart + (yStep * (r + 1));
+
+            segments.push({
+                id: uuidv4(),
+                orientation: 'vertical',
+                p1: [xStart, y1],
+                p2: [xStart, y2],
+                active: true
+            });
+
+            segments.push({
+                id: uuidv4(),
+                orientation: 'vertical',
+                p1: [xEnd, y1],
+                p2: [xEnd, y2],
+                active: true
+            });
         }
 
         return segments;
@@ -1698,6 +1764,11 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
         const logicalWidthUnits = aspect * 100;
 
+        const gridGroundRotation =
+            gridSnapshot && gridSnapshot.segments.length > 0
+                ? normalizeSignedDeg(gridSnapshot.rotationDeg || 0)
+                : undefined;
+
         // Group objects by zIndex to separate layers
         const zIndices = Array.from(new Set(objectsToProcess.map(o => o.zIndex ?? 0))).sort((a, b) => a - b);
         const baseZ = zIndices[0] ?? 0; // The lowest layer is the "Grid" (Base Layer)
@@ -1739,7 +1810,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         strokeWidth: obj.strokeWidth > 0 ? obj.strokeWidth : undefined,
                         fill: obj.fill !== 'transparent' ? obj.fill : undefined,
                         zIndex: z,
-                        rotation: obj.rotation
+                        rotation: obj.rotation,
+                        imageGroundRotation: normalizeSignedDeg(obj.rotation || 0)
                     };
                 });
 
@@ -1755,14 +1827,19 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             if (layerSegments.length > 0 || (z === baseZ)) {
 
                 const isBaseLayer = (z === baseZ);
+                const isGridBaseLayer = isBaseLayer && !!(gridSnapshot && gridSnapshot.segments.length > 0);
+                const defaultLayerGroundRotation = isBaseLayer ? gridGroundRotation : undefined;
 
                 // Generate regions from segments
-                const generatedRegions = processLayoutGeometry(
+                const generatedRegionsRaw = processLayoutGeometry(
                     layerSegments,
                     0, // gap handled later? no, gap param of processLayoutGeometry
                     logicalWidthUnits,
-                    isBaseLayer // includePageBounds
+                    isBaseLayer && !isGridBaseLayer // includePageBounds
                 );
+                const generatedRegions = isGridBaseLayer
+                    ? generatedRegionsRaw.filter((region) => doesRegionIntersectPageBounds(region))
+                    : generatedRegionsRaw;
 
                 const mappedRegions = generatedRegions.map(r => ({
                     ...r,
@@ -1774,6 +1851,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                     // Preserve per-object "ground" orientation for follow-frame mode,
                     // even when geometry processing bakes polygons with rotation=0
                     // (e.g. squares/ellipses where orientation is visually ambiguous).
+                    let imageGroundRotation = defaultLayerGroundRotation;
+
                     const center: Point = [
                         ((region.bounds.x + (region.bounds.width / 2)) / 100) * logicalWidthUnits,
                         region.bounds.y + (region.bounds.height / 2)
@@ -1785,11 +1864,14 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         return isPointInPolygon(center, obj.points);
                     });
 
-                    if (candidateObjects.length !== 1) return region;
+                    if (candidateObjects.length === 1) {
+                        imageGroundRotation = getVectorObjectGroundRotationDeg(candidateObjects[0]);
+                    }
 
+                    if (imageGroundRotation === undefined) return region;
                     return {
                         ...region,
-                        imageGroundRotation: getVectorObjectGroundRotationDeg(candidateObjects[0])
+                        imageGroundRotation
                     };
                 });
 
