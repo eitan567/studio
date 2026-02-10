@@ -895,8 +895,27 @@ export const LayoutCanvas = ({
         return [x, y] as Point;
     };
 
-    const clampValue = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
     const snapGridValue = (value: number): number => Math.round(value / GRID_SNAP_STEP) * GRID_SNAP_STEP;
+    const dot2 = (a: Point, b: Point): number => (a[0] * b[0]) + (a[1] * b[1]);
+    const normalizeVec = (v: Point): Point => {
+        const len = Math.hypot(v[0], v[1]);
+        if (len < 1e-9) return [0, 0];
+        return [v[0] / len, v[1] / len];
+    };
+    const canonicalizeDirection = (v: Point): Point => {
+        if (Math.abs(v[0]) > 1e-6) return v[0] >= 0 ? v : ([-v[0], -v[1]] as Point);
+        if (Math.abs(v[1]) > 1e-6) return v[1] >= 0 ? v : ([-v[0], -v[1]] as Point);
+        return v;
+    };
+    const getSegmentMidpoint = (segment: GridDesignerSegment): Point => [
+        (segment.p1[0] + segment.p2[0]) / 2,
+        (segment.p1[1] + segment.p2[1]) / 2
+    ];
+
+    type GridBasis = {
+        tangent: Point;
+        normal: Point;
+    };
 
     const snapToNearestGuide = useCallback((value: number, candidates: number[]): number => {
         let snapped = value;
@@ -911,147 +930,242 @@ export const LayoutCanvas = ({
         return snapped;
     }, [GRID_LINE_SNAP_THRESHOLD_UNITS]);
 
-    const collectCrossingVerticalGuides = useCallback((segments: GridDesignerSegment[], y: number, excludeId: string): number[] => {
-        return segments
-            .filter((segment) => segment.active && segment.orientation === 'vertical' && segment.id !== excludeId)
-            .filter((segment) => {
-                const minY = Math.min(segment.p1[1], segment.p2[1]);
-                const maxY = Math.max(segment.p1[1], segment.p2[1]);
-                return y >= minY - GRID_LINE_ENDPOINT_EPSILON && y <= maxY + GRID_LINE_ENDPOINT_EPSILON;
-            })
-            .map((segment) => segment.p1[0])
-            .sort((a, b) => a - b);
+    const getOrientationFamilyDirection = useCallback((
+        orientation: GridDesignerSegment['orientation'],
+        segments: GridDesignerSegment[]
+    ): Point | null => {
+        const family = segments.filter((segment) => segment.active && segment.orientation === orientation);
+        if (family.length === 0) return null;
+
+        let refDir: Point | null = null;
+        let sumX = 0;
+        let sumY = 0;
+
+        for (const segment of family) {
+            const rawDir: Point = [segment.p2[0] - segment.p1[0], segment.p2[1] - segment.p1[1]];
+            const normalized = normalizeVec(rawDir);
+            if (Math.hypot(normalized[0], normalized[1]) < 1e-9) continue;
+
+            const canonical = canonicalizeDirection(normalized);
+            if (!refDir) refDir = canonical;
+            const aligned = dot2(canonical, refDir) < 0 ? ([-canonical[0], -canonical[1]] as Point) : canonical;
+            sumX += aligned[0];
+            sumY += aligned[1];
+        }
+
+        if (!refDir) return null;
+        const avg = normalizeVec([sumX, sumY]);
+        if (Math.hypot(avg[0], avg[1]) < 1e-9) return refDir;
+        return canonicalizeDirection(avg);
+    }, []);
+
+    const getGridBasisForOrientation = useCallback((
+        orientation: GridDesignerSegment['orientation'],
+        segments: GridDesignerSegment[]
+    ): GridBasis => {
+        const fallbackTangent: Point = orientation === 'horizontal' ? [1, 0] : [0, 1];
+        const tangent = getOrientationFamilyDirection(orientation, segments) ?? fallbackTangent;
+        const normal = normalizeVec([-tangent[1], tangent[0]]);
+        return {
+            tangent: normalizeVec(tangent),
+            normal
+        };
+    }, [getOrientationFamilyDirection]);
+
+    const getGridBasisForSegment = useCallback((
+        segment: GridDesignerSegment,
+        segments: GridDesignerSegment[]
+    ): GridBasis => {
+        return getGridBasisForOrientation(segment.orientation, segments);
+    }, [getGridBasisForOrientation]);
+
+    const intersectInfiniteLineWithSegment = useCallback((
+        linePoint: Point,
+        lineDir: Point,
+        segStart: Point,
+        segEnd: Point
+    ): { point: Point; lineT: number } | null => {
+        const segDir: Point = [segEnd[0] - segStart[0], segEnd[1] - segStart[1]];
+        const denom = (lineDir[0] * segDir[1]) - (lineDir[1] * segDir[0]);
+        if (Math.abs(denom) <= 1e-8) return null;
+
+        const diff: Point = [segStart[0] - linePoint[0], segStart[1] - linePoint[1]];
+        const lineT = ((diff[0] * segDir[1]) - (diff[1] * segDir[0])) / denom;
+        const segT = ((diff[0] * lineDir[1]) - (diff[1] * lineDir[0])) / denom;
+
+        if (segT < -GRID_LINE_ENDPOINT_EPSILON || segT > 1 + GRID_LINE_ENDPOINT_EPSILON) return null;
+
+        return {
+            point: [
+                linePoint[0] + (lineDir[0] * lineT),
+                linePoint[1] + (lineDir[1] * lineT)
+            ],
+            lineT
+        };
     }, [GRID_LINE_ENDPOINT_EPSILON]);
 
-    const collectCrossingHorizontalGuides = useCallback((segments: GridDesignerSegment[], x: number, excludeId: string): number[] => {
-        return segments
-            .filter((segment) => segment.active && segment.orientation === 'horizontal' && segment.id !== excludeId)
-            .filter((segment) => {
-                const minX = Math.min(segment.p1[0], segment.p2[0]);
-                const maxX = Math.max(segment.p1[0], segment.p2[0]);
-                return x >= minX - GRID_LINE_ENDPOINT_EPSILON && x <= maxX + GRID_LINE_ENDPOINT_EPSILON;
-            })
-            .map((segment) => segment.p1[1])
-            .sort((a, b) => a - b);
-    }, [GRID_LINE_ENDPOINT_EPSILON]);
+    const getInfiniteLineRectangleIntersections = useCallback((linePoint: Point, lineDir: Point) => {
+        const edges: Array<[Point, Point]> = [
+            [[0, 0], [logicalWidthUnits, 0]],
+            [[logicalWidthUnits, 0], [logicalWidthUnits, 100]],
+            [[logicalWidthUnits, 100], [0, 100]],
+            [[0, 100], [0, 0]]
+        ];
 
-    const resolveHorizontalSpanAtY = useCallback((segments: GridDesignerSegment[], segment: GridDesignerSegment, y: number): [number, number] => {
-        const guides = collectCrossingVerticalGuides(segments, y, segment.id);
-        const minX = Math.min(segment.p1[0], segment.p2[0]);
-        const maxX = Math.max(segment.p1[0], segment.p2[0]);
-        const midX = (minX + maxX) / 2;
+        const points: Array<{ point: Point; lineT: number }> = [];
+        for (const [a, b] of edges) {
+            const hit = intersectInfiniteLineWithSegment(linePoint, lineDir, a, b);
+            if (!hit) continue;
+            const exists = points.some((p) => distance(p.point, hit.point) <= 1e-6);
+            if (!exists) points.push(hit);
+        }
+        return points;
+    }, [logicalWidthUnits, intersectInfiniteLineWithSegment]);
 
-        let left = 0;
-        let right = logicalWidthUnits;
+    const getInfiniteLinePolygonIntersections = useCallback((
+        linePoint: Point,
+        lineDir: Point,
+        polygon: Point[]
+    ): Array<{ point: Point; lineT: number }> => {
+        if (!polygon || polygon.length < 3) return [];
+        const points: Array<{ point: Point; lineT: number }> = [];
 
-        for (const x of guides) {
-            if (x <= midX + GRID_LINE_ENDPOINT_EPSILON) {
-                left = Math.max(left, x);
-            }
-            if (x >= midX - GRID_LINE_ENDPOINT_EPSILON) {
-                right = x;
-                break;
-            }
+        for (let i = 0; i < polygon.length; i++) {
+            const a = polygon[i];
+            const b = polygon[(i + 1) % polygon.length];
+            const hit = intersectInfiniteLineWithSegment(linePoint, lineDir, a, b);
+            if (!hit) continue;
+            const exists = points.some((p) => distance(p.point, hit.point) <= 1e-6);
+            if (!exists) points.push(hit);
         }
 
-        if (right - left <= GRID_LINE_ENDPOINT_EPSILON) {
-            const leftByExtent = [...guides].reverse().find((x) => x <= minX + GRID_LINE_ENDPOINT_EPSILON);
-            const rightByExtent = guides.find((x) => x >= maxX - GRID_LINE_ENDPOINT_EPSILON);
-            left = leftByExtent ?? 0;
-            right = rightByExtent ?? logicalWidthUnits;
-        }
+        return points;
+    }, [intersectInfiniteLineWithSegment]);
 
-        if (right - left <= GRID_LINE_ENDPOINT_EPSILON) {
-            left = clampValue(minX, 0, logicalWidthUnits);
-            right = clampValue(maxX, 0, logicalWidthUnits);
-            if (right - left <= GRID_LINE_ENDPOINT_EPSILON) {
-                right = clampValue(left + GRID_KEYBOARD_NUDGE_UNITS, 0, logicalWidthUnits);
-            }
-        }
-
-        return [left, right];
-    }, [collectCrossingVerticalGuides, logicalWidthUnits, GRID_LINE_ENDPOINT_EPSILON, GRID_KEYBOARD_NUDGE_UNITS]);
-
-    const resolveVerticalSpanAtX = useCallback((segments: GridDesignerSegment[], segment: GridDesignerSegment, x: number): [number, number] => {
-        const guides = collectCrossingHorizontalGuides(segments, x, segment.id);
-        const minY = Math.min(segment.p1[1], segment.p2[1]);
-        const maxY = Math.max(segment.p1[1], segment.p2[1]);
-        const midY = (minY + maxY) / 2;
-
-        let top = 0;
-        let bottom = 100;
-
-        for (const y of guides) {
-            if (y <= midY + GRID_LINE_ENDPOINT_EPSILON) {
-                top = Math.max(top, y);
-            }
-            if (y >= midY - GRID_LINE_ENDPOINT_EPSILON) {
-                bottom = y;
-                break;
-            }
-        }
-
-        if (bottom - top <= GRID_LINE_ENDPOINT_EPSILON) {
-            const topByExtent = [...guides].reverse().find((y) => y <= minY + GRID_LINE_ENDPOINT_EPSILON);
-            const bottomByExtent = guides.find((y) => y >= maxY - GRID_LINE_ENDPOINT_EPSILON);
-            top = topByExtent ?? 0;
-            bottom = bottomByExtent ?? 100;
-        }
-
-        if (bottom - top <= GRID_LINE_ENDPOINT_EPSILON) {
-            top = clampValue(minY, 0, 100);
-            bottom = clampValue(maxY, 0, 100);
-            if (bottom - top <= GRID_LINE_ENDPOINT_EPSILON) {
-                bottom = clampValue(top + GRID_KEYBOARD_NUDGE_UNITS, 0, 100);
-            }
-        }
-
-        return [top, bottom];
-    }, [collectCrossingHorizontalGuides, GRID_LINE_ENDPOINT_EPSILON, GRID_KEYBOARD_NUDGE_UNITS]);
+    const getGridSegmentCoordinate = useCallback((segment: GridDesignerSegment, basis: GridBasis): number => {
+        const midpoint = getSegmentMidpoint(segment);
+        return dot2(midpoint, basis.normal);
+    }, []);
 
     const updateGridSegmentCoordinate = useCallback((segments: GridDesignerSegment[], segmentId: string, rawCoordinate: number): GridDesignerSegment[] => {
         const target = segments.find((segment) => segment.id === segmentId && segment.active);
         if (!target) return segments;
 
-        if (target.orientation === 'horizontal') {
-            const unclampedY = clampValue(rawCoordinate, 0, 100);
-            const snapCandidates = [
-                0,
-                100,
-                ...segments
-                    .filter((segment) => segment.active && segment.orientation === 'horizontal' && segment.id !== segmentId)
-                    .map((segment) => segment.p1[1])
-            ];
-            const snappedY = clampValue(snapToNearestGuide(unclampedY, snapCandidates), 0, 100);
-            const [x1, x2] = resolveHorizontalSpanAtY(segments, target, snappedY);
-            const left = Math.min(x1, x2);
-            const right = Math.max(x1, x2);
-            return segments.map((segment) =>
-                segment.id === segmentId
-                    ? { ...segment, p1: [left, snappedY], p2: [right, snappedY] }
-                    : segment
-            );
+        const basis = getGridBasisForSegment(target, segments);
+        const midpoint = getSegmentMidpoint(target);
+        const currentCoordinate = getGridSegmentCoordinate(target, basis);
+
+        const parallelCoordinates = segments
+            .filter((segment) => segment.active && segment.orientation === target.orientation && segment.id !== segmentId)
+            .map((segment) => getGridSegmentCoordinate(segment, basis));
+        const snappedCoordinate = snapToNearestGuide(rawCoordinate, parallelCoordinates);
+
+        const delta = snappedCoordinate - currentCoordinate;
+        const anchor: Point = [
+            midpoint[0] + (basis.normal[0] * delta),
+            midpoint[1] + (basis.normal[1] * delta)
+        ];
+
+        const perpendicularIntersections = segments
+            .filter((segment) => segment.active && segment.orientation !== target.orientation && segment.id !== segmentId)
+            .map((segment) => intersectInfiniteLineWithSegment(anchor, basis.tangent, segment.p1, segment.p2))
+            .filter((hit): hit is { point: Point; lineT: number } => !!hit)
+            .sort((a, b) => a.lineT - b.lineT);
+
+        const boundaryIntersections = getInfiniteLineRectangleIntersections(anchor, basis.tangent)
+            .sort((a, b) => a.lineT - b.lineT);
+
+        const centerT = 0;
+        const leftPerpendicular = [...perpendicularIntersections].reverse().find((hit) => hit.lineT <= centerT + GRID_LINE_ENDPOINT_EPSILON);
+        const rightPerpendicular = perpendicularIntersections.find((hit) => hit.lineT >= centerT - GRID_LINE_ENDPOINT_EPSILON);
+        const leftBoundary = [...boundaryIntersections].reverse().find((hit) => hit.lineT <= centerT + GRID_LINE_ENDPOINT_EPSILON);
+        const rightBoundary = boundaryIntersections.find((hit) => hit.lineT >= centerT - GRID_LINE_ENDPOINT_EPSILON);
+
+        let leftT = leftPerpendicular?.lineT ?? leftBoundary?.lineT ?? -GRID_KEYBOARD_NUDGE_UNITS;
+        let rightT = rightPerpendicular?.lineT ?? rightBoundary?.lineT ?? GRID_KEYBOARD_NUDGE_UNITS;
+
+        if (rightT - leftT <= GRID_LINE_ENDPOINT_EPSILON) {
+            const spanCenter = (leftT + rightT) / 2;
+            leftT = spanCenter - (GRID_KEYBOARD_NUDGE_UNITS / 2);
+            rightT = spanCenter + (GRID_KEYBOARD_NUDGE_UNITS / 2);
         }
 
-        const unclampedX = clampValue(rawCoordinate, 0, logicalWidthUnits);
-        const snapCandidates = [
-            0,
-            logicalWidthUnits,
-            ...segments
-                .filter((segment) => segment.active && segment.orientation === 'vertical' && segment.id !== segmentId)
-                .map((segment) => segment.p1[0])
-        ];
-        const snappedX = clampValue(snapToNearestGuide(unclampedX, snapCandidates), 0, logicalWidthUnits);
-        const [y1, y2] = resolveVerticalSpanAtX(segments, target, snappedX);
-        const top = Math.min(y1, y2);
-        const bottom = Math.max(y1, y2);
+        const p1: Point = quantizePointForProcess([
+            anchor[0] + (basis.tangent[0] * leftT),
+            anchor[1] + (basis.tangent[1] * leftT)
+        ]);
+        const p2: Point = quantizePointForProcess([
+            anchor[0] + (basis.tangent[0] * rightT),
+            anchor[1] + (basis.tangent[1] * rightT)
+        ]);
 
         return segments.map((segment) =>
             segment.id === segmentId
-                ? { ...segment, p1: [snappedX, top], p2: [snappedX, bottom] }
+                ? { ...segment, p1, p2 }
                 : segment
         );
-    }, [logicalWidthUnits, resolveHorizontalSpanAtY, resolveVerticalSpanAtX, snapToNearestGuide]);
+    }, [
+        getGridBasisForSegment,
+        getGridSegmentCoordinate,
+        getInfiniteLineRectangleIntersections,
+        intersectInfiniteLineWithSegment,
+        quantizePointForProcess,
+        snapToNearestGuide,
+        GRID_KEYBOARD_NUDGE_UNITS,
+        GRID_LINE_ENDPOINT_EPSILON
+    ]);
+
+    const createGridSegmentInCell = useCallback((
+        segments: GridDesignerSegment[],
+        orientation: GridDesignerSegment['orientation'],
+        point: Point,
+        polygon: Point[]
+    ): GridDesignerSegment | null => {
+        const basis = getGridBasisForOrientation(orientation, segments);
+        const coordinate = dot2(point, basis.normal);
+        const parallelCoordinates = segments
+            .filter((segment) => segment.active && segment.orientation === orientation)
+            .map((segment) => getGridSegmentCoordinate(segment, basis));
+        const snappedCoordinate = snapToNearestGuide(coordinate, parallelCoordinates);
+        const delta = snappedCoordinate - coordinate;
+        const anchor: Point = [
+            point[0] + (basis.normal[0] * delta),
+            point[1] + (basis.normal[1] * delta)
+        ];
+
+        const intersections = getInfiniteLinePolygonIntersections(anchor, basis.tangent, polygon)
+            .sort((a, b) => a.lineT - b.lineT);
+        if (intersections.length < 2) return null;
+
+        const minT = intersections[0].lineT;
+        const maxT = intersections[intersections.length - 1].lineT;
+        if (maxT - minT <= GRID_LINE_ENDPOINT_EPSILON) return null;
+
+        const p1: Point = quantizePointForProcess([
+            anchor[0] + (basis.tangent[0] * minT),
+            anchor[1] + (basis.tangent[1] * minT)
+        ]);
+        const p2: Point = quantizePointForProcess([
+            anchor[0] + (basis.tangent[0] * maxT),
+            anchor[1] + (basis.tangent[1] * maxT)
+        ]);
+        if (distance(p1, p2) <= GRID_LINE_ENDPOINT_EPSILON) return null;
+
+        return {
+            id: uuidv4(),
+            orientation,
+            p1,
+            p2,
+            active: true
+        };
+    }, [
+        getGridBasisForOrientation,
+        getGridSegmentCoordinate,
+        getInfiniteLinePolygonIntersections,
+        quantizePointForProcess,
+        snapToNearestGuide,
+        GRID_LINE_ENDPOINT_EPSILON
+    ]);
 
     const findNearestGridSegment = useCallback((point: Point): GridDesignerSegment | null => {
         let nearest: GridDesignerSegment | null = null;
@@ -1107,29 +1221,13 @@ export const LayoutCanvas = ({
             const targetCell = gridCells.find((cell) => isPointInPolygon(point, cell.polygon));
             if (!targetCell) return;
 
-            if (gridDesignerMode === 'add-horizontal') {
-                const y = Math.max(targetCell.minY + 0.2, Math.min(targetCell.maxY - 0.2, snapGridValue(point[1])));
-                const newSegment: GridDesignerSegment = {
-                    id: uuidv4(),
-                    orientation: 'horizontal',
-                    p1: [targetCell.minX, y],
-                    p2: [targetCell.maxX, y],
-                    active: true
-                };
-                onGridDesignerSegmentsChange([...gridDesignerSegments, newSegment]);
-                setGridSelectedSegmentId(newSegment.id);
-            } else {
-                const x = Math.max(targetCell.minX + 0.2, Math.min(targetCell.maxX - 0.2, snapGridValue(point[0])));
-                const newSegment: GridDesignerSegment = {
-                    id: uuidv4(),
-                    orientation: 'vertical',
-                    p1: [x, targetCell.minY],
-                    p2: [x, targetCell.maxY],
-                    active: true
-                };
-                onGridDesignerSegmentsChange([...gridDesignerSegments, newSegment]);
-                setGridSelectedSegmentId(newSegment.id);
-            }
+            const orientation: GridDesignerSegment['orientation'] =
+                gridDesignerMode === 'add-horizontal' ? 'horizontal' : 'vertical';
+            const newSegment = createGridSegmentInCell(gridDesignerSegments, orientation, point, targetCell.polygon);
+            if (!newSegment) return;
+
+            onGridDesignerSegmentsChange([...gridDesignerSegments, newSegment]);
+            setGridSelectedSegmentId(newSegment.id);
         }
     }, [
         gridDesignerEnabled,
@@ -1138,7 +1236,8 @@ export const LayoutCanvas = ({
         gridDesignerSegments,
         gridCells,
         gridSelectedSegmentId,
-        findNearestGridSegment
+        findNearestGridSegment,
+        createGridSegmentInCell
     ]);
 
     const handleGridOverlayMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -1154,10 +1253,15 @@ export const LayoutCanvas = ({
 
             const drag = gridDragRef.current;
             const original = drag.originalSegment;
+            const basis = getGridBasisForSegment(original, gridDesignerSegments);
+            const currentCoordinate = getGridSegmentCoordinate(original, basis);
+            const pointerDelta: Point = [
+                point[0] - drag.startPoint[0],
+                point[1] - drag.startPoint[1]
+            ];
+            const coordinateDelta = dot2(pointerDelta, basis.normal);
+            const proposedCoordinate = snapGridValue(currentCoordinate + coordinateDelta);
 
-            const proposedCoordinate = original.orientation === 'horizontal'
-                ? original.p1[1] + (point[1] - drag.startPoint[1])
-                : original.p1[0] + (point[0] - drag.startPoint[0]);
             onGridDesignerSegmentsChange(
                 updateGridSegmentCoordinate(gridDesignerSegments, drag.segmentId, proposedCoordinate)
             );
@@ -1171,8 +1275,11 @@ export const LayoutCanvas = ({
         onGridDesignerSegmentsChange,
         gridDesignerMode,
         gridDesignerSegments,
+        getGridBasisForSegment,
+        getGridSegmentCoordinate,
         updateGridSegmentCoordinate,
-        findNearestGridSegment
+        findNearestGridSegment,
+        dot2
     ]);
 
     const handleGridOverlayMouseUp = useCallback((e?: React.MouseEvent<HTMLDivElement>) => {
@@ -2197,21 +2304,22 @@ export const LayoutCanvas = ({
                 const nudgeStep = e.shiftKey ? GRID_KEYBOARD_NUDGE_FAST_UNITS : GRID_KEYBOARD_NUDGE_UNITS;
                 e.preventDefault();
 
-                if (selectedSegment.orientation === 'horizontal') {
-                    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-                    const deltaY = e.key === 'ArrowUp' ? -nudgeStep : nudgeStep;
-                    const nextY = selectedSegment.p1[1] + deltaY;
-                    onGridDesignerSegmentsChange(
-                        updateGridSegmentCoordinate(gridDesignerSegments, selectedSegment.id, nextY)
-                    );
-                    return;
-                }
+                const arrowVector: Point =
+                    e.key === 'ArrowUp'
+                        ? [0, -1]
+                        : e.key === 'ArrowDown'
+                            ? [0, 1]
+                            : e.key === 'ArrowLeft'
+                                ? [-1, 0]
+                                : [1, 0];
+                const basis = getGridBasisForSegment(selectedSegment, gridDesignerSegments);
+                const projectedDelta = dot2(arrowVector, basis.normal);
+                if (Math.abs(projectedDelta) <= 1e-9) return;
 
-                if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-                const deltaX = e.key === 'ArrowLeft' ? -nudgeStep : nudgeStep;
-                const nextX = selectedSegment.p1[0] + deltaX;
+                const currentCoordinate = getGridSegmentCoordinate(selectedSegment, basis);
+                const nextCoordinate = snapGridValue(currentCoordinate + (projectedDelta * nudgeStep));
                 onGridDesignerSegmentsChange(
-                    updateGridSegmentCoordinate(gridDesignerSegments, selectedSegment.id, nextX)
+                    updateGridSegmentCoordinate(gridDesignerSegments, selectedSegment.id, nextCoordinate)
                 );
                 return;
             }
@@ -2272,7 +2380,10 @@ export const LayoutCanvas = ({
         gridSelectedSegmentId,
         gridDesignerSegments,
         onGridDesignerSegmentsChange,
+        getGridBasisForSegment,
+        getGridSegmentCoordinate,
         updateGridSegmentCoordinate,
+        dot2,
         GRID_KEYBOARD_NUDGE_UNITS,
         GRID_KEYBOARD_NUDGE_FAST_UNITS
     ]);

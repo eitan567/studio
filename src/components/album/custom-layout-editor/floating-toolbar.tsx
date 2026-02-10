@@ -255,8 +255,8 @@ export const FloatingToolbar = ({
                     size="icon"
                     className="h-8 w-8"
                     onClick={() => onGridModeChange('move')}
-                    disabled={!hasGridSegments || isGridRotationActive}
-                    title={isGridRotationActive ? "Move disabled while grid is rotated" : "Move segments"}
+                    disabled={!hasGridSegments}
+                    title="Move segments"
                 >
                     <Maximize className="h-4 w-4" />
                 </Button>
@@ -275,8 +275,8 @@ export const FloatingToolbar = ({
                     size="icon"
                     className="h-8 w-8"
                     onClick={() => onGridModeChange('add-horizontal')}
-                    disabled={!hasGridSegments || isGridRotationActive}
-                    title={isGridRotationActive ? "Add disabled while grid is rotated" : "Add horizontal segment inside a cell"}
+                    disabled={!hasGridSegments}
+                    title="Add horizontal segment inside a cell"
                 >
                     <AlignVerticalJustifyCenter className="h-4 w-4" />
                 </Button>
@@ -285,8 +285,8 @@ export const FloatingToolbar = ({
                     size="icon"
                     className="h-8 w-8"
                     onClick={() => onGridModeChange('add-vertical')}
-                    disabled={!hasGridSegments || isGridRotationActive}
-                    title={isGridRotationActive ? "Add disabled while grid is rotated" : "Add vertical segment inside a cell"}
+                    disabled={!hasGridSegments}
+                    title="Add vertical segment inside a cell"
                 >
                     <AlignHorizontalJustifyCenter className="h-4 w-4" />
                 </Button>

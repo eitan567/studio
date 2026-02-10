@@ -702,14 +702,11 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
             const nextP1 = quantizeGridPoint(p1);
             const nextP2 = quantizeGridPoint(p2);
-            const orientation: GridDesignerSegment['orientation'] =
-                Math.abs(nextP2[0] - nextP1[0]) >= Math.abs(nextP2[1] - nextP1[1]) ? 'horizontal' : 'vertical';
 
             return {
                 ...segment,
                 p1: nextP1,
-                p2: nextP2,
-                orientation
+                p2: nextP2
             };
         }));
 
