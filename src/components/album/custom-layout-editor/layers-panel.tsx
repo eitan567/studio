@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { ChevronUp, ChevronDown, Trash2, Box, Circle, Frame, RotateCcw, X } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronRight, ChevronsUp, ChevronsDown, Trash2, Box, Circle, Frame, RotateCcw, X, Lock, LockOpen } from 'lucide-react';
 import { VectorObject } from '@/lib/advanced-layout-types';
 
 interface LayersPanelProps {
@@ -15,6 +15,10 @@ interface LayersPanelProps {
     onResetRotation: (index: number) => void;
     onClose?: () => void;
     onDragStart?: (e: React.PointerEvent<HTMLDivElement>) => void;
+    isDocked?: boolean;
+    isDockLocked?: boolean;
+    onToggleDockLock?: () => void;
+    contentScrollable?: boolean;
     className?: string;
 }
 
@@ -28,10 +32,12 @@ export const LayersPanel = ({
     onResetRotation,
     onClose,
     onDragStart,
+    isDocked = false,
+    isDockLocked = false,
+    onToggleDockLock,
+    contentScrollable = true,
     className
 }: LayersPanelProps) => {
-
-    // Helper to get icon based on type
     const getIcon = (type: string) => {
         switch (type) {
             case 'rect': return <Box className="h-3 w-3" />;
@@ -41,7 +47,6 @@ export const LayersPanel = ({
         }
     };
 
-    // Helper to get name
     const getName = (obj: VectorObject, index: number) => {
         if (obj.type === 'path') return `Frame ${index + 1}`;
         if (obj.type === 'rect') return `Rectangle ${index + 1}`;
@@ -49,14 +54,6 @@ export const LayersPanel = ({
         return `Object ${index + 1}`;
     };
 
-    // We render the list in reverse order visually (Top layer at top of list), 
-    // but we need to map clicks back to the original index.
-    // However, simplest way is just to iterate normally but use flex-col-reverse if we wanted visual stacking,
-    // OR just map standard order (Index 0 = Bottom).
-    // Usually Layers panel shows Top layer at Top.
-    // So VectorObjects[length-1] is Top.
-
-    // Group items by Z-Index
     const layers = React.useMemo(() => {
         const groups: { [z: number]: { originalIndex: number, obj: VectorObject }[] } = {};
         vectorObjects.forEach((obj, i) => {
@@ -64,55 +61,63 @@ export const LayersPanel = ({
             if (!groups[z]) groups[z] = [];
             groups[z].push({ originalIndex: i, obj });
         });
-        // Sort Z-indices descending (Top layer first)
         const sortedZ = Object.keys(groups).map(Number).sort((a, b) => b - a);
-        return sortedZ.map(z => ({ z, items: groups[z].reverse() })); // Items within layer reversed to show top-first visually? Or maybe standard order? Standard order within layer is fine.
-        // Actually, within a layer, index matters for "sub-ordering" (painting order).
-        // Let's reverse items so highest index (painted last/on top) is at top of list.
+        return sortedZ.map(z => ({ z, items: groups[z].reverse() }));
     }, [vectorObjects]);
 
-    return (
-        <div className={cn("flex flex-col h-full w-full bg-background border rounded-lg pointer-events-auto shadow-lg overflow-hidden", className)}>
-            <div
-                className="p-3 border-b flex items-center justify-between bg-muted/20 cursor-move select-none"
-                onPointerDown={onDragStart}
-            >
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Layers</span>
-                <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-muted-foreground">{vectorObjects.length} objects</span>
-                    {onClose && (
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5 text-muted-foreground hover:text-foreground"
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onClose();
-                            }}
-                            title="Close Layers Panel"
-                        >
-                            <X className="h-3.5 w-3.5" />
-                        </Button>
-                    )}
+    const [collapsedLayers, setCollapsedLayers] = React.useState<Record<number, boolean>>({});
+
+    React.useEffect(() => {
+        setCollapsedLayers((prev) => {
+            const next: Record<number, boolean> = {};
+            layers.forEach((layer) => {
+                next[layer.z] = prev[layer.z] ?? false;
+            });
+            return next;
+        });
+    }, [layers]);
+
+    const collapseAll = () => {
+        const next: Record<number, boolean> = {};
+        layers.forEach((layer) => { next[layer.z] = true; });
+        setCollapsedLayers(next);
+    };
+
+    const expandAll = () => {
+        const next: Record<number, boolean> = {};
+        layers.forEach((layer) => { next[layer.z] = false; });
+        setCollapsedLayers(next);
+    };
+
+    const toggleLayer = (z: number) => {
+        setCollapsedLayers((prev) => ({ ...prev, [z]: !prev[z] }));
+    };
+
+    const listContent = (
+        <div className="p-2 space-y-4">
+            {layers.length === 0 && (
+                <div className="text-center py-8 text-xs text-muted-foreground">
+                    No objects
                 </div>
-            </div>
+            )}
 
-            <ScrollArea className="flex-1">
-                <div className="p-2 space-y-4">
-                    {layers.length === 0 && (
-                        <div className="text-center py-8 text-xs text-muted-foreground">
-                            No objects
-                        </div>
-                    )}
-
-                    {layers.map((layer) => (
-                        <div key={layer.z} className="space-y-1">
-                            <div className="flex items-center justify-between px-2 py-1 bg-muted/30 rounded text-xs font-medium text-muted-foreground">
+            {layers.map((layer) => {
+                const isCollapsed = !!collapsedLayers[layer.z];
+                return (
+                    <div key={layer.z} className="space-y-1">
+                        <button
+                            type="button"
+                            className="w-full flex items-center justify-between px-2 py-1 bg-muted/30 rounded text-xs font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
+                            onClick={() => toggleLayer(layer.z)}
+                        >
+                            <span className="flex items-center gap-1.5">
+                                {isCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                                 <span>Layer {layer.z}</span>
-                                <span className="text-[10px] opacity-70">{layer.items.length} items</span>
-                            </div>
+                            </span>
+                            <span className="text-[10px] opacity-70">{layer.items.length} items</span>
+                        </button>
 
+                        {!isCollapsed && (
                             <div className="space-y-0.5 pl-1">
                                 {layer.items.map((item) => {
                                     const isSelected = selectedIndices.includes(item.originalIndex);
@@ -152,7 +157,7 @@ export const LayersPanel = ({
                                                     className="h-5 w-5 text-muted-foreground hover:text-foreground"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        onReorder(item.originalIndex, 'up'); // Treat 'up' as +Z
+                                                        onReorder(item.originalIndex, 'up');
                                                     }}
                                                     title="Layer Up"
                                                 >
@@ -164,9 +169,9 @@ export const LayersPanel = ({
                                                     className="h-5 w-5 text-muted-foreground hover:text-foreground"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        onReorder(item.originalIndex, 'down'); // Treat 'down' as -Z
+                                                        onReorder(item.originalIndex, 'down');
                                                     }}
-                                                    disabled={layer.z <= 0} // Assuming 0 is min? Or 1? Let's check logic.
+                                                    disabled={layer.z <= 0}
                                                     title="Layer Down"
                                                 >
                                                     <ChevronDown className="h-3 w-3" />
@@ -200,10 +205,98 @@ export const LayersPanel = ({
                                     );
                                 })}
                             </div>
-                        </div>
-                    ))}
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
+
+    return (
+        <div className={cn("flex flex-col h-full w-full bg-background border rounded-lg pointer-events-auto shadow-lg overflow-hidden", className)}>
+            <div
+                className={cn(
+                    "p-3 border-b bg-muted/20 select-none",
+                    onDragStart ? "cursor-move" : "cursor-default"
+                )}
+                onPointerDown={onDragStart}
+            >
+                <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Layers</span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground">{vectorObjects.length} objects</span>
+                        {isDocked && onToggleDockLock && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onToggleDockLock();
+                                }}
+                                title={isDockLocked ? "Undock panel" : "Lock dock"}
+                            >
+                                {isDockLocked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
+                            </Button>
+                        )}
+                        {onClose && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onClose();
+                                }}
+                                title="Close Layers Panel"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </Button>
+                        )}
+                    </div>
                 </div>
-            </ScrollArea>
+
+                <div className="mt-2 flex items-center gap-1">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            expandAll();
+                        }}
+                        title="Expand All Layers"
+                    >
+                        <ChevronsDown className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            collapseAll();
+                        }}
+                        title="Collapse All Layers"
+                    >
+                        <ChevronsUp className="h-3.5 w-3.5" />
+                    </Button>
+                </div>
+            </div>
+
+            {contentScrollable ? (
+                <ScrollArea className="flex-1">
+                    {listContent}
+                </ScrollArea>
+            ) : (
+                <div className="flex-1 overflow-hidden">
+                    {listContent}
+                </div>
+            )}
         </div>
     );
 };

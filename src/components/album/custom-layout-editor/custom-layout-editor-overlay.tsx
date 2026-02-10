@@ -243,9 +243,23 @@ const parseTemplateDescriptionObject = (description?: string | null): Record<str
     }
 };
 
+const getLayerObjectDisplayName = (obj: VectorObject, index: number) => {
+    if (obj.type === 'path') return `Frame ${index + 1}`;
+    if (obj.type === 'rect') return `Rectangle ${index + 1}`;
+    if (obj.type === 'circle') return `Circle ${index + 1}`;
+    return `Object ${index + 1}`;
+};
+
 type AlignMode = 'left' | 'h-center' | 'right' | 'top' | 'v-center' | 'bottom';
 type DistributeMode = 'horizontal' | 'vertical';
 type SizeMatchMode = 'size' | 'width' | 'height';
+type LayersDockSide = 'left' | 'right' | null;
+
+const LAYERS_PANEL_SAFE_MARGIN = 8;
+const LAYERS_PANEL_DOCK_THRESHOLD = 26;
+const LAYERS_PANEL_MIN_HEIGHT = 96;
+const LAYERS_PANEL_MAX_HEIGHT = 420;
+const LAYERS_PANEL_DOCK_GUTTER = 8;
 
 export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, onAddTemplate }: CustomLayoutEditorOverlayProps) => {
     const { findGridTemplate, defaultGridTemplate, allTemplates, refresh } = useTemplates();
@@ -332,6 +346,9 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const [showGuides, setShowGuides] = useState(true);
     const [isLayersPanelOpen, setIsLayersPanelOpen] = useState(true);
     const [layersPanelPosition, setLayersPanelPosition] = useState({ x: 24, y: 24 });
+    const [layersPanelDockSide, setLayersPanelDockSide] = useState<LayersDockSide>(null);
+    const [isLayersPanelDockLocked, setIsLayersPanelDockLocked] = useState(false);
+    const [workspaceSize, setWorkspaceSize] = useState({ width: 0, height: 0 });
     const [isLeaderGroupRotateEnabled, setIsLeaderGroupRotateEnabled] = useState(false);
     const [isLeaderGroupResizeEnabled, setIsLeaderGroupResizeEnabled] = useState(false);
     const canvasWorkspaceRef = useRef<HTMLDivElement>(null);
@@ -357,6 +374,74 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
         return (logicalWidthPx / pageH_px) * 100;
     }, [config?.size, spreadMode]);
+
+    const layersPanelSizing = useMemo(() => {
+        const zSet = new Set<number>();
+        let maxNameChars = 0;
+        let maxLayerChars = 0;
+
+        vectorObjects.forEach((obj, index) => {
+            const z = obj.zIndex ?? 0;
+            zSet.add(z);
+            maxNameChars = Math.max(maxNameChars, getLayerObjectDisplayName(obj, index).length);
+            maxLayerChars = Math.max(maxLayerChars, `Layer ${z}`.length);
+        });
+
+        const layerCount = zSet.size;
+        const itemCount = vectorObjects.length;
+        const layerHeaderHeight = 24;
+        const itemRowHeight = 32;
+        const groupGap = 14;
+        const contentPadding = 24;
+        // Header now includes title row + expand/collapse row
+        const headerHeight = 78;
+        // Empty-state block includes container padding + message line
+        const emptyStateHeight = 96;
+
+        const listHeight = itemCount === 0
+            ? emptyStateHeight
+            : (layerCount * layerHeaderHeight) + (itemCount * itemRowHeight) + (Math.max(0, layerCount - 1) * groupGap) + contentPadding;
+
+        const naturalHeight = Math.max(LAYERS_PANEL_MIN_HEIGHT, headerHeight + listHeight);
+        const maxNaturalHeight = Math.min(naturalHeight, LAYERS_PANEL_MAX_HEIGHT);
+
+        const widthByText = 190 + (Math.max(maxNameChars, maxLayerChars) * 7);
+        const width = Math.max(220, Math.min(460, widthByText));
+
+        return {
+            width,
+            naturalHeight,
+            maxNaturalHeight
+        };
+    }, [vectorObjects]);
+
+    useEffect(() => {
+        const workspace = canvasWorkspaceRef.current;
+        if (!workspace) return;
+
+        const measure = () => {
+            const rect = workspace.getBoundingClientRect();
+            setWorkspaceSize({ width: rect.width, height: rect.height });
+        };
+
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(workspace);
+        return () => observer.disconnect();
+    }, []);
+
+    useEffect(() => {
+        if (!isLayersPanelOpen || (layersPanelDockSide && isLayersPanelDockLocked)) return;
+        if (workspaceSize.width <= 0 || workspaceSize.height <= 0) return;
+
+        const maxX = Math.max(LAYERS_PANEL_SAFE_MARGIN, workspaceSize.width - layersPanelSizing.width - LAYERS_PANEL_SAFE_MARGIN);
+        const maxY = Math.max(LAYERS_PANEL_SAFE_MARGIN, workspaceSize.height - LAYERS_PANEL_MIN_HEIGHT - LAYERS_PANEL_SAFE_MARGIN);
+
+        setLayersPanelPosition((prev) => ({
+            x: Math.max(LAYERS_PANEL_SAFE_MARGIN, Math.min(maxX, prev.x)),
+            y: Math.max(LAYERS_PANEL_SAFE_MARGIN, Math.min(maxY, prev.y))
+        }));
+    }, [isLayersPanelOpen, layersPanelDockSide, isLayersPanelDockLocked, layersPanelSizing.width, workspaceSize.width, workspaceSize.height]);
 
     // Dynamic Theme Update: When theme changes, update state AND existing objects
     useEffect(() => {
@@ -1089,7 +1174,18 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         setSelectedShapeIndices([]);
     }, []);
 
+    const handleToggleLayersDockLock = useCallback(() => {
+        if (!layersPanelDockSide) return;
+        if (isLayersPanelDockLocked) {
+            setIsLayersPanelDockLocked(false);
+            setLayersPanelDockSide(null);
+        } else {
+            setIsLayersPanelDockLocked(true);
+        }
+    }, [isLayersPanelDockLocked, layersPanelDockSide]);
+
     const handleStartDragLayersPanel = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+        if (isLayersPanelDockLocked) return;
         if (e.button !== 0) return;
         const workspace = canvasWorkspaceRef.current;
         const panel = floatingLayersRef.current;
@@ -1102,25 +1198,48 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         const panelRect = panel.getBoundingClientRect();
         const offsetX = e.clientX - panelRect.left;
         const offsetY = e.clientY - panelRect.top;
-        const maxX = Math.max(8, workspaceRect.width - panelRect.width - 8);
-        const maxY = Math.max(8, workspaceRect.height - panelRect.height - 8);
+        const maxX = Math.max(LAYERS_PANEL_SAFE_MARGIN, workspaceRect.width - panelRect.width - LAYERS_PANEL_SAFE_MARGIN);
+        const maxY = Math.max(LAYERS_PANEL_SAFE_MARGIN, workspaceRect.height - LAYERS_PANEL_MIN_HEIGHT - LAYERS_PANEL_SAFE_MARGIN);
+        let dockSideOnRelease: LayersDockSide = null;
+        let lastPosition = { ...layersPanelPosition };
 
         const onPointerMove = (ev: PointerEvent) => {
             const rawX = ev.clientX - workspaceRect.left - offsetX;
             const rawY = ev.clientY - workspaceRect.top - offsetY;
-            const nextX = Math.max(8, Math.min(maxX, rawX));
-            const nextY = Math.max(8, Math.min(maxY, rawY));
-            setLayersPanelPosition({ x: nextX, y: nextY });
+
+            const nearLeft = rawX <= LAYERS_PANEL_DOCK_THRESHOLD;
+            const nearRight = rawX >= (maxX - LAYERS_PANEL_DOCK_THRESHOLD);
+            dockSideOnRelease = nearLeft ? 'left' : (nearRight ? 'right' : null);
+
+            const snappedX = dockSideOnRelease === 'left'
+                ? LAYERS_PANEL_SAFE_MARGIN
+                : dockSideOnRelease === 'right'
+                    ? maxX
+                    : Math.max(LAYERS_PANEL_SAFE_MARGIN, Math.min(maxX, rawX));
+
+            const nextY = Math.max(LAYERS_PANEL_SAFE_MARGIN, Math.min(maxY, rawY));
+            setLayersPanelDockSide(dockSideOnRelease);
+            setIsLayersPanelDockLocked(false);
+            lastPosition = { x: snappedX, y: nextY };
+            setLayersPanelPosition(lastPosition);
         };
 
         const onPointerUp = () => {
+            if (dockSideOnRelease) {
+                setLayersPanelDockSide(dockSideOnRelease);
+                setIsLayersPanelDockLocked(true);
+            } else {
+                setLayersPanelDockSide(null);
+                setIsLayersPanelDockLocked(false);
+            }
+            setLayersPanelPosition(lastPosition);
             window.removeEventListener('pointermove', onPointerMove);
             window.removeEventListener('pointerup', onPointerUp);
         };
 
         window.addEventListener('pointermove', onPointerMove);
         window.addEventListener('pointerup', onPointerUp);
-    }, []);
+    }, [isLayersPanelDockLocked, layersPanelPosition]);
 
     // Process the drawn strokes into regions
     const handleProcessLayout = useCallback(() => {
@@ -1297,6 +1416,47 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const canAlignSelection = selectedShapeIndices.length >= 2;
     const canDistributeSelection = selectedShapeIndices.length >= 3;
     const canMatchSizeSelection = selectedShapeIndices.length >= 2;
+    const isLayersDocked = layersPanelDockSide !== null && isLayersPanelDockLocked;
+    const floatingPanelTop = Math.max(LAYERS_PANEL_SAFE_MARGIN, layersPanelPosition.y);
+    const layersPanelTop = isLayersDocked ? LAYERS_PANEL_SAFE_MARGIN : floatingPanelTop;
+    const floatingAvailableHeight = Math.max(
+        LAYERS_PANEL_MIN_HEIGHT,
+        workspaceSize.height > 0
+            ? (workspaceSize.height - layersPanelTop - LAYERS_PANEL_SAFE_MARGIN)
+            : LAYERS_PANEL_MAX_HEIGHT
+    );
+    const floatingPanelHeight = Math.max(
+        LAYERS_PANEL_MIN_HEIGHT,
+        Math.min(layersPanelSizing.maxNaturalHeight, floatingAvailableHeight)
+    );
+    const layersPanelHeight = isLayersDocked
+        ? '100%'
+        : `${floatingPanelHeight}px`;
+    const dockedAvailableHeight = Math.max(
+        LAYERS_PANEL_MIN_HEIGHT,
+        workspaceSize.height > 0
+            ? (workspaceSize.height - (LAYERS_PANEL_SAFE_MARGIN * 2))
+            : LAYERS_PANEL_MAX_HEIGHT
+    );
+    const effectivePanelHeight = isLayersDocked ? dockedAvailableHeight : floatingPanelHeight;
+    const layersPanelContentScrollable = layersPanelSizing.naturalHeight > effectivePanelHeight;
+    const layersPanelNode = (
+        <LayersPanel
+            vectorObjects={vectorObjects}
+            selectedIndices={selectedShapeIndices}
+            leaderIndex={selectedShapeIndices.length > 0 ? selectedShapeIndices[0] : null}
+            onSelect={setSelectedShapeIndices}
+            onDelete={handleDeleteObject}
+            onReorder={handleReorderObjects}
+            onResetRotation={handleResetObjectRotation}
+            onClose={() => setIsLayersPanelOpen(false)}
+            onDragStart={isLayersPanelDockLocked ? undefined : handleStartDragLayersPanel}
+            isDocked={layersPanelDockSide !== null}
+            isDockLocked={isLayersPanelDockLocked}
+            onToggleDockLock={handleToggleLayersDockLock}
+            contentScrollable={layersPanelContentScrollable}
+        />
+    );
 
     return (
         <div className="fixed inset-0 z-[100] bg-background flex flex-col">
@@ -1356,6 +1516,16 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
                 {/* Main Canvas Area */}
                 <div ref={canvasWorkspaceRef} className="flex-1 flex relative bg-muted/10 h-full overflow-hidden">
+                    {isLayersPanelOpen && isLayersDocked && layersPanelDockSide === 'left' && (
+                        <div
+                            className="relative z-40 h-full py-2 pl-2 pr-0 flex-shrink-0 border-r bg-background/60"
+                            style={{ width: layersPanelSizing.width + LAYERS_PANEL_DOCK_GUTTER }}
+                        >
+                            <div style={{ width: layersPanelSizing.width, height: layersPanelHeight }}>
+                                {layersPanelNode}
+                            </div>
+                        </div>
+                    )}
 
 
                     {/* Canvas */}
@@ -1581,29 +1751,33 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             </Button>
                         </div>
 
-                        {isLayersPanelOpen && (
+                        {isLayersPanelOpen && !isLayersDocked && (
                             <div
                                 ref={floatingLayersRef}
-                                className="absolute z-40 w-72 h-[420px]"
+                                className="absolute z-40"
                                 style={{
                                     left: layersPanelPosition.x,
-                                    top: layersPanelPosition.y
+                                    top: layersPanelTop,
+                                    width: layersPanelSizing.width,
+                                    maxWidth: `calc(100% - ${LAYERS_PANEL_SAFE_MARGIN * 2}px)`,
+                                    height: layersPanelHeight
                                 }}
                             >
-                                <LayersPanel
-                                    vectorObjects={vectorObjects}
-                                    selectedIndices={selectedShapeIndices}
-                                    leaderIndex={selectedShapeIndices.length > 0 ? selectedShapeIndices[0] : null}
-                                    onSelect={setSelectedShapeIndices}
-                                    onDelete={handleDeleteObject}
-                                    onReorder={handleReorderObjects}
-                                    onResetRotation={handleResetObjectRotation}
-                                    onClose={() => setIsLayersPanelOpen(false)}
-                                    onDragStart={handleStartDragLayersPanel}
-                                />
+                                {layersPanelNode}
                             </div>
                         )}
                     </div>
+
+                    {isLayersPanelOpen && isLayersDocked && layersPanelDockSide === 'right' && (
+                        <div
+                            className="relative z-40 h-full py-2 pr-2 pl-0 flex-shrink-0 border-l bg-background/60"
+                            style={{ width: layersPanelSizing.width + LAYERS_PANEL_DOCK_GUTTER }}
+                        >
+                            <div style={{ width: layersPanelSizing.width, height: layersPanelHeight }}>
+                                {layersPanelNode}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Right Sidebar */}
