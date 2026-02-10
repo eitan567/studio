@@ -1,6 +1,6 @@
 import { Point } from '@/lib/advanced-layout-types';
 
-export type GridDesignerMode = 'move' | 'delete' | 'add-horizontal' | 'add-vertical';
+export type GridDesignerMode = 'none' | 'move' | 'delete' | 'add-horizontal' | 'add-vertical';
 
 export type GridDesignerSegment = {
     id: string;

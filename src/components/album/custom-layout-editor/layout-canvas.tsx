@@ -99,7 +99,7 @@ export const LayoutCanvas = ({
     onSelectionChange,
     showGuides = false,
     gridDesignerEnabled = false,
-    gridDesignerMode = 'move',
+    gridDesignerMode = 'none',
     gridDesignerSegments = [],
     onGridDesignerSegmentsChange
 }: LayoutCanvasProps) => {
@@ -162,6 +162,11 @@ export const LayoutCanvas = ({
     const CIRCLE_SNAP_THRESHOLD_RATIO = 0.025; // Relative tolerance for larger circles.
     const GRID_SEGMENT_HIT_TOLERANCE = 1.4;
     const GRID_SNAP_STEP = 0.5;
+    const GRID_LINE_SNAP_PIXELS = 5;
+    const GRID_LINE_SNAP_THRESHOLD_UNITS = (GRID_LINE_SNAP_PIXELS / Math.max(1, activeCanvasHeight)) * 100;
+    const GRID_KEYBOARD_NUDGE_UNITS = 100 / Math.max(1, activeCanvasHeight);
+    const GRID_KEYBOARD_NUDGE_FAST_UNITS = GRID_KEYBOARD_NUDGE_UNITS * 10;
+    const GRID_LINE_ENDPOINT_EPSILON = 1e-4;
 
     // --- STATE ---
     const [scale, setScale] = useState(1);
@@ -770,7 +775,163 @@ export const LayoutCanvas = ({
         return [x, y] as Point;
     };
 
+    const clampValue = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
     const snapGridValue = (value: number): number => Math.round(value / GRID_SNAP_STEP) * GRID_SNAP_STEP;
+
+    const snapToNearestGuide = useCallback((value: number, candidates: number[]): number => {
+        let snapped = value;
+        let bestDistance = Infinity;
+        for (const candidate of candidates) {
+            const distanceToCandidate = Math.abs(candidate - value);
+            if (distanceToCandidate <= GRID_LINE_SNAP_THRESHOLD_UNITS && distanceToCandidate < bestDistance) {
+                bestDistance = distanceToCandidate;
+                snapped = candidate;
+            }
+        }
+        return snapped;
+    }, [GRID_LINE_SNAP_THRESHOLD_UNITS]);
+
+    const collectCrossingVerticalGuides = useCallback((segments: GridDesignerSegment[], y: number, excludeId: string): number[] => {
+        return segments
+            .filter((segment) => segment.active && segment.orientation === 'vertical' && segment.id !== excludeId)
+            .filter((segment) => {
+                const minY = Math.min(segment.p1[1], segment.p2[1]);
+                const maxY = Math.max(segment.p1[1], segment.p2[1]);
+                return y >= minY - GRID_LINE_ENDPOINT_EPSILON && y <= maxY + GRID_LINE_ENDPOINT_EPSILON;
+            })
+            .map((segment) => segment.p1[0])
+            .sort((a, b) => a - b);
+    }, [GRID_LINE_ENDPOINT_EPSILON]);
+
+    const collectCrossingHorizontalGuides = useCallback((segments: GridDesignerSegment[], x: number, excludeId: string): number[] => {
+        return segments
+            .filter((segment) => segment.active && segment.orientation === 'horizontal' && segment.id !== excludeId)
+            .filter((segment) => {
+                const minX = Math.min(segment.p1[0], segment.p2[0]);
+                const maxX = Math.max(segment.p1[0], segment.p2[0]);
+                return x >= minX - GRID_LINE_ENDPOINT_EPSILON && x <= maxX + GRID_LINE_ENDPOINT_EPSILON;
+            })
+            .map((segment) => segment.p1[1])
+            .sort((a, b) => a - b);
+    }, [GRID_LINE_ENDPOINT_EPSILON]);
+
+    const resolveHorizontalSpanAtY = useCallback((segments: GridDesignerSegment[], segment: GridDesignerSegment, y: number): [number, number] => {
+        const guides = collectCrossingVerticalGuides(segments, y, segment.id);
+        const minX = Math.min(segment.p1[0], segment.p2[0]);
+        const maxX = Math.max(segment.p1[0], segment.p2[0]);
+        const midX = (minX + maxX) / 2;
+
+        let left = 0;
+        let right = logicalWidthUnits;
+
+        for (const x of guides) {
+            if (x <= midX + GRID_LINE_ENDPOINT_EPSILON) {
+                left = Math.max(left, x);
+            }
+            if (x >= midX - GRID_LINE_ENDPOINT_EPSILON) {
+                right = x;
+                break;
+            }
+        }
+
+        if (right - left <= GRID_LINE_ENDPOINT_EPSILON) {
+            const leftByExtent = [...guides].reverse().find((x) => x <= minX + GRID_LINE_ENDPOINT_EPSILON);
+            const rightByExtent = guides.find((x) => x >= maxX - GRID_LINE_ENDPOINT_EPSILON);
+            left = leftByExtent ?? 0;
+            right = rightByExtent ?? logicalWidthUnits;
+        }
+
+        if (right - left <= GRID_LINE_ENDPOINT_EPSILON) {
+            left = clampValue(minX, 0, logicalWidthUnits);
+            right = clampValue(maxX, 0, logicalWidthUnits);
+            if (right - left <= GRID_LINE_ENDPOINT_EPSILON) {
+                right = clampValue(left + GRID_KEYBOARD_NUDGE_UNITS, 0, logicalWidthUnits);
+            }
+        }
+
+        return [left, right];
+    }, [collectCrossingVerticalGuides, logicalWidthUnits, GRID_LINE_ENDPOINT_EPSILON, GRID_KEYBOARD_NUDGE_UNITS]);
+
+    const resolveVerticalSpanAtX = useCallback((segments: GridDesignerSegment[], segment: GridDesignerSegment, x: number): [number, number] => {
+        const guides = collectCrossingHorizontalGuides(segments, x, segment.id);
+        const minY = Math.min(segment.p1[1], segment.p2[1]);
+        const maxY = Math.max(segment.p1[1], segment.p2[1]);
+        const midY = (minY + maxY) / 2;
+
+        let top = 0;
+        let bottom = 100;
+
+        for (const y of guides) {
+            if (y <= midY + GRID_LINE_ENDPOINT_EPSILON) {
+                top = Math.max(top, y);
+            }
+            if (y >= midY - GRID_LINE_ENDPOINT_EPSILON) {
+                bottom = y;
+                break;
+            }
+        }
+
+        if (bottom - top <= GRID_LINE_ENDPOINT_EPSILON) {
+            const topByExtent = [...guides].reverse().find((y) => y <= minY + GRID_LINE_ENDPOINT_EPSILON);
+            const bottomByExtent = guides.find((y) => y >= maxY - GRID_LINE_ENDPOINT_EPSILON);
+            top = topByExtent ?? 0;
+            bottom = bottomByExtent ?? 100;
+        }
+
+        if (bottom - top <= GRID_LINE_ENDPOINT_EPSILON) {
+            top = clampValue(minY, 0, 100);
+            bottom = clampValue(maxY, 0, 100);
+            if (bottom - top <= GRID_LINE_ENDPOINT_EPSILON) {
+                bottom = clampValue(top + GRID_KEYBOARD_NUDGE_UNITS, 0, 100);
+            }
+        }
+
+        return [top, bottom];
+    }, [collectCrossingHorizontalGuides, GRID_LINE_ENDPOINT_EPSILON, GRID_KEYBOARD_NUDGE_UNITS]);
+
+    const updateGridSegmentCoordinate = useCallback((segments: GridDesignerSegment[], segmentId: string, rawCoordinate: number): GridDesignerSegment[] => {
+        const target = segments.find((segment) => segment.id === segmentId && segment.active);
+        if (!target) return segments;
+
+        if (target.orientation === 'horizontal') {
+            const unclampedY = clampValue(rawCoordinate, 0, 100);
+            const snapCandidates = [
+                0,
+                100,
+                ...segments
+                    .filter((segment) => segment.active && segment.orientation === 'horizontal' && segment.id !== segmentId)
+                    .map((segment) => segment.p1[1])
+            ];
+            const snappedY = clampValue(snapToNearestGuide(unclampedY, snapCandidates), 0, 100);
+            const [x1, x2] = resolveHorizontalSpanAtY(segments, target, snappedY);
+            const left = Math.min(x1, x2);
+            const right = Math.max(x1, x2);
+            return segments.map((segment) =>
+                segment.id === segmentId
+                    ? { ...segment, p1: [left, snappedY], p2: [right, snappedY] }
+                    : segment
+            );
+        }
+
+        const unclampedX = clampValue(rawCoordinate, 0, logicalWidthUnits);
+        const snapCandidates = [
+            0,
+            logicalWidthUnits,
+            ...segments
+                .filter((segment) => segment.active && segment.orientation === 'vertical' && segment.id !== segmentId)
+                .map((segment) => segment.p1[0])
+        ];
+        const snappedX = clampValue(snapToNearestGuide(unclampedX, snapCandidates), 0, logicalWidthUnits);
+        const [y1, y2] = resolveVerticalSpanAtX(segments, target, snappedX);
+        const top = Math.min(y1, y2);
+        const bottom = Math.max(y1, y2);
+
+        return segments.map((segment) =>
+            segment.id === segmentId
+                ? { ...segment, p1: [snappedX, top], p2: [snappedX, bottom] }
+                : segment
+        );
+    }, [logicalWidthUnits, resolveHorizontalSpanAtY, resolveVerticalSpanAtX, snapToNearestGuide]);
 
     const findNearestGridSegment = useCallback((point: Point): GridDesignerSegment | null => {
         let nearest: GridDesignerSegment | null = null;
@@ -874,27 +1035,12 @@ export const LayoutCanvas = ({
             const drag = gridDragRef.current;
             const original = drag.originalSegment;
 
-            if (original.orientation === 'horizontal') {
-                const deltaY = point[1] - drag.startPoint[1];
-                const nextY = Math.max(0, Math.min(100, snapGridValue(original.p1[1] + deltaY)));
-                onGridDesignerSegmentsChange(
-                    gridDesignerSegments.map((segment) =>
-                        segment.id === drag.segmentId
-                            ? { ...segment, p1: [segment.p1[0], nextY], p2: [segment.p2[0], nextY] }
-                            : segment
-                    )
-                );
-            } else {
-                const deltaX = point[0] - drag.startPoint[0];
-                const nextX = Math.max(0, Math.min(logicalWidthUnits, snapGridValue(original.p1[0] + deltaX)));
-                onGridDesignerSegmentsChange(
-                    gridDesignerSegments.map((segment) =>
-                        segment.id === drag.segmentId
-                            ? { ...segment, p1: [nextX, segment.p1[1]], p2: [nextX, segment.p2[1]] }
-                            : segment
-                    )
-                );
-            }
+            const proposedCoordinate = original.orientation === 'horizontal'
+                ? original.p1[1] + (point[1] - drag.startPoint[1])
+                : original.p1[0] + (point[0] - drag.startPoint[0]);
+            onGridDesignerSegmentsChange(
+                updateGridSegmentCoordinate(gridDesignerSegments, drag.segmentId, proposedCoordinate)
+            );
             return;
         }
 
@@ -905,7 +1051,7 @@ export const LayoutCanvas = ({
         onGridDesignerSegmentsChange,
         gridDesignerMode,
         gridDesignerSegments,
-        logicalWidthUnits,
+        updateGridSegmentCoordinate,
         findNearestGridSegment
     ]);
 
@@ -1834,12 +1980,48 @@ export const LayoutCanvas = ({
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (toolMode !== 'select' || !onUpdateVectorObjects) return;
+            if (toolMode !== 'select') return;
 
             // Ignore if user is typing in an input
             if (document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement) {
                 return;
             }
+
+            if (
+                ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) &&
+                gridDesignerEnabled &&
+                gridDesignerMode === 'move' &&
+                gridSelectedSegmentId &&
+                onGridDesignerSegmentsChange
+            ) {
+                const selectedSegment = gridDesignerSegments.find(
+                    (segment) => segment.id === gridSelectedSegmentId && segment.active
+                );
+                if (!selectedSegment) return;
+
+                const nudgeStep = e.shiftKey ? GRID_KEYBOARD_NUDGE_FAST_UNITS : GRID_KEYBOARD_NUDGE_UNITS;
+                e.preventDefault();
+
+                if (selectedSegment.orientation === 'horizontal') {
+                    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+                    const deltaY = e.key === 'ArrowUp' ? -nudgeStep : nudgeStep;
+                    const nextY = selectedSegment.p1[1] + deltaY;
+                    onGridDesignerSegmentsChange(
+                        updateGridSegmentCoordinate(gridDesignerSegments, selectedSegment.id, nextY)
+                    );
+                    return;
+                }
+
+                if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+                const deltaX = e.key === 'ArrowLeft' ? -nudgeStep : nudgeStep;
+                const nextX = selectedSegment.p1[0] + deltaX;
+                onGridDesignerSegmentsChange(
+                    updateGridSegmentCoordinate(gridDesignerSegments, selectedSegment.id, nextX)
+                );
+                return;
+            }
+
+            if (!onUpdateVectorObjects) return;
 
             if (e.key === 'Delete' || e.key === 'Backspace') {
                 e.preventDefault();
@@ -1884,7 +2066,21 @@ export const LayoutCanvas = ({
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [toolMode, selectedShapeIndices, vectorObjects, onUpdateVectorObjects, onSelectionChange]);
+    }, [
+        toolMode,
+        selectedShapeIndices,
+        vectorObjects,
+        onUpdateVectorObjects,
+        onSelectionChange,
+        gridDesignerEnabled,
+        gridDesignerMode,
+        gridSelectedSegmentId,
+        gridDesignerSegments,
+        onGridDesignerSegmentsChange,
+        updateGridSegmentCoordinate,
+        GRID_KEYBOARD_NUDGE_UNITS,
+        GRID_KEYBOARD_NUDGE_FAST_UNITS
+    ]);
 
     // Derived state for rendering
     const primaryShapeIndex = selectedShapeIndices.length > 0 ? selectedShapeIndices[0] : null;
@@ -1892,6 +2088,7 @@ export const LayoutCanvas = ({
     const hasMultiSelection = selectedShapeIndices.length > 1;
     const hasSingleSelection = selectedShapeIndices.length === 1;
     const leaderIndex = selectedShapeIndices.length > 0 ? selectedShapeIndices[0] : null;
+    const isGridOverlayInteractive = gridDesignerEnabled && toolMode === 'select' && gridDesignerMode !== 'none';
 
     return (
         <div ref={wrapperRef} className="w-full h-full bg-muted/20 overflow-hidden relative flex items-center justify-center select-none">
@@ -2358,11 +2555,15 @@ export const LayoutCanvas = ({
                             <div
                                 className={cn(
                                     "absolute z-40",
-                                    gridDesignerMode === 'move'
-                                        ? "cursor-move"
-                                        : gridDesignerMode === 'delete'
-                                            ? "cursor-not-allowed"
-                                            : "cursor-copy"
+                                    isGridOverlayInteractive
+                                        ? (
+                                            gridDesignerMode === 'move'
+                                                ? "cursor-move"
+                                                : gridDesignerMode === 'delete'
+                                                    ? "cursor-not-allowed"
+                                                    : "cursor-copy"
+                                        )
+                                        : "pointer-events-none"
                                 )}
                                 style={{
                                     left: activeCanvasLeft,
@@ -2370,10 +2571,10 @@ export const LayoutCanvas = ({
                                     width: activeCanvasWidth,
                                     height: activeCanvasHeight
                                 }}
-                                onMouseDown={handleGridOverlayMouseDown}
-                                onMouseMove={handleGridOverlayMouseMove}
-                                onMouseUp={handleGridOverlayMouseUp}
-                                onMouseLeave={handleGridOverlayMouseUp}
+                                onMouseDown={isGridOverlayInteractive ? handleGridOverlayMouseDown : undefined}
+                                onMouseMove={isGridOverlayInteractive ? handleGridOverlayMouseMove : undefined}
+                                onMouseUp={isGridOverlayInteractive ? handleGridOverlayMouseUp : undefined}
+                                onMouseLeave={isGridOverlayInteractive ? handleGridOverlayMouseUp : undefined}
                             >
                                 <svg
                                     className="absolute inset-0 w-full h-full"
@@ -2425,7 +2626,7 @@ export const LayoutCanvas = ({
                         )}
 
                         {/* Selection Handles (Leader shape when selected) */}
-                        {!gridDesignerEnabled && primaryShape && (
+                        {!isGridOverlayInteractive && primaryShape && (
                             <svg
                                 className="absolute z-50 overflow-visible"
                                 style={{

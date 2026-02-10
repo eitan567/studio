@@ -265,9 +265,9 @@ const parseEditorGridSnapshot = (value: unknown): EditorGridSnapshot | null => {
     const cols = typeof raw.cols === 'number' ? Math.max(1, Math.min(12, Math.floor(raw.cols))) : 4;
     const modeRaw = raw.mode;
     const mode: GridDesignerMode =
-        modeRaw === 'move' || modeRaw === 'delete' || modeRaw === 'add-horizontal' || modeRaw === 'add-vertical'
+        modeRaw === 'none' || modeRaw === 'move' || modeRaw === 'delete' || modeRaw === 'add-horizontal' || modeRaw === 'add-vertical'
             ? modeRaw
-            : 'move';
+            : 'none';
 
     if (!Array.isArray(raw.segments)) return null;
 
@@ -299,6 +299,24 @@ const parseEditorGridSnapshot = (value: unknown): EditorGridSnapshot | null => {
 
     if (segments.length === 0) return null;
     return { rows, cols, mode, segments };
+};
+
+const GRID_EDITOR_SEGMENT_EPSILON = 1e-4;
+
+const isSamePoint = (a: Point, b: Point, epsilon: number = GRID_EDITOR_SEGMENT_EPSILON): boolean =>
+    Math.abs(a[0] - b[0]) <= epsilon && Math.abs(a[1] - b[1]) <= epsilon;
+
+const isSegmentEquivalent = (a: Segment, b: Segment): boolean =>
+    (isSamePoint(a.p1, b.p1) && isSamePoint(a.p2, b.p2)) ||
+    (isSamePoint(a.p1, b.p2) && isSamePoint(a.p2, b.p1));
+
+const isGridGeneratedLineObject = (obj: VectorObject, gridSegments: GridDesignerSegment[]): boolean => {
+    if (obj.type !== 'line') return false;
+    if (!obj.segments || obj.segments.length !== 1) return false;
+    const objSegment = obj.segments[0];
+    return gridSegments.some((gridSegment) =>
+        isSegmentEquivalent(objSegment, { p1: gridSegment.p1, p2: gridSegment.p2 })
+    );
 };
 
 const getLayerObjectDisplayName = (obj: VectorObject, index: number) => {
@@ -411,7 +429,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const [isGridDesignerEnabled, setIsGridDesignerEnabled] = useState(false);
     const [gridRows, setGridRows] = useState(3);
     const [gridCols, setGridCols] = useState(4);
-    const [gridDesignerMode, setGridDesignerMode] = useState<GridDesignerMode>('move');
+    const [gridDesignerMode, setGridDesignerMode] = useState<GridDesignerMode>('none');
     const [gridDesignerSegments, setGridDesignerSegments] = useState<GridDesignerSegment[]>([]);
     const canvasWorkspaceRef = useRef<HTMLDivElement>(null);
     const floatingLayersRef = useRef<HTMLDivElement>(null);
@@ -554,6 +572,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         setGridCols(cols);
         setGridDesignerSegments(createGridSegments(rows, cols));
         setIsGridDesignerEnabled(true);
+        setGridDesignerMode('none');
         setToolMode('select');
         setSelectedShapeIndices([]);
     }, [createGridSegments, gridRows, gridCols]);
@@ -687,6 +706,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         const descriptionData = parseTemplateDescriptionObject(template.description);
         const gridSnapshot = parseEditorGridSnapshot(descriptionData._editorGrid);
 
+        const editorSnapshot = cloneVectorObjects(template._editorObjects);
+
         // Only load editable data for editing mode
         if (isEdit) {
             if (gridSnapshot) {
@@ -698,12 +719,14 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 setIsGridDesignerEnabled(true);
                 setToolMode('select');
                 setSelectedShapeIndices([]);
-                setVectorObjects([]);
+                const cleanedEditorSnapshot = editorSnapshot.filter(
+                    (obj) => !isGridGeneratedLineObject(obj, gridSnapshot.segments)
+                );
+                setVectorObjects(cleanedEditorSnapshot);
             } else {
                 setGridDesignerSegments([]);
                 setIsGridDesignerEnabled(false);
 
-                const editorSnapshot = cloneVectorObjects(template._editorObjects);
                 if (editorSnapshot.length > 0) {
                     setVectorObjects(editorSnapshot);
                 } else {
@@ -1411,7 +1434,11 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         window.addEventListener('pointerup', onPointerUp);
     }, [isLayersPanelDockLocked, layersPanelPosition]);
 
-    const processObjectsToTemplate = useCallback((objectsToProcess: VectorObject[], gridSnapshot?: EditorGridSnapshot | null) => {
+    const processObjectsToTemplate = useCallback((
+        objectsToProcess: VectorObject[],
+        gridSnapshot?: EditorGridSnapshot | null,
+        editorObjectsForSnapshot?: VectorObject[]
+    ) => {
         if (objectsToProcess.length === 0) return;
 
         // Calculate aspect ratio to pass to geometry engine
@@ -1547,6 +1574,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
         const nextType = spreadMode === 'full' ? 'spread' : 'single';
         const existingDescription = parseTemplateDescriptionObject(targetTemplate.description);
+        const editorObjectsSnapshot = editorObjectsForSnapshot ?? objectsToProcess;
+
         const descriptionPayload: Record<string, unknown> = {
             ...existingDescription,
             _pageMargin: pageMargin,
@@ -1554,7 +1583,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             type: nextType,
             _editorVersion: 1,
             _editorSpreadMode: spreadMode,
-            _editorObjects: cloneVectorObjects(objectsToProcess)
+            _editorObjects: cloneVectorObjects(editorObjectsSnapshot)
         };
 
         if (gridSnapshot && gridSnapshot.segments.length > 0) {
@@ -1581,7 +1610,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             _photoGap: photoGap,
             _editorVersion: 1,
             _editorSpreadMode: spreadMode,
-            _editorObjects: cloneVectorObjects(objectsToProcess),
+            _editorObjects: cloneVectorObjects(editorObjectsSnapshot),
             description: JSON.stringify(descriptionPayload)
         };
 
@@ -1623,9 +1652,12 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 mode: gridDesignerMode,
                 segments: cloneGridDesignerSegments(gridDesignerSegments)
             };
-            processObjectsToTemplate(gridObjects, gridSnapshot);
+            const combinedObjects = [...vectorObjects, ...gridObjects];
+            processObjectsToTemplate(combinedObjects, gridSnapshot, vectorObjects);
+            setVectorObjects([]);
             setGridDesignerSegments([]);
             setIsGridDesignerEnabled(false);
+            setGridDesignerMode('none');
             setToolMode('select');
             setSelectedShapeIndices([]);
             return;
@@ -1793,7 +1825,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             gridDesignerMode={gridDesignerMode}
                             onGridModeChange={(mode) => {
                                 setIsGridDesignerEnabled(true);
-                                setGridDesignerMode(mode);
+                                setGridDesignerMode((prev) => (prev === mode ? 'none' : mode));
                                 setToolMode('select');
                             }}
                             hasGridSegments={activeGridSegments.length > 0}
