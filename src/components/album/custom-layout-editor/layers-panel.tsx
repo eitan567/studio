@@ -18,6 +18,7 @@ interface LayersPanelProps {
     isDocked?: boolean;
     isDockLocked?: boolean;
     onToggleDockLock?: () => void;
+    onCollapsedLayersChange?: (collapsedLayers: Record<number, boolean>) => void;
     contentScrollable?: boolean;
     className?: string;
 }
@@ -35,6 +36,7 @@ export const LayersPanel = ({
     isDocked = false,
     isDockLocked = false,
     onToggleDockLock,
+    onCollapsedLayersChange,
     contentScrollable = true,
     className
 }: LayersPanelProps) => {
@@ -77,6 +79,10 @@ export const LayersPanel = ({
         });
     }, [layers]);
 
+    React.useEffect(() => {
+        onCollapsedLayersChange?.(collapsedLayers);
+    }, [collapsedLayers, onCollapsedLayersChange]);
+
     const collapseAll = () => {
         const next: Record<number, boolean> = {};
         layers.forEach((layer) => { next[layer.z] = true; });
@@ -94,7 +100,7 @@ export const LayersPanel = ({
     };
 
     const listContent = (
-        <div className="p-2 space-y-4">
+        <div className="p-2 pb-2 space-y-4">
             {layers.length === 0 && (
                 <div className="text-center py-8 text-xs text-muted-foreground">
                     No objects
@@ -140,7 +146,7 @@ export const LayersPanel = ({
                                             </div>
 
                                             <div className="flex-1 min-w-0 flex items-center gap-1.5">
-                                                <span className="truncate text-xs font-medium">
+                                                <span className="whitespace-nowrap text-xs font-medium">
                                                     {getName(item.obj, item.originalIndex)}
                                                 </span>
                                                 {isLeader && (
@@ -222,9 +228,38 @@ export const LayersPanel = ({
                 onPointerDown={onDragStart}
             >
                 <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Layers</span>
-                    <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-muted-foreground">{vectorObjects.length} objects</span>
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Layers</span>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                expandAll();
+                            }}
+                            title="Expand All Layers"
+                        >
+                            <ChevronsDown className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                collapseAll();
+                            }}
+                            title="Collapse All Layers"
+                        >
+                            <ChevronsUp className="h-3.5 w-3.5" />
+                        </Button>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">{vectorObjects.length} objects</span>
                         {isDocked && onToggleDockLock && (
                             <Button
                                 variant="ghost"
@@ -257,46 +292,23 @@ export const LayersPanel = ({
                         )}
                     </div>
                 </div>
-
-                <div className="mt-2 flex items-center gap-1">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            expandAll();
-                        }}
-                        title="Expand All Layers"
-                    >
-                        <ChevronsDown className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            collapseAll();
-                        }}
-                        title="Collapse All Layers"
-                    >
-                        <ChevronsUp className="h-3.5 w-3.5" />
-                    </Button>
-                </div>
             </div>
 
             {contentScrollable ? (
-                <ScrollArea className="flex-1">
+                <ScrollArea className="flex-1 min-h-0">
                     {listContent}
                 </ScrollArea>
             ) : (
-                <div className="flex-1 overflow-hidden">
+                <div className="flex-1 min-h-0 overflow-hidden">
                     {listContent}
                 </div>
             )}
+
+            <div className="px-3 py-2 border-t bg-muted/10">
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                    Total layers: {layers.length}
+                </span>
+            </div>
         </div>
     );
 };

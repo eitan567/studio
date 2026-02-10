@@ -258,7 +258,6 @@ type LayersDockSide = 'left' | 'right' | null;
 const LAYERS_PANEL_SAFE_MARGIN = 8;
 const LAYERS_PANEL_DOCK_THRESHOLD = 26;
 const LAYERS_PANEL_MIN_HEIGHT = 96;
-const LAYERS_PANEL_MAX_HEIGHT = 420;
 const LAYERS_PANEL_DOCK_GUTTER = 8;
 
 export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, onAddTemplate }: CustomLayoutEditorOverlayProps) => {
@@ -348,6 +347,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const [layersPanelPosition, setLayersPanelPosition] = useState({ x: 24, y: 24 });
     const [layersPanelDockSide, setLayersPanelDockSide] = useState<LayersDockSide>(null);
     const [isLayersPanelDockLocked, setIsLayersPanelDockLocked] = useState(false);
+    const [layersPanelCollapsedState, setLayersPanelCollapsedState] = useState<Record<number, boolean>>({});
     const [workspaceSize, setWorkspaceSize] = useState({ width: 0, height: 0 });
     const [isLeaderGroupRotateEnabled, setIsLeaderGroupRotateEnabled] = useState(false);
     const [isLeaderGroupResizeEnabled, setIsLeaderGroupResizeEnabled] = useState(false);
@@ -376,44 +376,70 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     }, [config?.size, spreadMode]);
 
     const layersPanelSizing = useMemo(() => {
-        const zSet = new Set<number>();
+        const layerItemCounts = new Map<number, number>();
         let maxNameChars = 0;
         let maxLayerChars = 0;
 
         vectorObjects.forEach((obj, index) => {
             const z = obj.zIndex ?? 0;
-            zSet.add(z);
+            layerItemCounts.set(z, (layerItemCounts.get(z) ?? 0) + 1);
             maxNameChars = Math.max(maxNameChars, getLayerObjectDisplayName(obj, index).length);
             maxLayerChars = Math.max(maxLayerChars, `Layer ${z}`.length);
         });
 
-        const layerCount = zSet.size;
-        const itemCount = vectorObjects.length;
+        const layerEntries = Array.from(layerItemCounts.entries());
+        const layerCount = layerEntries.length;
         const layerHeaderHeight = 24;
-        const itemRowHeight = 32;
+        const itemRowHeight = 34;
+        const itemRowGap = 2;
+        const layerHeaderItemsGap = 4;
         const groupGap = 14;
         const contentPadding = 24;
-        // Header now includes title row + expand/collapse row
-        const headerHeight = 78;
+        // Header is a single row (title + controls + count)
+        const headerHeight = 56;
+        const footerHeight = 34;
         // Empty-state block includes container padding + message line
         const emptyStateHeight = 96;
 
-        const listHeight = itemCount === 0
+        const expandedContentHeight = layerEntries.reduce((sum, [z, count]) => {
+            if (layersPanelCollapsedState[z]) return sum;
+            if (count <= 0) return sum;
+            const itemGaps = Math.max(0, count - 1) * itemRowGap;
+            return sum + layerHeaderItemsGap + (count * itemRowHeight) + itemGaps;
+        }, 0);
+
+        const listHeight = layerCount === 0
             ? emptyStateHeight
-            : (layerCount * layerHeaderHeight) + (itemCount * itemRowHeight) + (Math.max(0, layerCount - 1) * groupGap) + contentPadding;
+            : (layerCount * layerHeaderHeight)
+                + expandedContentHeight
+                + (Math.max(0, layerCount - 1) * groupGap)
+                + contentPadding;
 
-        const naturalHeight = Math.max(LAYERS_PANEL_MIN_HEIGHT, headerHeight + listHeight);
-        const maxNaturalHeight = Math.min(naturalHeight, LAYERS_PANEL_MAX_HEIGHT);
+        const naturalHeight = Math.max(LAYERS_PANEL_MIN_HEIGHT, headerHeight + listHeight + footerHeight);
 
-        const widthByText = 190 + (Math.max(maxNameChars, maxLayerChars) * 7);
-        const width = Math.max(220, Math.min(460, widthByText));
+        const objectsCountLabelChars = `${vectorObjects.length} objects`.length;
+        const headerWidth = 160 + (objectsCountLabelChars * 6);
+        const layerHeaderWidth = 112 + (maxLayerChars * 7);
+        const itemRowWidth = 150 + (maxNameChars * 7);
+        const widthByText = Math.max(headerWidth, layerHeaderWidth, itemRowWidth);
+        const width = Math.max(230, Math.min(380, Math.ceil(widthByText)));
 
         return {
             width,
-            naturalHeight,
-            maxNaturalHeight
+            naturalHeight
         };
-    }, [vectorObjects]);
+    }, [vectorObjects, layersPanelCollapsedState]);
+
+    const handleLayersCollapsedChange = useCallback((next: Record<number, boolean>) => {
+        setLayersPanelCollapsedState((prev) => {
+            const prevKeys = Object.keys(prev);
+            const nextKeys = Object.keys(next);
+            if (prevKeys.length === nextKeys.length && nextKeys.every((k) => prev[Number(k)] === next[Number(k)])) {
+                return prev;
+            }
+            return next;
+        });
+    }, []);
 
     useEffect(() => {
         const workspace = canvasWorkspaceRef.current;
@@ -1423,11 +1449,11 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         LAYERS_PANEL_MIN_HEIGHT,
         workspaceSize.height > 0
             ? (workspaceSize.height - layersPanelTop - LAYERS_PANEL_SAFE_MARGIN)
-            : LAYERS_PANEL_MAX_HEIGHT
+            : layersPanelSizing.naturalHeight
     );
     const floatingPanelHeight = Math.max(
         LAYERS_PANEL_MIN_HEIGHT,
-        Math.min(layersPanelSizing.maxNaturalHeight, floatingAvailableHeight)
+        Math.min(layersPanelSizing.naturalHeight, floatingAvailableHeight)
     );
     const layersPanelHeight = isLayersDocked
         ? '100%'
@@ -1436,10 +1462,10 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         LAYERS_PANEL_MIN_HEIGHT,
         workspaceSize.height > 0
             ? (workspaceSize.height - (LAYERS_PANEL_SAFE_MARGIN * 2))
-            : LAYERS_PANEL_MAX_HEIGHT
+            : layersPanelSizing.naturalHeight
     );
     const effectivePanelHeight = isLayersDocked ? dockedAvailableHeight : floatingPanelHeight;
-    const layersPanelContentScrollable = layersPanelSizing.naturalHeight > effectivePanelHeight;
+    const layersPanelContentScrollable = layersPanelSizing.naturalHeight > (effectivePanelHeight + 1);
     const layersPanelNode = (
         <LayersPanel
             vectorObjects={vectorObjects}
@@ -1454,6 +1480,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             isDocked={layersPanelDockSide !== null}
             isDockLocked={isLayersPanelDockLocked}
             onToggleDockLock={handleToggleLayersDockLock}
+            onCollapsedLayersChange={handleLayersCollapsedChange}
             contentScrollable={layersPanelContentScrollable}
         />
     );
