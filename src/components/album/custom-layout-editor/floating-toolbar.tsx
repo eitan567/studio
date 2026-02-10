@@ -2,10 +2,27 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Pencil, Square, Circle, Trash2, FlipHorizontal, X, MousePointer2, BookOpen, Ruler, Play, Layers } from 'lucide-react';
+import {
+    Pencil,
+    Square,
+    Circle,
+    Trash2,
+    FlipHorizontal,
+    X,
+    MousePointer2,
+    BookOpen,
+    Ruler,
+    Play,
+    Layers,
+    AlignHorizontalJustifyCenter,
+    AlignVerticalJustifyCenter,
+    Layout,
+    Maximize
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ToolMode } from './custom-layout-editor-overlay';
 import { Separator } from '@/components/ui/separator';
+import { GridDesignerMode } from './grid-designer-types';
 
 // Interface
 interface FloatingToolbarProps {
@@ -27,6 +44,16 @@ interface FloatingToolbarProps {
     onToggleGuides: () => void;
     isLayersPanelOpen: boolean;
     onToggleLayersPanel: () => void;
+    // Grid Designer Controls
+    gridRows: number;
+    onGridRowsChange: (rows: number) => void;
+    gridCols: number;
+    onGridColsChange: (cols: number) => void;
+    onCreateGrid: () => void;
+    gridDesignerEnabled: boolean;
+    gridDesignerMode: GridDesignerMode;
+    onGridModeChange: (mode: GridDesignerMode) => void;
+    hasGridSegments: boolean;
     // Action Controls
     onClearStrokes: () => void;
     onProcessLayout: () => void;
@@ -49,6 +76,15 @@ export const FloatingToolbar = ({
     onToggleGuides,
     isLayersPanelOpen,
     onToggleLayersPanel,
+    gridRows,
+    onGridRowsChange,
+    gridCols,
+    onGridColsChange,
+    onCreateGrid,
+    gridDesignerEnabled,
+    gridDesignerMode,
+    onGridModeChange,
+    hasGridSegments,
     onClearStrokes,
     onProcessLayout
 }: FloatingToolbarProps) => {
@@ -145,6 +181,82 @@ export const FloatingToolbar = ({
                     title={isLayersPanelOpen ? "Hide Layers Panel" : "Show Layers Panel"}
                 >
                     <Layers className="h-4 w-4" />
+                </Button>
+            </div>
+
+            <Separator orientation="vertical" className="h-6" />
+
+            {/* Grid Designer Group */}
+            <div className="flex items-center gap-1">
+                <input
+                    type="number"
+                    min={1}
+                    max={12}
+                    value={gridRows}
+                    onChange={(e) => onGridRowsChange(Math.max(1, Math.min(12, Number(e.target.value) || 1)))}
+                    className="h-8 w-10 rounded-md border border-input bg-background px-1 text-center text-[10px]"
+                    title="Grid rows"
+                />
+                <input
+                    type="number"
+                    min={1}
+                    max={12}
+                    value={gridCols}
+                    onChange={(e) => onGridColsChange(Math.max(1, Math.min(12, Number(e.target.value) || 1)))}
+                    className="h-8 w-10 rounded-md border border-input bg-background px-1 text-center text-[10px]"
+                    title="Grid columns"
+                />
+                <Button
+                    variant="secondary"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={onCreateGrid}
+                    title="Create equal grid"
+                >
+                    <Layout className="h-4 w-4" />
+                </Button>
+
+                <Separator orientation="vertical" className="h-6 mx-1" />
+
+                <Button
+                    variant={gridDesignerEnabled && gridDesignerMode === 'move' ? "secondary" : "ghost"}
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => onGridModeChange('move')}
+                    disabled={!hasGridSegments}
+                    title="Move segments"
+                >
+                    <Maximize className="h-4 w-4" />
+                </Button>
+                <Button
+                    variant={gridDesignerEnabled && gridDesignerMode === 'delete' ? "secondary" : "ghost"}
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => onGridModeChange('delete')}
+                    disabled={!hasGridSegments}
+                    title="Delete segment"
+                >
+                    <Trash2 className="h-4 w-4" />
+                </Button>
+                <Button
+                    variant={gridDesignerEnabled && gridDesignerMode === 'add-horizontal' ? "secondary" : "ghost"}
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => onGridModeChange('add-horizontal')}
+                    disabled={!hasGridSegments}
+                    title="Add horizontal segment inside a cell"
+                >
+                    <AlignVerticalJustifyCenter className="h-4 w-4" />
+                </Button>
+                <Button
+                    variant={gridDesignerEnabled && gridDesignerMode === 'add-vertical' ? "secondary" : "ghost"}
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => onGridModeChange('add-vertical')}
+                    disabled={!hasGridSegments}
+                    title="Add vertical segment inside a cell"
+                >
+                    <AlignHorizontalJustifyCenter className="h-4 w-4" />
                 </Button>
             </div>
 

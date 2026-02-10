@@ -12,12 +12,10 @@ import { Input } from '@/components/ui/input';
 import {
     Check,
     X,
-    Layout,
     BookOpen,
     Book,
     Maximize,
     FolderOpen,
-    Trash2,
     Shield,
     AlignStartVertical,
     AlignCenterVertical,
@@ -1786,6 +1784,19 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             onToggleGuides={() => setShowGuides(!showGuides)}
                             isLayersPanelOpen={isLayersPanelOpen}
                             onToggleLayersPanel={() => setIsLayersPanelOpen(prev => !prev)}
+                            gridRows={gridRows}
+                            onGridRowsChange={setGridRows}
+                            gridCols={gridCols}
+                            onGridColsChange={setGridCols}
+                            onCreateGrid={handleCreateGrid}
+                            gridDesignerEnabled={isGridDesignerEnabled}
+                            gridDesignerMode={gridDesignerMode}
+                            onGridModeChange={(mode) => {
+                                setIsGridDesignerEnabled(true);
+                                setGridDesignerMode(mode);
+                                setToolMode('select');
+                            }}
+                            hasGridSegments={activeGridSegments.length > 0}
                             onClearStrokes={handleClearAll}
                             onProcessLayout={handleProcessLayout}
                         />
@@ -1821,97 +1832,6 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             gridDesignerSegments={gridDesignerSegments}
                             onGridDesignerSegmentsChange={setGridDesignerSegments}
                         />
-
-                        {/* Left Vertical Toolbar (Grid Designer) */}
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 z-30 bg-background/95 backdrop-blur-sm border shadow-md rounded-full p-2 flex flex-col items-center gap-1 pointer-events-auto">
-                            <Input
-                                type="number"
-                                className="h-8 w-8 text-center text-[10px] px-0"
-                                min={1}
-                                max={12}
-                                value={gridRows}
-                                onChange={(e) => setGridRows(Math.max(1, Math.min(12, Number(e.target.value) || 1)))}
-                                title="Rows"
-                            />
-                            <Input
-                                type="number"
-                                className="h-8 w-8 text-center text-[10px] px-0"
-                                min={1}
-                                max={12}
-                                value={gridCols}
-                                onChange={(e) => setGridCols(Math.max(1, Math.min(12, Number(e.target.value) || 1)))}
-                                title="Columns"
-                            />
-                            <Button
-                                variant="secondary"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={handleCreateGrid}
-                                title="Create equal grid"
-                            >
-                                <Layout className="h-4 w-4" />
-                            </Button>
-
-                            <div className="w-6 h-px bg-border/60 my-1" />
-
-                            <Button
-                                variant={isGridDesignerEnabled && gridDesignerMode === 'move' ? "secondary" : "ghost"}
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => {
-                                    setIsGridDesignerEnabled(true);
-                                    setGridDesignerMode('move');
-                                    setToolMode('select');
-                                }}
-                                disabled={activeGridSegments.length === 0}
-                                title="Move segments"
-                            >
-                                <Maximize className="h-4 w-4" />
-                            </Button>
-                            <Button
-                                variant={isGridDesignerEnabled && gridDesignerMode === 'delete' ? "secondary" : "ghost"}
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => {
-                                    setIsGridDesignerEnabled(true);
-                                    setGridDesignerMode('delete');
-                                    setToolMode('select');
-                                }}
-                                disabled={activeGridSegments.length === 0}
-                                title="Delete segment"
-                            >
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
-                            <Button
-                                variant={isGridDesignerEnabled && gridDesignerMode === 'add-horizontal' ? "secondary" : "ghost"}
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => {
-                                    setIsGridDesignerEnabled(true);
-                                    setGridDesignerMode('add-horizontal');
-                                    setToolMode('select');
-                                }}
-                                disabled={activeGridSegments.length === 0}
-                                title="Add horizontal segment inside a cell"
-                            >
-                                <AlignVerticalJustifyCenter className="h-4 w-4" />
-                            </Button>
-                            <Button
-                                variant={isGridDesignerEnabled && gridDesignerMode === 'add-vertical' ? "secondary" : "ghost"}
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => {
-                                    setIsGridDesignerEnabled(true);
-                                    setGridDesignerMode('add-vertical');
-                                    setToolMode('select');
-                                }}
-                                disabled={activeGridSegments.length === 0}
-                                title="Add vertical segment inside a cell"
-                            >
-                                <AlignHorizontalJustifyCenter className="h-4 w-4" />
-                            </Button>
-
-                        </div>
 
                         {/* Right Vertical Toolbar (Selection Alignment/Distribution) */}
                         <div className="absolute right-4 top-1/2 -translate-y-1/2 z-30 bg-background/95 backdrop-blur-sm border shadow-md rounded-full p-2 flex flex-col items-center gap-1 pointer-events-auto">
