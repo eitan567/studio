@@ -219,7 +219,13 @@ export const LayersPanel = ({
     );
 
     return (
-        <div className={cn("flex flex-col h-full w-full bg-background border rounded-lg pointer-events-auto shadow-lg overflow-hidden", className)}>
+        <div
+            className={cn(
+                "flex flex-col h-full w-full bg-background pointer-events-auto overflow-hidden",
+                isDocked ? "border-0 rounded-none shadow-none" : "border rounded-lg shadow-lg",
+                className
+            )}
+        >
             <div
                 className={cn(
                     "p-3 border-b bg-muted/20 select-none",

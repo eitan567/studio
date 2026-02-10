@@ -258,7 +258,6 @@ type LayersDockSide = 'left' | 'right' | null;
 const LAYERS_PANEL_SAFE_MARGIN = 8;
 const LAYERS_PANEL_DOCK_THRESHOLD = 26;
 const LAYERS_PANEL_MIN_HEIGHT = 96;
-const LAYERS_PANEL_DOCK_GUTTER = 8;
 
 export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, onAddTemplate }: CustomLayoutEditorOverlayProps) => {
     const { findGridTemplate, defaultGridTemplate, allTemplates, refresh } = useTemplates();
@@ -1548,10 +1547,10 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 <div ref={canvasWorkspaceRef} className="flex-1 flex relative bg-muted/10 h-full overflow-hidden">
                     {isLayersPanelOpen && isLayersDocked && layersPanelDockSide === 'left' && (
                         <div
-                            className="relative z-[60] h-full py-2 pl-2 pr-0 flex-shrink-0 border-r bg-background/60"
-                            style={{ width: layersPanelSizing.width + LAYERS_PANEL_DOCK_GUTTER }}
+                            className="relative z-[60] h-full flex-shrink-0 border-r bg-background"
+                            style={{ width: layersPanelSizing.width }}
                         >
-                            <div style={{ width: layersPanelSizing.width, height: layersPanelHeight }}>
+                            <div className="h-full w-full" style={{ height: layersPanelHeight }}>
                                 {layersPanelNode}
                             </div>
                         </div>
@@ -1800,10 +1799,10 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
                     {isLayersPanelOpen && isLayersDocked && layersPanelDockSide === 'right' && (
                         <div
-                            className="relative z-[60] h-full py-2 pr-2 pl-0 flex-shrink-0 border-l bg-background/60"
-                            style={{ width: layersPanelSizing.width + LAYERS_PANEL_DOCK_GUTTER }}
+                            className="relative z-[60] h-full flex-shrink-0 border-l bg-background"
+                            style={{ width: layersPanelSizing.width }}
                         >
-                            <div style={{ width: layersPanelSizing.width, height: layersPanelHeight }}>
+                            <div className="h-full w-full" style={{ height: layersPanelHeight }}>
                                 {layersPanelNode}
                             </div>
                         </div>
