@@ -1341,7 +1341,7 @@ export const LayoutCanvas = ({
 
         const selectedZ = selectedShapeIndices.length > 0
             ? (vectorObjects[selectedShapeIndices[0]]?.zIndex ?? 0)
-            : 0;
+            : 1;
 
         const createObject = (type: VectorObject['type'], points: Point[]): VectorObject => {
             const segments: Segment[] = [];

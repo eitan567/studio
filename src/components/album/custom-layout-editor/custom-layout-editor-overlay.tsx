@@ -455,6 +455,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         return (logicalWidthPx / pageH_px) * 100;
     }, [config?.size, spreadMode]);
 
+    const showGridLayerProxy = gridDesignerSegments.some((segment) => segment.active);
+
     const layersPanelSizing = useMemo(() => {
         const layerItemCounts = new Map<number, number>();
         let maxNameChars = 0;
@@ -466,6 +468,12 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             maxNameChars = Math.max(maxNameChars, getLayerObjectDisplayName(obj, index).length);
             maxLayerChars = Math.max(maxLayerChars, `Layer ${z}`.length);
         });
+
+        if (showGridLayerProxy) {
+            layerItemCounts.set(0, (layerItemCounts.get(0) ?? 0) + 1);
+            maxNameChars = Math.max(maxNameChars, 'Grid Designer'.length);
+            maxLayerChars = Math.max(maxLayerChars, 'Layer 0'.length);
+        }
 
         const layerEntries = Array.from(layerItemCounts.entries());
         const layerCount = layerEntries.length;
@@ -500,7 +508,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
         const naturalHeight = Math.max(LAYERS_PANEL_MIN_HEIGHT, headerHeight + listHeight + footerHeight);
 
-        const objectsCountLabelChars = `${vectorObjects.length} objects`.length;
+        const objectsCountLabelChars = `${vectorObjects.length + (showGridLayerProxy ? 1 : 0)} objects`.length;
         const headerWidth = 160 + (objectsCountLabelChars * 6);
         const layerHeaderWidth = 112 + (maxLayerChars * 7);
         const itemRowWidth = 150 + (maxNameChars * 7);
@@ -511,7 +519,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             width,
             naturalHeight
         };
-    }, [vectorObjects, layersPanelCollapsedState]);
+    }, [vectorObjects, layersPanelCollapsedState, showGridLayerProxy]);
 
     const handleLayersCollapsedChange = useCallback((next: Record<number, boolean>) => {
         setLayersPanelCollapsedState((prev) => {
@@ -905,7 +913,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
         const selectedZ = selectedShapeIndices.length > 0
             ? (vectorObjects[selectedShapeIndices[0]]?.zIndex ?? 0)
-            : 0;
+            : 1;
 
         const newVectorObject: VectorObject = {
             id: uuidv4(),
@@ -1110,46 +1118,39 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     };
 
     // Handle changing layer (z-index)
-    const handleReorderObjects = (index: number, direction: 'up' | 'down') => {
-        // Change Z-index, not array index (though we sort by z-index implicitly in some places, here we just update the property)
+    const handleReorderObjects = useCallback((objectId: string, direction: 'up' | 'down') => {
+        setVectorObjects((prev) => {
+            const currentIndex = prev.findIndex((obj) => obj.id === objectId);
+            if (currentIndex < 0) return prev;
 
-        const newObjects = [...vectorObjects];
-        const currentObj = newObjects[index];
-        const currentZ = currentObj.zIndex ?? 0;
+            const currentObj = prev[currentIndex];
+            const currentZ = currentObj.zIndex ?? 0;
+            const nextZ = Math.max(0, direction === 'up' ? currentZ + 1 : currentZ - 1);
+            if (nextZ === currentZ) return prev;
 
-        let newZ = direction === 'up' ? currentZ + 1 : currentZ - 1;
-        if (newZ < 0) newZ = 0;
+            const updatedObjects = prev.map((obj) =>
+                obj.id === objectId ? { ...obj, zIndex: nextZ } : obj
+            );
 
-        if (newZ === currentZ) return;
+            // Keep stable order inside identical z-indices.
+            const sortedObjects = updatedObjects
+                .map((obj, idx) => ({ obj, idx }))
+                .sort((a, b) => {
+                    const zA = a.obj.zIndex ?? 0;
+                    const zB = b.obj.zIndex ?? 0;
+                    if (zA !== zB) return zA - zB;
+                    return a.idx - b.idx;
+                })
+                .map(({ obj }) => obj);
 
-        // update the object
-        newObjects[index] = { ...currentObj, zIndex: newZ };
+            const newSelectedIndex = sortedObjects.findIndex((obj) => obj.id === objectId);
+            if (newSelectedIndex >= 0) {
+                setSelectedShapeIndices([newSelectedIndex]);
+            }
 
-        // We should PROBABLY resort the vectorObjects by zIndex to keep rendering order strictly matching Z-Index?
-        // LayoutCanvas renders vectorObjects in array order.
-        // If we have ObjA(Z=2) before ObjB(Z=1) in array:
-        // SVG renders ObjA then ObjB. ObjB is on top of ObjA visually.
-        // This contradicts Z=2 being "higher".
-        // So we MUST sort the array by Z-Index whenever we change it.
-
-        newObjects.sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
-
-        // Update selection index mapping because sorting changed indices
-        // Find where our object went
-        // Actually, just clear selection or re-find.
-        // Re-finding is better UX.
-        // But `selectedShapeIndices` is array of indices.
-        // With UUIDs we could track better.
-        // Let's just find the index of the object with the same ID.
-
-        setVectorObjects(newObjects);
-
-        // Update selection
-        const newIndex = newObjects.findIndex(o => o.id === currentObj.id);
-        if (newIndex !== -1) {
-            setSelectedShapeIndices([newIndex]);
-        }
-    };
+            return sortedObjects;
+        });
+    }, []);
 
     const handleDeleteObject = (index: number) => {
         setVectorObjects(prev => prev.filter((_, i) => i !== index));
@@ -1711,6 +1712,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const layersPanelNode = (
         <LayersPanel
             vectorObjects={vectorObjects}
+            showGridProxy={showGridLayerProxy}
             selectedIndices={selectedShapeIndices}
             leaderIndex={selectedShapeIndices.length > 0 ? selectedShapeIndices[0] : null}
             onSelect={setSelectedShapeIndices}

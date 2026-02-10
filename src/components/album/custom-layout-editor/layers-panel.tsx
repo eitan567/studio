@@ -2,16 +2,17 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { ChevronUp, ChevronDown, ChevronRight, ChevronsUp, ChevronsDown, Trash2, Box, Circle, Frame, RotateCcw, X, Lock, LockOpen } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronRight, ChevronsUp, ChevronsDown, Trash2, Box, Circle, Frame, RotateCcw, X, Lock, LockOpen, LayoutGrid } from 'lucide-react';
 import { VectorObject } from '@/lib/advanced-layout-types';
 
 interface LayersPanelProps {
     vectorObjects: VectorObject[];
+    showGridProxy?: boolean;
     selectedIndices: number[];
     leaderIndex?: number | null;
     onSelect: (indices: number[]) => void;
     onDelete: (index: number) => void;
-    onReorder: (index: number, direction: 'up' | 'down') => void;
+    onReorder: (objectId: string, direction: 'up' | 'down') => void;
     onResetRotation: (index: number) => void;
     onClose?: () => void;
     onDragStart?: (e: React.PointerEvent<HTMLDivElement>) => void;
@@ -25,6 +26,7 @@ interface LayersPanelProps {
 
 export const LayersPanel = ({
     vectorObjects,
+    showGridProxy = false,
     selectedIndices,
     leaderIndex = null,
     onSelect,
@@ -63,9 +65,12 @@ export const LayersPanel = ({
             if (!groups[z]) groups[z] = [];
             groups[z].push({ originalIndex: i, obj });
         });
+        if (showGridProxy && !groups[0]) {
+            groups[0] = [];
+        }
         const sortedZ = Object.keys(groups).map(Number).sort((a, b) => b - a);
-        return sortedZ.map(z => ({ z, items: groups[z].reverse() }));
-    }, [vectorObjects]);
+        return sortedZ.map(z => ({ z, items: groups[z].reverse(), hasGridProxy: showGridProxy && z === 0 }));
+    }, [vectorObjects, showGridProxy]);
 
     const [collapsedLayers, setCollapsedLayers] = React.useState<Record<number, boolean>>({});
 
@@ -125,6 +130,23 @@ export const LayersPanel = ({
 
                         {!isCollapsed && (
                             <div className="space-y-0.5 pl-1">
+                                {layer.hasGridProxy && (
+                                    <div
+                                        className="group flex items-center gap-2 px-2 py-1.5 rounded-md border border-dashed border-primary/30 bg-primary/5 text-sm"
+                                        title="Grid Designer base object"
+                                    >
+                                        <div className="p-1 rounded-sm bg-primary/10 text-primary">
+                                            <LayoutGrid className="h-3 w-3" />
+                                        </div>
+                                        <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                                            <span className="whitespace-nowrap text-xs font-medium text-primary">
+                                                Grid Designer
+                                            </span>
+                                        </div>
+                                        <span className="text-[10px] text-muted-foreground/80">base</span>
+                                    </div>
+                                )}
+
                                 {layer.items.map((item) => {
                                     const isSelected = selectedIndices.includes(item.originalIndex);
                                     const isLeader = selectedIndices.length > 1 && leaderIndex === item.originalIndex;
@@ -163,7 +185,7 @@ export const LayersPanel = ({
                                                     className="h-5 w-5 text-muted-foreground hover:text-foreground"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        onReorder(item.originalIndex, 'up');
+                                                        onReorder(item.obj.id, 'up');
                                                     }}
                                                     title="Layer Up"
                                                 >
@@ -175,7 +197,7 @@ export const LayersPanel = ({
                                                     className="h-5 w-5 text-muted-foreground hover:text-foreground"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        onReorder(item.originalIndex, 'down');
+                                                        onReorder(item.obj.id, 'down');
                                                     }}
                                                     disabled={layer.z <= 0}
                                                     title="Layer Down"
@@ -265,7 +287,9 @@ export const LayersPanel = ({
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">{vectorObjects.length} objects</span>
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                            {vectorObjects.length + (showGridProxy ? 1 : 0)} objects
+                        </span>
                         {isDocked && onToggleDockLock && (
                             <Button
                                 variant="ghost"
