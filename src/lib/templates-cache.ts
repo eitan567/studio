@@ -157,6 +157,7 @@ function convertGridToAdvanced(dbTemplate: DBTemplate): AdvancedTemplate {
         created_at: dbTemplate.created_at,
         updated_at: dbTemplate.updated_at,
         createdBy: dbTemplate.created_by || null, // UUID or null
+        description: dbTemplate.description || null,
 
         // Derived UI fields
         category: 'grid',
@@ -280,6 +281,7 @@ async function initializeCache(): Promise<void> {
                     name: t.name,
                     category: (t.template_category?.code?.toLowerCase() || 'grid') as AdvancedTemplate['category'],
                     createdBy: t.created_by || null,
+                    description: t.description || null,
                     isCustom: !t.is_system,
                     // Use template_classification code if available
                     type: (t.template_classification?.code?.toLowerCase() || descSettings.type) as AdvancedTemplate['type'],
