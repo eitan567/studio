@@ -221,6 +221,28 @@ const scaleObjectAroundCenter = (obj: VectorObject, scaleX: number, scaleY: numb
     };
 };
 
+const cloneVectorObjects = (objects?: VectorObject[]): VectorObject[] => {
+    if (!Array.isArray(objects)) return [];
+    return objects.map(obj => ({
+        ...obj,
+        points: obj.points?.map(p => [p[0], p[1]] as Point),
+        segments: (obj.segments || []).map(s => ({
+            p1: [s.p1[0], s.p1[1]] as Point,
+            p2: [s.p2[0], s.p2[1]] as Point
+        }))
+    }));
+};
+
+const parseTemplateDescriptionObject = (description?: string | null): Record<string, unknown> => {
+    if (!description) return {};
+    try {
+        const parsed = JSON.parse(description);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+        return {};
+    }
+};
+
 type AlignMode = 'left' | 'h-center' | 'right' | 'top' | 'v-center' | 'bottom';
 type DistributeMode = 'horizontal' | 'vertical';
 type SizeMatchMode = 'size' | 'width' | 'height';
@@ -418,7 +440,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             setTemplateName('');
         }
         // Determine target spread mode and coordinate scaling
-        let targetSpreadMode = preferredMode || spreadMode;
+        let targetSpreadMode = preferredMode || template._editorSpreadMode || spreadMode;
         if (template.type === 'spread') {
             targetSpreadMode = 'full';
         } else if (template.type === 'single') {
@@ -431,71 +453,76 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
         // Only load vector objects for editing mode
         if (isEdit) {
-            // Convert template regions to VectorObjects for interactivity
-            const newVectorObjects: VectorObject[] = template.regions.map((region, index) => {
-                const isPath = region.shape === 'path';
-                let points: Point[] = region.points || [];
+            const editorSnapshot = cloneVectorObjects(template._editorObjects);
+            if (editorSnapshot.length > 0) {
+                setVectorObjects(editorSnapshot);
+            } else {
+                // Backward compatibility: Convert template regions to VectorObjects
+                const newVectorObjects: VectorObject[] = template.regions.map((region, index) => {
+                    const isPath = region.shape === 'path';
+                    let points: Point[] = region.points || [];
 
-                // For path objects, generate a bounding box to allow manipulation (points will be used for translation)
-                let pathPoints: Point[] | undefined = undefined;
-                if (isPath) {
-                    const { x, y, width, height } = region.bounds;
-                    pathPoints = [
-                        [x * scaleX, y],
-                        [(x + width) * scaleX, y],
-                        [(x + width) * scaleX, y + height],
-                        [x * scaleX, y + height]
-                    ];
-                }
-
-                // For polygons, generate segments
-                const segments: Segment[] = [];
-                if (!isPath && points.length > 1) {
-                    for (let i = 0; i < points.length - 1; i++) {
-                        segments.push({ p1: [points[i][0] * scaleX, points[i][1]] as Point, p2: [points[i + 1][0] * scaleX, points[i + 1][1]] as Point });
+                    // For path objects, generate a bounding box to allow manipulation (points will be used for translation)
+                    let pathPoints: Point[] | undefined = undefined;
+                    if (isPath) {
+                        const { x, y, width, height } = region.bounds;
+                        pathPoints = [
+                            [x * scaleX, y],
+                            [(x + width) * scaleX, y],
+                            [(x + width) * scaleX, y + height],
+                            [x * scaleX, y + height]
+                        ];
                     }
-                    // Close polygon if needed
-                    if (points.length > 2 && (points[0][0] !== points[points.length - 1][0] || points[0][1] !== points[points.length - 1][1])) {
-                        segments.push({ p1: [points[points.length - 1][0] * scaleX, points[points.length - 1][1]] as Point, p2: [points[0][0] * scaleX, points[0][1]] as Point });
+
+                    // For polygons, generate segments
+                    const segments: Segment[] = [];
+                    if (!isPath && points.length > 1) {
+                        for (let i = 0; i < points.length - 1; i++) {
+                            segments.push({ p1: [points[i][0] * scaleX, points[i][1]] as Point, p2: [points[i + 1][0] * scaleX, points[i + 1][1]] as Point });
+                        }
+                        // Close polygon if needed
+                        if (points.length > 2 && (points[0][0] !== points[points.length - 1][0] || points[0][1] !== points[points.length - 1][1])) {
+                            segments.push({ p1: [points[points.length - 1][0] * scaleX, points[points.length - 1][1]] as Point, p2: [points[0][0] * scaleX, points[0][1]] as Point });
+                        }
+                    } else if (!isPath && region.shape === 'rect') {
+                        const { x, y, width, height } = region.bounds;
+                        const rectPoints: Point[] = [
+                            [x * scaleX, y],
+                            [(x + width) * scaleX, y],
+                            [(x + width) * scaleX, y + height],
+                            [x * scaleX, y + height]
+                        ];
+                        for (let i = 0; i < 4; i++) {
+                            segments.push({ p1: rectPoints[i], p2: rectPoints[(i + 1) % 4] });
+                        }
+                        // For rect shapes, we MUST ensure points are populated so LayoutCanvas can render the polygon
+                        points = rectPoints;
                     }
-                } else if (!isPath && region.shape === 'rect') {
-                    const { x, y, width, height } = region.bounds;
-                    const rectPoints: Point[] = [
-                        [x * scaleX, y],
-                        [(x + width) * scaleX, y],
-                        [(x + width) * scaleX, y + height],
-                        [x * scaleX, y + height]
-                    ];
-                    for (let i = 0; i < 4; i++) {
-                        segments.push({ p1: rectPoints[i], p2: rectPoints[(i + 1) % 4] });
-                    }
-                    // For rect shapes, we MUST ensure points are populated so LayoutCanvas can render the polygon
-                    points = rectPoints;
-                }
 
-                // For other polygons/points, scale them if needed
-                const finalPoints = (region.shape === 'rect') ? points : points.map(p => [p[0] * scaleX, p[1]] as Point);
+                    // For other polygons/points, scale them if needed
+                    const finalPoints = (region.shape === 'rect') ? points : points.map(p => [p[0] * scaleX, p[1]] as Point);
 
-                // Background frame (index 0) gets a distinct color
-                const isBackground = index === 0;
-                const isDark = resolvedTheme === 'dark';
-                const bgFill = isDark ? '#1f1f1f' : '#f5f5f5';
+                    // Background frame (index 0) gets a distinct color
+                    const isBackground = index === 0;
+                    const isDark = resolvedTheme === 'dark';
+                    const bgFill = isDark ? '#1f1f1f' : '#f5f5f5';
 
-                return {
-                    id: region.id || uuidv4(),
-                    type: isPath ? 'path' : (region.shape === 'rect' ? 'rect' : (region.shape === 'circle' ? 'circle' : 'polygon')),
-                    segments,
-                    points: isPath ? pathPoints : finalPoints,
-                    path: region.path,
-                    viewBox: region.viewBox,
-                    stroke: strokeColor,
-                    strokeWidth: region.strokeWidth || 0.5,
-                    fill: isBackground ? bgFill : fillColor,
-                    zIndex: region.zIndex ?? 0,
-                    rotation: region.rotation || 0
-                };
-            });
-            setVectorObjects(newVectorObjects);
+                    return {
+                        id: region.id || uuidv4(),
+                        type: isPath ? 'path' : (region.shape === 'rect' ? 'rect' : (region.shape === 'circle' ? 'circle' : 'polygon')),
+                        segments,
+                        points: isPath ? pathPoints : finalPoints,
+                        path: region.path,
+                        viewBox: region.viewBox,
+                        stroke: strokeColor,
+                        strokeWidth: region.strokeWidth || 0.5,
+                        fill: isBackground ? bgFill : fillColor,
+                        zIndex: region.zIndex ?? 0,
+                        rotation: region.rotation || 0
+                    };
+                });
+                setVectorObjects(newVectorObjects);
+            }
         } else {
             // Preview mode: clear vector objects so we see the final rendered result
             setVectorObjects([]);
@@ -690,12 +717,23 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                     let typeId = 3; // default BOTH
                     if (template.type === 'single') typeId = 1;
                     if (template.type === 'spread') typeId = 2;
+                    const existingDescription = parseTemplateDescriptionObject(template.description);
+                    const descriptionPayload = {
+                        ...existingDescription,
+                        _pageMargin: typeof template._pageMargin === 'number' ? template._pageMargin : pageMargin,
+                        _photoGap: typeof template._photoGap === 'number' ? template._photoGap : photoGap,
+                        type: template.type,
+                        _editorVersion: template._editorVersion ?? 1,
+                        _editorSpreadMode: template._editorSpreadMode ?? spreadMode,
+                        _editorObjects: cloneVectorObjects(template._editorObjects)
+                    };
 
                     const baseTemplate = {
                         name: templateName || template.name,
                         category_id: 5, // CUSTOM category
                         photo_count: template.photoCount,
                         regions: template.regions,
+                        description: JSON.stringify(descriptionPayload),
                         created_by: userId === 'anonymous' ? null : userId,
                         is_system: false,
                         is_active: true,
@@ -1229,7 +1267,10 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             isCustom: true, // Always mark as custom
             createdBy: null, // Custom templates owned by user (handled by RLS/context)
             _pageMargin: pageMargin,
-            _photoGap: photoGap
+            _photoGap: photoGap,
+            _editorVersion: 1,
+            _editorSpreadMode: spreadMode,
+            _editorObjects: cloneVectorObjects(vectorObjects)
         };
 
         // Add to local created templates (avoid duplicates)

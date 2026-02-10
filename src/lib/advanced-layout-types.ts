@@ -127,6 +127,11 @@ export interface AdvancedTemplate {
     // Page settings for custom templates (used when template was created)
     _pageMargin?: number;
     _photoGap?: number;
+
+    // Editor snapshot metadata (used to restore exact editable objects)
+    _editorVersion?: number;
+    _editorSpreadMode?: 'full' | 'split';
+    _editorObjects?: VectorObject[];
 }
 
 

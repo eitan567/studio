@@ -172,14 +172,26 @@ function convertGridToAdvanced(dbTemplate: DBTemplate): AdvancedTemplate {
 /**
  * Parse description JSON to extract template settings
  */
-function parseTemplateDescription(description?: string): { _pageMargin?: number; _photoGap?: number; type?: 'single' | 'spread' | 'both' } {
+function parseTemplateDescription(description?: string): {
+    _pageMargin?: number;
+    _photoGap?: number;
+    type?: 'single' | 'spread' | 'both';
+    _editorVersion?: number;
+    _editorSpreadMode?: 'full' | 'split';
+    _editorObjects?: AdvancedTemplate['_editorObjects'];
+} {
     if (!description) return {};
     try {
         const parsed = JSON.parse(description);
         return {
             _pageMargin: typeof parsed._pageMargin === 'number' ? parsed._pageMargin : undefined,
             _photoGap: typeof parsed._photoGap === 'number' ? parsed._photoGap : undefined,
-            type: parsed.type
+            type: parsed.type,
+            _editorVersion: typeof parsed._editorVersion === 'number' ? parsed._editorVersion : undefined,
+            _editorSpreadMode: parsed._editorSpreadMode === 'full' || parsed._editorSpreadMode === 'split'
+                ? parsed._editorSpreadMode
+                : undefined,
+            _editorObjects: Array.isArray(parsed._editorObjects) ? parsed._editorObjects : undefined
         };
     } catch {
         return {};
@@ -277,6 +289,9 @@ async function initializeCache(): Promise<void> {
                     classification_type_id: t.classification_type_id,
                     _pageMargin: descSettings._pageMargin,
                     _photoGap: descSettings._photoGap,
+                    _editorVersion: descSettings._editorVersion,
+                    _editorSpreadMode: descSettings._editorSpreadMode,
+                    _editorObjects: descSettings._editorObjects,
                 };
 
                 // Safely parse regions if it's a string (in case Supabase returns JSON as string)
