@@ -5,7 +5,7 @@
  * Provides centralized access to templates in React components.
  */
 
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useEffect, useState, useCallback } from 'react';
 import {
     getTemplatesSync,
     getCoverTemplatesSync,
@@ -19,6 +19,8 @@ import {
 import { useSettings } from '@/hooks/use-settings';
 import { parseLayoutId } from '@/lib/layout-id-utils';
 
+const TEMPLATES_CACHE_REFRESHED_EVENT = 'templates-cache-refreshed';
+
 // Re-export types for convenience
 export type { AdvancedTemplate };
 // Legacy alias
@@ -30,12 +32,27 @@ export type GridTemplate = AdvancedTemplate;
 export function useTemplates() {
     const [trigger, setTrigger] = useState(0);
 
+    const emitTemplatesRefreshed = useCallback(() => {
+        if (typeof window === 'undefined') return;
+        window.dispatchEvent(new Event(TEMPLATES_CACHE_REFRESHED_EVENT));
+    }, []);
+
     // Preload cache on mount
     useEffect(() => {
         preloadCache().then(() => {
             // Force re-render after cache is loaded
             setTrigger(t => t + 1);
         });
+    }, []);
+
+    // Keep all hook instances in sync when one place refreshes template cache
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const handleTemplatesRefreshed = () => {
+            setTrigger(t => t + 1);
+        };
+        window.addEventListener(TEMPLATES_CACHE_REFRESHED_EVENT, handleTemplatesRefreshed);
+        return () => window.removeEventListener(TEMPLATES_CACHE_REFRESHED_EVENT, handleTemplatesRefreshed);
     }, []);
 
     const { settings } = useSettings();
@@ -146,6 +163,7 @@ export function useTemplates() {
             invalidateCache();
             await preloadCache();
             setTrigger(t => t + 1);
+            emitTemplatesRefreshed();
         }
     };
 }

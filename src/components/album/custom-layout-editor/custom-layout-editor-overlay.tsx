@@ -36,7 +36,6 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { processLayoutGeometry } from '@/lib/layout-geometry';
 import { createClient } from '@/lib/supabase';
-import { invalidateCache } from '@/lib/templates-cache';
 import { VectorObject, Point, Segment, LayoutRegion, AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { GridDesignerMode, GridDesignerSegment } from './grid-designer-types';
 import { useAuth } from "@/hooks/useAuth";
@@ -1194,10 +1193,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 }
                 console.log('Templates saved successfully to Supabase');
 
-                // Invalidate cache so templates are reloaded
-                invalidateCache();
-
-                console.log('Templates saved successfully to Supabase');
+                // Reload template cache + notify all open hooks in the app
+                await refresh();
             } catch (error: any) {
                 console.error('Failed to save templates to Supabase:', error);
                 console.error('Error details:', {
