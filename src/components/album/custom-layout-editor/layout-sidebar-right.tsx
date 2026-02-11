@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useTemplates } from '@/hooks/useTemplates';
 import { cn } from '@/lib/utils';
-import { Settings2, Layout, Settings, Pencil, Play, Trash2 } from 'lucide-react';
+import { Settings2, Layout, Settings, Pencil, Play, Trash2, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -20,6 +20,7 @@ export interface LayoutSidebarRightProps {
     onSelectLayout: (layoutId: string, mode?: 'full' | 'split') => void;
     onSelectAdvancedTemplate: (template: AdvancedTemplate, mode?: 'full' | 'split') => void;
     onEditAdvancedTemplate?: (template: AdvancedTemplate, mode?: 'full' | 'split') => void;
+    onCloneAdvancedTemplate?: (template: AdvancedTemplate, mode?: 'full' | 'split') => void;
     onDeleteTemplate?: (template: AdvancedTemplate) => void;
     selectedAdvancedTemplate: AdvancedTemplate | null;
     editingTemplateId?: string | number | null;
@@ -57,6 +58,7 @@ export const LayoutSidebarRight = ({
     useDummyPhotos,
     onUseDummyPhotosChange,
     onEditAdvancedTemplate,
+    onCloneAdvancedTemplate,
     onDeleteTemplate,
     editingTemplateId,
     systemTemplates: propSystemTemplates,
@@ -254,6 +256,22 @@ export const LayoutSidebarRight = ({
                                                     <Settings className="h-2.5 w-2.5 text-foreground" />
                                                 </Button>
                                             </div>
+
+                                            {/* Clone Action (Bottom Right) */}
+                                            <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                <Button
+                                                    variant="secondary"
+                                                    size="icon"
+                                                    className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onCloneAdvancedTemplate?.(template, sidebarMode);
+                                                    }}
+                                                    title="Clone"
+                                                >
+                                                    <Copy className="h-2.5 w-2.5 text-foreground" />
+                                                </Button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -332,6 +350,22 @@ export const LayoutSidebarRight = ({
                                                                 title="Edit Metadata"
                                                             >
                                                                 <Settings className="h-2.5 w-2.5 text-foreground" />
+                                                            </Button>
+                                                        </div>
+
+                                                        {/* Clone Action (Bottom Right) */}
+                                                        <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                            <Button
+                                                                variant="secondary"
+                                                                size="icon"
+                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    onCloneAdvancedTemplate?.(template, sidebarMode);
+                                                                }}
+                                                                title="Clone"
+                                                            >
+                                                                <Copy className="h-2.5 w-2.5 text-foreground" />
                                                             </Button>
                                                         </div>
                                                     </div>
@@ -416,6 +450,22 @@ export const LayoutSidebarRight = ({
                                                                         title="Edit Metadata"
                                                                     >
                                                                         <Settings className="h-2.5 w-2.5 text-foreground" />
+                                                                    </Button>
+                                                                </div>
+
+                                                                {/* Clone Action (Bottom Right) */}
+                                                                <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                                    <Button
+                                                                        variant="secondary"
+                                                                        size="icon"
+                                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            onCloneAdvancedTemplate?.(template, sidebarMode);
+                                                                        }}
+                                                                        title="Clone"
+                                                                    >
+                                                                        <Copy className="h-2.5 w-2.5 text-foreground" />
                                                                     </Button>
                                                                 </div>
                                                             </div>

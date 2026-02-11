@@ -396,6 +396,11 @@ type AlignMode = 'left' | 'h-center' | 'right' | 'top' | 'v-center' | 'bottom';
 type DistributeMode = 'horizontal' | 'vertical';
 type SizeMatchMode = 'size' | 'width' | 'height';
 type LayersDockSide = 'left' | 'right' | null;
+type CloneDraft = {
+    template: AdvancedTemplate;
+    preferredMode?: 'full' | 'split';
+    name: string;
+};
 
 const LAYERS_PANEL_SAFE_MARGIN = 8;
 const LAYERS_PANEL_DOCK_THRESHOLD = 26;
@@ -407,6 +412,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const { isAdmin } = useAuth();
     const [adminOpen, setAdminOpen] = useState(false);
     const [deleteConfirmation, setDeleteConfirmation] = useState<AdvancedTemplate | null>(null);
+    const [cloneDraft, setCloneDraft] = useState<CloneDraft | null>(null);
+    const [pendingCloneTemplate, setPendingCloneTemplate] = useState<AdvancedTemplate | null>(null);
 
     // Use only templates passed via props (if any) or start empty for session
     // Do NOT auto-load all custom templates from the global cache to avoid cluttering "New Templates"
@@ -871,18 +878,10 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const handleSelectAdvancedTemplate = (template: AdvancedTemplate, preferredMode?: 'full' | 'split', isEdit: boolean = false) => {
         setSelectedAdvancedTemplate(template);
 
-        const isSystemTemplate = template.createdBy === 'system';
-
         if (isEdit) {
-            if (isSystemTemplate) {
-                // For system templates, force save-as-new by keeping editingTemplateId null
-                setEditingTemplateId(null);
-                setTemplateName(`${template.name} Copy`);
-            } else {
-                // For custom templates, allow updating
-                setEditingTemplateId(template.id);
-                setTemplateName(template.name);
-            }
+            // Edit always targets the selected template directly.
+            setEditingTemplateId(template.id);
+            setTemplateName(template.name);
         } else {
             setEditingTemplateId(null);
             setTemplateName('');
@@ -1042,6 +1041,24 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         }));
     };
 
+    const handleCloneTemplate = (template: AdvancedTemplate, preferredMode?: 'full' | 'split') => {
+        setCloneDraft({
+            template,
+            preferredMode,
+            name: `${template.name} Copy`
+        });
+    };
+
+    const handleConfirmClone = () => {
+        if (!cloneDraft) return;
+        const cloneName = cloneDraft.name.trim() || `${cloneDraft.template.name} Copy`;
+        setPendingCloneTemplate(cloneDraft.template);
+        handleSelectAdvancedTemplate(cloneDraft.template, cloneDraft.preferredMode, true);
+        setEditingTemplateId(null);
+        setTemplateName(cloneName);
+        setCloneDraft(null);
+    };
+
     // Update dummy page when layout changes
     const handleLayoutChange = (layoutId: string, preferredMode?: 'full' | 'split') => {
         setSelectedLayout(layoutId);
@@ -1172,6 +1189,13 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     };
 
     const handleSave = async () => {
+        if (editingTemplateId && selectedAdvancedTemplate) {
+            const proceed = window.confirm(
+                "שימו לב: שינוי זה ישפיע על כל האלבומים הקיימים שמשתמשים בתבנית זו"
+            );
+            if (!proceed) return;
+        }
+
         const templatesToPersist: AdvancedTemplate[] = [...createdTemplates];
         if (editingTemplateId && selectedAdvancedTemplate) {
             const alreadyQueued = templatesToPersist.some(t => String(t.id) === String(editingTemplateId));
@@ -1242,8 +1266,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                     };
 
                     // Use the template's own ID. It adheres to logic:
-                    // - If it was a system clone, handleProcessLayout assigned a UUID.
-                    // - If it was a custom edit, handleProcessLayout kept the original ID.
+                    // - If it is a clone/new template, handleProcessLayout assigned a UUID.
+                    // - If it is an edit, handleProcessLayout kept the original ID.
                     const targetId = template.id;
                     const isNew = typeof targetId === 'string' && targetId.includes('-');
 
@@ -1579,11 +1603,19 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         setGridDesignerMode('none');
         setImageRotationMode('follow-frame');
         setCurrentStroke(null);
+        setPendingCloneTemplate(null);
         // Clear the selected template so user can create a new one
         setSelectedAdvancedTemplate(null);
         setToolMode('select');
         setSelectedShapeIndices([]);
     }, []);
+
+    useEffect(() => {
+        if (!pendingCloneTemplate) return;
+        if (vectorObjects.length > 0 || gridDesignerSegments.length > 0) {
+            setPendingCloneTemplate(null);
+        }
+    }, [pendingCloneTemplate, vectorObjects.length, gridDesignerSegments.length]);
 
     const handleToggleLayersDockLock = useCallback(() => {
         if (!layersPanelDockSide) return;
@@ -1809,9 +1841,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         const templateCount = createdTemplates.length + 1;
 
         // Update or Create Template
-        // If we are editing an existing custom template, use its ID.
-        // If we are cloning a system template (editingTemplateId is null), generate a new UUID.
-        // If we are creating a brand new template (selectedAdvancedTemplate is null), generate a new UUID.
+        // If we are editing an existing template, use its ID.
+        // If we are cloning or creating a new template (editingTemplateId is null), generate a new UUID.
         const baseId = (editingTemplateId) ? editingTemplateId : uuidv4();
 
         const targetTemplate: AdvancedTemplate = selectedAdvancedTemplate || {
@@ -1890,10 +1921,25 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
     // Process the drawn strokes into regions
     const handleProcessLayout = useCallback(() => {
-        const shouldProcessGrid = activeGridSegments.length > 0 && (isGridDesignerEnabled || vectorObjects.length === 0);
+        let fallbackEditorObjects: VectorObject[] = [];
+        let fallbackGridSnapshot: EditorGridSnapshot | null = null;
+
+        if (pendingCloneTemplate && vectorObjects.length === 0 && activeGridSegments.length === 0) {
+            const fallbackDescription = parseTemplateDescriptionObject(pendingCloneTemplate.description);
+            fallbackGridSnapshot = parseEditorGridSnapshot(fallbackDescription._editorGrid);
+            fallbackEditorObjects = cloneVectorObjects(pendingCloneTemplate._editorObjects);
+        }
+
+        const effectiveVectorObjects = vectorObjects.length > 0 ? vectorObjects : fallbackEditorObjects;
+        const effectiveGridSegments = activeGridSegments.length > 0
+            ? activeGridSegments
+            : (fallbackGridSnapshot?.segments.filter((segment) => segment.active) ?? []);
+
+        const shouldProcessGrid = effectiveGridSegments.length > 0 &&
+            (isGridDesignerEnabled || vectorObjects.length === 0 || !!fallbackGridSnapshot);
 
         if (shouldProcessGrid) {
-            const gridObjects: VectorObject[] = activeGridSegments.map((segment) => ({
+            const gridObjects: VectorObject[] = effectiveGridSegments.map((segment) => ({
                 id: uuidv4(),
                 type: 'line',
                 segments: [{ p1: [segment.p1[0], segment.p1[1]], p2: [segment.p2[0], segment.p2[1]] }],
@@ -1905,15 +1951,23 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 rotation: 0
             }));
 
-            const gridSnapshot: EditorGridSnapshot = {
-                rows: gridRows,
-                cols: gridCols,
-                mode: gridDesignerMode,
-                rotationDeg: gridRotationDeg,
-                segments: cloneGridDesignerSegments(gridDesignerSegments)
-            };
-            const combinedObjects = [...vectorObjects, ...gridObjects];
-            processObjectsToTemplate(combinedObjects, gridSnapshot, vectorObjects);
+            const gridSnapshot: EditorGridSnapshot = activeGridSegments.length > 0
+                ? {
+                    rows: gridRows,
+                    cols: gridCols,
+                    mode: gridDesignerMode,
+                    rotationDeg: gridRotationDeg,
+                    segments: cloneGridDesignerSegments(gridDesignerSegments)
+                }
+                : {
+                    rows: fallbackGridSnapshot?.rows ?? gridRows,
+                    cols: fallbackGridSnapshot?.cols ?? gridCols,
+                    mode: fallbackGridSnapshot?.mode ?? gridDesignerMode,
+                    rotationDeg: fallbackGridSnapshot?.rotationDeg ?? gridRotationDeg,
+                    segments: cloneGridDesignerSegments(fallbackGridSnapshot?.segments ?? [])
+                };
+            const combinedObjects = [...effectiveVectorObjects, ...gridObjects];
+            processObjectsToTemplate(combinedObjects, gridSnapshot, effectiveVectorObjects);
             setVectorObjects([]);
             setGridDesignerSegments([]);
             setIsGridDesignerEnabled(false);
@@ -1921,16 +1975,19 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             setGridDesignerMode('none');
             setToolMode('select');
             setSelectedShapeIndices([]);
+            setPendingCloneTemplate(null);
             return;
         }
 
-        processObjectsToTemplate(vectorObjects, null);
+        processObjectsToTemplate(effectiveVectorObjects, null, effectiveVectorObjects);
         setToolMode('select');
         setVectorObjects([]);
         setSelectedShapeIndices([]);
+        setPendingCloneTemplate(null);
     }, [
         activeGridSegments,
         isGridDesignerEnabled,
+        pendingCloneTemplate,
         processObjectsToTemplate,
         vectorObjects,
         strokeColor,
@@ -2001,15 +2058,15 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 {/* Template Name Input */}
                 <div className="flex items-center gap-2 max-w-sm flex-1">
                     <Label htmlFor="template-name" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
-                        {editingTemplateId ? "Editing:" : "New Template:"}
+                        Template Name
                     </Label>
-                    <Input
+                    <div
                         id="template-name"
-                        placeholder="Enter template name..."
-                        value={templateName}
-                        onChange={(e) => setTemplateName(e.target.value)}
-                        className="h-8 text-sm bg-muted/30 border-muted-foreground/20 focus:bg-background"
-                    />
+                        className="h-8 text-sm bg-muted/30 border border-muted-foreground/20 rounded-md px-3 flex items-center text-foreground/90 truncate"
+                        title={templateName || selectedAdvancedTemplate?.name || 'Template'}
+                    >
+                        {templateName || selectedAdvancedTemplate?.name || 'Template'}
+                    </div>
                 </div>
 
                 <div className="flex-1" />
@@ -2349,6 +2406,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         useDummyPhotos={useDummyPhotos}
                         onUseDummyPhotosChange={handleUseDummyPhotosChange}
                         onEditAdvancedTemplate={(t, m) => handleSelectAdvancedTemplate(t, m, true)}
+                        onCloneAdvancedTemplate={handleCloneTemplate}
                         onDeleteTemplate={handleDeleteTemplate}
                         editingTemplateId={editingTemplateId}
                         onRefresh={refresh}
@@ -2530,6 +2588,34 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            <AlertDialog open={!!cloneDraft} onOpenChange={(open) => !open && setCloneDraft(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Clone Template</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Enter a name for the cloned template.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="space-y-2 py-1">
+                        <Label htmlFor="clone-template-name" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Template Name
+                        </Label>
+                        <Input
+                            id="clone-template-name"
+                            value={cloneDraft?.name ?? ''}
+                            onChange={(e) =>
+                                setCloneDraft((prev) => prev ? { ...prev, name: e.target.value } : prev)
+                            }
+                            placeholder="Template copy name"
+                            className="h-9"
+                        />
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmClone}>Clone</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
