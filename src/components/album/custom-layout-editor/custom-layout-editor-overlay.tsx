@@ -2362,7 +2362,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 <div />
 
                 {/* Spacing Controls (Center) */}
-                <div className="flex items-center gap-10 justify-center">
+                <div className="flex items-center gap-3 justify-start">
                     {/* Photo Gap */}
                     <div className="flex items-center gap-4 min-w-[180px]">
                         <Label className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Photo Gap</Label>

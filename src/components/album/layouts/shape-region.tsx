@@ -151,22 +151,32 @@ export const ShapeRegion = ({
     const pInsetT = (insetT / containerHeight) * 100;
     const pInsetW = ((insetL + insetR) / containerWidth) * 100;
     const pInsetH = ((insetT + insetB) / containerHeight) * 100;
+    const clampPercent = (value: number) => Math.max(0, Math.min(100, value));
 
     // Convert polygon points to percentage string relative to the *adjusted* region container (0-100)
+    // and also keep a clamped polygon for photo-fit calculations.
     let svgPoints = "";
+    let fitClipPolygon: Array<[number, number]> | undefined;
     if (region.shape === 'polygon' && region.points) {
         const newX = region.bounds.x + pInsetL;
         const newY = region.bounds.y + pInsetT;
         const newW = region.bounds.width - pInsetW;
         const newH = region.bounds.height - pInsetH;
 
-        svgPoints = region.points
-            .map(p => {
-                const relX = ((p[0] - newX) / newW) * 100;
-                const relY = ((p[1] - newY) / newH) * 100;
-                return `${relX},${relY}`;
-            })
-            .join(' ');
+        const pointsForSvg: string[] = [];
+        const pointsForFit: Array<[number, number]> = [];
+        for (const p of region.points) {
+            const relX = ((p[0] - newX) / newW) * 100;
+            const relY = ((p[1] - newY) / newH) * 100;
+            pointsForSvg.push(`${relX},${relY}`);
+            // Fit should be based on the visible frame footprint in this region container.
+            pointsForFit.push([clampPercent(relX), clampPercent(relY)]);
+        }
+        svgPoints = pointsForSvg.join(' ');
+        fitClipPolygon = pointsForFit;
+    }
+    if (!fitClipPolygon && isRect) {
+        fitClipPolygon = [[0, 0], [100, 0], [100, 100], [0, 100]];
     }
 
     // INTERNAL STROKES: Only needed for non-rect complex shapes to fill the 'gap' area
@@ -256,6 +266,9 @@ export const ShapeRegion = ({
                 priority={priority}
                 chronologicalIndex={chronologicalIndex}
                 preserveAspectRatio={region.preserveAspectRatio}
+                fitRotationDeg={shouldAdjustPhotoRotation ? photoExtraRotationDeg : 0}
+                fitClipPolygon={fitClipPolygon}
+                clipOverflow
             />
         );
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useLayoutEffect, useRef, memo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, memo, useState } from 'react';
 import Image from 'next/image';
 import supabaseLoader from '@/lib/supabase-image-loader';
 import { EmptyPhotoSlot } from '../album-editor/empty-photo-slot';
@@ -21,6 +21,12 @@ interface PhotoRendererProps {
   chronologicalIndex?: Record<string, number>;
   // When true, use object-fit: contain instead of cover (no cropping)
   preserveAspectRatio?: boolean;
+  // Relative rotation between image content and frame viewport (degrees)
+  fitRotationDeg?: number;
+  // Clip polygon points in local container percentages (0..100, 0..100)
+  fitClipPolygon?: Array<[number, number]>;
+  // Allow the image wrapper to overflow and rely on parent clipping
+  clipOverflow?: boolean;
 }
 
 // Using memo to prevent re-rendering of all photos when only one is being updated
@@ -35,7 +41,10 @@ export const PhotoRenderer = memo(function PhotoRenderer({
   photoId,
   priority = false,
   chronologicalIndex,
-  preserveAspectRatio = false
+  preserveAspectRatio = false,
+  fitRotationDeg = 0,
+  fitClipPolygon,
+  clipOverflow = true
 }: PhotoRendererProps) {
   const { scrollToGallery } = useAlbumEditor();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -81,21 +90,78 @@ export const PhotoRenderer = memo(function PhotoRenderer({
 
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const getEffectiveViewportSize = (
+    cWidth: number,
+    cHeight: number
+  ): { width: number; height: number } => {
+    if (!fitClipPolygon || fitClipPolygon.length < 3) {
+      return { width: cWidth, height: cHeight };
+    }
+
+    const rad = (fitRotationDeg * Math.PI) / 180;
+    const ux: [number, number] = [Math.cos(rad), Math.sin(rad)];
+    const uy: [number, number] = [-Math.sin(rad), Math.cos(rad)];
+
+    let minU = Infinity;
+    let maxU = -Infinity;
+    let minV = Infinity;
+    let maxV = -Infinity;
+
+    for (const [px, py] of fitClipPolygon) {
+      const x = (px / 100) * cWidth;
+      const y = (py / 100) * cHeight;
+      const u = (x * ux[0]) + (y * ux[1]);
+      const v = (x * uy[0]) + (y * uy[1]);
+      minU = Math.min(minU, u);
+      maxU = Math.max(maxU, u);
+      minV = Math.min(minV, v);
+      maxV = Math.max(maxV, v);
+    }
+
+    const width = Math.max(1, maxU - minU);
+    const height = Math.max(1, maxV - minV);
+    return { width, height };
+  };
+  const fitClipSignature = useMemo(() => {
+    if (!fitClipPolygon || fitClipPolygon.length === 0) return '';
+    return fitClipPolygon.map(([x, y]) => `${x.toFixed(3)},${y.toFixed(3)}`).join(';');
+  }, [fitClipPolygon]);
+
   // Pure helper to calculate dimensions
-  const getDimensions = (cWidth: number, cHeight: number, pWidth: number, pHeight: number, userScale: number) => {
-    const scaleX = cWidth / pWidth;
-    const scaleY = cHeight / pHeight;
+  const getDimensions = (
+    cWidth: number,
+    cHeight: number,
+    pWidth: number,
+    pHeight: number,
+    userScale: number
+  ) => {
+    const effectiveViewport = getEffectiveViewportSize(cWidth, cHeight);
+    const scaleX = effectiveViewport.width / pWidth;
+    const scaleY = effectiveViewport.height / pHeight;
     const coverScale = Math.max(scaleX, scaleY);
     const totalScale = coverScale * userScale;
 
-    const wrapperWidth = pWidth * totalScale;
-    const wrapperHeight = pHeight * totalScale;
+    let wrapperWidth = pWidth * totalScale;
+    let wrapperHeight = pHeight * totalScale;
+
+    // Tiny seam bleed only against the effective viewport (not container AABB),
+    // to avoid visible seams while keeping sizing accurate.
+    const seamBleedPx = 0.75;
+    const seamCoverFactor = Math.max(
+      effectiveViewport.width > 0 ? ((effectiveViewport.width + seamBleedPx) / wrapperWidth) : 1,
+      effectiveViewport.height > 0 ? ((effectiveViewport.height + seamBleedPx) / wrapperHeight) : 1,
+      1
+    );
+    if (seamCoverFactor > 1) {
+      wrapperWidth *= seamCoverFactor;
+      wrapperHeight *= seamCoverFactor;
+    }
 
     return {
       wrapperWidth,
       wrapperHeight,
-      overflowX: Math.max(0, wrapperWidth - cWidth),
-      overflowY: Math.max(0, wrapperHeight - cHeight)
+      overflowX: Math.max(0, wrapperWidth - effectiveViewport.width),
+      overflowY: Math.max(0, wrapperHeight - effectiveViewport.height)
     };
   };
 
@@ -107,8 +173,13 @@ export const PhotoRenderer = memo(function PhotoRenderer({
       imageRef.current.style.width = `${wrapperWidth}px`;
       imageRef.current.style.height = `${wrapperHeight}px`;
 
-      const left = -((x / 100) * overflowX);
-      const top = -((y / 100) * overflowY);
+      // Anchor from center, not top-left.
+      // This is critical for rotated/polygon frames where the effective viewport
+      // can be smaller than the container AABB.
+      const baseLeft = (cWidth - wrapperWidth) / 2;
+      const baseTop = (cHeight - wrapperHeight) / 2;
+      const left = baseLeft + (((50 - x) / 100) * overflowX);
+      const top = baseTop + (((50 - y) / 100) * overflowY);
 
       imageRef.current.style.left = `${left}px`;
       imageRef.current.style.top = `${top}px`;
@@ -129,7 +200,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({
     });
     observer.observe(container);
     return () => observer.disconnect();
-  }, [photo.src]);
+  }, [photo.src, fitRotationDeg, fitClipSignature]);
 
   // Initial Sync Measurement to prevent flash/jump
   useLayoutEffect(() => {
@@ -144,7 +215,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({
         }
       }
     }
-  }, [photo.src, photo.width, photo.height]); // Re-run if source photo changes
+  }, [photo.src, photo.width, photo.height, fitRotationDeg, fitClipSignature]); // Re-run if source photo or fit basis changes
 
   // Update when Pan/Zoom changes (e.g. from props)
   useLayoutEffect(() => {
@@ -163,7 +234,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({
         applyTransform(width, height);
       }
     }
-  }, [photo.panAndZoom, photo.src, containerSize.width, containerSize.height]);
+  }, [photo.panAndZoom, photo.src, containerSize.width, containerSize.height, fitRotationDeg, fitClipSignature]);
 
   const commitChanges = () => {
     // Pass a fresh copy to the parent
@@ -218,8 +289,15 @@ export const PhotoRenderer = memo(function PhotoRenderer({
     // השינוי המרכזי כאן - שימוש ב-getDimensions במקום הפונקציה החסרה
     const { overflowX, overflowY } = getDimensions(width, height, photo.width, photo.height, currentValues.current.scale);
 
-    const dXPercent = overflowX > 0 ? (dx / overflowX) * 100 : 0;
-    const dYPercent = overflowY > 0 ? (dy / overflowY) * 100 : 0;
+    const angleRad = (fitRotationDeg * Math.PI) / 180;
+    const cos = Math.cos(angleRad);
+    const sin = Math.sin(angleRad);
+    // Convert pointer delta from world space to the rotated image-local space.
+    const localDx = (dx * cos) + (dy * sin);
+    const localDy = (-dx * sin) + (dy * cos);
+
+    const dXPercent = overflowX > 0 ? (localDx / overflowX) * 100 : 0;
+    const dYPercent = overflowY > 0 ? (localDy / overflowY) * 100 : 0;
 
     const newX = currentValues.current.x - dXPercent;
     const newY = currentValues.current.y - dYPercent;
@@ -289,7 +367,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({
       window.removeEventListener('mouseup', handleGlobalMouseUp);
       if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     };
-  }, [containerSize, photo.width, photo.height, photo.src]);
+  }, [containerSize, photo.width, photo.height, photo.src, fitRotationDeg, fitClipSignature]);
 
   // Handle empty photo source - render placeholder instead of image
   // This check is AFTER all hooks to comply with Rules of Hooks
@@ -331,7 +409,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({
   return (
     <div
       ref={containerRef}
-      className={`absolute inset-0 overflow-hidden touch-none group ${isCtrlPressed && pageId ? 'cursor-move' : 'cursor-grab'}`}
+      className={`absolute inset-0 ${clipOverflow ? 'overflow-hidden' : 'overflow-visible'} touch-none group ${isCtrlPressed && pageId ? 'cursor-move' : 'cursor-grab'}`}
       draggable={isCtrlPressed && !!pageId}
       onDragStart={handleDragStart}
       onMouseDown={isCtrlPressed ? undefined : onMouseDown}
