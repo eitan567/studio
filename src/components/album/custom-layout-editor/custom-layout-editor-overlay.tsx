@@ -569,10 +569,10 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         const listHeight = layerCount === 0
             ? emptyStateHeight
             : (layerCount * layerHeaderHeight)
-                + expandedContentHeight
-                + (Math.max(0, layerCount - 1) * groupGap)
-                + contentPadding
-                + collapsedBottomPadding;
+            + expandedContentHeight
+            + (Math.max(0, layerCount - 1) * groupGap)
+            + contentPadding
+            + collapsedBottomPadding;
 
         const naturalHeight = Math.max(LAYERS_PANEL_MIN_HEIGHT, headerHeight + listHeight + footerHeight);
 
@@ -600,7 +600,6 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         });
     }, []);
 
-    const GRID_ROTATION_BOUNDARY_EPSILON = 0.001;
     const GRID_ROTATION_SNAP_STEP = 0.001;
 
     const quantizeGridValue = useCallback((value: number): number => {
@@ -611,15 +610,6 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         return [quantizeGridValue(p[0]), quantizeGridValue(p[1])];
     }, [quantizeGridValue]);
 
-    const isPointOnGridBoundary = useCallback((p: Point, width: number): boolean => {
-        return (
-            Math.abs(p[0]) <= GRID_ROTATION_BOUNDARY_EPSILON ||
-            Math.abs(p[0] - width) <= GRID_ROTATION_BOUNDARY_EPSILON ||
-            Math.abs(p[1]) <= GRID_ROTATION_BOUNDARY_EPSILON ||
-            Math.abs(p[1] - 100) <= GRID_ROTATION_BOUNDARY_EPSILON
-        );
-    }, []);
-
     const rotatePointAround = useCallback((point: Point, center: Point, angleRad: number): Point => {
         const dx = point[0] - center[0];
         const dy = point[1] - center[1];
@@ -629,36 +619,6 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             center[0] + (dx * cos) - (dy * sin),
             center[1] + (dx * sin) + (dy * cos)
         ];
-    }, []);
-
-    const getLineRectangleIntersections = useCallback((anchor: Point, direction: Point, width: number): Point[] => {
-        const dx = direction[0];
-        const dy = direction[1];
-        const eps = 1e-8;
-        const candidates: Point[] = [];
-
-        const pushIfValid = (x: number, y: number) => {
-            if (x < -eps || x > width + eps || y < -eps || y > 100 + eps) return;
-            const clamped: Point = [Math.min(width, Math.max(0, x)), Math.min(100, Math.max(0, y))];
-            if (!candidates.some((p) => Math.abs(p[0] - clamped[0]) < 1e-6 && Math.abs(p[1] - clamped[1]) < 1e-6)) {
-                candidates.push(clamped);
-            }
-        };
-
-        if (Math.abs(dx) > eps) {
-            const tLeft = (0 - anchor[0]) / dx;
-            pushIfValid(0, anchor[1] + (dy * tLeft));
-            const tRight = (width - anchor[0]) / dx;
-            pushIfValid(width, anchor[1] + (dy * tRight));
-        }
-        if (Math.abs(dy) > eps) {
-            const tTop = (0 - anchor[1]) / dy;
-            pushIfValid(anchor[0] + (dx * tTop), 0);
-            const tBottom = (100 - anchor[1]) / dy;
-            pushIfValid(anchor[0] + (dx * tBottom), 100);
-        }
-
-        return candidates;
     }, []);
 
     const createGridSegments = useCallback((rows: number, cols: number): GridDesignerSegment[] => {
@@ -770,48 +730,12 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         if (!Number.isFinite(deltaDeg) || Math.abs(deltaDeg) < 0.0001) return;
         if (gridDesignerSegments.length === 0) return;
 
-        const width = canvasLogicalWidthUnits;
-        const center: Point = [width / 2, 50];
+        const center: Point = [canvasLogicalWidthUnits / 2, 50];
         const angleRad = (deltaDeg * Math.PI) / 180;
 
         setGridDesignerSegments((prev) => prev.map((segment) => {
-            const oldP1: Point = [segment.p1[0], segment.p1[1]];
-            const oldP2: Point = [segment.p2[0], segment.p2[1]];
-            const touchesBoundaryP1 = isPointOnGridBoundary(oldP1, width);
-            const touchesBoundaryP2 = isPointOnGridBoundary(oldP2, width);
-
-            let p1 = rotatePointAround(oldP1, center, angleRad);
-            let p2 = rotatePointAround(oldP2, center, angleRad);
-
-            // Infinite-grid clipping behavior for segments that touched the page border.
-            if (touchesBoundaryP1 || touchesBoundaryP2) {
-                const dir: Point = [p2[0] - p1[0], p2[1] - p1[1]];
-                const intersections = getLineRectangleIntersections(p1, dir, width);
-
-                if (intersections.length >= 2) {
-                    if (touchesBoundaryP1 && touchesBoundaryP2) {
-                        const first = intersections[0];
-                        const second = intersections[1];
-                        const keepOrder =
-                            (Math.hypot(first[0] - p1[0], first[1] - p1[1]) + Math.hypot(second[0] - p2[0], second[1] - p2[1])) <=
-                            (Math.hypot(second[0] - p1[0], second[1] - p1[1]) + Math.hypot(first[0] - p2[0], first[1] - p2[1]));
-                        p1 = keepOrder ? first : second;
-                        p2 = keepOrder ? second : first;
-                    } else if (touchesBoundaryP1) {
-                        p1 = intersections.reduce((best, candidate) =>
-                            Math.hypot(candidate[0] - p1[0], candidate[1] - p1[1]) < Math.hypot(best[0] - p1[0], best[1] - p1[1])
-                                ? candidate
-                                : best
-                        );
-                    } else if (touchesBoundaryP2) {
-                        p2 = intersections.reduce((best, candidate) =>
-                            Math.hypot(candidate[0] - p2[0], candidate[1] - p2[1]) < Math.hypot(best[0] - p2[0], best[1] - p2[1])
-                                ? candidate
-                                : best
-                        );
-                    }
-                }
-            }
+            const p1 = rotatePointAround([segment.p1[0], segment.p1[1]], center, angleRad);
+            const p2 = rotatePointAround([segment.p2[0], segment.p2[1]], center, angleRad);
 
             const nextP1 = quantizeGridPoint(p1);
             const nextP2 = quantizeGridPoint(p2);
@@ -834,9 +758,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     }, [
         gridDesignerSegments.length,
         canvasLogicalWidthUnits,
-        isPointOnGridBoundary,
         rotatePointAround,
-        getLineRectangleIntersections,
         quantizeGridPoint
     ]);
 
