@@ -151,10 +151,65 @@ export const ShapeRegion = ({
     const pInsetT = (insetT / containerHeight) * 100;
     const pInsetW = ((insetL + insetR) / containerWidth) * 100;
     const pInsetH = ((insetT + insetB) / containerHeight) * 100;
-    const clampPercent = (value: number) => Math.max(0, Math.min(100, value));
 
     // Convert polygon points to percentage string relative to the *adjusted* region container (0-100)
-    // and also keep a clamped polygon for photo-fit calculations.
+    // and compute a clipped polygon for accurate photo-fit calculations.
+    const clipPolygonToBox = (
+        polygon: Array<[number, number]>,
+        minX: number,
+        minY: number,
+        maxX: number,
+        maxY: number
+    ): Array<[number, number]> => {
+        if (polygon.length < 3) return polygon;
+
+        const clipEdge = (
+            input: Array<[number, number]>,
+            isInside: (p: [number, number]) => boolean,
+            intersect: (a: [number, number], b: [number, number]) => [number, number]
+        ): Array<[number, number]> => {
+            const out: Array<[number, number]> = [];
+            for (let i = 0; i < input.length; i++) {
+                const curr = input[i];
+                const prev = input[(i + input.length - 1) % input.length];
+                const currInside = isInside(curr);
+                const prevInside = isInside(prev);
+
+                if (currInside) {
+                    if (!prevInside) out.push(intersect(prev, curr));
+                    out.push(curr);
+                } else if (prevInside) {
+                    out.push(intersect(prev, curr));
+                }
+            }
+            return out;
+        };
+
+        const intersectAtX = (x: number) => (a: [number, number], b: [number, number]): [number, number] => {
+            const dx = b[0] - a[0];
+            if (Math.abs(dx) < 1e-9) return [x, a[1]];
+            const t = (x - a[0]) / dx;
+            return [x, a[1] + ((b[1] - a[1]) * t)];
+        };
+
+        const intersectAtY = (y: number) => (a: [number, number], b: [number, number]): [number, number] => {
+            const dy = b[1] - a[1];
+            if (Math.abs(dy) < 1e-9) return [a[0], y];
+            const t = (y - a[1]) / dy;
+            return [a[0] + ((b[0] - a[0]) * t), y];
+        };
+
+        let output = polygon.slice();
+        output = clipEdge(output, (p) => p[0] >= minX, intersectAtX(minX)); // left
+        if (output.length < 3) return output;
+        output = clipEdge(output, (p) => p[0] <= maxX, intersectAtX(maxX)); // right
+        if (output.length < 3) return output;
+        output = clipEdge(output, (p) => p[1] >= minY, intersectAtY(minY)); // top
+        if (output.length < 3) return output;
+        output = clipEdge(output, (p) => p[1] <= maxY, intersectAtY(maxY)); // bottom
+        return output;
+    };
+
     let svgPoints = "";
     let fitClipPolygon: Array<[number, number]> | undefined;
     if (region.shape === 'polygon' && region.points) {
@@ -164,16 +219,16 @@ export const ShapeRegion = ({
         const newH = region.bounds.height - pInsetH;
 
         const pointsForSvg: string[] = [];
-        const pointsForFit: Array<[number, number]> = [];
+        const pointsForFitRaw: Array<[number, number]> = [];
         for (const p of region.points) {
             const relX = ((p[0] - newX) / newW) * 100;
             const relY = ((p[1] - newY) / newH) * 100;
             pointsForSvg.push(`${relX},${relY}`);
-            // Fit should be based on the visible frame footprint in this region container.
-            pointsForFit.push([clampPercent(relX), clampPercent(relY)]);
+            pointsForFitRaw.push([relX, relY]);
         }
         svgPoints = pointsForSvg.join(' ');
-        fitClipPolygon = pointsForFit;
+        const clipped = clipPolygonToBox(pointsForFitRaw, 0, 0, 100, 100);
+        fitClipPolygon = clipped.length >= 3 ? clipped : undefined;
     }
     if (!fitClipPolygon && isRect) {
         fitClipPolygon = [[0, 0], [100, 0], [100, 100], [0, 100]];
