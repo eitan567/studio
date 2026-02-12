@@ -1,10 +1,13 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
+import { Hash, RefreshCw, Trash2 } from 'lucide-react';
 import { Photo } from '@/lib/types';
 import { LayoutRegion, TemplateImageRotationMode, regionToClipPath } from '@/lib/advanced-layout-types';
 import { PhotoRenderer } from './photo-renderer';
 import { EmptyPhotoSlot } from '../album-editor/empty-photo-slot';
 import { cn } from '@/lib/utils';
 import { getRegionVisualRotationDeg } from '@/lib/layout-region-rotation';
+import { useOptionalAlbumEditor } from '../album-editor/context';
 
 // Canva-like placeholder background
 const CanvaPlaceholder = ({ className }: { className?: string }) => (
@@ -112,6 +115,8 @@ export const ShapeRegion = ({
     chronologicalIndex?: Record<string, number>;
 }) => {
     const rootRef = React.useRef<HTMLDivElement>(null);
+    const albumEditor = useOptionalAlbumEditor();
+    const scrollToGallery = albumEditor?.scrollToGallery;
     // Unique ID for the mask (though we use clip-path now, keeping IDs unique is good practice)
     const shapeId = `shape-${region.id}`;
 
@@ -121,11 +126,6 @@ export const ShapeRegion = ({
     // Dimensions in relative percentages and pixels
     const widthPx = (region.bounds.width / 100) * containerWidth;
     const heightPx = (region.bounds.height / 100) * containerHeight;
-
-    // Content size and centering for circles
-    const contentSizePx = Math.min(widthPx, heightPx);
-    const contentWidthPx = isCircle ? contentSizePx : widthPx;
-    const contentHeightPx = isCircle ? contentSizePx : heightPx;
 
     const photoGapNum = typeof photoGap === 'string' ? parseFloat(photoGap) : photoGap;
     // contentInset is HALF the gap (shared between slots)
@@ -317,14 +317,12 @@ export const ShapeRegion = ({
                 photo={photo}
                 onUpdate={(pz) => onUpdatePanAndZoom?.(pz)}
                 onInteractionChange={onInteractionChange}
-                onRemove={() => onRemovePhoto?.(photo.id)}
                 // We ALWAYS render the replace button externally in ShapeRegion to prevent clipping.
                 // So we do NOT pass onReplace to PhotoRenderer here.
                 onReplace={undefined}
                 pageId={pageId}
                 photoId={photo.id}
                 priority={priority}
-                chronologicalIndex={chronologicalIndex}
                 preserveAspectRatio={region.preserveAspectRatio}
                 fitRotationDeg={shouldAdjustPhotoRotation ? photoExtraRotationDeg : 0}
                 fitUseRotatedViewportBasis={
@@ -353,70 +351,122 @@ export const ShapeRegion = ({
         );
     };
 
-    // Shared Replace Button logic - Always render if photo exists
-    const replaceButton = photo && photo.src && onReplace && (
-        <button
-            type="button"
-            onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation(); // Stop propagation to prevent selecting the region underneath
-                onReplace(e, rootRef.current || undefined);
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
-            className="absolute top-2 left-2 p-1.5 bg-black/50 text-white/70 rounded-md hover:bg-black/70 hover:text-primary opacity-0 group-hover:opacity-100 transition-all z-[200] pointer-events-auto shadow-sm backdrop-blur-[2px]"
-            title="Replace Photo"
-        >
-            <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            >
-                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-                <path d="M21 3v5h-5" />
-                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-                <path d="M8 16H3v5" />
-            </svg>
-        </button>
-    );
+    // Right-click actions menu, anchored by cursor position.
+    const galleryPhotoId = photo ? (photo.originalId || photo.id) : undefined;
+    const photoNumber = galleryPhotoId ? chronologicalIndex?.[galleryPhotoId] : undefined;
+    const hasGalleryJump = photoNumber !== undefined && !!scrollToGallery;
+    const hasAnyAction = !!(photo?.src && (onReplace || onRemovePhoto || hasGalleryJump));
+    const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number } | null>(null);
 
-    // Shared Remove Button logic - Explicitly moved OUTSIDE the clipped container
-    const removeButton = photo && photo.src && onRemovePhoto && (
-        <button
-            type="button"
-            onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onRemovePhoto(photo.id);
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
-            className="absolute top-2 right-2 p-1.5 bg-black/50 text-white/70 rounded-md hover:bg-destructive hover:text-white opacity-0 group-hover:opacity-100 transition-all z-[200] pointer-events-auto shadow-sm backdrop-blur-[2px]"
-            title="Remove Photo"
-        >
-            <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+    const closeContextMenu = React.useCallback(() => {
+        setContextMenu(null);
+    }, []);
+
+    React.useEffect(() => {
+        if (!contextMenu) return;
+
+        const handlePointerDown = () => closeContextMenu();
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') closeContextMenu();
+        };
+        const handleScroll = () => closeContextMenu();
+
+        window.addEventListener('mousedown', handlePointerDown);
+        window.addEventListener('keydown', handleEscape);
+        window.addEventListener('scroll', handleScroll, true);
+
+        return () => {
+            window.removeEventListener('mousedown', handlePointerDown);
+            window.removeEventListener('keydown', handleEscape);
+            window.removeEventListener('scroll', handleScroll, true);
+        };
+    }, [contextMenu, closeContextMenu]);
+
+    const openContextMenu = (e: React.MouseEvent) => {
+        if (!hasAnyAction) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setContextMenu({ x: e.clientX, y: e.clientY });
+    };
+
+    const runReplaceFromMenu = () => {
+        if (!onReplace || !rootRef.current) return;
+        const syntheticEvent = {
+            preventDefault: () => { },
+            stopPropagation: () => { },
+            currentTarget: rootRef.current,
+        } as unknown as React.MouseEvent;
+        onReplace(syntheticEvent, rootRef.current);
+    };
+
+    const actionCount = (onReplace ? 1 : 0) + (onRemovePhoto ? 1 : 0) + (hasGalleryJump ? 1 : 0);
+    const menuWidth = 200;
+    const menuHeight = 12 + (actionCount * 34);
+    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
+    const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080;
+    const menuLeft = contextMenu ? Math.max(8, Math.min(contextMenu.x, viewportWidth - menuWidth - 8)) : 8;
+    const menuTop = contextMenu ? Math.max(8, Math.min(contextMenu.y, viewportHeight - menuHeight - 8)) : 8;
+
+    const contextMenuOverlay = contextMenu && hasAnyAction && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+                className="fixed inset-0 z-[500]"
+                onMouseDown={closeContextMenu}
+                onContextMenu={(e) => {
+                    e.preventDefault();
+                    closeContextMenu();
+                }}
             >
-                <path d="M3 6h18" />
-                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                <line x1="10" x2="10" y1="11" y2="17" />
-                <line x1="14" x2="14" y1="11" y2="17" />
-            </svg>
-        </button>
-    );
+                <div
+                    className="absolute w-[200px] rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+                    style={{ left: `${menuLeft}px`, top: `${menuTop}px` }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onContextMenu={(e) => e.preventDefault()}
+                >
+                    {onReplace && (
+                        <button
+                            type="button"
+                            className="flex w-full items-center gap-2.5 rounded-sm px-2.5 py-2 text-left text-sm leading-5 hover:bg-accent hover:text-accent-foreground"
+                            onClick={() => {
+                                runReplaceFromMenu();
+                                closeContextMenu();
+                            }}
+                        >
+                            <RefreshCw className="h-4 w-4 shrink-0 opacity-80" />
+                            <span>Replace photo</span>
+                        </button>
+                    )}
+                    {onRemovePhoto && (
+                        <button
+                            type="button"
+                            className="flex w-full items-center gap-2.5 rounded-sm px-2.5 py-2 text-left text-sm leading-5 hover:bg-accent hover:text-accent-foreground"
+                            onClick={() => {
+                                onRemovePhoto(photo!.id);
+                                closeContextMenu();
+                            }}
+                        >
+                            <Trash2 className="h-4 w-4 shrink-0 opacity-80" />
+                            <span>Remove photo</span>
+                        </button>
+                    )}
+                    {hasGalleryJump && (
+                        <button
+                            type="button"
+                            className="flex w-full items-center gap-2.5 rounded-sm px-2.5 py-2 text-left text-sm leading-5 hover:bg-accent hover:text-accent-foreground"
+                            onClick={() => {
+                                scrollToGallery?.(galleryPhotoId!);
+                                closeContextMenu();
+                            }}
+                        >
+                            <Hash className="h-4 w-4 shrink-0 opacity-80" />
+                            <span>Go to photo #{photoNumber}</span>
+                        </button>
+                    )}
+                </div>
+            </div>,
+            document.body
+        )
+        : null;
 
     // SVG Path specific logic: Parse the native viewBox and calculate normalization transform
     const vb = region.viewBox ? region.viewBox.split(' ').map(Number) : [0, 0, 100, 100];
@@ -501,11 +551,11 @@ export const ShapeRegion = ({
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
+                    onContextMenu={openContextMenu}
                 >
                     {renderContent()}
                 </div>
-                {replaceButton}
-                {removeButton}
+                {contextMenuOverlay}
             </div>
         );
     }
@@ -541,6 +591,7 @@ export const ShapeRegion = ({
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
+                onContextMenu={openContextMenu}
             >
                 {renderContent()}
             </div>
@@ -657,9 +708,8 @@ export const ShapeRegion = ({
                 </g>
             </svg>
 
-            {/* Replace & Remove Buttons (Outside of clip-path for visibility) */}
-            {replaceButton}
-            {removeButton}
+            {/* Right-click context menu portal */}
+            {contextMenuOverlay}
         </div>
     );
 };

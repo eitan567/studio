@@ -77,3 +77,7 @@ export function useAlbumEditor() {
     }
     return context;
 }
+
+export function useOptionalAlbumEditor() {
+    return useContext(AlbumEditorContext);
+}
