@@ -12,6 +12,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ShapeRegion } from '../layouts/shape-region';
 import { ToolMode } from './custom-layout-editor-overlay';
 import { isLikelyBackgroundRegion } from '@/lib/layout-background-region';
+import { useSettings } from '@/hooks/use-settings';
 
 const isSamePoint = (a: Point, b: Point, epsilon: number = 1e-6): boolean =>
     Math.abs(a[0] - b[0]) <= epsilon && Math.abs(a[1] - b[1]) <= epsilon;
@@ -117,6 +118,7 @@ export const LayoutCanvas = ({
     templateImageRotationMode = 'follow-frame',
     allowTemplateFallbackWhenEmpty = true
 }: LayoutCanvasProps) => {
+    const { settings } = useSettings();
     const wrapperRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLDivElement>(null);
     const interactionRef = useRef<HTMLDivElement>(null);
@@ -2728,6 +2730,21 @@ export const LayoutCanvas = ({
     const hasSingleSelection = selectedShapeIndices.length === 1;
     const leaderIndex = selectedShapeIndices.length > 0 ? selectedShapeIndices[0] : null;
     const isGridOverlayInteractive = gridDesignerEnabled && toolMode === 'select' && gridDesignerMode !== 'none';
+    const spineEffectSpread = settings.spineEffectSpread;
+    const spineEffectColor = settings.spineEffectColor;
+    const spineEffectColorOpacity = settings.spineEffectColorOpacity;
+    const spineEffectWidth = settings.spineEffectWidth;
+    const spineEffectOpacity = settings.spineEffectOpacity;
+    const spineEffectCenterOpacity = settings.spineEffectCenterOpacity;
+    const spineColorRgba = (() => {
+        if (!/^#[0-9a-fA-F]{6}$/.test(spineEffectColor || '')) {
+            return `rgba(156, 163, 175, ${spineEffectColorOpacity})`;
+        }
+        const r = parseInt(spineEffectColor.slice(1, 3), 16);
+        const g = parseInt(spineEffectColor.slice(3, 5), 16);
+        const b = parseInt(spineEffectColor.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${spineEffectColorOpacity})`;
+    })();
 
     return (
         <div ref={wrapperRef} className="w-full h-full bg-muted/20 overflow-hidden relative flex items-center justify-center select-none">
@@ -2822,6 +2839,39 @@ export const LayoutCanvas = ({
                                 </div>
                             )}
                         </div>
+
+                        {isFull && (
+                            <>
+                                <div
+                                    className="absolute top-0 bottom-0 pointer-events-none z-20"
+                                    style={{
+                                        left: `calc(50% - ${spineEffectWidth}px)`,
+                                        width: `${spineEffectWidth}px`,
+                                        background: `linear-gradient(to left, rgba(0,0,0,${spineEffectOpacity}), transparent)`
+                                    }}
+                                />
+                                <div
+                                    className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[1px] z-20 pointer-events-none"
+                                    style={{ backgroundColor: spineColorRgba }}
+                                >
+                                    <div
+                                        className="absolute inset-y-0 pointer-events-none mix-blend-multiply"
+                                        style={{
+                                            left: `-${spineEffectSpread}px`,
+                                            right: `-${spineEffectSpread}px`,
+                                            background: `linear-gradient(to right, transparent, rgba(0,0,0,${spineEffectCenterOpacity}), transparent)`
+                                        }}
+                                    />
+                                </div>
+                                <div
+                                    className="absolute top-0 bottom-0 left-1/2 pointer-events-none z-20"
+                                    style={{
+                                        width: `${spineEffectWidth}px`,
+                                        background: `linear-gradient(to right, rgba(0,0,0,${spineEffectOpacity}), transparent)`
+                                    }}
+                                />
+                            </>
+                        )}
 
                         {/* Vector Overlay - Show during editing or when drawing */}
                         {(vectorObjects.length > 0 || currentStroke || previewShape || (polylinePoints && polylinePoints.length > 0)) && (
