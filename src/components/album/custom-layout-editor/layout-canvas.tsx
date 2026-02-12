@@ -13,15 +13,22 @@ import { ShapeRegion } from '../layouts/shape-region';
 import { ToolMode } from './custom-layout-editor-overlay';
 import { isLikelyBackgroundRegion } from '@/lib/layout-background-region';
 
+const isSamePoint = (a: Point, b: Point, epsilon: number = 1e-6): boolean =>
+    Math.abs(a[0] - b[0]) <= epsilon && Math.abs(a[1] - b[1]) <= epsilon;
+
 const updateObjectPoints = (obj: VectorObject, newPoints: Point[]): VectorObject => {
     const newSegments: Segment[] = [];
     // Create segments between consecutive points
     for (let i = 0; i < newPoints.length - 1; i++) {
         newSegments.push({ p1: newPoints[i], p2: newPoints[i + 1] });
     }
-    // Add closing segment from last point back to first point (for closed shapes)
-    if (newPoints.length >= 3) {
-        newSegments.push({ p1: newPoints[newPoints.length - 1], p2: newPoints[0] });
+    // Non-line shapes are implicitly closed unless the points are already closed.
+    if (obj.type !== 'line' && newPoints.length >= 3) {
+        const first = newPoints[0];
+        const last = newPoints[newPoints.length - 1];
+        if (!isSamePoint(first, last)) {
+            newSegments.push({ p1: last, p2: first });
+        }
     }
     return { ...obj, points: newPoints, segments: newSegments };
 };
@@ -215,8 +222,8 @@ export const LayoutCanvas = ({
         mirrorPartnerIds?: Set<string>;
         groupRotationStart?: Map<string, GroupRotationStartEntry>;
         groupResizeStart?: Map<string, GroupResizeStartEntry>;
-        lineEndpointIndex?: 0 | 1;
-        lineOppositePoint?: Point;
+        linePointIndex?: number;
+        lineSnapAnchorPoint?: Point;
         lineObjectId?: string;
     } | null>(null);
     const selectionAdditiveRef = useRef(false);
@@ -430,25 +437,6 @@ export const LayoutCanvas = ({
         return distance(p, proj);
     };
 
-    const getLineEndpoints = (obj: VectorObject): [Point, Point] | null => {
-        if (obj.type !== 'line') return null;
-        if (obj.points && obj.points.length >= 2) {
-            return [
-                [obj.points[0][0], obj.points[0][1]],
-                [obj.points[obj.points.length - 1][0], obj.points[obj.points.length - 1][1]]
-            ];
-        }
-        if (obj.segments && obj.segments.length > 0) {
-            const firstSeg = obj.segments[0];
-            const lastSeg = obj.segments[obj.segments.length - 1];
-            return [
-                [firstSeg.p1[0], firstSeg.p1[1]],
-                [lastSeg.p2[0], lastSeg.p2[1]]
-            ];
-        }
-        return null;
-    };
-
     const getLinePolylinePoints = (obj: VectorObject): Point[] => {
         if (obj.points && obj.points.length >= 2) {
             return obj.points.map((p) => [p[0], p[1]] as Point);
@@ -461,6 +449,17 @@ export const LayoutCanvas = ({
             return pts;
         }
         return [];
+    };
+
+    const isLineClosed = (points: Point[]): boolean => {
+        if (points.length < 3) return false;
+        return isSamePoint(points[0], points[points.length - 1], 0.05);
+    };
+
+    const getLineEditablePointIndices = (points: Point[]): number[] => {
+        if (points.length === 0) return [];
+        const editableCount = isLineClosed(points) ? Math.max(0, points.length - 1) : points.length;
+        return Array.from({ length: editableCount }, (_, i) => i);
     };
 
     const getClosestPointOnSegment = (p: Point, a: Point, b: Point): Point => {
@@ -632,14 +631,29 @@ export const LayoutCanvas = ({
         const EDGE_HIT_TOLERANCE = 0.8;
         const LINE_HIT_TOLERANCE = 1.2;
 
-        if (shape.object.type === 'line' || shape.polygon.length < 3) {
+        if (shape.object.type === 'line') {
+            const linePoints = getLinePolylinePoints(shape.object);
+            const closedLine = isLineClosed(linePoints);
+            const loop = closedLine && linePoints.length > 3
+                ? linePoints.slice(0, linePoints.length - 1)
+                : linePoints;
+
+            if (closedLine && loop.length >= 3) {
+                if (isPointInPolygon(p, loop)) return true;
+                return isPointNearPolygonEdges(p, loop, EDGE_HIT_TOLERANCE);
+            }
+
             const segments = shape.object.segments || [];
             if (segments.length > 0) {
                 return segments.some(seg => distancePointToSegment(p, seg.p1, seg.p2) <= LINE_HIT_TOLERANCE);
             }
-            if (shape.polygon.length === 2) {
-                return distancePointToSegment(p, shape.polygon[0], shape.polygon[1]) <= LINE_HIT_TOLERANCE;
+            if (linePoints.length === 2) {
+                return distancePointToSegment(p, linePoints[0], linePoints[1]) <= LINE_HIT_TOLERANCE;
             }
+            return false;
+        }
+
+        if (shape.polygon.length < 3) {
             return false;
         }
 
@@ -749,6 +763,21 @@ export const LayoutCanvas = ({
         const nextShapes: ShapeData[] = [];
 
         vectorObjects.forEach(obj => {
+            if (obj.type === 'line') {
+                const linePoints = getLinePolylinePoints(obj);
+                if (linePoints.length < 2) return;
+                const bbox = getBoundingBox(linePoints);
+                const preferredAngle = prevShapes?.find((s) => s.id === obj.id)?.obb.angle;
+                nextShapes.push({
+                    id: obj.id,
+                    polygon: linePoints,
+                    bbox,
+                    obb: getSmartBBox(linePoints, preferredAngle),
+                    object: obj
+                });
+                return;
+            }
+
             // Collect points from segments
             const pointSet = new Map<string, Point>();
             obj.segments?.forEach(s => {
@@ -1429,36 +1458,67 @@ export const LayoutCanvas = ({
                     if (mirrorPartnerIdx === -1) mirrorPartnerIdx = undefined;
                 }
 
-                // Line Endpoint Handles (single selection)
+                // Line vertex handles + closed-line rotation (single selection)
                 if (hasSingleSelection && shape.object.type === 'line') {
-                    const endpoints = getLineEndpoints(shape.object);
-                    if (endpoints) {
-                        const startHit = distance(point, endpoints[0]) < LINE_ENDPOINT_HANDLE_HIT_RADIUS;
-                        const endHit = distance(point, endpoints[1]) < LINE_ENDPOINT_HANDLE_HIT_RADIUS;
+                    const linePoints = getLinePolylinePoints(shape.object);
+                    const editablePointIndices = getLineEditablePointIndices(linePoints);
+                    let hitLinePointIndex: number | null = null;
 
-                        if (startHit || endHit) {
-                            const endpointIndex: 0 | 1 = startHit ? 0 : 1;
-                            const oppositePoint = endpointIndex === 0 ? endpoints[1] : endpoints[0];
+                    for (const idx of editablePointIndices) {
+                        if (distance(point, linePoints[idx]) < LINE_ENDPOINT_HANDLE_HIT_RADIUS) {
+                            hitLinePointIndex = idx;
+                            break;
+                        }
+                    }
 
-                            setTransformMode('line-endpoint');
-                            isRotatingRef.current = false;
-                            dragStartRef.current = {
-                                point,
-                                origPoints: shape.polygon,
-                                bbox: shape.bbox,
-                                startObb: shape.obb,
-                                lineEndpointIndex: endpointIndex,
-                                lineOppositePoint: [oppositePoint[0], oppositePoint[1]],
-                                lineObjectId: shape.object.id
-                            };
-                            setCursorMode('pointer');
-                            return;
+                    if (hitLinePointIndex !== null) {
+                        const prevIdx = hitLinePointIndex > 0
+                            ? hitLinePointIndex - 1
+                            : (linePoints.length > 1 ? 1 : hitLinePointIndex);
+                        const nextIdx = hitLinePointIndex < linePoints.length - 1
+                            ? hitLinePointIndex + 1
+                            : (linePoints.length > 1 ? linePoints.length - 2 : hitLinePointIndex);
+                        const prevPoint = linePoints[Math.max(0, prevIdx)];
+                        const nextPoint = linePoints[Math.max(0, nextIdx)];
+                        const anchor = distance(point, prevPoint) <= distance(point, nextPoint) ? prevPoint : nextPoint;
+
+                        setTransformMode('line-endpoint');
+                        isRotatingRef.current = false;
+                        dragStartRef.current = {
+                            point,
+                            origPoints: linePoints,
+                            bbox: shape.bbox,
+                            startObb: shape.obb,
+                            linePointIndex: hitLinePointIndex,
+                            lineSnapAnchorPoint: [anchor[0], anchor[1]],
+                            lineObjectId: shape.object.id
+                        };
+                        setCursorMode('pointer');
+                        return;
+                    }
+
+                    if (isLineClosed(linePoints)) {
+                        const rotHandles = getRotationHandles(shape.obb);
+                        for (let i = 0; i < 4; i++) {
+                            if (distance(point, rotHandles[i]) < 2.0) {
+                                setTransformMode('rotate');
+                                isRotatingRef.current = true;
+                                dragStartRef.current = {
+                                    point,
+                                    origPoints: linePoints,
+                                    bbox: shape.bbox,
+                                    startObb: shape.obb,
+                                    mirrorPartnerIndex: mirrorPartnerIdx
+                                };
+                                return;
+                            }
                         }
                     }
                 }
 
                 // Rotation Handles
-                const rotHandles = getRotationHandles(shape.obb);
+                if (shape.object.type !== 'line') {
+                    const rotHandles = getRotationHandles(shape.obb);
                 for (let i = 0; i < 4; i++) {
                     if (distance(point, rotHandles[i]) < 2.0) {
                         let groupRotationStart: Map<string, GroupRotationStartEntry> | undefined;
@@ -1491,9 +1551,10 @@ export const LayoutCanvas = ({
                         return;
                     }
                 }
+                }
 
                 // Resize Handles
-                if (hasSingleSelection || canUseLeaderResize) {
+                if (shape.object.type !== 'line' && (hasSingleSelection || canUseLeaderResize)) {
                     const handles = getResizeHandles(shape.obb);
                     const hitRadius = 1.5;
 
@@ -1907,57 +1968,70 @@ export const LayoutCanvas = ({
                     const shape = shapes[primaryIdx];
                     if (shape) {
                         if (hasSingleSelection && shape.object.type === 'line') {
-                            const endpoints = getLineEndpoints(shape.object);
-                            if (endpoints) {
-                                const overLineEndpoint =
-                                    distance(point, endpoints[0]) < LINE_ENDPOINT_HANDLE_HIT_RADIUS ||
-                                    distance(point, endpoints[1]) < LINE_ENDPOINT_HANDLE_HIT_RADIUS;
-                                if (overLineEndpoint) {
-                                    newCursor = 'pointer';
+                            const linePoints = getLinePolylinePoints(shape.object);
+                            const editableIndices = getLineEditablePointIndices(linePoints);
+                            const overLinePoint = editableIndices.some(
+                                (idx) => distance(point, linePoints[idx]) < LINE_ENDPOINT_HANDLE_HIT_RADIUS
+                            );
+                            const closedLine = isLineClosed(linePoints);
+
+                            if (overLinePoint) {
+                                newCursor = 'pointer';
+                            } else if (closedLine) {
+                                const rotHandles = getRotationHandles(shape.obb);
+                                const overRot = rotHandles.some((h) => distance(point, h) < 2.0);
+                                if (overRot) {
+                                    newCursor = 'alias';
                                 } else if (isShapeHit(shape, point)) {
                                     newCursor = 'grab';
                                 }
-                                if (cursorMode !== newCursor) setCursorMode(newCursor);
-                                if (!dragStartRef.current) return;
-                                return;
+                            } else if (isShapeHit(shape, point)) {
+                                newCursor = 'grab';
                             }
+
+                            if (cursorMode !== newCursor) setCursorMode(newCursor);
+                            if (!dragStartRef.current) return;
+                            // Open lines don't expose rotate/resize handles.
+                            if (!closedLine) return;
                         }
 
-                        // Check Rotation Handles
-                        const rotHandles = getRotationHandles(shape.obb);
-                        let overRot = false;
-                        for (let i = 0; i < 4; i++) {
-                            if (distance(point, rotHandles[i]) < 2.0) {
-                                overRot = true;
-                                break;
-                            }
-                        }
-                        if (overRot) {
-                            newCursor = 'alias';
-                        } else {
-                            let overResize = false;
-                            if (hasSingleSelection || canUseLeaderResizeHover) {
-                                // Check Resize Handles
-                                const handles = getResizeHandles(shape.obb);
-                                for (let i = 0; i < 8; i++) {
-                                    if (distance(point, handles[i]) < 1.5) {
-                                        overResize = true;
-                                        break;
-                                    }
+                        if (shape.object.type !== 'line') {
+                            // Check Rotation Handles
+                            const rotHandles = getRotationHandles(shape.obb);
+                            let overRot = false;
+                            for (let i = 0; i < 4; i++) {
+                                if (distance(point, rotHandles[i]) < 2.0) {
+                                    overRot = true;
+                                    break;
                                 }
                             }
-                            if (overResize) {
-                                newCursor = 'pointer';
+                            if (overRot) {
+                                newCursor = 'alias';
                             } else {
-                                // Check Shape Body (for move)
-                                let overShape = false;
-                                for (let i = shapes.length - 1; i >= 0; i--) {
-                                    if (isShapeHit(shapes[i], point)) {
-                                        overShape = true;
-                                        break;
+                                let overResize = false;
+                                if (hasSingleSelection || canUseLeaderResizeHover) {
+                                    // Check Resize Handles
+                                    const handles = getResizeHandles(shape.obb);
+                                    for (let i = 0; i < 8; i++) {
+                                        if (distance(point, handles[i]) < 1.5) {
+                                            overResize = true;
+                                            break;
+                                        }
                                     }
                                 }
-                                if (overShape) newCursor = 'grab';
+                                if (overResize) {
+                                    newCursor = 'pointer';
+                                } else {
+                                    // Check Shape Body (for move)
+                                    let overShape = false;
+                                    for (let i = shapes.length - 1; i >= 0; i--) {
+                                        if (isShapeHit(shapes[i], point)) {
+                                            overShape = true;
+                                            break;
+                                        }
+                                    }
+                                    if (overShape) newCursor = 'grab';
+                                }
                             }
                         }
                     }
@@ -1982,25 +2056,44 @@ export const LayoutCanvas = ({
 
         if (transformMode === 'line-endpoint' && selectedShapeIndices.length === 1) {
             const lineObjectId = start.lineObjectId || shapesRef.current[selectedShapeIndices[0]]?.id;
-            const endpointIndex = start.lineEndpointIndex;
-            const oppositePoint = start.lineOppositePoint;
-            if (!lineObjectId || endpointIndex === undefined || !oppositePoint) return;
-
-            const snappedEndpoint = snapPointToCanvasBoundary(getLineToolSnapPoint(point, {
-                strokeStart: oppositePoint,
-                excludeObjectId: lineObjectId
-            }));
+            const pointIndex = start.linePointIndex;
+            if (!lineObjectId || pointIndex === undefined) return;
 
             const newObjects = vectorObjects.map((obj) => {
                 if (obj.id !== lineObjectId) return obj;
                 if (obj.type !== 'line') return obj;
                 const linePoints = getLinePolylinePoints(obj);
                 if (linePoints.length < 2) return obj;
+                const targetIndex = Math.max(0, Math.min(pointIndex, linePoints.length - 1));
+                const closedLine = isLineClosed(linePoints);
+
+                const candidateAnchorIndices = new Set<number>();
+                if (targetIndex > 0) candidateAnchorIndices.add(targetIndex - 1);
+                if (targetIndex < linePoints.length - 1) candidateAnchorIndices.add(targetIndex + 1);
+                if (closedLine) {
+                    if (targetIndex === 0 && linePoints.length > 2) candidateAnchorIndices.add(linePoints.length - 2);
+                    if (targetIndex === linePoints.length - 1 && linePoints.length > 2) candidateAnchorIndices.add(1);
+                }
+                const anchorIndex = Array.from(candidateAnchorIndices)[0];
+                const dynamicAnchor =
+                    anchorIndex !== undefined
+                        ? [linePoints[anchorIndex][0], linePoints[anchorIndex][1]] as Point
+                        : start.lineSnapAnchorPoint;
+
+                const snappedPoint = snapPointToCanvasBoundary(getLineToolSnapPoint(point, {
+                    strokeStart: dynamicAnchor,
+                    excludeObjectId: lineObjectId
+                }));
+
                 const nextPoints = linePoints.map((p) => [p[0], p[1]] as Point);
-                if (endpointIndex === 0) {
-                    nextPoints[0] = snappedEndpoint;
-                } else {
-                    nextPoints[nextPoints.length - 1] = snappedEndpoint;
+                nextPoints[targetIndex] = snappedPoint;
+                if (closedLine) {
+                    const lastIdx = nextPoints.length - 1;
+                    if (targetIndex === 0) {
+                        nextPoints[lastIdx] = [snappedPoint[0], snappedPoint[1]];
+                    } else if (targetIndex === lastIdx) {
+                        nextPoints[0] = [snappedPoint[0], snappedPoint[1]];
+                    }
                 }
                 return updateObjectPoints(obj, nextPoints);
             });
@@ -3284,20 +3377,71 @@ export const LayoutCanvas = ({
                             >
                                 {hasSingleSelection && primaryShape.object.type === 'line' ? (
                                     (() => {
-                                        const endpoints = getLineEndpoints(primaryShape.object);
-                                        if (!endpoints) return null;
-                                        return endpoints.map((ep, i) => (
-                                            <circle
-                                                key={`line-endpoint-${i}`}
-                                                cx={ep[0]}
-                                                cy={ep[1]}
-                                                r={1.2}
-                                                fill="white"
-                                                stroke="#3b82f6"
-                                                strokeWidth="0.5"
-                                                vectorEffect="non-scaling-stroke"
-                                            />
-                                        ));
+                                        const linePoints = getLinePolylinePoints(primaryShape.object);
+                                        if (linePoints.length < 2) return null;
+                                        const closedLine = isLineClosed(linePoints);
+                                        const editablePointIndices = getLineEditablePointIndices(linePoints);
+                                        const cornerHandles = getResizeHandles(primaryShape.obb)
+                                            .filter((_, i) => [0, 2, 4, 6].includes(i));
+
+                                        return (
+                                            <>
+                                                {closedLine && (
+                                                    <polygon
+                                                        points={cornerHandles.map((p) => `${p[0]},${p[1]}`).join(' ')}
+                                                        fill="none"
+                                                        stroke="#3b82f6"
+                                                        strokeWidth="0.5"
+                                                        strokeDasharray="3 3"
+                                                        vectorEffect="non-scaling-stroke"
+                                                    />
+                                                )}
+
+                                                {closedLine && getRotationHandles(primaryShape.obb).map((h, i) => (
+                                                    <g key={`line-rot-${i}`} transform={`translate(${h[0]}, ${h[1]})`}>
+                                                        {(() => {
+                                                            const corner = cornerHandles[i];
+                                                            if (!corner) return null;
+                                                            return (
+                                                                <line
+                                                                    x1={corner[0] - h[0]}
+                                                                    y1={corner[1] - h[1]}
+                                                                    x2={0}
+                                                                    y2={0}
+                                                                    stroke="#ec4899"
+                                                                    strokeWidth="0.5"
+                                                                    vectorEffect="non-scaling-stroke"
+                                                                />
+                                                            );
+                                                        })()}
+                                                        <circle
+                                                            r={1.6}
+                                                            fill="#ec4899"
+                                                            stroke="white"
+                                                            strokeWidth="1"
+                                                            vectorEffect="non-scaling-stroke"
+                                                            cursor="crosshair"
+                                                        />
+                                                    </g>
+                                                ))}
+
+                                                {editablePointIndices.map((idx) => {
+                                                    const p = linePoints[idx];
+                                                    return (
+                                                        <circle
+                                                            key={`line-point-${idx}`}
+                                                            cx={p[0]}
+                                                            cy={p[1]}
+                                                            r={1.2}
+                                                            fill="white"
+                                                            stroke="#3b82f6"
+                                                            strokeWidth="0.5"
+                                                            vectorEffect="non-scaling-stroke"
+                                                        />
+                                                    );
+                                                })}
+                                            </>
+                                        );
                                     })()
                                 ) : (
                                     <>
