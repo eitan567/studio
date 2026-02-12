@@ -1498,6 +1498,25 @@ export const LayoutCanvas = ({
                     }
 
                     if (isLineClosed(linePoints)) {
+                        const resizeHandles = getResizeHandles(shape.obb);
+                        const sideResizeHandleIndices = [1, 3, 5, 7];
+                        for (const handleIndex of sideResizeHandleIndices) {
+                            const handlePoint = resizeHandles[handleIndex];
+                            if (handlePoint && distance(point, handlePoint) < 1.5) {
+                                setResizeHandle(handleIndex);
+                                setTransformMode('resize');
+                                isRotatingRef.current = false;
+                                dragStartRef.current = {
+                                    point,
+                                    origPoints: linePoints,
+                                    bbox: shape.bbox,
+                                    startObb: shape.obb,
+                                    mirrorPartnerIndex: mirrorPartnerIdx
+                                };
+                                return;
+                            }
+                        }
+
                         const rotHandles = getRotationHandles(shape.obb);
                         for (let i = 0; i < 4; i++) {
                             if (distance(point, rotHandles[i]) < 2.0) {
@@ -1978,9 +1997,16 @@ export const LayoutCanvas = ({
                             if (overLinePoint) {
                                 newCursor = 'pointer';
                             } else if (closedLine) {
+                                const resizeHandles = getResizeHandles(shape.obb);
+                                const overResize = [1, 3, 5, 7].some((idx) => {
+                                    const h = resizeHandles[idx];
+                                    return !!h && distance(point, h) < 1.5;
+                                });
                                 const rotHandles = getRotationHandles(shape.obb);
                                 const overRot = rotHandles.some((h) => distance(point, h) < 2.0);
-                                if (overRot) {
+                                if (overResize) {
+                                    newCursor = 'pointer';
+                                } else if (overRot) {
                                     newCursor = 'alias';
                                 } else if (isShapeHit(shape, point)) {
                                     newCursor = 'grab';
@@ -3383,6 +3409,8 @@ export const LayoutCanvas = ({
                                         const editablePointIndices = getLineEditablePointIndices(linePoints);
                                         const cornerHandles = getResizeHandles(primaryShape.obb)
                                             .filter((_, i) => [0, 2, 4, 6].includes(i));
+                                        const resizeHandles = getResizeHandles(primaryShape.obb);
+                                        const sideResizeHandleIndices = [1, 3, 5, 7];
 
                                         return (
                                             <>
@@ -3424,6 +3452,23 @@ export const LayoutCanvas = ({
                                                         />
                                                     </g>
                                                 ))}
+
+                                                {closedLine && sideResizeHandleIndices.map((idx) => {
+                                                    const h = resizeHandles[idx];
+                                                    if (!h) return null;
+                                                    return (
+                                                        <circle
+                                                            key={`line-resize-${idx}`}
+                                                            cx={h[0]}
+                                                            cy={h[1]}
+                                                            r={1.2}
+                                                            fill="white"
+                                                            stroke="#3b82f6"
+                                                            strokeWidth="0.5"
+                                                            vectorEffect="non-scaling-stroke"
+                                                        />
+                                                    );
+                                                })}
 
                                                 {editablePointIndices.map((idx) => {
                                                     const p = linePoints[idx];
