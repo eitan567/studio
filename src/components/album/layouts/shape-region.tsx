@@ -285,9 +285,14 @@ export const ShapeRegion = ({
         return segments;
     };
 
+    // Canva path frames are authored to follow their frame orientation intrinsically.
+    // Keep them in follow-frame regardless of the template-wide image mode toggle.
+    const effectiveImageRotationMode: TemplateImageRotationMode =
+        region.shape === 'path' ? 'follow-frame' : imageRotationMode;
+
     const frameRotationDeg = typeof region.rotation === 'number' ? region.rotation : 0;
     const visualFrameRotationDeg = getRegionVisualRotationDeg(region);
-    const targetPhotoWorldRotationDeg = imageRotationMode === 'keep-horizontal' ? 0 : visualFrameRotationDeg;
+    const targetPhotoWorldRotationDeg = effectiveImageRotationMode === 'keep-horizontal' ? 0 : visualFrameRotationDeg;
     const photoExtraRotationDeg = targetPhotoWorldRotationDeg - frameRotationDeg;
     const shouldAdjustPhotoRotation = Math.abs(photoExtraRotationDeg) > 0.0001;
 
@@ -322,6 +327,10 @@ export const ShapeRegion = ({
                 chronologicalIndex={chronologicalIndex}
                 preserveAspectRatio={region.preserveAspectRatio}
                 fitRotationDeg={shouldAdjustPhotoRotation ? photoExtraRotationDeg : 0}
+                fitUseRotatedViewportBasis={
+                    effectiveImageRotationMode === 'follow-frame' &&
+                    shouldAdjustPhotoRotation
+                }
                 fitClipPolygon={fitClipPolygon}
                 clipOverflow
             />

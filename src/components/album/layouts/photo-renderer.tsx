@@ -23,6 +23,8 @@ interface PhotoRendererProps {
   preserveAspectRatio?: boolean;
   // Relative rotation between image content and frame viewport (degrees)
   fitRotationDeg?: number;
+  // When true, compute fit viewport on rotated basis to avoid clipping in follow-frame mode.
+  fitUseRotatedViewportBasis?: boolean;
   // Clip polygon points in local container percentages (0..100, 0..100)
   fitClipPolygon?: Array<[number, number]>;
   // Allow the image wrapper to overflow and rely on parent clipping
@@ -43,6 +45,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({
   chronologicalIndex,
   preserveAspectRatio = false,
   fitRotationDeg = 0,
+  fitUseRotatedViewportBasis = false,
   fitClipPolygon,
   clipOverflow = true
 }: PhotoRendererProps) {
@@ -98,29 +101,53 @@ export const PhotoRenderer = memo(function PhotoRenderer({
       return { width: cWidth, height: cHeight };
     }
 
-    const rad = (fitRotationDeg * Math.PI) / 180;
-    const ux: [number, number] = [Math.cos(rad), Math.sin(rad)];
-    const uy: [number, number] = [-Math.sin(rad), Math.cos(rad)];
+    const pointsPx = fitClipPolygon.map(([px, py]) => ([
+      (px / 100) * cWidth,
+      (py / 100) * cHeight
+    ] as [number, number]));
 
-    let minU = Infinity;
-    let maxU = -Infinity;
-    let minV = Infinity;
-    let maxV = -Infinity;
+    // In follow-frame mode, compute the fit-basis directly by projecting polygon points
+    // onto the rotated image-local axes. This avoids AABB over-estimation that makes
+    // the image appear too zoomed.
+    if (fitUseRotatedViewportBasis) {
+      const angleRad = (fitRotationDeg * Math.PI) / 180;
+      const ux: [number, number] = [Math.cos(angleRad), Math.sin(angleRad)];
+      const uy: [number, number] = [-Math.sin(angleRad), Math.cos(angleRad)];
 
-    for (const [px, py] of fitClipPolygon) {
-      const x = (px / 100) * cWidth;
-      const y = (py / 100) * cHeight;
-      const u = (x * ux[0]) + (y * ux[1]);
-      const v = (x * uy[0]) + (y * uy[1]);
-      minU = Math.min(minU, u);
-      maxU = Math.max(maxU, u);
-      minV = Math.min(minV, v);
-      maxV = Math.max(maxV, v);
+      let minU = Infinity;
+      let maxU = -Infinity;
+      let minV = Infinity;
+      let maxV = -Infinity;
+
+      for (const [x, y] of pointsPx) {
+        const u = (x * ux[0]) + (y * ux[1]);
+        const v = (x * uy[0]) + (y * uy[1]);
+        minU = Math.min(minU, u);
+        maxU = Math.max(maxU, u);
+        minV = Math.min(minV, v);
+        maxV = Math.max(maxV, v);
+      }
+
+      const width = Math.max(1, maxU - minU);
+      const height = Math.max(1, maxV - minV);
+      return { width, height };
     }
 
-    const width = Math.max(1, maxU - minU);
-    const height = Math.max(1, maxV - minV);
-    return { width, height };
+    // Default fit-basis is polygon AABB in local frame space.
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const [x, y] of pointsPx) {
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
+    }
+    return {
+      width: Math.max(1, maxX - minX),
+      height: Math.max(1, maxY - minY)
+    };
   };
   const fitClipSignature = useMemo(() => {
     if (!fitClipPolygon || fitClipPolygon.length === 0) return '';
@@ -146,7 +173,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({
 
     // Tiny seam bleed only against the effective viewport (not container AABB),
     // to avoid visible seams while keeping sizing accurate.
-    const seamBleedPx = 0.75;
+    const seamBleedPx = 0.25;
     const seamCoverFactor = Math.max(
       effectiveViewport.width > 0 ? ((effectiveViewport.width + seamBleedPx) / wrapperWidth) : 1,
       effectiveViewport.height > 0 ? ((effectiveViewport.height + seamBleedPx) / wrapperHeight) : 1,

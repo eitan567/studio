@@ -32,6 +32,7 @@ interface LayoutCanvasProps {
     onUpdatePage: (page: AlbumPage) => void;
     advancedTemplate: AdvancedTemplate | null;
     toolMode: ToolMode;
+    onToolModeChange?: (mode: ToolMode) => void;
     vectorObjects: VectorObject[];
     onUpdateVectorObjects?: (objects: VectorObject[]) => void;
     isMirrorMode: boolean;
@@ -89,6 +90,7 @@ export const LayoutCanvas = ({
     onUpdatePage,
     advancedTemplate,
     toolMode,
+    onToolModeChange,
     vectorObjects,
     onUpdateVectorObjects,
     isMirrorMode,
@@ -1616,7 +1618,7 @@ export const LayoutCanvas = ({
                 segments,
                 points,
                 stroke: activeStrokeColor,
-                strokeWidth: activeStrokeWidth,
+                strokeWidth: (type === 'rect' || type === 'circle') ? 0 : activeStrokeWidth,
                 fill: activeFillColor,
                 zIndex: selectedZ,
                 rotation: 0
@@ -1637,6 +1639,7 @@ export const LayoutCanvas = ({
                     obj.mirrorPartnerId = mirroredObj.id;
                     newObjects.push(mirroredObj);
                 }
+                onToolModeChange?.('select');
             }
         } else if (toolMode === 'pencil') {
             const start = currentStrokeRef.current?.p1;
@@ -2011,12 +2014,38 @@ export const LayoutCanvas = ({
             if (isCorner) {
                 const currW = baseW * Math.abs(scaleU);
                 const currH = baseH * Math.abs(scaleV);
-                const snapThreshold = 10;
-                if (Math.abs(currW - currH) < snapThreshold) {
-                    symmetric = true;
-                    const targetSize = (currW + currH) / 2;
-                    scaleU = (targetSize / baseW) * (scaleU < 0 ? -1 : 1);
-                    scaleV = (targetSize / baseH) * (scaleV < 0 ? -1 : 1);
+
+                if (shape.object.type === 'path') {
+                    // Canva/path frames: magnetic snap back to their original aspect ratio.
+                    // This keeps frame proportions stable without hard-locking free resize.
+                    const baseRatio = baseH > 0 ? (baseW / baseH) : 1;
+                    const currRatio = currH > 0 ? (currW / currH) : baseRatio;
+                    const ratioDistance = Math.abs(currRatio - baseRatio) / Math.max(baseRatio, 1e-6);
+                    const ratioSnapThreshold = 0.08; // 8% proximity to trigger snap
+
+                    if (ratioDistance <= ratioSnapThreshold) {
+                        symmetric = true;
+                        // Use dominant axis movement as driver, derive the other axis from base ratio.
+                        const deltaScaleU = Math.abs(Math.abs(scaleU) - 1);
+                        const deltaScaleV = Math.abs(Math.abs(scaleV) - 1);
+
+                        if (deltaScaleU >= deltaScaleV) {
+                            const targetH = currW / baseRatio;
+                            scaleV = (targetH / baseH) * (scaleV < 0 ? -1 : 1);
+                        } else {
+                            const targetW = currH * baseRatio;
+                            scaleU = (targetW / baseW) * (scaleU < 0 ? -1 : 1);
+                        }
+                    }
+                } else {
+                    // Existing square snap behavior for non-path shapes (rect/circle/polygon).
+                    const snapThreshold = 10;
+                    if (Math.abs(currW - currH) < snapThreshold) {
+                        symmetric = true;
+                        const targetSize = (currW + currH) / 2;
+                        scaleU = (targetSize / baseW) * (scaleU < 0 ? -1 : 1);
+                        scaleV = (targetSize / baseH) * (scaleV < 0 ? -1 : 1);
+                    }
                 }
             }
             if (symmetric !== isSymmetric) setIsSymmetric(symmetric);
@@ -2529,7 +2558,9 @@ export const LayoutCanvas = ({
                                         const pathViewBox = obj.viewBox || '0 0 100 100';
                                         const clipId = `clip-${obj.id}`;
                                         const objectVisualAngleDeg = obj.rotation || 0;
-                                        const objectGroundAngleDeg = templateImageRotationMode === 'follow-frame' ? objectVisualAngleDeg : 0;
+                                        // Canva path frames always behave as follow-frame.
+                                        // Do not apply template image-mode counter-rotation here.
+                                        const objectGroundAngleDeg = objectVisualAngleDeg;
                                         const placeholderRelativeRotationDeg = objectGroundAngleDeg - objectVisualAngleDeg;
 
                                         return (
@@ -2651,7 +2682,8 @@ export const LayoutCanvas = ({
                                             {(() => {
                                                 const shapeData = shapeById.get(obj.id);
                                                 const hasPolygonSurface = !!obj.points && obj.points.length >= 3;
-                                                if (!isSelected || !shapeData || !hasPolygonSurface) return null;
+                                                const isCanvaLikePrimitive = obj.type === 'rect' || obj.type === 'circle';
+                                                if ((!isSelected && !isCanvaLikePrimitive) || !shapeData || !hasPolygonSurface) return null;
 
                                                 const points = obj.points || [];
                                                 const pointsStrSelected = points.map(p => `${p[0]},${p[1]}`).join(' ');
@@ -2674,16 +2706,18 @@ export const LayoutCanvas = ({
                                                     }
                                                     return (shapeData.obb.angle || 0) * 180 / Math.PI;
                                                 })();
-                                                // For polygon/ellipse tools, points are already in world orientation.
-                                                // So preview rotation should be absolute in world space:
-                                                // - keep-horizontal: 0deg
-                                                // - follow-frame: match the visual angle
+                                                // Preview rotation should follow the selected image mode:
+                                                // - follow-frame: rotate placeholder with object orientation
+                                                // - keep-horizontal: keep placeholder horizontal
                                                 const previewRelativeRotationDeg = templateImageRotationMode === 'follow-frame'
                                                     ? visualAngleDeg
                                                     : 0;
                                                 const { minX, minY, width, height, centerX, centerY } = shapeData.bbox;
                                                 const spanW = Math.max(width, 6) * 3;
                                                 const spanH = Math.max(height, 6) * 3;
+                                                const skyGradId = `poly-skyGrad-${obj.id}`;
+                                                const hill1Id = `poly-hill1-${obj.id}`;
+                                                const hill2Id = `poly-hill2-${obj.id}`;
 
                                                 return (
                                                     <>
@@ -2691,6 +2725,18 @@ export const LayoutCanvas = ({
                                                             <clipPath id={clipId}>
                                                                 <polygon points={pointsStrSelected} />
                                                             </clipPath>
+                                                            <linearGradient id={skyGradId} x1="0%" y1="0%" x2="0%" y2="100%">
+                                                                <stop offset="0%" stopColor="#b8e4f9" />
+                                                                <stop offset="100%" stopColor="#e8f6fc" />
+                                                            </linearGradient>
+                                                            <linearGradient id={hill1Id} x1="0%" y1="0%" x2="0%" y2="100%">
+                                                                <stop offset="0%" stopColor="#9cd67e" />
+                                                                <stop offset="100%" stopColor="#7cc45a" />
+                                                            </linearGradient>
+                                                            <linearGradient id={hill2Id} x1="0%" y1="0%" x2="0%" y2="100%">
+                                                                <stop offset="0%" stopColor="#85c95c" />
+                                                                <stop offset="100%" stopColor="#6ab344" />
+                                                            </linearGradient>
                                                         </defs>
                                                         <g clipPath={`url(#${clipId})`} opacity={0.95}>
                                                             <g
@@ -2701,7 +2747,7 @@ export const LayoutCanvas = ({
                                                                     y={centerY - spanH / 2}
                                                                     width={spanW}
                                                                     height={spanH}
-                                                                    fill="#b8e4f9"
+                                                                    fill={`url(#${skyGradId})`}
                                                                 />
                                                                 <circle
                                                                     cx={centerX + (width * 0.35)}
@@ -2711,11 +2757,11 @@ export const LayoutCanvas = ({
                                                                 />
                                                                 <path
                                                                     d={`M ${centerX - spanW / 2} ${centerY + (height * 0.15)} Q ${centerX} ${centerY - (height * 0.35)} ${centerX + spanW / 2} ${centerY + (height * 0.15)} L ${centerX + spanW / 2} ${centerY + spanH / 2} L ${centerX - spanW / 2} ${centerY + spanH / 2} Z`}
-                                                                    fill="#90d5ac"
+                                                                    fill={`url(#${hill1Id})`}
                                                                 />
                                                                 <path
                                                                     d={`M ${centerX - spanW / 2} ${centerY + (height * 0.35)} Q ${centerX - (width * 0.2)} ${centerY - (height * 0.05)} ${centerX + spanW / 2} ${centerY + (height * 0.35)} L ${centerX + spanW / 2} ${centerY + spanH / 2} L ${centerX - spanW / 2} ${centerY + spanH / 2} Z`}
-                                                                    fill="#76c893"
+                                                                    fill={`url(#${hill2Id})`}
                                                                 />
                                                             </g>
                                                         </g>
@@ -2724,7 +2770,9 @@ export const LayoutCanvas = ({
                                             })()}
                                             <polygon
                                                 points={pointsStr}
-                                                fill={isSelected ? 'none' : (obj.fill || 'none')}
+                                                fill={(obj.type === 'rect' || obj.type === 'circle')
+                                                    ? 'none'
+                                                    : (isSelected ? 'none' : (obj.fill || 'none'))}
                                                 stroke={(obj.strokeWidth ?? 0) > 0 ? (isSelected ? selectedStroke : (obj.stroke || "black")) : "none"}
                                                 strokeWidth={(obj.strokeWidth ?? 0) > 0 ? (isSelected ? Math.max(0.75, (obj.strokeWidth || 0.5) * 1.5) : (obj.strokeWidth || 0.5)) : 0}
                                                 strokeOpacity={obj.opacity ?? 1}

@@ -275,6 +275,116 @@ const cloneVectorObjects = (objects?: VectorObject[]): VectorObject[] => {
     }));
 };
 
+const buildRectPointsFromBounds = (minX: number, minY: number, maxX: number, maxY: number): Point[] => ([
+    [minX, minY],
+    [maxX, minY],
+    [maxX, maxY],
+    [minX, maxY]
+]);
+
+const isAxisAlignedRectPoints = (points: Point[], epsilon: number = 1e-3): boolean => {
+    if (points.length < 4) return false;
+
+    const roundedPoints = Array.from(
+        new Map(
+            points.map((p) => [`${Math.round(p[0] * 1000)}:${Math.round(p[1] * 1000)}`, p])
+        ).values()
+    );
+    if (roundedPoints.length !== 4) return false;
+
+    const xs = roundedPoints.map((p) => p[0]);
+    const ys = roundedPoints.map((p) => p[1]);
+    const uniqueX = Array.from(new Set(xs.map((x) => Math.round(x * 1000) / 1000))).sort((a, b) => a - b);
+    const uniqueY = Array.from(new Set(ys.map((y) => Math.round(y * 1000) / 1000))).sort((a, b) => a - b);
+
+    if (uniqueX.length !== 2 || uniqueY.length !== 2) return false;
+
+    return roundedPoints.every((p) =>
+        (Math.abs(p[0] - uniqueX[0]) <= epsilon || Math.abs(p[0] - uniqueX[1]) <= epsilon) &&
+        (Math.abs(p[1] - uniqueY[0]) <= epsilon || Math.abs(p[1] - uniqueY[1]) <= epsilon)
+    );
+};
+
+const normalizePathObjectForEditor = (obj: VectorObject): VectorObject => {
+    if (obj.type !== 'path') return obj;
+
+    const sourcePoints: Point[] =
+        obj.points && obj.points.length > 0
+            ? obj.points.map((p) => [p[0], p[1]] as Point)
+            : (obj.segments || []).flatMap((s) => [[s.p1[0], s.p1[1]] as Point, [s.p2[0], s.p2[1]] as Point]);
+
+    if (sourcePoints.length < 2) return obj;
+
+    if (isAxisAlignedRectPoints(sourcePoints)) {
+        const bounds = getPointsBoundingBox(sourcePoints);
+        return {
+            ...obj,
+            points: buildRectPointsFromBounds(bounds.minX, bounds.minY, bounds.maxX, bounds.maxY),
+            segments: []
+        };
+    }
+
+    const rawBounds = getPointsBoundingBox(sourcePoints);
+    const center: Point = [rawBounds.centerX, rawBounds.centerY];
+    const angleRad = ((obj.rotation || 0) * Math.PI) / 180;
+    const unrotatedPoints = Math.abs(angleRad) > 1e-6
+        ? sourcePoints.map((p) => rotatePointAround(p, center, -angleRad))
+        : sourcePoints;
+    const normalizedBounds = getPointsBoundingBox(unrotatedPoints);
+
+    return {
+        ...obj,
+        points: buildRectPointsFromBounds(
+            normalizedBounds.minX,
+            normalizedBounds.minY,
+            normalizedBounds.maxX,
+            normalizedBounds.maxY
+        ),
+        segments: []
+    };
+};
+
+const normalizeEditorSnapshotObjects = (objects: VectorObject[]): VectorObject[] =>
+    objects.map((obj) => normalizePathObjectForEditor(obj));
+
+const getPathPointsFromRegionBounds = (region: LayoutRegion, scaleX: number): Point[] => {
+    const { x, y, width, height } = region.bounds;
+    return buildRectPointsFromBounds(
+        x * scaleX,
+        y,
+        (x + width) * scaleX,
+        y + height
+    );
+};
+
+const reconcilePathObjectsWithRegions = (
+    objects: VectorObject[],
+    regions: LayoutRegion[] | undefined,
+    scaleX: number
+): VectorObject[] => {
+    if (!regions || regions.length === 0) return objects;
+    const regionById = new Map<string, LayoutRegion>(
+        regions
+            .filter((r) => r.shape === 'path' && !!r.id)
+            .map((r) => [r.id, r] as const)
+    );
+
+    return objects.map((obj) => {
+        if (obj.type !== 'path') return obj;
+        const region = regionById.get(obj.id);
+        if (!region) return obj;
+
+        return {
+            ...obj,
+            points: getPathPointsFromRegionBounds(region, scaleX),
+            segments: [],
+            path: obj.path || region.path,
+            viewBox: obj.viewBox || region.viewBox,
+            rotation: Number.isFinite(obj.rotation) ? obj.rotation : (region.rotation || 0)
+        };
+    });
+};
+
 const parseTemplateDescriptionObject = (description?: string | null): Record<string, unknown> => {
     if (!description) return {};
     try {
@@ -905,7 +1015,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         );
         setImageRotationMode(templateMode);
 
-        const editorSnapshot = cloneVectorObjects(template._editorObjects);
+        const editorSnapshot = normalizeEditorSnapshotObjects(cloneVectorObjects(template._editorObjects));
 
         // Only load editable data for editing mode
         if (isEdit) {
@@ -989,7 +1099,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             path: region.path,
                             viewBox: region.viewBox,
                             stroke: strokeColor,
-                            strokeWidth: region.strokeWidth || 0.5,
+                            strokeWidth: region.strokeWidth ?? 0,
                             fill: isBackground ? bgFill : fillColor,
                             zIndex: region.zIndex ?? 0,
                             rotation: region.rotation || 0
@@ -1135,7 +1245,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             path: firstRegion.path,
             viewBox: firstRegion.viewBox,
             stroke: strokeColor,
-            strokeWidth: strokeWidth,
+            strokeWidth: 0,
             // Use a visible default fill - a soft gray/blue that looks like a frame placeholder
             fill: fillColor !== 'transparent' ? fillColor : 'rgba(100, 130, 180, 0.3)',
             zIndex: selectedZ,
@@ -1688,8 +1798,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         objectsToProcess: VectorObject[],
         gridSnapshot?: EditorGridSnapshot | null,
         editorObjectsForSnapshot?: VectorObject[]
-    ) => {
-        if (objectsToProcess.length === 0) return;
+    ): boolean => {
+        if (objectsToProcess.length === 0) return false;
 
         // Calculate aspect ratio to pass to geometry engine
         let configW = 20;
@@ -1784,16 +1894,30 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 const isGridBaseLayer = isBaseLayer && !!(gridSnapshot && gridSnapshot.segments.length > 0);
                 const defaultLayerGroundRotation = isBaseLayer ? gridGroundRotation : undefined;
 
-                // Generate regions from segments
-                const generatedRegionsRaw = processLayoutGeometry(
+                // Default behavior:
+                // - Base non-grid layer: include page bounds
+                // - Grid base layer: avoid page-bound splitting (prevents edge sliver over-segmentation)
+                const includePageBoundsPrimary = isBaseLayer && !isGridBaseLayer;
+                const generatedRegionsRawPrimary = processLayoutGeometry(
                     layerSegments,
                     0, // gap handled later? no, gap param of processLayoutGeometry
                     logicalWidthUnits,
-                    isBaseLayer && !isGridBaseLayer // includePageBounds
+                    includePageBoundsPrimary
                 );
-                const generatedRegions = isGridBaseLayer
-                    ? generatedRegionsRaw.filter((region) => doesRegionIntersectPageBounds(region))
-                    : generatedRegionsRaw;
+                let generatedRegions = isGridBaseLayer
+                    ? generatedRegionsRawPrimary.filter((region) => doesRegionIntersectPageBounds(region))
+                    : generatedRegionsRawPrimary;
+
+                // Fallback for rotated/open grid cases that produce no faces without page bounds.
+                if (isGridBaseLayer && generatedRegions.length === 0) {
+                    const generatedRegionsRawFallback = processLayoutGeometry(
+                        layerSegments,
+                        0,
+                        logicalWidthUnits,
+                        true
+                    );
+                    generatedRegions = generatedRegionsRawFallback.filter((region) => doesRegionIntersectPageBounds(region));
+                }
 
                 const mappedRegions = generatedRegions.map(r => ({
                     ...r,
@@ -1836,6 +1960,10 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         });
 
         const finalRegions = markLikelyBackgroundRegions(allNewRegions);
+        if (finalRegions.length === 0) {
+            console.warn('[CustomLayoutEditor] PROCESS aborted: no regions generated, preserving current editor state.');
+            return false;
+        }
 
         // Generate a unique name for the new template
         const templateCount = createdTemplates.length + 1;
@@ -1917,6 +2045,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
         // Select the updated template
         handleSelectAdvancedTemplate(updated);
+        return true;
     }, [config?.size, selectedAdvancedTemplate, handleSelectAdvancedTemplate, createdTemplates.length, pageMargin, photoGap, imageRotationMode, strokeColor, strokeWidth, fillColor, spreadMode, templateName]);
 
     // Process the drawn strokes into regions
@@ -1927,7 +2056,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         if (pendingCloneTemplate && vectorObjects.length === 0 && activeGridSegments.length === 0) {
             const fallbackDescription = parseTemplateDescriptionObject(pendingCloneTemplate.description);
             fallbackGridSnapshot = parseEditorGridSnapshot(fallbackDescription._editorGrid);
-            fallbackEditorObjects = cloneVectorObjects(pendingCloneTemplate._editorObjects);
+            fallbackEditorObjects = normalizeEditorSnapshotObjects(cloneVectorObjects(pendingCloneTemplate._editorObjects));
         }
 
         const effectiveVectorObjects = vectorObjects.length > 0 ? vectorObjects : fallbackEditorObjects;
@@ -1967,7 +2096,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                     segments: cloneGridDesignerSegments(fallbackGridSnapshot?.segments ?? [])
                 };
             const combinedObjects = [...effectiveVectorObjects, ...gridObjects];
-            processObjectsToTemplate(combinedObjects, gridSnapshot, effectiveVectorObjects);
+            const processOk = processObjectsToTemplate(combinedObjects, gridSnapshot, effectiveVectorObjects);
+            if (!processOk) return;
             setVectorObjects([]);
             setGridDesignerSegments([]);
             setIsGridDesignerEnabled(false);
@@ -1979,7 +2109,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             return;
         }
 
-        processObjectsToTemplate(effectiveVectorObjects, null, effectiveVectorObjects);
+        const processOk = processObjectsToTemplate(effectiveVectorObjects, null, effectiveVectorObjects);
+        if (!processOk) return;
         setToolMode('select');
         setVectorObjects([]);
         setSelectedShapeIndices([]);
@@ -2170,6 +2301,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             advancedTemplate={selectedAdvancedTemplate}
                             // Vector Props
                             toolMode={toolMode}
+                            onToolModeChange={setToolMode}
                             vectorObjects={vectorObjects}
                             onUpdateVectorObjects={setVectorObjects}
                             selectedShapeIndices={selectedShapeIndices}
