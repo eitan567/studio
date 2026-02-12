@@ -2112,13 +2112,25 @@ export const LayoutCanvas = ({
                 }));
 
                 const nextPoints = linePoints.map((p) => [p[0], p[1]] as Point);
-                nextPoints[targetIndex] = snappedPoint;
+                const lastIdx = nextPoints.length - 1;
+                let finalPoint: Point = [snappedPoint[0], snappedPoint[1]];
+
+                // Open polyline convenience: when dragging one terminal endpoint near the other,
+                // lock them together so closing the shape is easy and exact.
+                if (!closedLine && (targetIndex === 0 || targetIndex === lastIdx)) {
+                    const oppositeIdx = targetIndex === 0 ? lastIdx : 0;
+                    const oppositePoint = nextPoints[oppositeIdx];
+                    if (distance(finalPoint, oppositePoint) <= LINE_TOOL_ENDPOINT_SNAP_THRESHOLD_UNITS) {
+                        finalPoint = [oppositePoint[0], oppositePoint[1]];
+                    }
+                }
+
+                nextPoints[targetIndex] = finalPoint;
                 if (closedLine) {
-                    const lastIdx = nextPoints.length - 1;
                     if (targetIndex === 0) {
-                        nextPoints[lastIdx] = [snappedPoint[0], snappedPoint[1]];
+                        nextPoints[lastIdx] = [finalPoint[0], finalPoint[1]];
                     } else if (targetIndex === lastIdx) {
-                        nextPoints[0] = [snappedPoint[0], snappedPoint[1]];
+                        nextPoints[0] = [finalPoint[0], finalPoint[1]];
                     }
                 }
                 return updateObjectPoints(obj, nextPoints);
