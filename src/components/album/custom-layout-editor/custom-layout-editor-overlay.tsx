@@ -2319,6 +2319,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             gridDesignerSegments={gridDesignerSegments}
                             onGridDesignerSegmentsChange={setGridDesignerSegments}
                             templateImageRotationMode={imageRotationMode}
+                            allowTemplateFallbackWhenEmpty={editingTemplateId === null && templateName.trim().length === 0}
                         />
 
                         {/* Right Vertical Toolbar (Selection Alignment/Distribution) */}

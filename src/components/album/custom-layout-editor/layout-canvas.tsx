@@ -56,6 +56,7 @@ interface LayoutCanvasProps {
     gridDesignerSegments?: GridDesignerSegment[];
     onGridDesignerSegmentsChange?: (segments: GridDesignerSegment[]) => void;
     templateImageRotationMode?: TemplateImageRotationMode;
+    allowTemplateFallbackWhenEmpty?: boolean;
 }
 
 type TransformMode = 'none' | 'move' | 'resize' | 'rotate' | 'line-endpoint';
@@ -113,7 +114,8 @@ export const LayoutCanvas = ({
     gridDesignerMode = 'none',
     gridDesignerSegments = [],
     onGridDesignerSegmentsChange,
-    templateImageRotationMode = 'follow-frame'
+    templateImageRotationMode = 'follow-frame',
+    allowTemplateFallbackWhenEmpty = true
 }: LayoutCanvasProps) => {
     const wrapperRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLDivElement>(null);
@@ -2759,7 +2761,7 @@ export const LayoutCanvas = ({
                     >
                         {/* Content Layer */}
                         <div className={cn("absolute inset-0 w-full h-full", toolMode !== 'select' && "pointer-events-none")}>
-                            {advancedTemplate && vectorObjects.length === 0 && !gridDesignerEnabled ? (
+                            {allowTemplateFallbackWhenEmpty && advancedTemplate && vectorObjects.length === 0 && !gridDesignerEnabled ? (
                                 <div
                                     className="absolute overflow-hidden shadow-sm"
                                     style={{
