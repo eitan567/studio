@@ -190,6 +190,7 @@ export const LayoutCanvas = ({
     const [cursorMode, setCursorMode] = useState<string>('default');
     const [gridHoveredSegmentId, setGridHoveredSegmentId] = useState<string | null>(null);
     const [gridSelectedSegmentId, setGridSelectedSegmentId] = useState<string | null>(null);
+    const [polylinePoints, setPolylinePoints] = useState<Point[] | null>(null);
 
     // Preview state for shapes being drawn
     const [previewShape, setPreviewShape] = useState<{ type: 'rect' | 'circle'; points: Point[] } | null>(null);
@@ -198,6 +199,7 @@ export const LayoutCanvas = ({
     // Refs
     // Refs
     const currentStrokeRef = useRef<Segment | null>(null);
+    const polylinePointsRef = useRef<Point[] | null>(null);
     const isDrawingRef = useRef(false);
     const isRotatingRef = useRef(false);
     // Modified to support multi-selection move
@@ -433,17 +435,32 @@ export const LayoutCanvas = ({
         if (obj.points && obj.points.length >= 2) {
             return [
                 [obj.points[0][0], obj.points[0][1]],
-                [obj.points[1][0], obj.points[1][1]]
+                [obj.points[obj.points.length - 1][0], obj.points[obj.points.length - 1][1]]
             ];
         }
         if (obj.segments && obj.segments.length > 0) {
-            const seg = obj.segments[0];
+            const firstSeg = obj.segments[0];
+            const lastSeg = obj.segments[obj.segments.length - 1];
             return [
-                [seg.p1[0], seg.p1[1]],
-                [seg.p2[0], seg.p2[1]]
+                [firstSeg.p1[0], firstSeg.p1[1]],
+                [lastSeg.p2[0], lastSeg.p2[1]]
             ];
         }
         return null;
+    };
+
+    const getLinePolylinePoints = (obj: VectorObject): Point[] => {
+        if (obj.points && obj.points.length >= 2) {
+            return obj.points.map((p) => [p[0], p[1]] as Point);
+        }
+        if (obj.segments && obj.segments.length > 0) {
+            const pts: Point[] = [[obj.segments[0].p1[0], obj.segments[0].p1[1]]];
+            obj.segments.forEach((seg) => {
+                pts.push([seg.p2[0], seg.p2[1]]);
+            });
+            return pts;
+        }
+        return [];
     };
 
     const getClosestPointOnSegment = (p: Point, a: Point, b: Point): Point => {
@@ -464,6 +481,46 @@ export const LayoutCanvas = ({
         quantizeForProcess(p[0]),
         quantizeForProcess(p[1])
     ];
+
+    const setPolylinePointsSync = (points: Point[] | null) => {
+        polylinePointsRef.current = points;
+        setPolylinePoints(points);
+    };
+
+    const snapPointToCanvasBoundary = useCallback((p: Point): Point => {
+        const threshold = Math.max(0.35, LINE_TOOL_ENDPOINT_SNAP_THRESHOLD_UNITS);
+        let x = p[0];
+        let y = p[1];
+        if (Math.abs(x - 0) <= threshold) x = 0;
+        else if (Math.abs(x - logicalWidthUnits) <= threshold) x = logicalWidthUnits;
+        if (Math.abs(y - 0) <= threshold) y = 0;
+        else if (Math.abs(y - 100) <= threshold) y = 100;
+        return quantizePointForProcess([x, y]);
+    }, [LINE_TOOL_ENDPOINT_SNAP_THRESHOLD_UNITS, logicalWidthUnits, quantizePointForProcess]);
+
+    const buildVectorObject = useCallback((
+        type: VectorObject['type'],
+        points: Point[],
+        zIndexHint: number
+    ): VectorObject => {
+        const segments: Segment[] = [];
+        for (let i = 0; i < points.length - 1; i++) {
+            segments.push({ p1: points[i], p2: points[i + 1] });
+        }
+        return {
+            id: uuidv4(),
+            type,
+            segments,
+            points,
+            stroke: activeStrokeColor,
+            strokeWidth: (type === 'rect' || type === 'circle')
+                ? 0
+                : (type === 'line' ? Math.max(0.5, activeStrokeWidth || 0.5) : activeStrokeWidth),
+            fill: activeFillColor,
+            zIndex: type === 'line' ? 0 : zIndexHint,
+            rotation: 0
+        };
+    }, [activeFillColor, activeStrokeColor, activeStrokeWidth]);
 
     const getLineToolSnapPoint = useCallback((
         rawPoint: Point,
@@ -1301,8 +1358,35 @@ export const LayoutCanvas = ({
         const rect = e.currentTarget.getBoundingClientRect();
         const rawPoint = getPointFromEvent(e.clientX, e.clientY, rect);
         if (!rawPoint) return;
+
+        if (toolMode === 'pencil') {
+            const existingPolyline = polylinePointsRef.current;
+            const shouldUsePolyline = !!e.ctrlKey || !!(existingPolyline && existingPolyline.length > 0);
+
+            if (shouldUsePolyline) {
+                const lastAnchor = existingPolyline && existingPolyline.length > 0
+                    ? existingPolyline[existingPolyline.length - 1]
+                    : undefined;
+                const point = snapPointToCanvasBoundary(
+                    getLineToolSnapPoint(rawPoint, { strokeStart: lastAnchor })
+                );
+
+                setIsDrawing(true);
+                isDrawingRef.current = true;
+
+                if (!existingPolyline || existingPolyline.length === 0) {
+                    setPolylinePointsSync([point]);
+                    const stroke = { p1: point, p2: point };
+                    currentStrokeRef.current = stroke;
+                    setCurrentStroke(stroke);
+                }
+                setPreviewShape(null);
+                return;
+            }
+        }
+
         const point = toolMode === 'pencil'
-            ? getLineToolSnapPoint(rawPoint)
+            ? snapPointToCanvasBoundary(getLineToolSnapPoint(rawPoint))
             : snapPointToGrid(rawPoint);
 
         setIsDrawing(true);
@@ -1540,6 +1624,7 @@ export const LayoutCanvas = ({
         isDrawingRef.current = false;
         setCurrentStroke(null);
         currentStrokeRef.current = null;
+        setPolylinePointsSync(null);
         setPreviewShape(null);
         setTransformMode('none');
         setResizeHandle(null);
@@ -1548,6 +1633,66 @@ export const LayoutCanvas = ({
         selectionAdditiveRef.current = false;
         moveBasePointsRef.current = null;
         moveBaseBoundsRef.current = null;
+    };
+
+    const finalizePolylineLine = (rawPoint?: Point) => {
+        const polyline = polylinePointsRef.current;
+        if (!polyline || polyline.length === 0 || !onUpdateVectorObjects) {
+            handleMouseUpCleanup();
+            return;
+        }
+
+        const points = polyline.map((p) => [p[0], p[1]] as Point);
+        const lastAnchor = points[points.length - 1];
+
+        if (rawPoint && lastAnchor) {
+            const snappedFinal = snapPointToCanvasBoundary(
+                getLineToolSnapPoint(rawPoint, { strokeStart: lastAnchor })
+            );
+            if (distance(lastAnchor, snappedFinal) > 0.2) {
+                points.push(snappedFinal);
+            }
+        }
+
+        if (points.length < 2) {
+            handleMouseUpCleanup();
+            return;
+        }
+
+        points[0] = snapPointToCanvasBoundary(points[0]);
+        points[points.length - 1] = snapPointToCanvasBoundary(points[points.length - 1]);
+
+        // If the end is close enough to the start, auto-close the line for robust face detection.
+        if (distance(points[0], points[points.length - 1]) <= LINE_TOOL_ENDPOINT_SNAP_THRESHOLD_UNITS) {
+            points[points.length - 1] = [points[0][0], points[0][1]];
+        }
+
+        const deduped: Point[] = [points[0]];
+        for (let i = 1; i < points.length; i++) {
+            if (distance(points[i], deduped[deduped.length - 1]) > 0.05) {
+                deduped.push(points[i]);
+            }
+        }
+        if (deduped.length < 2) {
+            handleMouseUpCleanup();
+            return;
+        }
+
+        const obj = buildVectorObject('line', deduped, 0);
+        const newObjects = [...vectorObjects, obj];
+
+        if (isMirrorMode && coordinateAspect) {
+            const totalWidth = 100 * coordinateAspect;
+            const mirroredPoints = deduped.map((p) => [totalWidth - p[0], p[1]] as Point);
+            const mirroredObj = buildVectorObject('line', mirroredPoints, 0);
+            mirroredObj.id = uuidv4();
+            mirroredObj.mirrorPartnerId = obj.id;
+            obj.mirrorPartnerId = mirroredObj.id;
+            newObjects.push(mirroredObj);
+        }
+
+        onUpdateVectorObjects(newObjects);
+        handleMouseUpCleanup();
     };
 
     const handleMouseUp = (e: React.MouseEvent) => {
@@ -1588,8 +1733,10 @@ export const LayoutCanvas = ({
             return;
         }
 
-        setIsDrawing(false);
-        isDrawingRef.current = false;
+        const currentPolyline = polylinePointsRef.current;
+        if (toolMode === 'pencil' && currentPolyline && currentPolyline.length > 0 && e.type === 'mouseleave') {
+            return;
+        }
 
         const rect = e.currentTarget.getBoundingClientRect();
         const rawPoint = getPointFromEvent(e.clientX, e.clientY, rect);
@@ -1597,8 +1744,13 @@ export const LayoutCanvas = ({
             handleMouseUpCleanup();
             return;
         }
+        const strokeStartForSnap = toolMode === 'pencil'
+            ? (currentPolyline && currentPolyline.length > 0
+                ? currentPolyline[currentPolyline.length - 1]
+                : currentStrokeRef.current?.p1)
+            : undefined;
         const point = toolMode === 'pencil'
-            ? getLineToolSnapPoint(rawPoint, { strokeStart: currentStrokeRef.current?.p1 })
+            ? snapPointToCanvasBoundary(getLineToolSnapPoint(rawPoint, { strokeStart: strokeStartForSnap }))
             : snapPointToGrid(rawPoint);
 
         let newObjects = [...vectorObjects];
@@ -1607,33 +1759,15 @@ export const LayoutCanvas = ({
             ? (vectorObjects[selectedShapeIndices[0]]?.zIndex ?? 0)
             : 1;
 
-        const createObject = (type: VectorObject['type'], points: Point[]): VectorObject => {
-            const segments: Segment[] = [];
-            for (let i = 0; i < points.length - 1; i++) {
-                segments.push({ p1: points[i], p2: points[i + 1] });
-            }
-            return {
-                id: uuidv4(),
-                type,
-                segments,
-                points,
-                stroke: activeStrokeColor,
-                strokeWidth: (type === 'rect' || type === 'circle') ? 0 : activeStrokeWidth,
-                fill: activeFillColor,
-                zIndex: selectedZ,
-                rotation: 0
-            };
-        };
-
         if (toolMode === 'rect' || toolMode === 'circle') {
             if (previewShape && previewShape.points.length > 2) {
-                const obj = createObject(toolMode, previewShape.points);
+                const obj = buildVectorObject(toolMode, previewShape.points, selectedZ);
                 newObjects.push(obj);
 
                 if (isMirrorMode && coordinateAspect) {
                     const totalWidth = 100 * coordinateAspect;
                     const mirroredPoints = previewShape.points.map(p => [totalWidth - p[0], p[1]] as Point);
-                    const mirroredObj = createObject(toolMode, mirroredPoints);
+                    const mirroredObj = buildVectorObject(toolMode, mirroredPoints, selectedZ);
                     mirroredObj.id = uuidv4();
                     mirroredObj.mirrorPartnerId = obj.id;
                     obj.mirrorPartnerId = mirroredObj.id;
@@ -1642,16 +1776,27 @@ export const LayoutCanvas = ({
                 onToolModeChange?.('select');
             }
         } else if (toolMode === 'pencil') {
+            if (currentPolyline && currentPolyline.length > 0) {
+                const last = currentPolyline[currentPolyline.length - 1];
+                if (distance(last, point) > 0.2) {
+                    const nextPolyline = [...currentPolyline, point];
+                    setPolylinePointsSync(nextPolyline);
+                    const stroke = { p1: point, p2: point };
+                    currentStrokeRef.current = stroke;
+                    setCurrentStroke(stroke);
+                }
+                return;
+            }
             const start = currentStrokeRef.current?.p1;
             if (start && distance(start, point) > 0.5) {
-                const obj = createObject('line', [start, point]);
+                const obj = buildVectorObject('line', [start, point], selectedZ);
                 newObjects.push(obj);
 
                 if (isMirrorMode && coordinateAspect) {
                     const totalWidth = 100 * coordinateAspect;
                     const mirroredStart: Point = [totalWidth - start[0], start[1]];
                     const mirroredEnd: Point = [totalWidth - point[0], point[1]];
-                    const mirroredObj = createObject('line', [mirroredStart, mirroredEnd]);
+                    const mirroredObj = buildVectorObject('line', [mirroredStart, mirroredEnd], selectedZ);
                     mirroredObj.id = uuidv4();
                     mirroredObj.mirrorPartnerId = obj.id;
                     obj.mirrorPartnerId = mirroredObj.id;
@@ -1662,6 +1807,18 @@ export const LayoutCanvas = ({
 
         onUpdateVectorObjects?.(newObjects);
         handleMouseUpCleanup();
+    };
+
+    const handleCanvasDoubleClick = (e: React.MouseEvent) => {
+        if (toolMode !== 'pencil') return;
+        const polyline = polylinePointsRef.current;
+        if (!polyline || polyline.length === 0) return;
+
+        const rect = e.currentTarget.getBoundingClientRect();
+        const rawPoint = getPointFromEvent(e.clientX, e.clientY, rect);
+        finalizePolylineLine(rawPoint || undefined);
+        e.preventDefault();
+        e.stopPropagation();
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
@@ -1717,8 +1874,15 @@ export const LayoutCanvas = ({
         }
 
         if (isDrawing) {
-            const linePoint = getLineToolSnapPoint(point, { strokeStart: currentStrokeRef.current?.p1 });
-            currentStrokeRef.current = currentStrokeRef.current ? { ...currentStrokeRef.current, p2: linePoint } : null;
+            const polyline = polylinePointsRef.current;
+            const strokeStart = polyline && polyline.length > 0
+                ? polyline[polyline.length - 1]
+                : currentStrokeRef.current?.p1;
+            if (!strokeStart) return;
+            const linePoint = snapPointToCanvasBoundary(
+                getLineToolSnapPoint(point, { strokeStart })
+            );
+            currentStrokeRef.current = { p1: strokeStart, p2: linePoint };
             setCurrentStroke(currentStrokeRef.current);
             return;
         }
@@ -1822,19 +1986,23 @@ export const LayoutCanvas = ({
             const oppositePoint = start.lineOppositePoint;
             if (!lineObjectId || endpointIndex === undefined || !oppositePoint) return;
 
-            const snappedEndpoint = getLineToolSnapPoint(point, {
+            const snappedEndpoint = snapPointToCanvasBoundary(getLineToolSnapPoint(point, {
                 strokeStart: oppositePoint,
                 excludeObjectId: lineObjectId
-            });
-
-            const nextEndpoints: [Point, Point] = endpointIndex === 0
-                ? [snappedEndpoint, oppositePoint]
-                : [oppositePoint, snappedEndpoint];
+            }));
 
             const newObjects = vectorObjects.map((obj) => {
                 if (obj.id !== lineObjectId) return obj;
                 if (obj.type !== 'line') return obj;
-                return updateObjectPoints(obj, [nextEndpoints[0], nextEndpoints[1]]);
+                const linePoints = getLinePolylinePoints(obj);
+                if (linePoints.length < 2) return obj;
+                const nextPoints = linePoints.map((p) => [p[0], p[1]] as Point);
+                if (endpointIndex === 0) {
+                    nextPoints[0] = snappedEndpoint;
+                } else {
+                    nextPoints[nextPoints.length - 1] = snappedEndpoint;
+                }
+                return updateObjectPoints(obj, nextPoints);
             });
 
             scheduleVectorObjectsUpdate(newObjects);
@@ -2456,6 +2624,7 @@ export const LayoutCanvas = ({
                         onMouseMove={handleMouseMove}
                         onMouseUp={handleMouseUp}
                         onMouseLeave={handleMouseUp}
+                        onDoubleClick={handleCanvasDoubleClick}
                     >
                         {/* Content Layer */}
                         <div className={cn("absolute inset-0 w-full h-full", toolMode !== 'select' && "pointer-events-none")}>
@@ -2522,7 +2691,7 @@ export const LayoutCanvas = ({
                         </div>
 
                         {/* Vector Overlay - Show during editing or when drawing */}
-                        {(vectorObjects.length > 0 || currentStroke || previewShape) && (
+                        {(vectorObjects.length > 0 || currentStroke || previewShape || (polylinePoints && polylinePoints.length > 0)) && (
                             <svg
                                 className="absolute z-50 overflow-visible"
                                 style={{
@@ -2768,30 +2937,43 @@ export const LayoutCanvas = ({
                                                     </>
                                                 );
                                             })()}
-                                            <polygon
-                                                points={pointsStr}
-                                                fill={(obj.type === 'rect' || obj.type === 'circle')
-                                                    ? 'none'
-                                                    : (isSelected ? 'none' : (obj.fill || 'none'))}
-                                                stroke={(obj.strokeWidth ?? 0) > 0 ? (isSelected ? selectedStroke : (obj.stroke || "black")) : "none"}
-                                                strokeWidth={(obj.strokeWidth ?? 0) > 0 ? (isSelected ? Math.max(0.75, (obj.strokeWidth || 0.5) * 1.5) : (obj.strokeWidth || 0.5)) : 0}
-                                                strokeOpacity={obj.opacity ?? 1}
-                                                fillOpacity={obj.opacity ?? 1}
-                                                vectorEffect="non-scaling-stroke"
-                                            />
+                                            {obj.type === 'line' ? (
+                                                <polyline
+                                                    points={pointsStr}
+                                                    fill="none"
+                                                    stroke={(obj.strokeWidth ?? 0) > 0 ? (isSelected ? selectedStroke : (obj.stroke || "black")) : "none"}
+                                                    strokeWidth={(obj.strokeWidth ?? 0) > 0 ? (isSelected ? Math.max(0.75, (obj.strokeWidth || 0.5) * 1.5) : (obj.strokeWidth || 0.5)) : 0}
+                                                    strokeOpacity={obj.opacity ?? 1}
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    vectorEffect="non-scaling-stroke"
+                                                />
+                                            ) : (
+                                                <polygon
+                                                    points={pointsStr}
+                                                    fill={(obj.type === 'rect' || obj.type === 'circle')
+                                                        ? 'none'
+                                                        : (isSelected ? 'none' : (obj.fill || 'none'))}
+                                                    stroke={(obj.strokeWidth ?? 0) > 0 ? (isSelected ? selectedStroke : (obj.stroke || "black")) : "none"}
+                                                    strokeWidth={(obj.strokeWidth ?? 0) > 0 ? (isSelected ? Math.max(0.75, (obj.strokeWidth || 0.5) * 1.5) : (obj.strokeWidth || 0.5)) : 0}
+                                                    strokeOpacity={obj.opacity ?? 1}
+                                                    fillOpacity={obj.opacity ?? 1}
+                                                    vectorEffect="non-scaling-stroke"
+                                                />
+                                            )}
                                         </g>
                                     );
                                 })}
 
                                 {/* Same-layer overlap style: black fill + dashed contour */}
                                 {vectorObjects.map((objA, idxA) => {
-                                    if (objA.type === 'path' || !objA.points || objA.points.length < 3) return null;
+                                    if (objA.type === 'path' || objA.type === 'line' || !objA.points || objA.points.length < 3) return null;
                                     const pointsA = objA.points.map(p => `${p[0]},${p[1]}`).join(' ');
                                     const zA = objA.zIndex ?? 0;
 
                                     return vectorObjects.slice(idxA + 1).map((objB, offset) => {
                                         const idxB = idxA + 1 + offset;
-                                        if (objB.type === 'path' || !objB.points || objB.points.length < 3) return null;
+                                        if (objB.type === 'path' || objB.type === 'line' || !objB.points || objB.points.length < 3) return null;
                                         const zB = objB.zIndex ?? 0;
                                         if (zA !== zB) return null;
 
@@ -2832,7 +3014,7 @@ export const LayoutCanvas = ({
 
                                 {/* Draw non-path outlines again on top so same-layer overlaps keep both contours visible */}
                                 {vectorObjects.map((obj, i) => {
-                                    if (obj.type === 'path') return null;
+                                    if (obj.type === 'path' || obj.type === 'line') return null;
                                     const sameLayerCount = vectorObjects.reduce((count, candidate) => {
                                         return count + (((candidate.zIndex ?? 0) === (obj.zIndex ?? 0)) ? 1 : 0);
                                     }, 0);
@@ -2856,13 +3038,13 @@ export const LayoutCanvas = ({
 
                                 {/* Same-layer overlap perimeter (dashed) drawn above shape outlines */}
                                 {vectorObjects.map((objA, idxA) => {
-                                    if (objA.type === 'path' || !objA.points || objA.points.length < 3) return null;
+                                    if (objA.type === 'path' || objA.type === 'line' || !objA.points || objA.points.length < 3) return null;
                                     const pointsA = objA.points.map(p => `${p[0]},${p[1]}`).join(' ');
                                     const zA = objA.zIndex ?? 0;
 
                                     return vectorObjects.slice(idxA + 1).map((objB, offset) => {
                                         const idxB = idxA + 1 + offset;
-                                        if (objB.type === 'path' || !objB.points || objB.points.length < 3) return null;
+                                        if (objB.type === 'path' || objB.type === 'line' || !objB.points || objB.points.length < 3) return null;
                                         const zB = objB.zIndex ?? 0;
                                         if (zA !== zB) return null;
 
@@ -2964,6 +3146,17 @@ export const LayoutCanvas = ({
                                         </text>
                                     );
                                 })()}
+
+                                {polylinePoints && polylinePoints.length > 1 && (
+                                    <polyline
+                                        points={polylinePoints.map((p) => `${p[0]},${p[1]}`).join(' ')}
+                                        fill="none"
+                                        stroke="#ef4444"
+                                        strokeWidth="0.65"
+                                        strokeDasharray="2 1.25"
+                                        vectorEffect="non-scaling-stroke"
+                                    />
+                                )}
 
                                 {currentStroke && (
                                     <line

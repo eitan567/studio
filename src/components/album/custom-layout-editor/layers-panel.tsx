@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { ChevronUp, ChevronDown, ChevronRight, ChevronsUp, ChevronsDown, Trash2, Box, Circle, Frame, RotateCcw, X, Lock, LockOpen, LayoutGrid } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronRight, ChevronsUp, ChevronsDown, Trash2, Box, Circle, Frame, RotateCcw, X, Lock, LockOpen, LayoutGrid, Minus } from 'lucide-react';
 import { VectorObject } from '@/lib/advanced-layout-types';
 
 interface LayersPanelProps {
@@ -47,6 +47,7 @@ export const LayersPanel = ({
             case 'rect': return <Box className="h-3 w-3" />;
             case 'circle': return <Circle className="h-3 w-3" />;
             case 'path': return <Frame className="h-3 w-3" />;
+            case 'line': return <Minus className="h-3 w-3" />;
             default: return <Box className="h-3 w-3" />;
         }
     };
@@ -55,6 +56,7 @@ export const LayersPanel = ({
         if (obj.type === 'path') return `Frame ${index + 1}`;
         if (obj.type === 'rect') return `Rectangle ${index + 1}`;
         if (obj.type === 'circle') return `Circle ${index + 1}`;
+        if (obj.type === 'line') return `Line ${index + 1}`;
         return `Object ${index + 1}`;
     };
 
