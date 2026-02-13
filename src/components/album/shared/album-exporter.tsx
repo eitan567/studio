@@ -8,9 +8,16 @@ import { PageLayout } from '../layouts/page-layout';
 import { AlbumCover, StaticCoverText, StaticCoverImage } from '../book-view/album-cover';
 import { LAYOUT_TEMPLATES, ADVANCED_TEMPLATES, getPhotoCount } from '@/hooks/useTemplates';
 import { useSettings } from '@/hooks/use-settings';
-import { cn } from '@/lib/utils';
-import { Card, CardContent } from '@/components/ui/card';
-import { AspectRatio } from '@/components/ui/aspect-ratio';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface AlbumExporterProps {
     pages: AlbumPage[];
@@ -38,6 +45,23 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
     const { settings } = useSettings();
     const containerRef = React.useRef<HTMLDivElement>(null);
     const [isRendering, setIsRendering] = useState(false);
+    const [duplicateWarningOpen, setDuplicateWarningOpen] = useState(false);
+    const duplicateWarningResolverRef = React.useRef<((proceed: boolean) => void) | null>(null);
+
+    const requestDuplicateExportConfirmation = () => {
+        return new Promise<boolean>((resolve) => {
+            duplicateWarningResolverRef.current = resolve;
+            setDuplicateWarningOpen(true);
+        });
+    };
+
+    const resolveDuplicateExportConfirmation = (proceed: boolean) => {
+        setDuplicateWarningOpen(false);
+        if (duplicateWarningResolverRef.current) {
+            duplicateWarningResolverRef.current(proceed);
+            duplicateWarningResolverRef.current = null;
+        }
+    };
 
     useImperativeHandle(ref, () => ({
         exportAlbum: async () => {
@@ -67,10 +91,11 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                     }
 
                     if (hasDuplicates) {
-                        const proceed = window.confirm(
-                            "Warning: Your album contains duplicate photos (excluding the cover). Do you want to continue with the export?"
-                        );
-                        if (!proceed) return;
+                        const proceed = await requestDuplicateExportConfirmation();
+                        if (!proceed) {
+                            setIsRendering(false);
+                            return;
+                        }
                     }
                 }
 
@@ -248,190 +273,216 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
     // We use fixed width to ensure consistency regardless of screen size
     // Single: 500px (approx editor preview), Spread: 1000px
     return (
-        <div
-            ref={containerRef}
-            style={{
-                position: 'fixed',
-                top: '-10000px',
-                left: '-10000px',
-                width: 'auto', // Allow children to define width
-                height: 'auto',
-                overflow: 'hidden',
-                pointerEvents: 'none',
-                display: 'flex', // stack them horizontally or vertically, doesn't matter much as long as they don't overlap in a way that breaks capture
-                flexDirection: 'column',
-            }}
-        >
-            {isRendering && pages.map((page, index) => {
-                const isSpread = page.type === 'spread' || page.isCover;
-                const width = isSpread ? 1000 : 500;
-                const height = 500; // 2:1 ratio for spread, 1:1 for single (assuming square format preference in config, typically 20x20 is square)
-                // Note: The app supports 20x20 which is square. So Single is Square. Spread is 2 Squares (2:1).
+        <>
+            <AlertDialog
+                open={duplicateWarningOpen}
+                onOpenChange={(open) => {
+                    if (!open) resolveDuplicateExportConfirmation(false);
+                }}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Duplicate Photos Detected</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Warning: Your album contains duplicate photos (excluding the cover). Do you want to continue with the export?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => resolveDuplicateExportConfirmation(false)}>
+                            Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction onClick={() => resolveDuplicateExportConfirmation(true)}>
+                            Continue Export
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
-                return (
-                    <div
-                        key={page.id}
-                        data-page-id={page.id}
-                        data-is-spread={isSpread}
-                        data-is-cover={page.isCover}
-                        style={{
-                            width: `${width}px`,
-                            height: `${height}px`,
-                            marginBottom: '20px', // spacing to avoid bleed during capture if careless
-                            position: 'relative',
-                            backgroundColor: page.backgroundColor || config.backgroundColor || '#ffffff',
-                        }}
-                    >
-                        {/* Background Image Layer */}
-                        {(page.backgroundImage || config.backgroundImage) && (
-                            <div
-                                style={{
-                                    position: 'absolute',
-                                    inset: 0,
-                                    backgroundImage: `url(${page.backgroundImage || config.backgroundImage})`,
-                                    backgroundSize: 'cover',
-                                    backgroundPosition: 'center',
-                                    zIndex: 0
-                                }}
-                            />
-                        )}
+            <div
+                ref={containerRef}
+                style={{
+                    position: 'fixed',
+                    top: '-10000px',
+                    left: '-10000px',
+                    width: 'auto', // Allow children to define width
+                    height: 'auto',
+                    overflow: 'hidden',
+                    pointerEvents: 'none',
+                    display: 'flex', // stack them horizontally or vertically, doesn't matter much as long as they don't overlap in a way that breaks capture
+                    flexDirection: 'column',
+                }}
+            >
+                {isRendering && pages.map((page, index) => {
+                    const isSpread = page.type === 'spread' || page.isCover;
+                    const width = isSpread ? 1000 : 500;
+                    const height = 500; // 2:1 ratio for spread, 1:1 for single (assuming square format preference in config, typically 20x20 is square)
+                    // Note: The app supports 20x20 which is square. So Single is Square. Spread is 2 Squares (2:1).
 
-                        <div style={{
-                            position: 'relative',
-                            width: '100%',
-                            height: '100%',
-                            zIndex: 1,
-                            padding: page.isCover ? 0 : `${page.pageMargin ?? config.pageMargin}px`,
-                            boxSizing: 'border-box'
-                        }}>
-                            {page.isCover ? (
-                                <div className="relative h-full w-full">
-                                    <AlbumCover
-                                        page={page}
-                                        config={config}
-                                        mode="preview"
-                                        activeView="full"
-                                        onUpdateTitleSettings={() => { }}
-                                        onDropPhoto={() => { }}
-                                        onUpdatePhotoPanAndZoom={() => { }}
-                                        useSimpleImage={true}
-                                    />
-                                    {/* Title Overlay for Cover */}
-                                    {page.titleText && (
-                                        <div
-                                            style={{
-                                                position: 'absolute',
-                                                left: `${page.titlePosition?.x || 50}%`,
-                                                top: `${page.titlePosition?.y || 50}%`,
-                                                transform: 'translate(-50%, -50%)',
-                                                fontSize: `${(page.titleFontSize || 24)}px`, // No scaling needed as base is approx preview size
-                                                fontFamily: page.titleFontFamily,
-                                                color: page.titleColor,
-                                                whiteSpace: 'nowrap',
-                                                zIndex: 40
-                                            }}
-                                        >
-                                            {page.titleText}
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (isSpread && !page.isCover) ? (
-                                (() => {
-                                    const isSplit = page.spreadMode === 'split';
-                                    if (isSplit) {
-                                        const leftLayoutId = page.spreadLayouts?.left || LAYOUT_TEMPLATES[0].id;
-                                        const rightLayoutId = page.spreadLayouts?.right || LAYOUT_TEMPLATES[0].id; // unused for slice, but good for consistency
-                                        const leftTemplate = LAYOUT_TEMPLATES.find(t => String(t.id) === String(leftLayoutId)) || ADVANCED_TEMPLATES.find(t => String(t.id) === String(leftLayoutId)) || LAYOUT_TEMPLATES[0];
-                                        const leftPhotos = page.photos.slice(0, getPhotoCount(leftTemplate));
-                                        const rightPhotos = page.photos.slice(getPhotoCount(leftTemplate));
-
-                                        return (
-                                            <div
-                                                className="relative h-full w-full flex"
-                                                style={{ gap: `${(page.photoGap ?? config.photoGap) * 2}px` }}
-                                            >
-                                                <div className="h-full flex-1 min-w-0">
-                                                    <PageLayout
-                                                        page={page}
-                                                        photoGap={page.photoGap ?? config.photoGap}
-                                                        overridePhotos={leftPhotos}
-                                                        overrideLayout={leftLayoutId}
-                                                        onUpdatePhotoPanAndZoom={() => { }}
-                                                        onInteractionChange={() => { }}
-                                                        onDropPhoto={() => { }}
-                                                        useSimpleImage={true}
-                                                    />
-                                                </div>
-                                                <div className="h-full flex-1 min-w-0">
-                                                    <PageLayout
-                                                        page={page}
-                                                        photoGap={page.photoGap ?? config.photoGap}
-                                                        overridePhotos={rightPhotos}
-                                                        overrideLayout={rightLayoutId}
-                                                        onUpdatePhotoPanAndZoom={() => { }}
-                                                        onInteractionChange={() => { }}
-                                                        onDropPhoto={() => { }}
-                                                        useSimpleImage={true}
-                                                        photoIndexOffset={getPhotoCount(leftTemplate)}
-                                                    />
-                                                </div>
-                                            </div>
-                                        );
-                                    }
-
-                                    return (
-                                        <div className="relative h-full w-full">
-                                            <PageLayout
-                                                page={page}
-                                                photoGap={page.photoGap ?? config.photoGap}
-                                                onUpdatePhotoPanAndZoom={() => { }}
-                                                onInteractionChange={() => { }}
-                                                onDropPhoto={() => { }}
-                                                useSimpleImage={true}
-                                            />
-                                        </div>
-                                    );
-                                })()
-                            ) : (
-                                <PageLayout
-                                    page={page}
-                                    photoGap={page.photoGap ?? config.photoGap}
-                                    onUpdatePhotoPanAndZoom={() => { }}
-                                    onInteractionChange={() => { }}
-                                    onDropPhoto={() => { }}
-                                    useSimpleImage={true}
+                    return (
+                        <div
+                            key={page.id}
+                            data-page-id={page.id}
+                            data-is-spread={isSpread}
+                            data-is-cover={page.isCover}
+                            style={{
+                                width: `${width}px`,
+                                height: `${height}px`,
+                                marginBottom: '20px', // spacing to avoid bleed during capture if careless
+                                position: 'relative',
+                                backgroundColor: page.backgroundColor || config.backgroundColor || '#ffffff',
+                            }}
+                        >
+                            {/* Background Image Layer */}
+                            {(page.backgroundImage || config.backgroundImage) && (
+                                <div
+                                    style={{
+                                        position: 'absolute',
+                                        inset: 0,
+                                        backgroundImage: `url(${page.backgroundImage || config.backgroundImage})`,
+                                        backgroundSize: 'cover',
+                                        backgroundPosition: 'center',
+                                        zIndex: 0
+                                    }}
                                 />
                             )}
-                        </div>
 
-                        {/* Overlays for Regular Pages */}
-                        {!page.isCover && (
-                            <>
-                                {page.coverTexts?.map(textItem => {
-                                    // Calculate font size in pixels relative to the export container width
-                                    // Spreads use 3200 (full view).
-                                    // Single pages in editor use 3200 logic but seemingly render slightly larger visually?
-                                    // Tuning single page reference to 3000 to match user expectation ("tiny bit small" -> larger text).
-                                    const referenceWidth = isSpread ? 3200 : 3000;
-                                    const fontSizePx = (textItem.style.fontSize / referenceWidth) * width;
-
-                                    return (
-                                        <StaticCoverText
-                                            key={textItem.id}
-                                            item={textItem}
-                                            fontSizeOverride={`${fontSizePx}px`}
+                            <div style={{
+                                position: 'relative',
+                                width: '100%',
+                                height: '100%',
+                                zIndex: 1,
+                                padding: page.isCover ? 0 : `${page.pageMargin ?? config.pageMargin}px`,
+                                boxSizing: 'border-box'
+                            }}>
+                                {page.isCover ? (
+                                    <div className="relative h-full w-full">
+                                        <AlbumCover
+                                            page={page}
+                                            config={config}
+                                            mode="preview"
+                                            activeView="full"
+                                            onUpdateTitleSettings={() => { }}
+                                            onDropPhoto={() => { }}
+                                            onUpdatePhotoPanAndZoom={() => { }}
+                                            useSimpleImage={true}
                                         />
-                                    );
-                                })}
-                                {page.coverImages?.map(imageItem => (
-                                    <StaticCoverImage key={imageItem.id} item={imageItem} />
-                                ))}
-                            </>
-                        )}
-                    </div>
-                );
-            })}
-        </div>
+                                        {/* Title Overlay for Cover */}
+                                        {page.titleText && (
+                                            <div
+                                                style={{
+                                                    position: 'absolute',
+                                                    left: `${page.titlePosition?.x || 50}%`,
+                                                    top: `${page.titlePosition?.y || 50}%`,
+                                                    transform: 'translate(-50%, -50%)',
+                                                    fontSize: `${(page.titleFontSize || 24)}px`, // No scaling needed as base is approx preview size
+                                                    fontFamily: page.titleFontFamily,
+                                                    color: page.titleColor,
+                                                    whiteSpace: 'nowrap',
+                                                    zIndex: 40
+                                                }}
+                                            >
+                                                {page.titleText}
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (isSpread && !page.isCover) ? (
+                                    (() => {
+                                        const isSplit = page.spreadMode === 'split';
+                                        if (isSplit) {
+                                            const leftLayoutId = page.spreadLayouts?.left || LAYOUT_TEMPLATES[0].id;
+                                            const rightLayoutId = page.spreadLayouts?.right || LAYOUT_TEMPLATES[0].id; // unused for slice, but good for consistency
+                                            const leftTemplate = LAYOUT_TEMPLATES.find(t => String(t.id) === String(leftLayoutId)) || ADVANCED_TEMPLATES.find(t => String(t.id) === String(leftLayoutId)) || LAYOUT_TEMPLATES[0];
+                                            const leftPhotos = page.photos.slice(0, getPhotoCount(leftTemplate));
+                                            const rightPhotos = page.photos.slice(getPhotoCount(leftTemplate));
+
+                                            return (
+                                                <div
+                                                    className="relative h-full w-full flex"
+                                                    style={{ gap: `${(page.photoGap ?? config.photoGap) * 2}px` }}
+                                                >
+                                                    <div className="h-full flex-1 min-w-0">
+                                                        <PageLayout
+                                                            page={page}
+                                                            photoGap={page.photoGap ?? config.photoGap}
+                                                            overridePhotos={leftPhotos}
+                                                            overrideLayout={leftLayoutId}
+                                                            onUpdatePhotoPanAndZoom={() => { }}
+                                                            onInteractionChange={() => { }}
+                                                            onDropPhoto={() => { }}
+                                                            useSimpleImage={true}
+                                                        />
+                                                    </div>
+                                                    <div className="h-full flex-1 min-w-0">
+                                                        <PageLayout
+                                                            page={page}
+                                                            photoGap={page.photoGap ?? config.photoGap}
+                                                            overridePhotos={rightPhotos}
+                                                            overrideLayout={rightLayoutId}
+                                                            onUpdatePhotoPanAndZoom={() => { }}
+                                                            onInteractionChange={() => { }}
+                                                            onDropPhoto={() => { }}
+                                                            useSimpleImage={true}
+                                                            photoIndexOffset={getPhotoCount(leftTemplate)}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+
+                                        return (
+                                            <div className="relative h-full w-full">
+                                                <PageLayout
+                                                    page={page}
+                                                    photoGap={page.photoGap ?? config.photoGap}
+                                                    onUpdatePhotoPanAndZoom={() => { }}
+                                                    onInteractionChange={() => { }}
+                                                    onDropPhoto={() => { }}
+                                                    useSimpleImage={true}
+                                                />
+                                            </div>
+                                        );
+                                    })()
+                                ) : (
+                                    <PageLayout
+                                        page={page}
+                                        photoGap={page.photoGap ?? config.photoGap}
+                                        onUpdatePhotoPanAndZoom={() => { }}
+                                        onInteractionChange={() => { }}
+                                        onDropPhoto={() => { }}
+                                        useSimpleImage={true}
+                                    />
+                                )}
+                            </div>
+
+                            {/* Overlays for Regular Pages */}
+                            {!page.isCover && (
+                                <>
+                                    {page.coverTexts?.map(textItem => {
+                                        // Calculate font size in pixels relative to the export container width
+                                        // Spreads use 3200 (full view).
+                                        // Single pages in editor use 3200 logic but seemingly render slightly larger visually?
+                                        // Tuning single page reference to 3000 to match user expectation ("tiny bit small" -> larger text).
+                                        const referenceWidth = isSpread ? 3200 : 3000;
+                                        const fontSizePx = (textItem.style.fontSize / referenceWidth) * width;
+
+                                        return (
+                                            <StaticCoverText
+                                                key={textItem.id}
+                                                item={textItem}
+                                                fontSizeOverride={`${fontSizePx}px`}
+                                            />
+                                        );
+                                    })}
+                                    {page.coverImages?.map(imageItem => (
+                                        <StaticCoverImage key={imageItem.id} item={imageItem} />
+                                    ))}
+                                </>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        </>
     );
 });
 
