@@ -144,7 +144,9 @@ export const LayoutCanvas = ({
     const logicalHeight = pageH_px;
     const photoGap = page.photoGap ?? config?.photoGap ?? 0;
     const pageMargin = page.pageMargin ?? config?.pageMargin ?? 0;
-    const cornerRadius = page.cornerRadius ?? config?.cornerRadius ?? 0;
+    const cornerRadius = (typeof page.cornerRadius === 'number' && page.cornerRadius > 0)
+        ? page.cornerRadius
+        : (config?.cornerRadius ?? 0);
     // Use config background color directly
     const backgroundColor = config?.backgroundColor;
     const resolvedBackgroundColor = backgroundColor || 'hsl(var(--background))';

@@ -16,6 +16,7 @@ export interface AlbumCoverProps {
     config?: AlbumConfig;
     mode?: 'preview' | 'editor';
     activeView?: 'front' | 'back' | 'full' | 'split';
+    preferPageCornerRadius?: boolean;
 
     // Interaction Handlers (Optional - mainly for Editor)
     activeTextIds?: string[];
@@ -264,8 +265,6 @@ export const StaticCoverText = ({
 };
 
 import { PhotoRenderer } from '../layouts/photo-renderer';
-
-// ... (Spine and DraggableCoverText remain unchanged)
 
 // Draggable Image for Editor
 const DraggableCoverImage = ({
@@ -574,6 +573,7 @@ export const AlbumCover = ({
     config,
     mode = 'preview',
     activeView = 'full',
+    preferPageCornerRadius = false,
     activeTextIds = [],
     onSelectText,
     activeImageIds = [],
@@ -787,8 +787,6 @@ export const AlbumCover = ({
     const frontPhotos = isDynamicFront ? safePhotos : safePhotos.slice(backPhotoCount);
 
 
-    // ... (unchanged)
-
     // Helper to update specific image pan/zoom
     const updateCoverImagePanAndZoom = (imgId: string, panAndZoom: PhotoPanAndZoom) => {
         const newImages = page.coverImages?.map(img =>
@@ -797,26 +795,17 @@ export const AlbumCover = ({
         onUpdatePage?.({ ...page, coverImages: newImages });
     };
 
-    // --- Render Content Helper ---
-    // ...
-    // Need to find where renderImageOverlay is
-    // It is further down. I should replace this block first then look for renderImageOverlay.
-
-    // Wait, the ReplacementContent must match TargetContent exactly.
-    // I am replacing handleUpdateImageSize and subsequent logic.
-
-
-
-    // I will return empty string here to break function? No.
-    // I'm forced to replace a block.
-    // Ideally I find the block containing `handleUpdateImageSize`
-
-
     // Derived Styles
     const pageMargin = page.pageMargin ?? config?.pageMargin ?? 0;
     // Assuming config.photoGap is number. If string, parse it.
     const photoGap = page.photoGap ?? config?.photoGap ?? 0;
-    const cornerRadius = page.cornerRadius ?? config?.cornerRadius ?? 0;
+    const configCornerRadiusRaw = Number(config?.cornerRadius);
+    const configCornerRadius = Number.isFinite(configCornerRadiusRaw) ? Math.max(0, configCornerRadiusRaw) : 0;
+    const pageCornerRadiusRaw = Number(page.cornerRadius);
+    const hasPageCornerRadius = Number.isFinite(pageCornerRadiusRaw);
+    const cornerRadius = (preferPageCornerRadius && hasPageCornerRadius)
+        ? Math.max(0, pageCornerRadiusRaw)
+        : configCornerRadius;
     const spineWidth = page.spineWidth !== undefined ? page.spineWidth : 40;
 
     // --- Spine-aware Coordinate Calculations ---

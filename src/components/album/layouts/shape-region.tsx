@@ -71,6 +71,103 @@ const CanvaPlaceholder = ({ className }: { className?: string }) => (
     </div>
 );
 
+const clampNumber = (value: number, min: number, max: number): number => {
+    return Math.min(max, Math.max(min, value));
+};
+
+const buildRoundedPolygonClipPath = (
+    pointsPercent: Array<[number, number]>,
+    widthPx: number,
+    heightPx: number,
+    radiusPx: number
+): string | null => {
+    if (pointsPercent.length < 3 || widthPx <= 0 || heightPx <= 0 || radiusPx <= 0) {
+        return null;
+    }
+
+    const toPixels = (p: [number, number]): [number, number] => [
+        (clampNumber(p[0], 0, 100) / 100) * widthPx,
+        (clampNumber(p[1], 0, 100) / 100) * heightPx
+    ];
+
+    const rawPoints = pointsPercent.map(toPixels);
+    const points = rawPoints.slice();
+
+    if (points.length > 1) {
+        const first = points[0];
+        const last = points[points.length - 1];
+        const closeDist = Math.hypot(last[0] - first[0], last[1] - first[1]);
+        if (closeDist < 0.001) points.pop();
+    }
+
+    if (points.length < 3) return null;
+
+    const toObjBBoxPoint = (p: [number, number]) => {
+        const x = clampNumber(p[0] / widthPx, 0, 1);
+        const y = clampNumber(p[1] / heightPx, 0, 1);
+        return `${x.toFixed(6)} ${y.toFixed(6)}`;
+    };
+
+    const corners = points.map((curr, i) => {
+        const prev = points[(i - 1 + points.length) % points.length];
+        const next = points[(i + 1) % points.length];
+
+        const inVecRaw: [number, number] = [prev[0] - curr[0], prev[1] - curr[1]];
+        const outVecRaw: [number, number] = [next[0] - curr[0], next[1] - curr[1]];
+
+        const inLen = Math.hypot(inVecRaw[0], inVecRaw[1]);
+        const outLen = Math.hypot(outVecRaw[0], outVecRaw[1]);
+
+        if (inLen < 0.001 || outLen < 0.001) {
+            return { start: curr, end: curr, control: curr };
+        }
+
+        const inVec: [number, number] = [inVecRaw[0] / inLen, inVecRaw[1] / inLen];
+        const outVec: [number, number] = [outVecRaw[0] / outLen, outVecRaw[1] / outLen];
+
+        const dot = clampNumber((inVec[0] * outVec[0]) + (inVec[1] * outVec[1]), -1, 1);
+        const angle = Math.acos(dot);
+
+        if (angle < 0.01 || Math.abs(Math.PI - angle) < 0.01) {
+            return { start: curr, end: curr, control: curr };
+        }
+
+        const tanHalf = Math.tan(angle / 2);
+        if (!Number.isFinite(tanHalf) || tanHalf <= 0.0001) {
+            return { start: curr, end: curr, control: curr };
+        }
+
+        const maxRadiusForEdges = Math.min(inLen, outLen) * tanHalf;
+        const effectiveRadius = Math.min(radiusPx, maxRadiusForEdges);
+        const offset = effectiveRadius / tanHalf;
+
+        const start: [number, number] = [
+            curr[0] + (inVec[0] * offset),
+            curr[1] + (inVec[1] * offset)
+        ];
+
+        const end: [number, number] = [
+            curr[0] + (outVec[0] * offset),
+            curr[1] + (outVec[1] * offset)
+        ];
+
+        return { start, end, control: curr };
+    });
+
+    if (corners.length < 3) return null;
+
+    let d = `M ${toObjBBoxPoint(corners[0].start)} `;
+    for (let i = 0; i < corners.length; i++) {
+        const current = corners[i];
+        const next = corners[(i + 1) % corners.length];
+        d += `Q ${toObjBBoxPoint(current.control)} ${toObjBBoxPoint(current.end)} `;
+        d += `L ${toObjBBoxPoint(next.start)} `;
+    }
+    d += 'Z';
+
+    return d;
+};
+
 export const ShapeRegion = ({
     region,
     photo,
@@ -128,6 +225,7 @@ export const ShapeRegion = ({
     const heightPx = (region.bounds.height / 100) * containerHeight;
 
     const photoGapNum = typeof photoGap === 'string' ? parseFloat(photoGap) : photoGap;
+    const cornerRadiusNum = Number(cornerRadius) || 0;
     // contentInset is HALF the gap (shared between slots)
     const baseInset = photoGapNum / 2;
 
@@ -212,6 +310,7 @@ export const ShapeRegion = ({
 
     let svgPoints = "";
     let fitClipPolygon: Array<[number, number]> | undefined;
+    let clipPathPolygonPoints: Array<[number, number]> | undefined;
     if (region.shape === 'polygon' && region.points) {
         const newX = region.bounds.x + pInsetL;
         const newY = region.bounds.y + pInsetT;
@@ -229,10 +328,50 @@ export const ShapeRegion = ({
         svgPoints = pointsForSvg.join(' ');
         const clipped = clipPolygonToBox(pointsForFitRaw, 0, 0, 100, 100);
         fitClipPolygon = clipped.length >= 3 ? clipped : undefined;
+        clipPathPolygonPoints = fitClipPolygon || (pointsForFitRaw.length >= 3 ? pointsForFitRaw : undefined);
     }
     if (!fitClipPolygon && isRect) {
         fitClipPolygon = [[0, 0], [100, 0], [100, 100], [0, 100]];
     }
+
+    const isRectLikePolygon = (() => {
+        if (region.shape !== 'polygon') return false;
+        if (!fitClipPolygon || fitClipPolygon.length !== 4) return false;
+
+        const tolerance = 0.8;
+        const snapCoord = (value: number): 0 | 100 | null => {
+            if (Math.abs(value) <= tolerance) return 0;
+            if (Math.abs(value - 100) <= tolerance) return 100;
+            return null;
+        };
+
+        const snappedCorners = fitClipPolygon.map(([x, y]) => {
+            const sx = snapCoord(x);
+            const sy = snapCoord(y);
+            return sx === null || sy === null ? null : `${sx},${sy}`;
+        });
+
+        if (snappedCorners.some(c => c === null)) return false;
+
+        const uniqueCorners = new Set(snappedCorners as string[]);
+        if (uniqueCorners.size !== 4) return false;
+
+        return uniqueCorners.has('0,0')
+            && uniqueCorners.has('100,0')
+            && uniqueCorners.has('100,100')
+            && uniqueCorners.has('0,100');
+    })();
+
+    const adjustedRegionWidthPx = Math.max(1, widthPx - (insetL + insetR));
+    const adjustedRegionHeightPx = Math.max(1, heightPx - (insetT + insetB));
+    const roundedPolygonClipPathD = (region.shape === 'polygon' && clipPathPolygonPoints && cornerRadiusNum > 0)
+        ? buildRoundedPolygonClipPath(
+            clipPathPolygonPoints,
+            adjustedRegionWidthPx,
+            adjustedRegionHeightPx,
+            cornerRadiusNum
+        )
+        : null;
 
     // INTERNAL STROKES: Only needed for non-rect complex shapes to fill the 'gap' area
     const renderInternalStrokes = () => {
@@ -477,7 +616,7 @@ export const ShapeRegion = ({
 
     // Local clip-path calculation using the adjusted container's relative coordinates
     const clipPathStyle = isCircle ? 'circle(closest-side)' : (
-        region.shape === 'path' ? `url(#${shapeId}-clip)` : (
+        (region.shape === 'path' || (region.shape === 'polygon' && !!roundedPolygonClipPathD)) ? `url(#${shapeId}-clip)` : (
             svgPoints ? `polygon(${svgPoints.split(' ').map(p => {
                 const [sx, sy] = p.split(',');
                 return `${sx}% ${sy}%`;
@@ -516,7 +655,7 @@ export const ShapeRegion = ({
     };
 
     // CLEAN RECT PATH: 1:1 Parity with Grid Slots, but with wrapper for Replace Button
-    if (isRect) {
+    if (isRect || isRectLikePolygon) {
         return (
             <div
                 ref={rootRef}
@@ -524,9 +663,13 @@ export const ShapeRegion = ({
                 className={cn(
                     "absolute pointer-events-auto transition-all duration-200 group",
                     (!photo || !photo.src) && "cursor-pointer",
-                    cornerRadius === 0 && "rounded-none"
+                    cornerRadiusNum === 0 && "rounded-none"
                 )}
-                style={commonStyle}
+                style={{
+                    ...commonStyle,
+                    borderRadius: `${cornerRadiusNum}px`,
+                    overflow: 'hidden'
+                }}
                 onClick={(e) => {
                     // Handle click on empty slot
                     if ((!photo || !photo.src) && onReplace) {
@@ -544,7 +687,7 @@ export const ShapeRegion = ({
                         isDragOver && (!photo || !photo.src) && "bg-primary/10"
                     )}
                     style={{
-                        borderRadius: `${cornerRadius}px`,
+                        borderRadius: `${cornerRadiusNum}px`,
                         backgroundColor: photoGapNum > 0 ? backgroundColor : 'transparent',
                         ['--tw-ring-offset-color' as any]: backgroundColor,
                     }}
@@ -646,7 +789,12 @@ export const ShapeRegion = ({
             >
                 <defs>
                     <clipPath id={`${shapeId}-clip`} clipPathUnits="objectBoundingBox">
-                        <path d={region.path} transform={pathTransform} />
+                        {region.shape === 'path' && region.path && (
+                            <path d={region.path} transform={pathTransform} />
+                        )}
+                        {region.shape === 'polygon' && roundedPolygonClipPathD && (
+                            <path d={roundedPolygonClipPathD} />
+                        )}
                     </clipPath>
                     <mask id={maskId} maskUnits="objectBoundingBox" maskContentUnits="objectBoundingBox">
                         <rect x="-1" y="-1" width="3" height="3" fill="white" />
@@ -655,6 +803,8 @@ export const ShapeRegion = ({
                         ) : (
                             region.shape === 'path' ? (
                                 <path d={region.path} fill="black" transform={pathTransform} />
+                            ) : roundedPolygonClipPathD ? (
+                                <path d={roundedPolygonClipPathD} fill="black" />
                             ) : (
                                 <polygon points={svgPoints} fill="black" transform="scale(0.01, 0.01)" />
                             )

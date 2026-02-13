@@ -318,6 +318,9 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                     const height = 500; // 2:1 ratio for spread, 1:1 for single (assuming square format preference in config, typically 20x20 is square)
                     // Note: The app supports 20x20 which is square. So Single is Square. Spread is 2 Squares (2:1).
                     const exportPageBackground = page.backgroundColor || config.backgroundColor || '#ffffff';
+                    const exportCornerRadius = (typeof page.cornerRadius === 'number' && page.cornerRadius > 0)
+                        ? page.cornerRadius
+                        : (config.cornerRadius ?? 0);
 
                     return (
                         <div
@@ -406,6 +409,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                                             page={page}
                                                             photoGap={page.photoGap ?? config.photoGap}
                                                             backgroundColor={exportPageBackground}
+                                                            cornerRadius={exportCornerRadius}
                                                             overridePhotos={leftPhotos}
                                                             overrideLayout={leftLayoutId}
                                                             onUpdatePhotoPanAndZoom={() => { }}
@@ -419,6 +423,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                                             page={page}
                                                             photoGap={page.photoGap ?? config.photoGap}
                                                             backgroundColor={exportPageBackground}
+                                                            cornerRadius={exportCornerRadius}
                                                             overridePhotos={rightPhotos}
                                                             overrideLayout={rightLayoutId}
                                                             onUpdatePhotoPanAndZoom={() => { }}
@@ -438,6 +443,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                                     page={page}
                                                     photoGap={page.photoGap ?? config.photoGap}
                                                     backgroundColor={exportPageBackground}
+                                                    cornerRadius={exportCornerRadius}
                                                     onUpdatePhotoPanAndZoom={() => { }}
                                                     onInteractionChange={() => { }}
                                                     onDropPhoto={() => { }}
@@ -451,6 +457,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                         page={page}
                                         photoGap={page.photoGap ?? config.photoGap}
                                         backgroundColor={exportPageBackground}
+                                        cornerRadius={exportCornerRadius}
                                         onUpdatePhotoPanAndZoom={() => { }}
                                         onInteractionChange={() => { }}
                                         onDropPhoto={() => { }}
