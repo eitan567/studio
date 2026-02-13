@@ -15,14 +15,13 @@ import {
     Pencil,
     Shield,
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ModeToggle } from '@/components/mode-toggle';
-import { cn } from '@/lib/utils';
 import { AdminSettingsDialog } from '@/components/admin/admin-settings-dialog';
 import { UserNav } from '@/components/user-nav';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface AlbumEditorToolbarProps {
     albumName: string;
@@ -49,7 +48,6 @@ export function AlbumEditorToolbar({
     isExporting,
     onShare,
 }: AlbumEditorToolbarProps) {
-    const router = useRouter();
     const { isAdmin } = useAuth();
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [editedTitle, setEditedTitle] = useState(albumName);
@@ -139,33 +137,48 @@ export function AlbumEditorToolbar({
             </div>
 
             <div className="flex items-center gap-2">
-                {/* Admin Button */}
-                {isAdmin && (
-                    <>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                            title="Admin Panel"
-                            onClick={() => setAdminOpen(true)}
-                        >
-                            <Shield className="h-5 w-5" />
-                        </Button>
-                        <AdminSettingsDialog open={adminOpen} onOpenChange={setAdminOpen} />
-                    </>
-                )}
+                <TooltipProvider>
+                    {/* Admin + Custom Layout Buttons */}
+                    {isAdmin && (
+                        <>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                                        onClick={onOpenCustomLayout}
+                                        aria-label="Custom Layout"
+                                    >
+                                        <Layout className="h-5 w-5" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Custom Layout</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                        onClick={() => setAdminOpen(true)}
+                                        aria-label="Admin Panel"
+                                    >
+                                        <Shield className="h-5 w-5" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Admin Panel</TooltipContent>
+                            </Tooltip>
+                            <AdminSettingsDialog open={adminOpen} onOpenChange={setAdminOpen} />
+                        </>
+                    )}
+                </TooltipProvider>
                 <ModeToggle />
                 <div className="h-4 w-px bg-border mx-1" />
                 <Button variant="outline" className="gap-2 bg-background" onClick={onOpenBookView}>
                     <BookOpen className="h-4 w-4" />
                     <span className="hidden sm:inline">Book View</span>
                 </Button>
-                {isAdmin && (
-                    <Button variant="outline" className="gap-2 bg-background border-amber-200 hover:bg-amber-50 dark:border-amber-900/50 dark:hover:bg-amber-950/30" onClick={onOpenCustomLayout}>
-                        <Layout className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                        <span className="hidden sm:inline">Custom Layout</span>
-                    </Button>
-                )}
                 <div className="h-4 w-px bg-border mx-1" />
                 <Button variant="ghost" size="sm" className="gap-2" onClick={onExportImages} disabled={isExporting}>
                     {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileImage className="h-4 w-4" />}
