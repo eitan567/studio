@@ -1159,6 +1159,26 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         });
     };
 
+    const handleUpdateLocalTemplateMetadata = useCallback((templateId: string | number, updates: Partial<AdvancedTemplate>) => {
+        setCreatedTemplates(prev =>
+            prev.map(template =>
+                String(template.id) === String(templateId)
+                    ? { ...template, ...updates }
+                    : template
+            )
+        );
+
+        setSelectedAdvancedTemplate(prev =>
+            prev && String(prev.id) === String(templateId)
+                ? { ...prev, ...updates }
+                : prev
+        );
+
+        if (String(editingTemplateId) === String(templateId) && typeof updates.name === 'string') {
+            setTemplateName(updates.name);
+        }
+    }, [editingTemplateId]);
+
     const handleConfirmClone = () => {
         if (!cloneDraft) return;
         const cloneName = cloneDraft.name.trim() || `${cloneDraft.template.name} Copy`;
@@ -2543,6 +2563,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         onDeleteTemplate={handleDeleteTemplate}
                         editingTemplateId={editingTemplateId}
                         onRefresh={refresh}
+                        onUpdateLocalTemplateMetadata={handleUpdateLocalTemplateMetadata}
                     />
                 </div>
             </div>

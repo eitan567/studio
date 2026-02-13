@@ -38,6 +38,7 @@ export interface LayoutSidebarRightProps {
     useDummyPhotos: boolean;
     onUseDummyPhotosChange: (use: boolean) => void;
     onRefresh?: () => void;
+    onUpdateLocalTemplateMetadata?: (templateId: string | number, updates: Partial<AdvancedTemplate>) => void;
 }
 
 export const LayoutSidebarRight = ({
@@ -62,7 +63,8 @@ export const LayoutSidebarRight = ({
     onDeleteTemplate,
     editingTemplateId,
     systemTemplates: propSystemTemplates,
-    onRefresh
+    onRefresh,
+    onUpdateLocalTemplateMetadata
 }: LayoutSidebarRightProps) => {
     const { allTemplates: hookTemplates, refresh } = useTemplates();
     const [activeTab, setActiveTab] = React.useState<'standard' | 'new'>('standard');
@@ -490,6 +492,7 @@ export const LayoutSidebarRight = ({
                         open={!!metadataInfoTemplate}
                         onOpenChange={(open) => !open && setMetadataInfoTemplate(null)}
                         template={metadataInfoTemplate}
+                        onUpdateLocalTemplate={onUpdateLocalTemplateMetadata}
                         onSaveSuccess={() => {
                             // Trigger refresh if passed, or rely on global cache invalidation
                             if (onRefresh) onRefresh();

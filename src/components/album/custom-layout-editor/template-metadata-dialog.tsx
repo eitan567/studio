@@ -19,13 +19,15 @@ interface TemplateMetadataDialogProps {
     onOpenChange: (open: boolean) => void;
     template: AdvancedTemplate | null;
     onSaveSuccess: () => void;
+    onUpdateLocalTemplate?: (templateId: string | number, updates: Partial<AdvancedTemplate>) => void;
 }
 
 export const TemplateMetadataDialog = ({
     open,
     onOpenChange,
     template,
-    onSaveSuccess
+    onSaveSuccess,
+    onUpdateLocalTemplate
 }: TemplateMetadataDialogProps) => {
     const { toast } = useToast();
     const { templateTypes, templateCategories, templateClassifications } = useTemplates();
@@ -70,8 +72,6 @@ export const TemplateMetadataDialog = ({
         setIsLoading(true);
 
         try {
-            const supabase = createClient();
-
             const updateData = {
                 name: name,
                 type_id: typeId ? parseInt(typeId) : null,
@@ -81,6 +81,22 @@ export const TemplateMetadataDialog = ({
                 description: description,
                 updated_at: new Date().toISOString()
             };
+
+            const isUnsavedLocalTemplate =
+                typeof template.id === 'string' && template.id.includes('-');
+
+            if (isUnsavedLocalTemplate) {
+                onUpdateLocalTemplate?.(template.id, updateData);
+                toast({
+                    title: "Success",
+                    description: "Template metadata updated locally. Save Template to persist.",
+                });
+                onSaveSuccess();
+                onOpenChange(false);
+                return;
+            }
+
+            const supabase = createClient();
 
             const { error } = await supabase
                 .from('templates')
@@ -104,7 +120,7 @@ export const TemplateMetadataDialog = ({
             toast({
                 variant: "destructive",
                 title: "Error",
-                description: 'Failed to update template: ' + error.message,
+                description: 'Failed to update template: ' + (error?.message || 'Unknown error'),
             });
         } finally {
             setIsLoading(false);
