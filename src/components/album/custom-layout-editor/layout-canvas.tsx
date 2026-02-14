@@ -148,8 +148,9 @@ export const LayoutCanvas = ({
     const cornerRadius = (typeof page.cornerRadius === 'number' && page.cornerRadius > 0)
         ? page.cornerRadius
         : (config?.cornerRadius ?? 0);
-    // Use config background color directly
-    const backgroundColor = config?.backgroundColor;
+    // In template editor, color changes are applied to the working page state first.
+    // Prefer page-level color to keep photo-gap color in sync with live editor controls.
+    const backgroundColor = page.backgroundColor ?? config?.backgroundColor;
     const resolvedBackgroundColor = backgroundColor || 'hsl(var(--background))';
 
     // Coordinate system must stay tied to the actual page area, not to page margin.
@@ -2781,6 +2782,18 @@ export const LayoutCanvas = ({
                     >
                         {/* Content Layer */}
                         <div className={cn("absolute inset-0 w-full h-full", toolMode !== 'select' && "pointer-events-none")}>
+                            {/* Keep editor canvas background synced with selected template background color.
+                               This ensures photo-gap areas show the correct color even when pageMargin is 0. */}
+                            <div
+                                className="absolute pointer-events-none"
+                                style={{
+                                    top: 0,
+                                    left: activeCanvasLeft,
+                                    width: activeCanvasWidth,
+                                    height: activeCanvasHeight,
+                                    backgroundColor: resolvedBackgroundColor,
+                                }}
+                            />
                             {allowTemplateFallbackWhenEmpty && advancedTemplate && vectorObjects.length === 0 && !gridDesignerEnabled ? (
                                 <div
                                     className="absolute overflow-hidden shadow-sm"
@@ -2789,7 +2802,7 @@ export const LayoutCanvas = ({
                                         left: activeCanvasLeft,
                                         width: activeCanvasWidth,
                                         height: activeCanvasHeight,
-                                        backgroundColor: pageMargin > 0 ? resolvedBackgroundColor : undefined,
+                                        backgroundColor: resolvedBackgroundColor,
                                     }}
                                 >
                                     <div
