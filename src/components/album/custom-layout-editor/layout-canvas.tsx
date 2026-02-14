@@ -12,6 +12,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ShapeRegion } from '../layouts/shape-region';
 import { ToolMode } from './custom-layout-editor-overlay';
 import { isLikelyBackgroundRegion } from '@/lib/layout-background-region';
+import { computeLowerOverlapFlags } from '@/lib/layout-overlap';
 import { useSettings } from '@/hooks/use-settings';
 
 const isSamePoint = (a: Point, b: Point, epsilon: number = 1e-6): boolean =>
@@ -2802,6 +2803,7 @@ export const LayoutCanvas = ({
                                     >
                                         {(() => {
                                             const sortedRegions = [...advancedTemplate.regions].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
+                                            const overlapWithLowerFlags = computeLowerOverlapFlags(sortedRegions);
                                             const templateMode = templateImageRotationMode || advancedTemplate._imageRotationMode || 'follow-frame';
                                             return sortedRegions.map((region, index) => (
                                                 <ShapeRegion
@@ -2817,6 +2819,7 @@ export const LayoutCanvas = ({
                                                     pageId={page.id}
                                                     cornerRadius={cornerRadius}
                                                     imageRotationMode={isLikelyBackgroundRegion(region, sortedRegions) ? 'keep-horizontal' : templateMode}
+                                                    forceGapStroke={overlapWithLowerFlags[index]}
                                                 />
                                             ));
                                         })()}

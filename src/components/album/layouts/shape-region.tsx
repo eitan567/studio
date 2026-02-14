@@ -187,6 +187,7 @@ export const ShapeRegion = ({
     pageId,
     cornerRadius = 0,
     imageRotationMode = 'follow-frame',
+    forceGapStroke = false,
     priority,
     chronologicalIndex,
 }: {
@@ -208,6 +209,7 @@ export const ShapeRegion = ({
     pageId?: string;
     cornerRadius?: number;
     imageRotationMode?: TemplateImageRotationMode;
+    forceGapStroke?: boolean;
     priority?: boolean;
     chronologicalIndex?: Record<string, number>;
 }) => {
@@ -241,6 +243,7 @@ export const ShapeRegion = ({
     const insetT = isAtTop ? 0 : baseInset;
     const insetR = isAtRight ? 0 : baseInset;
     const insetB = isAtBottom ? 0 : baseInset;
+    const shouldForceGapStroke = forceGapStroke && photoGapNum > 0;
 
     const maskId = `mask-outside-${region.id}`;
 
@@ -379,6 +382,7 @@ export const ShapeRegion = ({
 
         let p = region.points || [];
         if (p.length < 2) return null;
+        const touchesPageBoundary = isAtLeft || isAtTop || isAtRight || isAtBottom;
 
         const n = p.length;
         const segments = [];
@@ -387,11 +391,12 @@ export const ShapeRegion = ({
             const curr = p[i];
             const next = p[(i + 1) % n];
             // Only draw strokes for internal edges (not on page bounds)
-            const isOnBound =
+            const isOnBound = touchesPageBoundary && (
                 (Math.abs(curr[0] - 0) < EPSILON && Math.abs(next[0] - 0) < EPSILON) ||
                 (Math.abs(curr[0] - 100) < EPSILON && Math.abs(next[0] - 100) < EPSILON) ||
                 (Math.abs(curr[1] - 0) < EPSILON && Math.abs(next[1] - 0) < EPSILON) ||
-                (Math.abs(curr[1] - 100) < EPSILON && Math.abs(next[1] - 100) < EPSILON);
+                (Math.abs(curr[1] - 100) < EPSILON && Math.abs(next[1] - 100) < EPSILON)
+            );
 
             if (!isOnBound) {
                 // Projection must match the *adjusted* container coordinates
@@ -689,6 +694,10 @@ export const ShapeRegion = ({
                     style={{
                         borderRadius: `${cornerRadiusNum}px`,
                         backgroundColor: photoGapNum > 0 ? backgroundColor : 'transparent',
+                        borderTop: shouldForceGapStroke && !isAtTop ? `${photoGapNum}px solid ${backgroundColor}` : undefined,
+                        borderRight: shouldForceGapStroke && !isAtRight ? `${photoGapNum}px solid ${backgroundColor}` : undefined,
+                        borderBottom: shouldForceGapStroke && !isAtBottom ? `${photoGapNum}px solid ${backgroundColor}` : undefined,
+                        borderLeft: shouldForceGapStroke && !isAtLeft ? `${photoGapNum}px solid ${backgroundColor}` : undefined,
                         ['--tw-ring-offset-color' as any]: backgroundColor,
                     }}
                     onDragOver={handleDragOver}

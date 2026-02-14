@@ -9,6 +9,7 @@ import { parseLayoutId } from '@/lib/layout-id-utils';
 import { SuggestionFan } from '../album-editor/suggestion-fan';
 import { generateJustifiedLayout, generateSmartJustifiedLayout } from '@/lib/justified-layout-util';
 import { isLikelyBackgroundRegion } from '@/lib/layout-background-region';
+import { computeLowerOverlapFlags } from '@/lib/layout-overlap';
 
 
 export interface PageLayoutProps {
@@ -183,6 +184,7 @@ const PageLayoutComponent = ({
 
     // Sort regions by zIndex
     const sortedRegions = template?.regions ? [...template.regions].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)) : [];
+    const overlapWithLowerFlags = computeLowerOverlapFlags(sortedRegions);
     const { width: W, height: H } = containerSize;
 
     return (
@@ -244,6 +246,7 @@ const PageLayoutComponent = ({
                         pageId={page.id}
                         cornerRadius={cornerRadius}
                         imageRotationMode={regionImageMode}
+                        forceGapStroke={overlapWithLowerFlags[index]}
                         priority={priority}
                         chronologicalIndex={chronologicalIndex}
                     />
