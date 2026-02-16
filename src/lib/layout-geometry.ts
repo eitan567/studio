@@ -11,7 +11,7 @@ export type Polygon = Point[];
 const EPSILON = 0.01;        // General equality tolerance
 const GRID_SNAP = 0.001;     // Normalization grid
 const MERGE_RADIUS = 0.1;    // Pull nearby vertices together
-const BORDER_SNAP = 0.5;     // Strong magnetism for actual page borders
+const BORDER_SNAP = 2.5;     // Matches editor line boundary snap to prevent edge slivers
 
 // ----------------------------------------------------------------------
 // MAIN EXPORT
@@ -42,9 +42,17 @@ export function processLayoutGeometry(
 
     // 4. TOPOLOGICAL CLEANUP (Merging close vertices & splitting intersections)
     const atomicSegments = buildRobustPlanarGraph(allSegments);
+    const snappedAtomicSegments = deduplicate(
+        atomicSegments
+            .map((s) => ({
+                p1: snapToBoundary(gridPoint(s.p1), width),
+                p2: snapToBoundary(gridPoint(s.p2), width),
+            }))
+            .filter((s) => distSq(s.p1, s.p2) > EPSILON * EPSILON)
+    );
 
     // 5. EXTRACT INTERIOR FACES
-    const rawPolygons = findFaces(atomicSegments);
+    const rawPolygons = findFaces(snappedAtomicSegments);
 
     // 6. APPLY GAP OFFSET (Shrink from edges)
     const finalPolygons = gap > 0

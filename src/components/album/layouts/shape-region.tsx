@@ -222,27 +222,66 @@ export const ShapeRegion = ({
     const isRect = region.shape === 'rect';
     const isCircle = region.shape === 'circle';
 
-    // Dimensions in relative percentages and pixels
-    const widthPx = (region.bounds.width / 100) * containerWidth;
-    const heightPx = (region.bounds.height / 100) * containerHeight;
-
     const photoGapNum = typeof photoGap === 'string' ? parseFloat(photoGap) : photoGap;
     const cornerRadiusNum = Number(cornerRadius) || 0;
     // contentInset is HALF the gap (shared between slots)
     const baseInset = photoGapNum / 2;
 
+    const EDGE_EPSILON = 0.75;
+    const EDGE_SEGMENT_MIN_SPAN = 0.2;
+    const boundaryEpsilonX = Math.max(
+        EDGE_EPSILON,
+        ((baseInset + 0.5) / Math.max(1, containerWidth)) * 100
+    );
+    const boundaryEpsilonY = Math.max(
+        EDGE_EPSILON,
+        ((baseInset + 0.5) / Math.max(1, containerHeight)) * 100
+    );
+    const polygonPoints = (region.shape === 'polygon' && region.points && region.points.length >= 3)
+        ? region.points
+        : undefined;
+    const isPolygonRegion = !!polygonPoints;
+
+    const hasPolygonBoundaryEdge = (edge: 'left' | 'top' | 'right' | 'bottom'): boolean => {
+        if (!polygonPoints || polygonPoints.length < 2) return false;
+        const target = edge === 'left' || edge === 'top' ? 0 : 100;
+
+        for (let i = 0; i < polygonPoints.length; i++) {
+            const curr = polygonPoints[i];
+            const next = polygonPoints[(i + 1) % polygonPoints.length];
+            if (edge === 'left' || edge === 'right') {
+                const onEdge = Math.abs(curr[0] - target) <= boundaryEpsilonX && Math.abs(next[0] - target) <= boundaryEpsilonX;
+                if (onEdge && Math.abs(curr[1] - next[1]) >= EDGE_SEGMENT_MIN_SPAN) return true;
+            } else {
+                const onEdge = Math.abs(curr[1] - target) <= boundaryEpsilonY && Math.abs(next[1] - target) <= boundaryEpsilonY;
+                if (onEdge && Math.abs(curr[0] - next[0]) >= EDGE_SEGMENT_MIN_SPAN) return true;
+            }
+        }
+
+        return false;
+    };
+
+    const isSegmentOnPageBoundary = (a: [number, number], b: [number, number]) =>
+        (Math.abs(a[0] - 0) <= boundaryEpsilonX && Math.abs(b[0] - 0) <= boundaryEpsilonX) ||
+        (Math.abs(a[0] - 100) <= boundaryEpsilonX && Math.abs(b[0] - 100) <= boundaryEpsilonX) ||
+        (Math.abs(a[1] - 0) <= boundaryEpsilonY && Math.abs(b[1] - 0) <= boundaryEpsilonY) ||
+        (Math.abs(a[1] - 100) <= boundaryEpsilonY && Math.abs(b[1] - 100) <= boundaryEpsilonY);
+
+    // Dimensions in relative percentages and pixels
+    const widthPx = (region.bounds.width / 100) * containerWidth;
+    const heightPx = (region.bounds.height / 100) * containerHeight;
+
     // Detect if edges touch page boundaries (0% or 100%)
-    const EPSILON = 0.5;
-    const isAtLeft = region.bounds.x < EPSILON;
-    const isAtTop = region.bounds.y < EPSILON;
-    const isAtRight = (region.bounds.x + region.bounds.width) > 100 - EPSILON;
-    const isAtBottom = (region.bounds.y + region.bounds.height) > 100 - EPSILON;
+    const isAtLeft = region.bounds.x <= boundaryEpsilonX || hasPolygonBoundaryEdge('left');
+    const isAtTop = region.bounds.y <= boundaryEpsilonY || hasPolygonBoundaryEdge('top');
+    const isAtRight = (region.bounds.x + region.bounds.width) >= 100 - boundaryEpsilonX || hasPolygonBoundaryEdge('right');
+    const isAtBottom = (region.bounds.y + region.bounds.height) >= 100 - boundaryEpsilonY || hasPolygonBoundaryEdge('bottom');
 
     // Directional insets: 0 if at boundary, baseInset if internal
-    const insetL = isAtLeft ? 0 : baseInset;
-    const insetT = isAtTop ? 0 : baseInset;
-    const insetR = isAtRight ? 0 : baseInset;
-    const insetB = isAtBottom ? 0 : baseInset;
+    const insetL = isPolygonRegion ? 0 : (isAtLeft ? 0 : baseInset);
+    const insetT = isPolygonRegion ? 0 : (isAtTop ? 0 : baseInset);
+    const insetR = isPolygonRegion ? 0 : (isAtRight ? 0 : baseInset);
+    const insetB = isPolygonRegion ? 0 : (isAtBottom ? 0 : baseInset);
     const shouldForceGapStroke = forceGapStroke && photoGapNum > 0;
 
     const maskId = `mask-outside-${region.id}`;
@@ -314,7 +353,7 @@ export const ShapeRegion = ({
     let svgPoints = "";
     let fitClipPolygon: Array<[number, number]> | undefined;
     let clipPathPolygonPoints: Array<[number, number]> | undefined;
-    if (region.shape === 'polygon' && region.points) {
+    if (region.shape === 'polygon' && polygonPoints) {
         const newX = region.bounds.x + pInsetL;
         const newY = region.bounds.y + pInsetT;
         const newW = region.bounds.width - pInsetW;
@@ -322,7 +361,7 @@ export const ShapeRegion = ({
 
         const pointsForSvg: string[] = [];
         const pointsForFitRaw: Array<[number, number]> = [];
-        for (const p of region.points) {
+        for (const p of polygonPoints) {
             const relX = ((p[0] - newX) / newW) * 100;
             const relY = ((p[1] - newY) / newH) * 100;
             pointsForSvg.push(`${relX},${relY}`);
@@ -338,6 +377,7 @@ export const ShapeRegion = ({
     }
 
     const isRectLikePolygon = (() => {
+        if (isPolygonRegion) return false;
         if (region.shape !== 'polygon') return false;
         if (!fitClipPolygon || fitClipPolygon.length !== 4) return false;
 
@@ -380,9 +420,8 @@ export const ShapeRegion = ({
     const renderInternalStrokes = () => {
         if (photoGapNum <= 0 || region.shape !== 'polygon') return null;
 
-        let p = region.points || [];
+        let p = polygonPoints || [];
         if (p.length < 2) return null;
-        const touchesPageBoundary = isAtLeft || isAtTop || isAtRight || isAtBottom;
 
         const n = p.length;
         const segments = [];
@@ -391,12 +430,7 @@ export const ShapeRegion = ({
             const curr = p[i];
             const next = p[(i + 1) % n];
             // Only draw strokes for internal edges (not on page bounds)
-            const isOnBound = touchesPageBoundary && (
-                (Math.abs(curr[0] - 0) < EPSILON && Math.abs(next[0] - 0) < EPSILON) ||
-                (Math.abs(curr[0] - 100) < EPSILON && Math.abs(next[0] - 100) < EPSILON) ||
-                (Math.abs(curr[1] - 0) < EPSILON && Math.abs(next[1] - 0) < EPSILON) ||
-                (Math.abs(curr[1] - 100) < EPSILON && Math.abs(next[1] - 100) < EPSILON)
-            );
+            const isOnBound = isSegmentOnPageBoundary(curr, next);
 
             if (!isOnBound) {
                 // Projection must match the *adjusted* container coordinates
@@ -660,7 +694,7 @@ export const ShapeRegion = ({
     };
 
     // CLEAN RECT PATH: 1:1 Parity with Grid Slots, but with wrapper for Replace Button
-    if (isRect || isRectLikePolygon) {
+    if (isRect) {
         return (
             <div
                 ref={rootRef}

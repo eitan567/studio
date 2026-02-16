@@ -200,6 +200,7 @@ export const LayoutCanvas = ({
     const LINE_TOOL_SEGMENT_SNAP_PIXELS = 8;
     const LINE_TOOL_ENDPOINT_SNAP_THRESHOLD_UNITS = (LINE_TOOL_ENDPOINT_SNAP_PIXELS / Math.max(1, activeCanvasHeight)) * 100;
     const LINE_TOOL_SEGMENT_SNAP_THRESHOLD_UNITS = (LINE_TOOL_SEGMENT_SNAP_PIXELS / Math.max(1, activeCanvasHeight)) * 100;
+    const LINE_TOOL_BOUNDARY_SNAP_THRESHOLD_UNITS = Math.max(2.5, LINE_TOOL_ENDPOINT_SNAP_THRESHOLD_UNITS);
     const LINE_ENDPOINT_HANDLE_HIT_RADIUS = 1.8;
     // Keep line snap coordinates aligned with layout-geometry grid normalization.
     const PROCESS_GEOMETRY_SNAP_STEP = 0.001;
@@ -504,7 +505,7 @@ export const LayoutCanvas = ({
     };
 
     const snapPointToCanvasBoundary = useCallback((p: Point): Point => {
-        const threshold = Math.max(0.35, LINE_TOOL_ENDPOINT_SNAP_THRESHOLD_UNITS);
+        const threshold = LINE_TOOL_BOUNDARY_SNAP_THRESHOLD_UNITS;
         let x = p[0];
         let y = p[1];
         if (Math.abs(x - 0) <= threshold) x = 0;
@@ -512,7 +513,7 @@ export const LayoutCanvas = ({
         if (Math.abs(y - 0) <= threshold) y = 0;
         else if (Math.abs(y - 100) <= threshold) y = 100;
         return quantizePointForProcess([x, y]);
-    }, [LINE_TOOL_ENDPOINT_SNAP_THRESHOLD_UNITS, logicalWidthUnits, quantizePointForProcess]);
+    }, [LINE_TOOL_BOUNDARY_SNAP_THRESHOLD_UNITS, logicalWidthUnits, quantizePointForProcess]);
 
     const buildVectorObject = useCallback((
         type: VectorObject['type'],
