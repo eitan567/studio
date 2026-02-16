@@ -161,6 +161,15 @@ export const LayoutCanvas = ({
     const activeCanvasHeight = logicalHeight;
     const previewInnerWidth = Math.max(1, activeCanvasWidth - (pageMargin * 2));
     const previewInnerHeight = Math.max(1, activeCanvasHeight - (pageMargin * 2));
+    const isTemplatePreviewMode =
+        allowTemplateFallbackWhenEmpty &&
+        !!advancedTemplate &&
+        vectorObjects.length === 0 &&
+        !gridDesignerEnabled;
+    const canMountTemplatePreviewLayer =
+        allowTemplateFallbackWhenEmpty &&
+        !!advancedTemplate &&
+        !gridDesignerEnabled;
     const coordinateAspect = activeCanvasWidth / activeCanvasHeight;
     const logicalWidthUnits = 100 * coordinateAspect;
     // Ruler labels are shown on 10-unit steps; cap visible ticks to the last full 10.
@@ -2782,19 +2791,7 @@ export const LayoutCanvas = ({
                     >
                         {/* Content Layer */}
                         <div className={cn("absolute inset-0 w-full h-full", toolMode !== 'select' && "pointer-events-none")}>
-                            {/* Keep editor canvas background synced with selected template background color.
-                               This ensures photo-gap areas show the correct color even when pageMargin is 0. */}
-                            <div
-                                className="absolute pointer-events-none"
-                                style={{
-                                    top: 0,
-                                    left: activeCanvasLeft,
-                                    width: activeCanvasWidth,
-                                    height: activeCanvasHeight,
-                                    backgroundColor: resolvedBackgroundColor,
-                                }}
-                            />
-                            {allowTemplateFallbackWhenEmpty && advancedTemplate && vectorObjects.length === 0 && !gridDesignerEnabled ? (
+                            {canMountTemplatePreviewLayer && (
                                 <div
                                     className="absolute overflow-hidden shadow-sm"
                                     style={{
@@ -2803,6 +2800,12 @@ export const LayoutCanvas = ({
                                         width: activeCanvasWidth,
                                         height: activeCanvasHeight,
                                         backgroundColor: resolvedBackgroundColor,
+                                        backgroundImage: config?.backgroundImage ? `url(${config.backgroundImage})` : undefined,
+                                        backgroundSize: config?.backgroundImage ? 'cover' : undefined,
+                                        backgroundPosition: config?.backgroundImage ? 'center' : undefined,
+                                        backgroundRepeat: config?.backgroundImage ? 'no-repeat' : undefined,
+                                        opacity: isTemplatePreviewMode ? 1 : 0,
+                                        pointerEvents: isTemplatePreviewMode ? 'auto' : 'none',
                                     }}
                                 >
                                     <div
@@ -2838,7 +2841,8 @@ export const LayoutCanvas = ({
                                         })()}
                                     </div>
                                 </div>
-                            ) : isFull ? (
+                            )}
+                            {!isTemplatePreviewMode && (isFull ? (
                                 <div className="flex h-full w-full">
                                     <div className="flex-1 border-r border-dashed border-border flex items-center justify-center text-muted-foreground text-sm">Left Page</div>
                                     <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">Right Page</div>
@@ -2855,7 +2859,7 @@ export const LayoutCanvas = ({
                                         <div className="text-muted-foreground text-sm">Design Area</div>
                                     </div>
                                 </div>
-                            )}
+                            ))}
                         </div>
 
                         {isFull && (

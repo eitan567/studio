@@ -1120,35 +1120,54 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             setSpreadMode(targetSpreadMode);
         }
 
-        // Create a dummy page with the right number of photos for this template
-        const photos = Array(getPhotoCount(template)).fill(null).map((_, index) => {
-            if (useDummyPhotos) {
-                const seed = `adv-${template.id}-${index}`;
+        // Build preview photos while preserving existing IDs/src whenever possible
+        // to avoid remount flashes when switching between edit/final preview.
+        setDummyPage(prev => {
+            const photoCount = getPhotoCount(template);
+            const photos = Array(photoCount).fill(null).map((_, index) => {
+                const prevPhoto = prev.photos?.[index];
+
+                if (useDummyPhotos) {
+                    const seed = `adv-${template.id}-${index}`;
+                    const src = `https://picsum.photos/seed/${seed}/800/600`;
+
+                    if (prevPhoto && prevPhoto.src === src) {
+                        return {
+                            ...prevPhoto,
+                            alt: `Sample photo ${index + 1}`,
+                            width: prevPhoto.width ?? 800,
+                            height: prevPhoto.height ?? 600,
+                            panAndZoom: prevPhoto.panAndZoom ?? { scale: 1, x: 50, y: 50 }
+                        };
+                    }
+
+                    return {
+                        id: prevPhoto?.id || uuidv4(),
+                        src,
+                        alt: `Sample photo ${index + 1}`,
+                        width: 800,
+                        height: 600,
+                        panAndZoom: prevPhoto?.panAndZoom ?? { scale: 1, x: 50, y: 50 }
+                    };
+                }
+
                 return {
-                    id: uuidv4(),
-                    src: `https://picsum.photos/seed/${seed}/800/600`,
-                    alt: `Sample photo ${index + 1}`,
-                    width: 800,
-                    height: 600,
-                    panAndZoom: { scale: 1, x: 50, y: 50 }
+                    id: prevPhoto?.id || uuidv4(),
+                    src: '',
+                    alt: 'Drop photo here',
+                    panAndZoom: prevPhoto?.panAndZoom ?? { scale: 1, x: 50, y: 50 }
                 };
-            }
+            });
+
             return {
-                id: uuidv4(),
-                src: '',
-                alt: 'Drop photo here',
-                panAndZoom: { scale: 1, x: 50, y: 50 }
+                ...prev,
+                photos,
+                layout: template.id,
+                photoGap: photoGap,
+                pageMargin: pageMargin,
+                spreadMode: targetSpreadMode
             };
         });
-
-        setDummyPage(prev => ({
-            ...prev,
-            photos,
-            layout: template.id,
-            photoGap: photoGap,
-            pageMargin: pageMargin,
-            spreadMode: targetSpreadMode
-        }));
     };
 
     const handleCloneTemplate = (template: AdvancedTemplate, preferredMode?: 'full' | 'split') => {
