@@ -376,35 +376,6 @@ export const ShapeRegion = ({
         fitClipPolygon = [[0, 0], [100, 0], [100, 100], [0, 100]];
     }
 
-    const isRectLikePolygon = (() => {
-        if (isPolygonRegion) return false;
-        if (region.shape !== 'polygon') return false;
-        if (!fitClipPolygon || fitClipPolygon.length !== 4) return false;
-
-        const tolerance = 0.8;
-        const snapCoord = (value: number): 0 | 100 | null => {
-            if (Math.abs(value) <= tolerance) return 0;
-            if (Math.abs(value - 100) <= tolerance) return 100;
-            return null;
-        };
-
-        const snappedCorners = fitClipPolygon.map(([x, y]) => {
-            const sx = snapCoord(x);
-            const sy = snapCoord(y);
-            return sx === null || sy === null ? null : `${sx},${sy}`;
-        });
-
-        if (snappedCorners.some(c => c === null)) return false;
-
-        const uniqueCorners = new Set(snappedCorners as string[]);
-        if (uniqueCorners.size !== 4) return false;
-
-        return uniqueCorners.has('0,0')
-            && uniqueCorners.has('100,0')
-            && uniqueCorners.has('100,100')
-            && uniqueCorners.has('0,100');
-    })();
-
     const adjustedRegionWidthPx = Math.max(1, widthPx - (insetL + insetR));
     const adjustedRegionHeightPx = Math.max(1, heightPx - (insetT + insetB));
     const roundedPolygonClipPathD = (region.shape === 'polygon' && clipPathPolygonPoints && cornerRadiusNum > 0)
