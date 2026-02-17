@@ -1,0 +1,90 @@
+﻿{
+    "created_at_utc":  "2026-02-17T12:14:09.8162723Z",
+    "source":  {
+                   "container":  "supabase_db_studio",
+                   "db_name":  "postgres",
+                   "db_user":  "postgres"
+               },
+    "files":  {
+                  "schema":  {
+                                 "path":  "schema.sql",
+                                 "sha256":  "CBD24536C90908B95602AE8612E3969C07CF3779C263AF9A2F3F6249A070CB03"
+                             },
+                  "data":  {
+                               "path":  "data.sql",
+                               "sha256":  "9B8D78683FA645C7ECBF7B005DAF3DF8C68C9BDD47C123A116B12D7EEEFCE214"
+                           }
+              },
+    "data_policy":  {
+                        "excluded_tables":  [
+                                                "public.album",
+                                                "public.albums",
+                                                "public.photos",
+                                                "storage.buckets",
+                                                "storage.objects",
+                                                "storage.s3_multipart_uploads",
+                                                "storage.s3_multipart_uploads_parts"
+                                            ],
+                        "included_table_count":  54,
+                        "included_tables":  [
+                                                "_realtime.extensions",
+                                                "_realtime.schema_migrations",
+                                                "_realtime.tenants",
+                                                "auth.audit_log_entries",
+                                                "auth.flow_state",
+                                                "auth.identities",
+                                                "auth.instances",
+                                                "auth.mfa_amr_claims",
+                                                "auth.mfa_challenges",
+                                                "auth.mfa_factors",
+                                                "auth.oauth_authorizations",
+                                                "auth.oauth_client_states",
+                                                "auth.oauth_clients",
+                                                "auth.oauth_consents",
+                                                "auth.one_time_tokens",
+                                                "auth.refresh_tokens",
+                                                "auth.saml_providers",
+                                                "auth.saml_relay_states",
+                                                "auth.schema_migrations",
+                                                "auth.sessions",
+                                                "auth.sso_domains",
+                                                "auth.sso_providers",
+                                                "auth.users",
+                                                "net._http_response",
+                                                "net.http_request_queue",
+                                                "public.canva_frames",
+                                                "public.profiles",
+                                                "public.template_categories",
+                                                "public.template_classifications",
+                                                "public.template_types",
+                                                "public.templates",
+                                                "public.user_roles",
+                                                "public.user_settings",
+                                                "realtime.messages",
+                                                "realtime.messages_2026_02_14",
+                                                "realtime.messages_2026_02_15",
+                                                "realtime.messages_2026_02_16",
+                                                "realtime.messages_2026_02_17",
+                                                "realtime.messages_2026_02_18",
+                                                "realtime.messages_2026_02_19",
+                                                "realtime.messages_2026_02_20",
+                                                "realtime.schema_migrations",
+                                                "realtime.subscription",
+                                                "storage.buckets_analytics",
+                                                "storage.buckets_vectors",
+                                                "storage.iceberg_namespaces",
+                                                "storage.iceberg_tables",
+                                                "storage.migrations",
+                                                "storage.vector_indexes",
+                                                "supabase_functions.hooks",
+                                                "supabase_functions.migrations",
+                                                "supabase_migrations.schema_migrations",
+                                                "supabase_migrations.seed_files",
+                                                "vault.secrets"
+                                            ]
+                    },
+    "notes":  [
+                  "Schema contains all objects (tables, indexes, constraints, functions, policies, triggers, etc.).",
+                  "Data excludes: public.album/public.albums, public.photos, storage buckets/object payload tables."
+              ]
+}

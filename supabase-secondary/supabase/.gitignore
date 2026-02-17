@@ -1,8 +1,6 @@
 # Supabase
 .branches
 .temp
-# db/backups/*
-#!db/backups/.gitkeep
 
 # dotenvx
 .env.keys
