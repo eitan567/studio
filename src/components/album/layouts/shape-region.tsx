@@ -214,10 +214,13 @@ export const ShapeRegion = ({
     chronologicalIndex?: Record<string, number>;
 }) => {
     const rootRef = React.useRef<HTMLDivElement>(null);
+    const reactInstanceId = React.useId();
     const albumEditor = useOptionalAlbumEditor();
     const scrollToGallery = albumEditor?.scrollToGallery;
-    // Unique ID for the mask (though we use clip-path now, keeping IDs unique is good practice)
-    const shapeId = `shape-${region.id}`;
+    // Keep clip/mask ids unique per instance to avoid collisions between regions/templates.
+    const safeRegionId = String(region.id ?? 'region').replace(/[^a-zA-Z0-9_-]/g, '-');
+    const safeInstanceId = reactInstanceId.replace(/[^a-zA-Z0-9_-]/g, '');
+    const shapeId = `shape-${safeRegionId}-${safeInstanceId}`;
 
     const isRect = region.shape === 'rect';
     const isCircle = region.shape === 'circle';
@@ -284,7 +287,7 @@ export const ShapeRegion = ({
     const insetB = isPolygonRegion ? 0 : (isAtBottom ? 0 : baseInset);
     const shouldForceGapStroke = forceGapStroke && photoGapNum > 0;
 
-    const maskId = `mask-outside-${region.id}`;
+    const maskId = `mask-outside-${safeRegionId}-${safeInstanceId}`;
 
     // Convert directional pixel insets to percentages RELATIVE TO THE PAGE
     const pInsetL = (insetL / containerWidth) * 100;
@@ -386,6 +389,7 @@ export const ShapeRegion = ({
             cornerRadiusNum
         )
         : null;
+    const hasValidRoundedPolygonClipPath = !!roundedPolygonClipPathD && !/(NaN|Infinity)/.test(roundedPolygonClipPathD);
 
     // INTERNAL STROKES: Only needed for non-rect complex shapes to fill the 'gap' area
     const renderInternalStrokes = () => {
@@ -626,7 +630,7 @@ export const ShapeRegion = ({
 
     // Local clip-path calculation using the adjusted container's relative coordinates
     const clipPathStyle = isCircle ? 'circle(closest-side)' : (
-        (region.shape === 'path' || (region.shape === 'polygon' && !!roundedPolygonClipPathD)) ? `url(#${shapeId}-clip)` : (
+        (region.shape === 'path' || (region.shape === 'polygon' && hasValidRoundedPolygonClipPath)) ? `url(#${shapeId}-clip)` : (
             svgPoints ? `polygon(${svgPoints.split(' ').map(p => {
                 const [sx, sy] = p.split(',');
                 return `${sx}% ${sy}%`;
@@ -806,7 +810,7 @@ export const ShapeRegion = ({
                         {region.shape === 'path' && region.path && (
                             <path d={region.path} transform={pathTransform} />
                         )}
-                        {region.shape === 'polygon' && roundedPolygonClipPathD && (
+                        {region.shape === 'polygon' && hasValidRoundedPolygonClipPath && (
                             <path d={roundedPolygonClipPathD} />
                         )}
                     </clipPath>
@@ -817,7 +821,7 @@ export const ShapeRegion = ({
                         ) : (
                             region.shape === 'path' ? (
                                 <path d={region.path} fill="black" transform={pathTransform} />
-                            ) : roundedPolygonClipPathD ? (
+                            ) : hasValidRoundedPolygonClipPath ? (
                                 <path d={roundedPolygonClipPathD} fill="black" />
                             ) : (
                                 <polygon points={svgPoints} fill="black" transform="scale(0.01, 0.01)" />
