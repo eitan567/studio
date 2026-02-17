@@ -122,7 +122,7 @@ export interface AdvancedTemplate {
     createdBy: string | null;
 
     // Metadata
-    description?: string | null;
+    template_config?: string | null;
     thumbnail?: string | null;
     sort_order?: number | null;
 

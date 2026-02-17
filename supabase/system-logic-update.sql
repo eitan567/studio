@@ -34,7 +34,7 @@ INSERT INTO "public"."template_classifications" ("id", "code", "label") VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- 5. TEMPLATES
-INSERT INTO public.templates (id, name, photo_count, grid, regions, created_by, is_system, is_active, sort_order, created_at, updated_at, type_id, category_id, classification_type_id, description) VALUES
+INSERT INTO public.templates (id, name, photo_count, grid, regions, created_by, is_system, is_active, sort_order, created_at, updated_at, type_id, category_id, classification_type_id, template_config) VALUES
 (1, 'Magazine Mix', 7, NULL, '[{"id": "big", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 60, "height": 70}, "zIndex": 0}, {"id": "r1", "shape": "rect", "bounds": {"x": 60, "y": 0, "width": 40, "height": 35}, "zIndex": 0}, {"id": "r2", "shape": "rect", "bounds": {"x": 60, "y": 35, "width": 40, "height": 35}, "zIndex": 0}, {"id": "b1", "shape": "rect", "bounds": {"x": 0, "y": 70, "width": 25, "height": 30}, "zIndex": 0}, {"id": "b2", "shape": "rect", "bounds": {"x": 25, "y": 70, "width": 25, "height": 30}, "zIndex": 0}, {"id": "b3", "shape": "rect", "bounds": {"x": 50, "y": 70, "width": 25, "height": 30}, "zIndex": 0}, {"id": "b4", "shape": "rect", "bounds": {"x": 75, "y": 70, "width": 25, "height": 30}, "zIndex": 0}]', NULL, true, true, 14, '2026-02-05T08:08:11.437+00:00', '2026-01-25T09:29:01.100638+00:00', 2, 3, 3, NULL),
 (2, 'V Strips', 3, NULL, '[{"id": "v1", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 33, "height": 100}, "zIndex": 0}, {"id": "v2", "shape": "rect", "bounds": {"x": 33, "y": 0, "width": 34, "height": 100}, "zIndex": 0}, {"id": "v3", "shape": "rect", "bounds": {"x": 67, "y": 0, "width": 33, "height": 100}, "zIndex": 0}]', NULL, true, true, 13, '2026-02-05T08:08:11.437+00:00', '2026-01-25T09:29:01.100638+00:00', 2, 1, 3, NULL),
 (3, '3 Photos', 3, NULL, '[{"id": "r1", "shape": "rect", "bounds": {"x": 0, "y": 0, "width": 100, "height": 58.33}}, {"id": "r2", "shape": "rect", "bounds": {"x": 0, "y": 58.33, "width": 50, "height": 41.67}}, {"id": "r3", "shape": "rect", "bounds": {"x": 50, "y": 58.33, "width": 50, "height": 41.67}}]', NULL, true, true, 3, '2026-02-05T08:08:11.437+00:00', '2026-01-25T09:29:01.100638+00:00', 1, 1, 3, NULL),
@@ -75,6 +75,53 @@ ON CONFLICT (id) DO UPDATE SET
     type_id = EXCLUDED.type_id,
     category_id = EXCLUDED.category_id,
     classification_type_id = EXCLUDED.classification_type_id,
-    description = EXCLUDED.description;
+    template_config = EXCLUDED.template_config;
+
+-- 6. STORAGE (AVATARS) RLS
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('avatars', 'avatars', true)
+ON CONFLICT (id) DO UPDATE
+SET
+  name = EXCLUDED.name,
+  public = EXCLUDED.public;
+
+DROP POLICY IF EXISTS "Authenticated Insert" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Update" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Delete" ON storage.objects;
+DROP POLICY IF EXISTS "Public Access" ON storage.objects;
+
+DROP POLICY IF EXISTS "Avatars: Insert own" ON storage.objects;
+DROP POLICY IF EXISTS "Avatars: Update own" ON storage.objects;
+DROP POLICY IF EXISTS "Avatars: Delete own" ON storage.objects;
+DROP POLICY IF EXISTS "Avatars: Public read" ON storage.objects;
+
+CREATE POLICY "Avatars: Insert own"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (
+  bucket_id = 'avatars'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+CREATE POLICY "Avatars: Update own"
+ON storage.objects FOR UPDATE TO authenticated
+USING (
+  bucket_id = 'avatars'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+)
+WITH CHECK (
+  bucket_id = 'avatars'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+CREATE POLICY "Avatars: Delete own"
+ON storage.objects FOR DELETE TO authenticated
+USING (
+  bucket_id = 'avatars'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+CREATE POLICY "Avatars: Public read"
+ON storage.objects FOR SELECT TO public
+USING (bucket_id = 'avatars');
 
 SET session_replication_role = origin;

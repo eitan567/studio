@@ -32,7 +32,7 @@ export interface DBTemplate {
     // Simplified: removed created_by and is_system checks
     is_active?: boolean;
     sort_order?: number;
-    description?: string;
+    template_config?: string;
     // Keep template_classification for type classification
     is_system?: boolean;
     created_at?: string;
@@ -157,7 +157,7 @@ function convertGridToAdvanced(dbTemplate: DBTemplate): AdvancedTemplate {
         created_at: dbTemplate.created_at,
         updated_at: dbTemplate.updated_at,
         createdBy: dbTemplate.created_by || null, // UUID or null
-        description: dbTemplate.description || null,
+        template_config: dbTemplate.template_config || null,
 
         // Derived UI fields
         category: 'grid',
@@ -165,15 +165,15 @@ function convertGridToAdvanced(dbTemplate: DBTemplate): AdvancedTemplate {
         regions,
         isCustom: false, // Grid templates are static/system usually
 
-        // Description parsing if needed
-        ...parseTemplateDescription(dbTemplate.description)
+        // Config parsing if needed
+        ...parseTemplateConfig(dbTemplate.template_config)
     };
 }
 
 /**
- * Parse description JSON to extract template settings
+ * Parse template config JSON to extract template settings
  */
-function parseTemplateDescription(description?: string): {
+function parseTemplateConfig(templateConfig?: string): {
     _pageMargin?: number;
     _photoGap?: number;
     type?: 'single' | 'spread' | 'both';
@@ -182,9 +182,9 @@ function parseTemplateDescription(description?: string): {
     _editorObjects?: AdvancedTemplate['_editorObjects'];
     _imageRotationMode?: AdvancedTemplate['_imageRotationMode'];
 } {
-    if (!description) return {};
+    if (!templateConfig) return {};
     try {
-        const parsed = JSON.parse(description);
+        const parsed = JSON.parse(templateConfig);
         return {
             _pageMargin: typeof parsed._pageMargin === 'number' ? parsed._pageMargin : undefined,
             _photoGap: typeof parsed._photoGap === 'number' ? parsed._photoGap : undefined,
@@ -275,8 +275,8 @@ async function initializeCache(): Promise<void> {
             const mappedTemplates = data.map((t: DBTemplate) => {
                 logger.debug(`[Templates] Processing template: ${t.id}`);
 
-                // Parse description for page settings
-                const descSettings = parseTemplateDescription(t.description);
+                // Parse template config for page settings
+                const configSettings = parseTemplateConfig(t.template_config);
                 const typeCode = t.template_type?.code;
 
                 // Simplified template - removed created_by and is_system checks
@@ -285,20 +285,20 @@ async function initializeCache(): Promise<void> {
                     name: t.name,
                     category: (t.template_category?.code?.toLowerCase() || 'grid') as AdvancedTemplate['category'],
                     createdBy: t.created_by || null,
-                    description: t.description || null,
+                    template_config: t.template_config || null,
                     isCustom: !t.is_system,
                     // Use template_classification code if available
-                    type: (t.template_classification?.code?.toLowerCase() || descSettings.type) as AdvancedTemplate['type'],
+                    type: (t.template_classification?.code?.toLowerCase() || configSettings.type) as AdvancedTemplate['type'],
                     // Store IDs for editing
                     type_id: t.type_id,
                     category_id: t.category_id,
                     classification_type_id: t.classification_type_id,
-                    _pageMargin: descSettings._pageMargin,
-                    _photoGap: descSettings._photoGap,
-                    _editorVersion: descSettings._editorVersion,
-                    _editorSpreadMode: descSettings._editorSpreadMode,
-                    _editorObjects: descSettings._editorObjects,
-                    _imageRotationMode: descSettings._imageRotationMode,
+                    _pageMargin: configSettings._pageMargin,
+                    _photoGap: configSettings._photoGap,
+                    _editorVersion: configSettings._editorVersion,
+                    _editorSpreadMode: configSettings._editorSpreadMode,
+                    _editorObjects: configSettings._editorObjects,
+                    _imageRotationMode: configSettings._imageRotationMode,
                 };
 
                 // Safely parse regions if it's a string (in case Supabase returns JSON as string)

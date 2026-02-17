@@ -34,7 +34,7 @@ export const TemplateMetadataDialog = ({
 
     const [isLoading, setIsLoading] = useState(false);
     const [name, setName] = useState('');
-    const [description, setDescription] = useState('');
+    const [templateConfig, setTemplateConfig] = useState('');
     const [isActive, setIsActive] = useState(true);
 
     // Store IDs directly
@@ -46,10 +46,7 @@ export const TemplateMetadataDialog = ({
     useEffect(() => {
         if (template && open) {
             setName(template.name || '');
-            setDescription(template.description || ''); // Assuming description is just string here, or handled by parse logic if it's JSON?
-            // Existing logic parsed description. If description is JSON, we might want to keep it as string in DB?
-            // The cache parser extracts fields but keeps original string.
-            // Wait, template.description is string in AdvancedTemplate? Yes.
+            setTemplateConfig(template.template_config || '');
 
             setIsActive(template.is_active !== false);
 
@@ -78,7 +75,7 @@ export const TemplateMetadataDialog = ({
                 category_id: categoryId ? parseInt(categoryId) : null,
                 classification_type_id: classificationId ? parseInt(classificationId) : null,
                 is_active: isActive,
-                description: description,
+                template_config: templateConfig,
                 updated_at: new Date().toISOString()
             };
 
@@ -219,15 +216,15 @@ export const TemplateMetadataDialog = ({
                         </div>
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="description" className="text-right">
-                            Description
+                        <Label htmlFor="template_config" className="text-right">
+                            Config
                         </Label>
                         <Textarea
-                            id="description"
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
+                            id="template_config"
+                            value={templateConfig}
+                            onChange={(e) => setTemplateConfig(e.target.value)}
                             className="col-span-3"
-                            placeholder="Optional description..."
+                            placeholder="Optional template config (JSON)..."
                         />
                     </div>
                 </div>

@@ -385,10 +385,10 @@ const reconcilePathObjectsWithRegions = (
     });
 };
 
-const parseTemplateDescriptionObject = (description?: string | null): Record<string, unknown> => {
-    if (!description) return {};
+const parseTemplateConfigObject = (templateConfig?: string | null): Record<string, unknown> => {
+    if (!templateConfig) return {};
     try {
-        const parsed = JSON.parse(description);
+        const parsed = JSON.parse(templateConfig);
         return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
     } catch {
         return {};
@@ -1008,10 +1008,10 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         const scaleX = isFullSpread ? 2 : 1;
 
 
-        const descriptionData = parseTemplateDescriptionObject(template.description);
-        const gridSnapshot = parseEditorGridSnapshot(descriptionData._editorGrid);
+        const templateConfigData = parseTemplateConfigObject(template.template_config);
+        const gridSnapshot = parseEditorGridSnapshot(templateConfigData._editorGrid);
         const templateMode = normalizeTemplateImageRotationMode(
-            template._imageRotationMode ?? descriptionData._imageRotationMode
+            template._imageRotationMode ?? templateConfigData._imageRotationMode
         );
         setImageRotationMode(templateMode);
 
@@ -1389,9 +1389,9 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                     let typeId = 3; // default BOTH
                     if (template.type === 'single') typeId = 1;
                     if (template.type === 'spread') typeId = 2;
-                    const existingDescription = parseTemplateDescriptionObject(template.description);
-                    const descriptionPayload = {
-                        ...existingDescription,
+                    const existingTemplateConfig = parseTemplateConfigObject(template.template_config);
+                    const templateConfigPayload = {
+                        ...existingTemplateConfig,
                         _pageMargin: typeof template._pageMargin === 'number' ? template._pageMargin : pageMargin,
                         _photoGap: typeof template._photoGap === 'number' ? template._photoGap : photoGap,
                         _imageRotationMode: normalizeTemplateImageRotationMode(template._imageRotationMode ?? imageRotationMode),
@@ -1406,7 +1406,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         category_id: 5, // CUSTOM category
                         photo_count: template.photoCount,
                         regions: template.regions,
-                        description: JSON.stringify(descriptionPayload),
+                        template_config: JSON.stringify(templateConfigPayload),
                         created_by: userId === 'anonymous' ? null : userId,
                         is_system: false,
                         is_active: true,
@@ -2027,11 +2027,11 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         };
 
         const nextType = spreadMode === 'full' ? 'spread' : 'single';
-        const existingDescription = parseTemplateDescriptionObject(targetTemplate.description);
+        const existingTemplateConfig = parseTemplateConfigObject(targetTemplate.template_config);
         const editorObjectsSnapshot = editorObjectsForSnapshot ?? objectsToProcess;
 
-        const descriptionPayload: Record<string, unknown> = {
-            ...existingDescription,
+        const templateConfigPayload: Record<string, unknown> = {
+            ...existingTemplateConfig,
             _pageMargin: pageMargin,
             _photoGap: photoGap,
             _imageRotationMode: imageRotationMode,
@@ -2042,7 +2042,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         };
 
         if (gridSnapshot && gridSnapshot.segments.length > 0) {
-            descriptionPayload._editorGrid = {
+            templateConfigPayload._editorGrid = {
                 rows: gridSnapshot.rows,
                 cols: gridSnapshot.cols,
                 mode: gridSnapshot.mode,
@@ -2050,7 +2050,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 segments: cloneGridDesignerSegments(gridSnapshot.segments)
             };
         } else {
-            delete descriptionPayload._editorGrid;
+            delete templateConfigPayload._editorGrid;
         }
 
         const updated: AdvancedTemplate = {
@@ -2068,7 +2068,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             _editorVersion: 1,
             _editorSpreadMode: spreadMode,
             _editorObjects: cloneVectorObjects(editorObjectsSnapshot),
-            description: JSON.stringify(descriptionPayload)
+            template_config: JSON.stringify(templateConfigPayload)
         };
 
         // Add to local created templates (avoid duplicates)
@@ -2093,8 +2093,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         let fallbackGridSnapshot: EditorGridSnapshot | null = null;
 
         if (pendingCloneTemplate && vectorObjects.length === 0 && activeGridSegments.length === 0) {
-            const fallbackDescription = parseTemplateDescriptionObject(pendingCloneTemplate.description);
-            fallbackGridSnapshot = parseEditorGridSnapshot(fallbackDescription._editorGrid);
+            const fallbackTemplateConfig = parseTemplateConfigObject(pendingCloneTemplate.template_config);
+            fallbackGridSnapshot = parseEditorGridSnapshot(fallbackTemplateConfig._editorGrid);
             fallbackEditorObjects = normalizeEditorSnapshotObjects(cloneVectorObjects(pendingCloneTemplate._editorObjects));
         }
 

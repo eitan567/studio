@@ -2,6 +2,8 @@ create sequence "public"."template_classifications_id_seq";
 
 drop index if exists "public"."idx_templates_type_id";
 
+alter table if exists "public"."templates" drop constraint if exists "templates_pkey";
+
 drop index if exists "public"."templates_pkey";
 
 

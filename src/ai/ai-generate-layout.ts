@@ -140,7 +140,6 @@ Return ONLY a valid JSON object with the layout definition.`;
                 photoCount: input.photoCount,
                 isCustom: true,
                 createdBy: null,
-                description: input.prompt,
             };
 
             return {

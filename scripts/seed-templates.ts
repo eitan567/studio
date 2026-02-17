@@ -7,13 +7,11 @@ import path from 'path';
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
 // Import static templates
-// Note: We need to use relative paths from scripts/ directory
 import { LAYOUT_TEMPLATES } from '../src/components/album/layouts/templates';
 import { COVER_TEMPLATES } from '../src/components/album/layouts/templates';
-import { ADVANCED_TEMPLATES } from '../src/lib/advanced-layout-types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
     console.error('Missing Supabase credentials in .env.local');
@@ -22,6 +20,34 @@ if (!supabaseUrl || !supabaseKey) {
 
 // Create Supabase client directly (bypassing app logic)
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Legacy static IDs were strings; DB now uses integer IDs.
+const TEMPLATE_ID_MAP: Record<string, number> = {
+    'magazine-mix': 1,
+    'v-strips-3': 2,
+    '3-horiz-lead': 3,
+    'center-circle-4': 4,
+    'l-shape-mosaic': 5,
+    '1-full': 6,
+    'diagonal-4': 7,
+    'mosaic-9': 8,
+    'angular-3': 9,
+    'feature-4-small': 10,
+    '2-horiz': 11,
+    '4-vert-lead': 12,
+    '4-mosaic-1': 13,
+    '6-mosaic-grid': 14
+};
+
+function resolveNumericTemplateId(id: string | number): number | null {
+    if (typeof id === 'number') return id;
+    const mapped = TEMPLATE_ID_MAP[id];
+    if (!mapped) {
+        console.warn(`Skipping template with unmapped legacy id: ${id}`);
+        return null;
+    }
+    return mapped;
+}
 
 async function seedTemplates() {
     console.log(`Connecting to Supabase at ${supabaseUrl}...`);
@@ -54,8 +80,6 @@ async function seedTemplates() {
     const { error: classError } = await supabase.from('template_classifications').upsert(classifications);
     if (classError) throw classError;
 
-    // Helper to find cat ID
-    const getCatId = (code: string) => categories.find(c => c.code === code)?.id || 1;
     // Helper to find classification ID
     const getClassificationId = (type?: string) => {
         if (!type) return 2; // Default to SPREAD
@@ -65,49 +89,41 @@ async function seedTemplates() {
 
     // 2. Transform Templates
 
-    // Transform Static Grid Templates
+    // Transform static templates from code into DB rows
     const gridRows = LAYOUT_TEMPLATES.map((t) => ({
-        id: t.id,
+        id: resolveNumericTemplateId(t.id),
         name: t.name,
         type_id: 1, // GRID
         category_id: 1, // GRID
         grid: null,
         regions: t.regions,
         photo_count: t.photoCount,
-        is_active: true,
-        classification_type_id: 2, // Default GRID to SPREAD
-        created_at: new Date().toISOString()
-    }));
-
-    // Transform Static Cover Templates
-    const coverRows = COVER_TEMPLATES.map((t) => ({
-        id: t.id,
-        name: t.name,
-        type_id: 1, // GRID
-        category_id: 1, // GRID
-        grid: null,
-        regions: t.regions,
-        photo_count: t.photoCount,
-        is_active: true,
-        classification_type_id: 2, // Default COVER to SPREAD
-        created_at: new Date().toISOString()
-    }));
-
-    // Transform Static Advanced Templates
-    const advancedRows = ADVANCED_TEMPLATES.map((t) => ({
-        id: t.id,
-        name: t.name,
-        type_id: 2, // ADVANCED
-        category_id: getCatId(t.category.toUpperCase()),
-        photo_count: t.photoCount,
-        regions: t.regions,
-        created_by: t.createdBy,
+        created_by: null,
+        is_system: true,
         is_active: true,
         classification_type_id: getClassificationId(t.type),
+        template_config: null,
         created_at: new Date().toISOString()
-    }));
+    })).filter((t) => t.id !== null);
 
-    const rawTemplates = [...gridRows, ...coverRows, ...advancedRows];
+    // Cover templates are aligned to grid category in this schema
+    const coverRows = COVER_TEMPLATES.map((t) => ({
+        id: resolveNumericTemplateId(t.id),
+        name: t.name,
+        type_id: 1, // GRID
+        category_id: 1, // GRID
+        grid: null,
+        regions: t.regions,
+        photo_count: t.photoCount,
+        created_by: null,
+        is_system: true,
+        is_active: true,
+        classification_type_id: getClassificationId(t.type),
+        template_config: null,
+        created_at: new Date().toISOString()
+    })).filter((t) => t.id !== null);
+
+    const rawTemplates = [...gridRows, ...coverRows];
 
     // Deduplicate by ID (latest wins)
     let uniqueTemplates = Array.from(
@@ -120,7 +136,7 @@ async function seedTemplates() {
         sort_order: index + 1
     }));
 
-    console.log(`Found ${uniqueTemplates.length} unique templates to sync.`);
+    console.log(`Found ${uniqueTemplates.length} unique templates to sync from static code definitions.`);
 
     // Upsert
     const { error } = await supabase
