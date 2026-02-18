@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { createClient } from '@/lib/supabase';
@@ -34,7 +33,6 @@ export const TemplateMetadataDialog = ({
 
     const [isLoading, setIsLoading] = useState(false);
     const [name, setName] = useState('');
-    const [templateConfig, setTemplateConfig] = useState('');
     const [isActive, setIsActive] = useState(true);
 
     // Store IDs directly
@@ -46,7 +44,6 @@ export const TemplateMetadataDialog = ({
     useEffect(() => {
         if (template && open) {
             setName(template.name || '');
-            setTemplateConfig(template.template_config || '');
 
             setIsActive(template.is_active !== false);
 
@@ -75,7 +72,6 @@ export const TemplateMetadataDialog = ({
                 category_id: categoryId ? parseInt(categoryId) : null,
                 classification_type_id: classificationId ? parseInt(classificationId) : null,
                 is_active: isActive,
-                template_config: templateConfig,
                 updated_at: new Date().toISOString()
             };
 
@@ -214,18 +210,6 @@ export const TemplateMetadataDialog = ({
                                 {isActive ? 'Visible in library' : 'Hidden from library'}
                             </Label>
                         </div>
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="template_config" className="text-right">
-                            Config
-                        </Label>
-                        <Textarea
-                            id="template_config"
-                            value={templateConfig}
-                            onChange={(e) => setTemplateConfig(e.target.value)}
-                            className="col-span-3"
-                            placeholder="Optional template config (JSON)..."
-                        />
                     </div>
                 </div>
                 <DialogFooter>
