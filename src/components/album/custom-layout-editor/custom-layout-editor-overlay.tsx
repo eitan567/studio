@@ -588,6 +588,11 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const [selectedAdvancedTemplate, setSelectedAdvancedTemplate] = useState<AdvancedTemplate | null>(null);
     const [editingTemplateId, setEditingTemplateId] = useState<string | number | null>(null);
     const [templateName, setTemplateName] = useState('');
+    const activeTemplateName = templateName || selectedAdvancedTemplate?.name || 'Template';
+    const activeTemplateFrameCount = getPhotoCount(
+        selectedAdvancedTemplate ?? findGridTemplate(selectedLayout)
+    );
+    const activeTemplateFrameLabel = `(${activeTemplateFrameCount} ${activeTemplateFrameCount === 1 ? 'Photo' : 'Photos'})`;
 
     // VECTOR TOOLS STATE
     const [toolMode, setToolMode] = useState<ToolMode>('select');
@@ -2232,10 +2237,11 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                     </Label>
                     <div
                         id="template-name"
-                        className="h-8 text-sm bg-muted/30 border border-muted-foreground/20 rounded-md px-3 flex items-center text-foreground/90 truncate"
-                        title={templateName || selectedAdvancedTemplate?.name || 'Template'}
+                        className="h-8 min-w-0 text-sm bg-muted/30 border border-muted-foreground/20 rounded-md px-3 flex items-center gap-2 text-foreground/90"
+                        title={`${activeTemplateName} ${activeTemplateFrameLabel}`}
                     >
-                        {templateName || selectedAdvancedTemplate?.name || 'Template'}
+                        <span className="truncate">{activeTemplateName}</span>
+                        <span className="shrink-0 text-xs text-muted-foreground">{activeTemplateFrameLabel}</span>
                     </div>
                 </div>
 
