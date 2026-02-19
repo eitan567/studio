@@ -178,7 +178,10 @@ export function PageEditor({ albumId }: PageEditorProps) {
   const [albumPages, setAlbumPages] = useState<AlbumPage[]>([]);
 
   // Ref for the virtualized list to trigger scrolling
-  const virtualListRef = useRef<{ scrollToPage: (index: number) => void } | null>(null);
+  const virtualListRef = useRef<{
+    scrollToPage: (index: number) => void;
+    getCurrentPageIndex: () => number;
+  } | null>(null);
 
   // State dependencies needed for hooks below
   const [allowDuplicates, setAllowDuplicates] = useState(true);
@@ -405,6 +408,9 @@ export function PageEditor({ albumId }: PageEditorProps) {
   // Gallery Sidebar State
   type GalleryMode = 'collapsed' | 'default' | 'expanded';
   const [galleryMode, setGalleryMode] = useState<GalleryMode>('default');
+  const galleryRecenterTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const GALLERY_WIDTH_TRANSITION_MS = 300;
+  const COLLAPSED_PAGE_MAX_WIDTH = 1300;
 
   const getGalleryWidth = (mode: GalleryMode) => {
     switch (mode) {
@@ -413,6 +419,45 @@ export function PageEditor({ albumId }: PageEditorProps) {
       default: return 356;
     }
   };
+
+  const setGalleryModePreservingPage = useCallback((nextMode: GalleryMode) => {
+    if (nextMode === galleryMode) return;
+
+    const currentPageIndex = virtualListRef.current?.getCurrentPageIndex?.();
+
+    if (galleryRecenterTimeoutRef.current) {
+      clearTimeout(galleryRecenterTimeoutRef.current);
+      galleryRecenterTimeoutRef.current = null;
+    }
+
+    setGalleryMode(nextMode);
+
+    if (typeof currentPageIndex !== 'number' || Number.isNaN(currentPageIndex)) {
+      return;
+    }
+
+    const recenterToPreviousPage = () => {
+      virtualListRef.current?.scrollToPage(currentPageIndex);
+    };
+
+    // Keep the same centered page during and after width transition.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(recenterToPreviousPage);
+    });
+
+    galleryRecenterTimeoutRef.current = setTimeout(() => {
+      recenterToPreviousPage();
+      galleryRecenterTimeoutRef.current = null;
+    }, GALLERY_WIDTH_TRANSITION_MS + 40);
+  }, [galleryMode]);
+
+  useEffect(() => {
+    return () => {
+      if (galleryRecenterTimeoutRef.current) {
+        clearTimeout(galleryRecenterTimeoutRef.current);
+      }
+    };
+  }, []);
 
 
   const [photoGap, setPhotoGap] = useState(2);
@@ -836,6 +881,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
                 pages={albumPages}
                 config={config}
                 allPhotos={allPhotos}
+                pageMaxWidth={galleryMode === 'collapsed' ? COLLAPSED_PAGE_MAX_WIDTH : undefined}
                 onDeletePage={deletePage}
                 onAddSpread={addSpreadPage}
                 onUpdateLayout={updatePageLayout}
@@ -872,7 +918,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
                 <Button
                   variant="secondary" size="icon"
                   className="h-10 w-4 rounded-l-md rounded-r-none border shadow-md bg-background -translate-x-full"
-                  onClick={() => setGalleryMode('default')}
+                  onClick={() => setGalleryModePreservingPage('default')}
                   title="Open Gallery"
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -885,7 +931,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
                   <Button
                     variant="secondary" size="icon"
                     className="h-8 w-4 rounded-l-md rounded-r-none border shadow-sm bg-background"
-                    onClick={() => setGalleryMode('expanded')}
+                    onClick={() => setGalleryModePreservingPage('expanded')}
                     title="Maximize Width"
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -893,7 +939,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
                   <Button
                     variant="secondary" size="icon"
                     className="h-8 w-4 rounded-l-md rounded-r-none border shadow-sm bg-background"
-                    onClick={() => setGalleryMode('collapsed')}
+                    onClick={() => setGalleryModePreservingPage('collapsed')}
                     title="Collapse"
                   >
                     <ChevronRight className="h-4 w-4" />
@@ -906,7 +952,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
                 <Button
                   variant="secondary" size="icon"
                   className="h-10 w-4 rounded-l-md rounded-r-none border shadow-md bg-background -translate-x-full"
-                  onClick={() => setGalleryMode('default')}
+                  onClick={() => setGalleryModePreservingPage('default')}
                   title="Restore Standard Width"
                 >
                   <ChevronRight className="h-4 w-4" />

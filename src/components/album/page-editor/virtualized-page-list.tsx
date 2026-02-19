@@ -26,6 +26,7 @@ import {
 interface VirtualizedPageListProps {
     pages: AlbumPage[];
     zoom?: number;
+    pageMaxWidth?: number;
     config: AlbumConfig;
     allPhotos: Photo[];
     onUpdatePage: (updatedPage: AlbumPage) => void;
@@ -56,9 +57,21 @@ interface VirtualizedPageListProps {
 
 // Fixed dimensions for fallback
 const BASE_PAGE_HEIGHT = 650;
+const ROW_HORIZONTAL_PADDING = 32; // Matches row px-4 (16px on each side)
+const PAGE_TOP_PADDING = 40; // Matches Row pt-10
+const PAGE_TOOLBAR_HEIGHT = 56; // Main top toolbar block above the canvas
+const PAGE_ADD_SPREAD_HEIGHT = 40; // "Add Spread" row shown on non-cover pages
+const PAGE_VERTICAL_GAP = 10; // Primary knob for spacing between page rows
 
 // Helper to calculate page height dynamically based on container width
-const getPageHeight = (index: number, pages: AlbumPage[], config: AlbumConfig, containerWidth: number, containerHeight: number = 0) => {
+const getPageHeight = (
+    index: number,
+    pages: AlbumPage[],
+    config: AlbumConfig,
+    containerWidth: number,
+    containerHeight: number = 0,
+    pageMaxWidth?: number
+) => {
     const page = pages[index];
     if (!page) return BASE_PAGE_HEIGHT;
 
@@ -83,25 +96,24 @@ const getPageHeight = (index: number, pages: AlbumPage[], config: AlbumConfig, c
     const isSingle = page.type === 'single';
     const widthModifier = isSingle ? 0.5 : 1.0;
 
-    // The "Row" has padding px-4 (16px * 2 = 32px)
-    // The max-w-5xl (1024px) constraint in Row:
-    const maxWidth = 1024;
-    const effectiveContainerWidth = Math.min(containerWidth - 32, maxWidth);
+    // The row width follows available space (responsive), minus row padding.
+    const availableContainerWidth = Math.max(containerWidth - ROW_HORIZONTAL_PADDING, 0);
+    const effectiveContainerWidth = (pageMaxWidth && pageMaxWidth > 0)
+        ? Math.min(availableContainerWidth, pageMaxWidth)
+        : availableContainerWidth;
 
     const imageContainerWidth = effectiveContainerWidth * widthModifier;
 
     // Height = Width / Ratio
     const imageHeight = imageContainerWidth / ratio;
 
-    // Add Toolbar Height + Paddings
-    // Toolbar ~80px, Padding buffer ~60px
-    // Precise layout variables
-    const toolbarHeight = 215;
-    const paddingBuffer = 60;
-    const paddingTop = 40; // py-4 is ~16px, added a small buffer
-    const paddingBelow = paddingBuffer - paddingTop;
+    const staticUiHeight =
+        PAGE_TOP_PADDING +
+        PAGE_TOOLBAR_HEIGHT +
+        (!page.isCover ? PAGE_ADD_SPREAD_HEIGHT : 0) +
+        PAGE_VERTICAL_GAP;
 
-    let total = imageHeight + toolbarHeight + paddingBuffer;
+    let total = imageHeight + staticUiHeight;
 
     // Add exactly enough space to the last page so that scrolling to the absolute bottom 
     // puts the center of the CANVAS in the center of the viewport.
@@ -110,7 +122,7 @@ const getPageHeight = (index: number, pages: AlbumPage[], config: AlbumConfig, c
         // DocumentEnd = itemTop + totalHeight + extra
         // paddingTop + imageHeight/2 = totalHeight + extra - viewport/2
         // extra = viewport/2 + paddingTop + imageHeight/2 - totalHeight
-        const extra = (containerHeight / 2) + paddingTop + (imageHeight / 2) - total;
+        const extra = (containerHeight / 2) + PAGE_TOP_PADDING + (imageHeight / 2) - total;
 
         if (extra > 0) {
             total += extra;
@@ -307,7 +319,7 @@ interface ItemData {
 
 // Item Renderer outside of component to maintain identity
 const Row = memo(({ index, style, ariaAttributes, ...data }: any) => {
-    const { pages, config, pageInfo, onOpenEditor, onEnhanceWithAi, onUndo, ...rest } = data;
+    const { pages, config, pageInfo, onOpenEditor, onEnhanceWithAi, onUndo, pageMaxWidth, ...rest } = data;
     const page = pages?.[index];
     if (!page) return null;
 
@@ -329,7 +341,10 @@ const Row = memo(({ index, style, ariaAttributes, ...data }: any) => {
 
     return (
         <div style={style} className="flex justify-center w-full px-4" data-page-id={page.id}>
-            <div className="w-full max-w-8xl flex flex-col justify-start pt-10">
+            <div
+                className="w-full flex flex-col justify-start pt-10"
+                style={pageMaxWidth ? { maxWidth: `${pageMaxWidth}px` } : undefined}
+            >
                 <PageCanvas
                     page={page}
                     pageIndex={index}
@@ -353,6 +368,7 @@ export const VirtualizedPageList = memo(forwardRef(({
     onOpenEditor,
     onEnhanceWithAi,
     onUndo,
+    pageMaxWidth,
     ...props
 }: VirtualizedPageListProps, ref) => {
     const listRef = useRef<any>(null);
@@ -395,8 +411,9 @@ export const VirtualizedPageList = memo(forwardRef(({
         onOpenEditor,
         onEnhanceWithAi,
         onUndo,
+        pageMaxWidth,
         ...props
-    }), [pages, config, pageInfo, onOpenEditor, onEnhanceWithAi, onUndo, props]);
+    }), [pages, config, pageInfo, onOpenEditor, onEnhanceWithAi, onUndo, pageMaxWidth, props]);
 
     // Manual Centered Scrolling Logic
     const scrollToPageCentered = useCallback((index: number) => {
@@ -405,10 +422,10 @@ export const VirtualizedPageList = memo(forwardRef(({
         // Calculate offset manually to ensure exact centering
         let offset = 0;
         for (let i = 0; i < index; i++) {
-            offset += getPageHeight(i, pages, config, width, height);
+            offset += getPageHeight(i, pages, config, width, height, pageMaxWidth);
         }
 
-        const fullPageHeight = getPageHeight(index, pages, config, width, height);
+        const fullPageHeight = getPageHeight(index, pages, config, width, height, pageMaxWidth);
         const isLast = index === pages.length - 1;
 
         // Use exactly the same padding variables as getPageHeight
@@ -448,7 +465,7 @@ export const VirtualizedPageList = memo(forwardRef(({
         };
 
         setTimeout(performScroll, 0);
-    }, [pages, config, width, height]);
+    }, [pages, config, width, height, pageMaxWidth]);
 
 
 
@@ -472,7 +489,7 @@ export const VirtualizedPageList = memo(forwardRef(({
         let minDistance = Number.MAX_VALUE;
 
         for (let i = 0; i < pages.length; i++) {
-            const h = getPageHeight(i, pages, config, width, height);
+            const h = getPageHeight(i, pages, config, width, height, pageMaxWidth);
             const pageCenter = currentOffset + (h / 2);
             const dist = Math.abs(pageCenter - viewportCenter);
 
@@ -487,7 +504,7 @@ export const VirtualizedPageList = memo(forwardRef(({
         // console.log('[VirtualizedPageList] actualOffset:', actualOffset, 'closestIndex:', closestIndex);
         setCenteredPageIndex(closestIndex);
 
-    }, [pages, config, width, height]);
+    }, [pages, config, width, height, pageMaxWidth]);
 
     // Force list recalculation when container size or data changes
     useEffect(() => {
@@ -531,7 +548,7 @@ export const VirtualizedPageList = memo(forwardRef(({
                         height={height}
                         width={width}
                         rowCount={pages.length}
-                        rowHeight={(index: number) => getPageHeight(index, pages, config, width, height)}
+                        rowHeight={(index: number) => getPageHeight(index, pages, config, width, height, pageMaxWidth)}
                         rowProps={itemData}
                         rowComponent={Row}
                         className="custom-scrollbar"
