@@ -995,12 +995,13 @@ export function PageEditor({ albumId }: PageEditorProps) {
               />
             </div>
           </div>
-        </div >
+        </div>
         {isBookViewOpen && (
           <BookViewOverlay
             pages={albumPages}
             config={config}
             onClose={() => setIsBookViewOpen(false)}
+            onUpdatePage={(_pageId, updatedPage) => handleUpdatePage(updatedPage)}
           />
         )}
         {isCustomLayoutEditorOpen && (
@@ -1028,3 +1029,4 @@ export function PageEditor({ albumId }: PageEditorProps) {
     </AlbumEditorProvider>
   );
 }
+
