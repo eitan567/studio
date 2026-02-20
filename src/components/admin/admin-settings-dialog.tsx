@@ -330,87 +330,83 @@ function UsersTab() {
     }
 
     return (
-        <div className="max-w-5xl mx-auto space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Users & Roles</CardTitle>
-                    <CardDescription>Manage user access and permissions across the application.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="rounded-md border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>User</TableHead>
-                                    <TableHead>Email</TableHead>
-                                    <TableHead>Joined</TableHead>
-                                    <TableHead>Role</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {users.map((user) => (
-                                    <TableRow key={user.id}>
-                                        <TableCell className="font-medium">
-                                            <div className="flex items-center gap-3">
-                                                {user.avatar_url ? (
-                                                    <img src={user.avatar_url} alt="" className="w-8 h-8 rounded-full bg-muted object-cover" />
-                                                ) : (
-                                                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
-                                                        {user.full_name?.charAt(0).toUpperCase() || user.email.charAt(0).toUpperCase()}
+        <div className="w-full">
+            <div className="mb-6">
+                <h3 className="font-semibold text-lg flex items-center gap-2 mb-1">Users & Roles</h3>
+                <p className="text-sm text-muted-foreground">Manage user access and permissions across the application.</p>
+            </div>
+            <div className="rounded-md border bg-card">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>User</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Joined</TableHead>
+                            <TableHead>Role</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {users.map((user) => (
+                            <TableRow key={user.id}>
+                                <TableCell className="font-medium">
+                                    <div className="flex items-center gap-3">
+                                        {user.avatar_url ? (
+                                            <img src={user.avatar_url} alt="" className="w-8 h-8 rounded-full bg-muted object-cover" />
+                                        ) : (
+                                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                                                {user.full_name?.charAt(0).toUpperCase() || user.email.charAt(0).toUpperCase()}
+                                            </div>
+                                        )}
+                                        <div className="flex flex-col">
+                                            <div className="flex items-center gap-1.5">
+                                                <span>{user.full_name || 'No Name'}</span>
+                                                {user.role_id === 1 && (
+                                                    <div className="text-blue-500" title="Admin">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shield-check"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" /><path d="m9 12 2 2 4-4" /></svg>
                                                     </div>
                                                 )}
-                                                <div className="flex flex-col">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <span>{user.full_name || 'No Name'}</span>
-                                                        {user.role_id === 1 && (
-                                                            <div className="text-blue-500" title="Admin">
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shield-check"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" /><path d="m9 12 2 2 4-4" /></svg>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    {currentUser?.id === user.id && (
-                                                        <span className="text-[10px] text-primary font-medium">(You)</span>
-                                                    )}
-                                                </div>
                                             </div>
-                                        </TableCell>
-                                        <TableCell>{user.email}</TableCell>
-                                        <TableCell className="text-muted-foreground text-sm">
-                                            {new Date(user.created_at).toLocaleDateString()}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Select
-                                                value={user.role_id.toString()}
-                                                onValueChange={(val) => {
-                                                    const newRole = parseInt(val);
-                                                    if (currentUser?.id === user.id && newRole !== 1) {
-                                                        const confirmed = window.confirm("Are you sure you want to remove your own Admin privileges? you will not be able to undo this.");
-                                                        if (!confirmed) return;
-                                                    }
-                                                    handleRoleChange(user.id, val)
-                                                }}
-                                            >
-                                                <SelectTrigger className="w-[140px] h-8">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {roles.map((role) => (
-                                                        <SelectItem key={role.id} value={role.id.toString()}>
-                                                            <div className="flex items-center gap-2">
-                                                                <span>{role.code}</span>
-                                                            </div>
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </CardContent>
-            </Card>
+                                            {currentUser?.id === user.id && (
+                                                <span className="text-[10px] text-primary font-medium">(You)</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </TableCell>
+                                <TableCell>{user.email}</TableCell>
+                                <TableCell className="text-muted-foreground text-sm">
+                                    {new Date(user.created_at).toLocaleDateString()}
+                                </TableCell>
+                                <TableCell>
+                                    <Select
+                                        value={user.role_id.toString()}
+                                        onValueChange={(val) => {
+                                            const newRole = parseInt(val);
+                                            if (currentUser?.id === user.id && newRole !== 1) {
+                                                const confirmed = window.confirm("Are you sure you want to remove your own Admin privileges? you will not be able to undo this.");
+                                                if (!confirmed) return;
+                                            }
+                                            handleRoleChange(user.id, val)
+                                        }}
+                                    >
+                                        <SelectTrigger className="w-[140px] h-8">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {roles.map((role) => (
+                                                <SelectItem key={role.id} value={role.id.toString()}>
+                                                    <div className="flex items-center gap-2">
+                                                        <span>{role.code}</span>
+                                                    </div>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
         </div>
     );
 }
@@ -561,7 +557,7 @@ export function AdminSettingsDialog({ open, onOpenChange }: AdminSettingsDialogP
                             <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 h-full">
                                 {/* Settings Sidebar */}
                                 <div className="lg:col-span-4 space-y-6">
-                                    <div className="bg-card border rounded-lg p-6 shadow-sm">
+                                    <div className="">
                                         <div className="mb-6">
                                             <h3 className="font-semibold text-lg flex items-center gap-2 mb-1">
                                                 Visual Controls
@@ -708,22 +704,21 @@ export function AdminSettingsDialog({ open, onOpenChange }: AdminSettingsDialogP
                         </TabsContent>
 
                         <TabsContent value="users" className="flex-1 p-6 m-0">
-                            <UsersTab />
+                            <div className="max-w-7xl mx-auto">
+                                <UsersTab />
+                            </div>
                         </TabsContent>
 
                         <TabsContent value="general" className="flex-1 p-6 m-0">
-                            <div className="max-w-4xl mx-auto">
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>General Settings</CardTitle>
-                                        <CardDescription>Configure general application preferences.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="h-48 flex items-center justify-center border-2 border-dashed rounded-lg text-muted-foreground">
-                                            General settings placeholder
-                                        </div>
-                                    </CardContent>
-                                </Card>
+                            <div className="max-w-7xl mx-auto">
+                                <div className="mb-6">
+                                    <h3 className="font-semibold text-lg flex items-center gap-2 mb-1">General Settings</h3>
+                                    <p className="text-sm text-muted-foreground">Configure general application preferences.</p>
+                                </div>
+
+                                <div className="h-48 flex items-center justify-center border-2 border-dashed rounded-lg text-muted-foreground">
+                                    General settings placeholder
+                                </div>
                             </div>
                         </TabsContent>
                     </div>
