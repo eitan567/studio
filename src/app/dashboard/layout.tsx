@@ -7,10 +7,10 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="h-screen overflow-hidden flex flex-col">
       <SiteHeader />
-      <main className="flex-1">{children}</main>
-      <SiteFooter />
+      <main className="flex-1 overflow-hidden">{children}</main>
+      <SiteFooter className="[&>div]:py-3 [&>div]:md:h-auto border-t border-border/50" />
     </div>
   );
 }
