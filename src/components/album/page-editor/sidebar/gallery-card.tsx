@@ -364,22 +364,10 @@ const VirtualGalleryContent = React.forwardRef(({
     React.useImperativeHandle(ref, () => ({
         scrollToPhoto: (photoId: string) => {
             const rowIndex = displayRows.findIndex(row => row.photos.some(p => p.id === photoId));
-            if (rowIndex !== -1 && parentRef.current) {
-                // Calculate exact offset since we know all row heights
-                let targetOffset = 0;
-                for (let i = 0; i < rowIndex; i++) {
-                    targetOffset += displayRows[i].height + 2; // +2 for gap/padding
-                }
-
-                // Center the row
-                const containerHeight = parentRef.current.clientHeight;
-                const rowHeight = displayRows[rowIndex].height;
-                const centeredOffset = Math.max(0, targetOffset - (containerHeight / 2) + (rowHeight / 2));
-
-                parentRef.current.scrollTo({
-                    top: centeredOffset,
-                    behavior: 'smooth'
-                });
+            if (rowIndex !== -1) {
+                // Use default 'auto' behavior since 'smooth' scrolling fails over large distances 
+                // in virtualized lists due to dynamic item measurement.
+                virtualizer.scrollToIndex(rowIndex, { align: 'center', behavior: 'auto' });
             }
         }
     }));
