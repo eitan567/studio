@@ -510,59 +510,52 @@ export function AdminSettingsDialog({ open, onOpenChange }: AdminSettingsDialogP
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="fixed left-0 top-0 z-[200] w-screen h-screen max-w-none m-0 rounded-none border-0 p-0 flex flex-col bg-background translate-x-0 translate-y-0 data-[state=open]:slide-in-from-bottom-0 data-[state=open]:slide-in-from-top-0 data-[state=open]:zoom-in-100">
-                <DialogHeader className="px-6 py-4 pr-12 border-b flex flex-row items-center justify-between space-y-0 shrink-0 bg-card">
-                    <div>
-                        <DialogTitle className="text-xl">Admin Settings</DialogTitle>
-                        <DialogDescription>
-                            Configure global application settings
-                        </DialogDescription>
-                    </div>
-                    <div className="flex gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={handleReset}
-                            disabled={isSaving}
-                        >
-                            <RotateCcw className="h-4 w-4 mr-2" />
-                            Reset
-                        </Button>
-                        <Button
-                            onClick={handleSave}
-                            disabled={!hasChanges || isSaving}
-                        >
-                            <Save className="h-4 w-4 mr-2" />
-                            {isSaving ? 'Saving...' : 'Save Changes'}
-                        </Button>
-                    </div>
-                </DialogHeader>
+            <DialogContent className="fixed left-0 top-0 z-[200] w-screen h-screen max-w-none m-0 rounded-none border-0 p-0 flex flex-col bg-background translate-x-0 translate-y-0 data-[state=open]:slide-in-from-bottom-0 data-[state=open]:slide-in-from-top-0 data-[state=open]:zoom-in-100 [&>button]:hidden">
+                <Tabs defaultValue="spine" className="w-full flex-1 flex flex-col overflow-hidden">
+                    <DialogHeader className="pt-6 border-b shrink-0 bg-card relative flex flex-col justify-end">
+                        {/* Title at absolute left for large screens */}
+                        <div className="px-6 absolute top-6 left-0 flex-col items-start hidden 2xl:flex pointer-events-none">
+                            <DialogTitle className="text-xl text-left">Admin Settings</DialogTitle>
+                            <DialogDescription className="text-sm text-left">
+                                Configure global application settings
+                            </DialogDescription>
+                        </div>
 
-                <div className="flex-1 overflow-y-auto bg-muted/10">
-                    <Tabs defaultValue="spine" className="w-full h-full flex flex-col">
-                        <div className="bg-background border-b px-6">
-                            <div className="max-w-7xl mx-auto w-full">
-                                <TabsList className="h-12 w-full justify-start gap-4 bg-transparent p-0">
+                        <div className="px-6 w-full">
+                            <div className="max-w-7xl mx-auto w-full flex flex-col md:flex-row items-start md:items-end justify-start gap-4 md:gap-8">
+                                {/* Title inline for smaller screens */}
+                                <div className="flex flex-col items-start 2xl:hidden shrink-0 pointer-events-auto pb-2 md:pb-4">
+                                    <DialogTitle className="text-xl text-left">Admin Settings</DialogTitle>
+                                    <DialogDescription className="text-sm text-left">
+                                        Configure global application settings
+                                    </DialogDescription>
+                                </div>
+
+                                <TabsList className="h-12 justify-start gap-4 bg-transparent p-0 mb-[-1px]">
                                     <TabsTrigger
                                         value="spine"
-                                        className="data-[state=active]:bg-background data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 h-full"
+                                        className="bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 h-full"
                                     >
                                         Book Spine
                                     </TabsTrigger>
                                     <TabsTrigger
                                         value="users"
-                                        className="data-[state=active]:bg-background data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 h-full"
+                                        className="bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 h-full"
                                     >
                                         Users & Roles
                                     </TabsTrigger>
                                     <TabsTrigger
                                         value="general"
-                                        className="data-[state=active]:bg-background data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 h-full"
+                                        className="bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 h-full"
                                     >
                                         General
                                     </TabsTrigger>
                                 </TabsList>
                             </div>
                         </div>
+                    </DialogHeader>
+
+                    <div className="flex-1 overflow-y-auto bg-muted/10">
 
                         <TabsContent value="spine" className="flex-1 p-6 m-0">
                             <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 h-full">
@@ -733,9 +726,39 @@ export function AdminSettingsDialog({ open, onOpenChange }: AdminSettingsDialogP
                                 </Card>
                             </div>
                         </TabsContent>
-                    </Tabs >
-                </div >
-            </DialogContent >
+                    </div>
+                </Tabs>
+
+                {/* Fixed Footer */}
+                <div className="flex-shrink-0 border-t bg-background px-6 py-4 flex items-center justify-between z-10 w-full">
+                    <Button
+                        variant="outline"
+                        onClick={handleReset}
+                        disabled={isSaving}
+                    >
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        Reset
+                    </Button>
+
+                    <div className="flex items-center gap-3">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onOpenChange(false)}
+                            className="gap-2 text-muted-foreground hover:text-foreground h-9 px-4"
+                        >
+                            <X className="h-4 w-4" /> Cancel
+                        </Button>
+                        <Button
+                            onClick={handleSave}
+                            disabled={!hasChanges || isSaving}
+                        >
+                            <Save className="h-4 w-4 mr-2" />
+                            {isSaving ? 'Saving...' : 'Save Changes'}
+                        </Button>
+                    </div>
+                </div>
+            </DialogContent>
         </Dialog >
     );
 }
