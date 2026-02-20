@@ -199,7 +199,7 @@ export default function DashboardPage() {
                       router.push(`/album/${album.id}`);
                     }}
                   >
-                    <Card className="h-full overflow-hidden rounded-xl border-none shadow-md transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ring-1 ring-border/50 hover:ring-primary/20 bg-card">
+                    <Card className="h-full overflow-hidden rounded-xl border-none shadow-md transition-[box-shadow,transform] duration-200 hover:shadow-xl hover:-translate-y-1 ring-1 ring-border/50 hover:ring-primary/20 bg-card">
                       <div className="aspect-[3/4] overflow-hidden relative">
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity z-10 duration-300" />
 
@@ -217,7 +217,7 @@ export default function DashboardPage() {
                             width={400}
                             height={533}
                             priority={index < 4}
-                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            className="h-full w-full object-cover transition-transform duration-300 will-change-transform group-hover:scale-105"
                           />
                         ) : (
                           <div className="h-full w-full bg-gradient-to-br from-primary/10 to-muted flex items-center justify-center group-hover:bg-primary/15 transition-colors">
@@ -230,21 +230,15 @@ export default function DashboardPage() {
                           {album.name}
                         </CardTitle>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                          <span>{album.pages?.length || 0} pages</span>
+                          <span>{album.pages_count ?? 0} pages</span>
                           <span>•</span>
-                          <span>{album.photos?.length || 0} photos</span>
+                          <span>{album.photos_count ?? 0} photos</span>
                         </div>
                         <CardDescription className="flex items-center text-xs">
                           {(() => {
-                            // Calculate if album is complete (all slots filled)
-                            const totalSlots = (album.pages || []).reduce((acc, page) => {
-                              return acc + (page.photos?.length || 0);
-                            }, 0);
-                            const filledSlots = (album.pages || []).reduce((acc, page) => {
-                              return acc + (page.photos?.filter(p => p.src && p.src !== '')?.length || 0);
-                            }, 0);
+                            const totalSlots = album.total_slots ?? 0;
+                            const filledSlots = album.filled_slots ?? 0;
                             const isComplete = totalSlots > 0 && filledSlots >= totalSlots;
-
                             return (
                               <>
                                 <span className={`inline-block w-2 h-2 rounded-full mr-2 ${isComplete ? 'bg-green-500' : 'bg-amber-500'}`}></span>

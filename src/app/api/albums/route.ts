@@ -45,7 +45,32 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to fetch albums' }, { status: 500 })
         }
 
-        return NextResponse.json({ albums })
+        // Strip heavy JSONB arrays — compute lightweight summary fields server-side
+        // so the client receives only integers instead of full pages/photos payloads.
+        const lightAlbums = (albums ?? []).map((album) => {
+            const pages: Array<{ photos?: Array<{ src?: string }> }> = album.pages ?? []
+            const pagesCount = pages.length
+            const photosCount: number = album.photos?.length ?? 0
+
+            let totalSlots = 0
+            let filledSlots = 0
+            for (const page of pages) {
+                const slots = page.photos ?? []
+                totalSlots += slots.length
+                filledSlots += slots.filter((p) => p.src && p.src !== '').length
+            }
+
+            const { pages: _pages, photos: _photos, ...rest } = album
+            return {
+                ...rest,
+                pages_count: pagesCount,
+                photos_count: photosCount,
+                total_slots: totalSlots,
+                filled_slots: filledSlots,
+            }
+        })
+
+        return NextResponse.json({ albums: lightAlbums })
     } catch (error) {
         logger.error('Albums GET error:', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

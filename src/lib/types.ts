@@ -121,4 +121,9 @@ export interface Album {
   thumbnail_url?: string;
   created_at: string;
   updated_at: string;
+  // Lightweight summary fields returned by the dashboard API (strips full arrays to save bandwidth)
+  pages_count?: number;
+  photos_count?: number;
+  total_slots?: number;
+  filled_slots?: number;
 }
