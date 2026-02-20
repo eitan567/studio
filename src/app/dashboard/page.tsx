@@ -170,13 +170,13 @@ export default function DashboardPage() {
               <p className="mt-4 text-muted-foreground animate-pulse">Loading your masterpieces...</p>
             </div>
           ) : (
-            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
               {/* Create New Card */}
               <CreateAlbumDialog onAlbumCreated={fetchAlbums}>
-                <Card className="group flex h-full min-h-[320px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-muted-foreground/25 bg-muted/30 transition-all hover:border-primary hover:bg-primary/5">
-                  <div className="flex flex-col items-center text-center p-6 space-y-4 transition-transform group-hover:scale-105">
-                    <div className="p-4 rounded-full bg-background shadow-sm group-hover:shadow-md transition-shadow">
-                      <PlusCircle className="h-10 w-10 text-primary" />
+                <Card className="group flex h-full min-h-[180px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-muted-foreground/25 bg-muted/30 transition-all hover:border-primary hover:bg-primary/5">
+                  <div className="flex flex-col items-center text-center p-4 space-y-3 transition-transform group-hover:scale-105">
+                    <div className="p-3 rounded-full bg-background shadow-sm group-hover:shadow-md transition-shadow">
+                      <PlusCircle className="h-7 w-7 text-primary" />
                     </div>
                     <div>
                       <span className="block heading-sm text-foreground">Create New Album</span>
@@ -225,7 +225,7 @@ export default function DashboardPage() {
                           </div>
                         )}
                       </div>
-                      <CardContent className="p-5 space-y-2">
+                      <CardContent className="p-3 space-y-1">
                         <CardTitle className="heading-sm line-clamp-1 group-hover:text-primary transition-colors">
                           {album.name}
                         </CardTitle>
