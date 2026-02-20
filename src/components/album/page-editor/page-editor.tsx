@@ -64,6 +64,7 @@ import Image from 'next/image';
 import { Alert as AlertUI, AlertDescription as AlertDescriptionUI, AlertTitle as AlertTitleUI } from '@/components/ui/alert';
 import { AiBackgroundGenerator } from '../shared/ai-background-generator';
 import { AlbumExporter, AlbumExporterRef } from '../shared/album-exporter';
+import { ExportDialog, ExportOptions } from './export-dialog';
 import { CustomLayoutEditorOverlay } from '../custom-layout-editor/custom-layout-editor-overlay';
 import { CoverEditorOverlay } from '../cover-editor/cover-editor-overlay';
 import { useAlbum } from '@/hooks/useAlbum';
@@ -478,10 +479,18 @@ export function PageEditor({ albumId }: PageEditorProps) {
 
   // Export State
   const [isExporting, setIsExporting] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportProgress, setExportProgress] = useState<{ current: number; total: number; label?: string } | null>(null);
   const exporterRef = useRef<AlbumExporterRef>(null);
 
-  const handleExport = () => {
-    exporterRef.current?.exportAlbum();
+  const handleExportConfirm = (options: ExportOptions) => {
+    setExportDialogOpen(false);
+    const range = options.pageRange === 'all' ? undefined : options.pageRange;
+    if (options.format === 'pdf') {
+      exporterRef.current?.exportToPdf(range);
+    } else {
+      exporterRef.current?.exportAlbum(range);
+    }
   };
 
   // Wrapper: updates local state only (no config persistence)
@@ -795,33 +804,44 @@ export function PageEditor({ albumId }: PageEditorProps) {
           }}
           onOpenBookView={() => setIsBookViewOpen(true)}
           onOpenCustomLayout={() => setIsCustomLayoutEditorOpen(true)}
-          onExportImages={handleExport}
-          onExportPdf={() => exporterRef.current?.exportToPdf()}
+          onExport={() => setExportDialogOpen(true)}
           isExporting={isExporting}
           onShare={() => toast({ title: "Sharing Album..." })}
         />
 
-        {/* Exporter Component */}
         <AlbumExporter
           ref={exporterRef}
           pages={albumPages}
           config={config}
           onExportStart={() => {
             setIsExporting(true);
-            toast({ title: "Starting Export", description: "Preparing your images..." });
+            setExportProgress(null);
           }}
           onExportProgress={(current, total) => {
-            // Optional: Update toast or state if we want detailed progress
-            // toast({ title: "Exporting", description: `Processing page ${current} of ${total}` });
+            setExportProgress({ current, total, label: `Exporting page ${current} of ${total}...` });
           }}
           onExportComplete={() => {
-            setIsExporting(false);
-            toast({ title: "Export Complete", description: "Your download should start shortly." });
+            setExportProgress(prev => prev ? { ...prev, current: prev.total } : null);
+            setTimeout(() => {
+              setIsExporting(false);
+              setExportProgress(null);
+              toast({ title: "Export Complete", description: "Your download should start shortly." });
+            }, 1200);
           }}
           onExportError={(err) => {
             setIsExporting(false);
+            setExportProgress(null);
             toast({ title: "Export Failed", description: "Something went wrong.", variant: "destructive" });
           }}
+        />
+
+        <ExportDialog
+          open={exportDialogOpen || isExporting}
+          onOpenChange={setExportDialogOpen}
+          totalPages={albumPages.length}
+          onConfirm={handleExportConfirm}
+          isExporting={isExporting}
+          exportProgress={exportProgress}
         />
 
         <div

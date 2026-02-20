@@ -29,9 +29,9 @@ interface AlbumExporterProps {
 }
 
 export interface AlbumExporterRef {
-    exportAlbum: () => Promise<void>;
+    exportAlbum: (pageRange?: 'cover' | 'singles' | { from: number; to: number }) => Promise<void>;
     exportPage: (pageId: string) => Promise<void>;
-    exportToPdf: () => Promise<void>;
+    exportToPdf: (pageRange?: 'cover' | 'singles' | { from: number; to: number }) => Promise<void>;
 }
 
 export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
@@ -64,7 +64,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
     };
 
     useImperativeHandle(ref, () => ({
-        exportAlbum: async () => {
+        exportAlbum: async (pageRange?: 'cover' | 'singles' | { from: number; to: number }) => {
             try {
                 setIsRendering(true);
                 // Wait for React to render the pages
@@ -105,12 +105,19 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                 const zip = new JSZip();
                 const exportContainer = containerRef.current;
 
-                // We need to wait a moment for the images to load if they were just mounted?
-                // Since we render them always (but hidden), they might be ready.
-                // But `html-to-image` is better if we give it a tick.
                 await new Promise(r => setTimeout(r, 1000));
 
-                const pageElements = Array.from(exportContainer.children) as HTMLElement[];
+                const allPageElements = Array.from(exportContainer.children) as HTMLElement[];
+
+                // Filter by page range (1-indexed, inclusive) or cover
+                let pageElements = allPageElements;
+                if (pageRange === 'cover') {
+                    pageElements = allPageElements.filter(el => el.dataset.isCover === 'true');
+                } else if (pageRange === 'singles') {
+                    pageElements = allPageElements.filter(el => el.dataset.isSpread !== 'true' && el.dataset.isCover !== 'true');
+                } else if (pageRange) {
+                    pageElements = allPageElements.filter((_, i) => i + 1 >= pageRange.from && i + 1 <= pageRange.to);
+                }
                 const total = pageElements.length;
 
                 for (let i = 0; i < total; i++) {
@@ -196,7 +203,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                 setIsRendering(false);
             }
         },
-        exportToPdf: async () => {
+        exportToPdf: async (pageRange?: 'cover' | 'singles' | { from: number; to: number }) => {
             try {
                 setIsRendering(true);
                 await new Promise(r => setTimeout(r, 1000));
@@ -209,10 +216,19 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                     return;
                 }
 
-                // Wait for rendering
                 await new Promise(r => setTimeout(r, 1000));
 
-                const pageElements = Array.from(exportContainer.children) as HTMLElement[];
+                const allPageElements = Array.from(exportContainer.children) as HTMLElement[];
+
+                // Filter by page range (1-indexed, inclusive) or cover
+                let pageElements = allPageElements;
+                if (pageRange === 'cover') {
+                    pageElements = allPageElements.filter(el => el.dataset.isCover === 'true');
+                } else if (pageRange === 'singles') {
+                    pageElements = allPageElements.filter(el => el.dataset.isSpread !== 'true' && el.dataset.isCover !== 'true');
+                } else if (pageRange) {
+                    pageElements = allPageElements.filter((_, i) => i + 1 >= pageRange.from && i + 1 <= pageRange.to);
+                }
                 const total = pageElements.length;
 
                 // Initialize PDF

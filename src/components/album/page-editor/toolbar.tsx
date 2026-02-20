@@ -7,8 +7,7 @@ import {
     Cloud,
     BookOpen,
     Layout,
-    FileImage,
-    FileText,
+    Download,
     Share2,
     Check,
     X,
@@ -30,8 +29,7 @@ interface AlbumEditorToolbarProps {
     onBack: () => void;
     onOpenBookView: () => void;
     onOpenCustomLayout: () => void;
-    onExportImages: () => void;
-    onExportPdf: () => void;
+    onExport: () => void;
     isExporting: boolean;
     onShare: () => void;
 }
@@ -43,8 +41,7 @@ export function AlbumEditorToolbar({
     onBack,
     onOpenBookView,
     onOpenCustomLayout,
-    onExportImages,
-    onExportPdf,
+    onExport,
     isExporting,
     onShare,
 }: AlbumEditorToolbarProps) {
@@ -180,13 +177,9 @@ export function AlbumEditorToolbar({
                     <span className="hidden sm:inline">Book View</span>
                 </Button>
                 <div className="h-4 w-px bg-border mx-1" />
-                <Button variant="ghost" size="sm" className="gap-2" onClick={onExportImages} disabled={isExporting}>
-                    {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileImage className="h-4 w-4" />}
-                    <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export to Images'}</span>
-                </Button>
-                <Button variant="ghost" size="sm" className="gap-2" onClick={onExportPdf}>
-                    <FileText className="h-4 w-4" />
-                    <span className="hidden sm:inline">Export to PDF</span>
+                <Button variant="ghost" size="sm" className="gap-2" onClick={onExport} disabled={isExporting}>
+                    {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                    <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export'}</span>
                 </Button>
                 <div className="h-4 w-px bg-border mx-1" />
                 <Button variant="ghost" size="sm" className="gap-2" onClick={onShare}>
