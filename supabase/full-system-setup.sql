@@ -1415,6 +1415,43 @@ SET
   name = EXCLUDED.name,
   public = EXCLUDED.public;
 
+-- Ensure photos bucket and policies exist for album uploads.
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('photos', 'photos', true)
+ON CONFLICT (id) DO UPDATE
+SET
+  name = EXCLUDED.name,
+  public = EXCLUDED.public;
+
+DROP POLICY IF EXISTS "Allow Authenticated Uploads" ON storage.objects;
+DROP POLICY IF EXISTS "Allow Public Access - Photos" ON storage.objects;
+DROP POLICY IF EXISTS "Allow User Update - Photos" ON storage.objects;
+DROP POLICY IF EXISTS "Allow User Delete - Photos" ON storage.objects;
+
+CREATE POLICY "Allow Authenticated Uploads"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'photos' AND
+  (storage.foldername(name))[1] = auth.uid()::text
+);
+
+CREATE POLICY "Allow Public Access - Photos"
+ON storage.objects FOR SELECT
+TO public
+USING ( bucket_id = 'photos' );
+
+CREATE POLICY "Allow User Update - Photos"
+ON storage.objects FOR UPDATE
+TO authenticated
+USING ( bucket_id = 'photos' AND owner = auth.uid() )
+WITH CHECK ( bucket_id = 'photos' AND owner = auth.uid() );
+
+CREATE POLICY "Allow User Delete - Photos"
+ON storage.objects FOR DELETE
+TO authenticated
+USING ( bucket_id = 'photos' AND owner = auth.uid() );
+
 DROP POLICY IF EXISTS "Authenticated Insert" ON storage.objects;
 DROP POLICY IF EXISTS "Authenticated Update" ON storage.objects;
 DROP POLICY IF EXISTS "Authenticated Delete" ON storage.objects;

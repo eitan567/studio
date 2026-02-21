@@ -114,6 +114,21 @@ backup_postgres "supabase_db_studio" "studio"
 backup_postgres "supabase_db_supabase-secondary" "secondary"
 
 # ==============================================================
+#  STEP 2.5: STOP CONTAINERS FOR CONSISTENT VOLUME BACKUP
+# ==============================================================
+echo ""
+echo "----------------------------------------------"
+echo " STEP 2.5: Stopping containers to prevent corruption during backup"
+echo "----------------------------------------------"
+
+for c in "${ALL_CONTAINERS[@]}"; do
+  if docker ps --format '{{.Names}}' | grep -q "^${c}$"; then
+    echo "         Stopping $c ..."
+    docker stop "$c" > /dev/null
+  fi
+done
+
+# ==============================================================
 #  STEP 3: VOLUME BACKUPS
 # ==============================================================
 echo ""
@@ -133,6 +148,22 @@ for v in "${VOLUMES[@]}"; do
     backup_volume "$v"
   else
     echo "[SKIP] Volume not found: $v"
+  fi
+done
+
+# ==============================================================
+#  STEP 3.5: RESTART CONTAINERS
+# ==============================================================
+echo ""
+echo "----------------------------------------------"
+echo " STEP 3.5: Restarting containers"
+echo "----------------------------------------------"
+
+# Start in reverse order (to be safe), or just normally
+for c in "${ALL_CONTAINERS[@]}"; do
+  if docker ps -a --format '{{.Names}}' | grep -q "^${c}$"; then
+    echo "         Starting $c ..."
+    docker start "$c" > /dev/null
   fi
 done
 

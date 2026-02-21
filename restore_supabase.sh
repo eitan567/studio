@@ -199,11 +199,10 @@ echo ""
 echo "----------------------------------------------"
 echo " STEP 5: Restore PostgreSQL data"
 echo "----------------------------------------------"
-echo "[INFO] Waiting 15s for containers to initialize..."
-sleep 15
-
-restore_postgres "supabase_db_studio" "studio"
-restore_postgres "supabase_db_supabase-secondary" "secondary"
+echo "[INFO] PostgreSQL data is already completely restored via the volume backups in Step 2."
+echo "[INFO] Skpping pg_dumpall restore to prevent duplicate key conflicts."
+# restore_postgres "supabase_db_studio" "studio"
+# restore_postgres "supabase_db_supabase-secondary" "secondary"
 
 # ==============================================================
 #  CLEANUP

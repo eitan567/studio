@@ -1,8 +1,7 @@
 -- Ensure the 'photos' bucket exists
--- Ensure the 'photos' bucket exists (Commented out for Seed compatibility)
--- INSERT INTO storage.buckets (id, name, public)
--- VALUES ('photos', 'photos', true)
--- ON CONFLICT (id) DO NOTHING;
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('photos', 'photos', true)
+ON CONFLICT (id) DO NOTHING;
 
 -- Policy: Allow authenticated users to upload (INSERT) to 'photos' bucket
 -- Note: We check that the folder path starts with their user ID to prevent overwriting others' files
