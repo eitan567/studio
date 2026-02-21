@@ -130,6 +130,19 @@ export const TemplateMetadataDialog = ({
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
+                    {/* ID Field */}
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="id" className="text-right text-muted-foreground">
+                            ID
+                        </Label>
+                        <Input
+                            id="id"
+                            value={!template ? '' : (typeof template.id === 'string' && template.id.includes('-') ? 'NEW' : template.id)}
+                            readOnly
+                            className="col-span-3 bg-muted font-mono cursor-default focus-visible:ring-0"
+                        />
+                    </div>
+
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="name" className="text-right">
                             Name
