@@ -71,13 +71,34 @@ export function useAlbumGeneration({
 
     const getInnerTemplatesPool = useCallback((target: 'single' | 'spread') => {
         const source = templates.length > 0 ? templates : gridTemplates;
-        return source.filter(t => isClassificationEligible(t, target));
-    }, [templates, gridTemplates, isClassificationEligible]);
+        let pool = source.filter(t => isClassificationEligible(t, target));
+
+        // Limit templates based on user setting
+        if (settings.autoFillMaxPhotosPerPage > 0) {
+            const maxPhotos = settings.autoFillMaxPhotosPerPage;
+            const filtered = pool.filter(t => getPhotoCount(t as any) <= maxPhotos);
+            // Fallback to original pool if filtered is empty (to prevent an empty pool crash)
+            if (filtered.length > 0) {
+                pool = filtered;
+            }
+        }
+        return pool;
+    }, [templates, gridTemplates, isClassificationEligible, settings.autoFillMaxPhotosPerPage]);
 
     const getCoverTemplatesPool = useCallback(() => {
         const source = coverTemplates.length > 0 ? coverTemplates : rawCoverTemplates;
-        return source.filter(t => isClassificationEligible(t, 'spread'));
-    }, [coverTemplates, rawCoverTemplates, isClassificationEligible]);
+        let pool = source.filter(t => isClassificationEligible(t, 'spread'));
+
+        // Limit templates based on user setting
+        if (settings.autoFillMaxPhotosPerPage > 0) {
+            const maxPhotos = settings.autoFillMaxPhotosPerPage;
+            const filtered = pool.filter(t => getPhotoCount(t as any) <= maxPhotos);
+            if (filtered.length > 0) {
+                pool = filtered;
+            }
+        }
+        return pool;
+    }, [coverTemplates, rawCoverTemplates, isClassificationEligible, settings.autoFillMaxPhotosPerPage]);
 
     const pickRandomTemplate = (pool: typeof templates) => {
         if (pool.length === 0) return undefined;
