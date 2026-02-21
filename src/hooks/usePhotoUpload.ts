@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import type { Photo } from '@/lib/types'
 import exifr from 'exifr'
+import { useSettings } from '@/hooks/use-settings'
 
 interface UploadProgress {
     loaded: number
@@ -16,6 +17,7 @@ interface UploadResult {
 }
 
 export function usePhotoUpload() {
+    const { settings } = useSettings()
     const [isUploading, setIsUploading] = useState(false)
     const [progress, setProgress] = useState<UploadProgress | null>(null)
     const [error, setError] = useState<string | null>(null)
@@ -63,6 +65,9 @@ export function usePhotoUpload() {
             if (captureDate) {
                 formData.append('capture_date', captureDate.toISOString())
             }
+            if (settings.duplicateUploadAction) {
+                formData.append('duplicate_action', settings.duplicateUploadAction)
+            }
 
             const response = await fetch('/api/photos/upload', {
                 method: 'POST',
@@ -103,7 +108,7 @@ export function usePhotoUpload() {
                 setIsUploading(false)
             }
         }
-    }, [])
+    }, [settings.duplicateUploadAction])
 
     // Upload multiple photos
     const uploadPhotos = useCallback(async (files: File[]): Promise<UploadResult[]> => {

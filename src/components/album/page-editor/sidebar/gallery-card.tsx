@@ -456,6 +456,7 @@ const VirtualGalleryContent = React.forwardRef(({
 });
 
 import { useAlbumEditor } from '../../album-editor/context';
+import { useSettings } from '@/hooks/use-settings';
 
 const PhotoGalleryCardComponent = ({
     allPhotos,
@@ -482,6 +483,7 @@ const PhotoGalleryCardComponent = ({
     photoUploadRef,
     isResizing = false
 }: PhotoGalleryCardProps) => {
+    const { settings } = useSettings();
     const { registerGalleryScroll, highlightedPhotoId } = useAlbumEditor();
     const virtualContentRef = useRef<{ scrollToPhoto: (photoId: string) => void }>(null);
 
@@ -975,8 +977,8 @@ const PhotoGalleryCardComponent = ({
                             </AlertDialogContent>
                         </AlertDialog>
                     </div>
-                    <p className="text-xs text-muted-foreground text-center">
-                        {allPhotos.length} photos total • {usedCount} used{emptySlots > 0 && ` • ${emptySlots} empty`}
+                    <p className="text-[11px] text-muted-foreground text-center px-1">
+                        {allPhotos.length} photos total • {usedCount} used{emptySlots > 0 && ` • ${emptySlots} empty`} • {settings.duplicateUploadAction === 'ignore' ? 'Ignore dupes' : 'Overwrite dupes'}
                     </p>
                 </div>
             </div>

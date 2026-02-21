@@ -52,6 +52,9 @@ export interface UserSettings {
     visibleTemplateCategories: string[];
     allowedTemplateIds?: string[]; // Empty or undefined means ALL are allowed.
     hiddenTemplateIds: string[];   // Explicitly hidden templates (opt-out)
+
+    // --- [CATEGORY: Upload API] ---
+    duplicateUploadAction: 'ignore' | 'replace';
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -72,6 +75,8 @@ export const DEFAULT_SETTINGS: UserSettings = {
     themePreference: 'light',
     allowedTemplateIds: [],
     hiddenTemplateIds: [],
+
+    duplicateUploadAction: 'ignore',
 
     defaultSpineWidth: 15,
     defaultSpineColor: '#000000',

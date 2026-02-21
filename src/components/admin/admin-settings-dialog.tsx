@@ -219,6 +219,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { createClient } from "@/lib/supabase";
 
@@ -430,6 +431,7 @@ export function AdminSettingsDialog({ open, onOpenChange }: AdminSettingsDialogP
         spineEffectWidth: settings.spineEffectWidth,
         spineEffectOpacity: settings.spineEffectOpacity,
         spineEffectCenterOpacity: settings.spineEffectCenterOpacity,
+        duplicateUploadAction: settings.duplicateUploadAction,
     });
 
     // Preview Image State
@@ -457,6 +459,7 @@ export function AdminSettingsDialog({ open, onOpenChange }: AdminSettingsDialogP
                 spineEffectWidth: settings.spineEffectWidth,
                 spineEffectOpacity: settings.spineEffectOpacity,
                 spineEffectCenterOpacity: settings.spineEffectCenterOpacity,
+                duplicateUploadAction: settings.duplicateUploadAction,
             });
         }
     }, [settings, open]);
@@ -469,7 +472,8 @@ export function AdminSettingsDialog({ open, onOpenChange }: AdminSettingsDialogP
             localSettings.spineEffectColorOpacity !== settings.spineEffectColorOpacity ||
             localSettings.spineEffectWidth !== settings.spineEffectWidth ||
             localSettings.spineEffectOpacity !== settings.spineEffectOpacity ||
-            localSettings.spineEffectCenterOpacity !== settings.spineEffectCenterOpacity
+            localSettings.spineEffectCenterOpacity !== settings.spineEffectCenterOpacity ||
+            localSettings.duplicateUploadAction !== settings.duplicateUploadAction
         );
     }, [localSettings, settings]);
 
@@ -501,6 +505,7 @@ export function AdminSettingsDialog({ open, onOpenChange }: AdminSettingsDialogP
             spineEffectWidth: DEFAULT_SETTINGS.spineEffectWidth,
             spineEffectOpacity: DEFAULT_SETTINGS.spineEffectOpacity,
             spineEffectCenterOpacity: DEFAULT_SETTINGS.spineEffectCenterOpacity,
+            duplicateUploadAction: DEFAULT_SETTINGS.duplicateUploadAction,
         });
     };
 
@@ -716,8 +721,39 @@ export function AdminSettingsDialog({ open, onOpenChange }: AdminSettingsDialogP
                                     <p className="text-sm text-muted-foreground">Configure general application preferences.</p>
                                 </div>
 
-                                <div className="h-48 flex items-center justify-center border-2 border-dashed rounded-lg text-muted-foreground">
-                                    General settings placeholder
+                                <div className="space-y-6 max-w-2xl">
+                                    <div className="space-y-4">
+                                        <div className="flex flex-col gap-2">
+                                            <Label className="text-base font-semibold">Duplicate Photo Uploads</Label>
+                                            <p className="text-sm text-muted-foreground">
+                                                Choose how the system should handle when a user uploads a photo with the same filename as an existing one.
+                                            </p>
+                                        </div>
+                                        <RadioGroup
+                                            value={localSettings.duplicateUploadAction}
+                                            onValueChange={(value) => setLocalSettings(prev => ({ ...prev, duplicateUploadAction: value as 'ignore' | 'replace' }))}
+                                            className="flex flex-col gap-3"
+                                        >
+                                            <div className="flex items-start space-x-3 p-3 border rounded-md hover:bg-accent/50 transition-colors">
+                                                <RadioGroupItem value="ignore" id="ignore" className="mt-1" />
+                                                <div className="grid gap-1.5">
+                                                    <Label htmlFor="ignore" className="font-medium cursor-pointer">Ignore Duplicates (Default)</Label>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        If a photo with the same name exists, the upload is skipped and the existing photo is used. Best for preventing clutter.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-start space-x-3 p-3 border rounded-md hover:bg-accent/50 transition-colors">
+                                                <RadioGroupItem value="replace" id="replace" className="mt-1" />
+                                                <div className="grid gap-1.5">
+                                                    <Label htmlFor="replace" className="font-medium cursor-pointer">Overwrite Existing</Label>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        The new photo will replace the old photo across all albums where it is used. Best for updating edited photos.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </RadioGroup>
+                                    </div>
                                 </div>
                             </div>
                         </TabsContent>
