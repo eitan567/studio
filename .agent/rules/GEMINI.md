@@ -75,6 +75,19 @@ When auto-applying an agent, inform the user:
 
 ## TIER 0: UNIVERSAL RULES (Always Active)
 
+### 🚨 Infrastructure Safety (ABSOLUTE - NO EXCEPTIONS)
+
+> [!CAUTION]
+> **NEVER delete, stop, remove, or modify Docker containers, instances, databases, services, volumes, or any infrastructure component without EXPLICIT user approval.**
+
+**Rules:**
+
+1. **Ask First:** Before ANY destructive action (stop, remove, delete, reset) on containers, instances, or services — **STOP and ask the user for permission.** No exceptions.
+2. **Restore Always:** If you temporarily remove/stop something to fix a problem, you MUST restore it to its original working state before considering the task complete. Stop → Fix → **Restore**. This is mandatory.
+3. **Explain Impact:** Before proposing any infrastructure change, clearly explain what will be affected and what the risks are.
+4. **No Assumptions:** Even if you believe a container/instance is "not needed" — that is NOT your decision to make.
+5. **Data Protection:** NEVER delete a database, drop tables, truncate data, or perform ANY action that directly or indirectly causes data loss. Before executing any command that could affect existing data, you MUST: (a) explicitly warn the user about the specific data loss risk, (b) explain exactly what data will be affected, and (c) receive explicit approval. This includes indirect actions like `reset`, `migrate`, `seed`, or replacing containers that hold data.
+
 ### 🌐 Language Handling
 
 When user's prompt is NOT in English:
