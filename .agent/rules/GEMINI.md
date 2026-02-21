@@ -87,6 +87,7 @@ When auto-applying an agent, inform the user:
 3. **Explain Impact:** Before proposing any infrastructure change, clearly explain what will be affected and what the risks are.
 4. **No Assumptions:** Even if you believe a container/instance is "not needed" — that is NOT your decision to make.
 5. **Data Protection:** NEVER delete a database, drop tables, truncate data, or perform ANY action that directly or indirectly causes data loss. Before executing any command that could affect existing data, you MUST: (a) explicitly warn the user about the specific data loss risk, (b) explain exactly what data will be affected, and (c) receive explicit approval. This includes indirect actions like `reset`, `migrate`, `seed`, or replacing containers that hold data.
+6. **Script Sync:** Any change to database tables, schemas, or system table data MUST also update the corresponding restoration scripts (`.sh`, `.sql`, `seed.sql`, migrations, etc.) to ensure the database and all system data can always be perfectly restored from scripts alone.
 
 ### 🌐 Language Handling
 
