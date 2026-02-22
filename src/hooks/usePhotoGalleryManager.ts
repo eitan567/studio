@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useSettings } from '@/hooks/use-settings';
 import { Photo } from '@/lib/types';
 import { usePhotoUpload } from '@/hooks/usePhotoUpload';
 import { logger } from '@/lib/logger';
@@ -27,6 +28,7 @@ export function usePhotoGalleryManager({
     onPhotoUploadComplete,
 }: UsePhotoGalleryManagerProps) {
     const { toast } = useToast();
+    const { settings } = useSettings();
     const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
     const { uploadPhoto } = usePhotoUpload();
 
@@ -37,6 +39,56 @@ export function usePhotoGalleryManager({
     // Track sort direction: 'asc' (oldest first) or 'desc' (newest first)
     // Start as 'desc' so first click shows a change (sorts to 'asc')
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+    const dedupeGalleryPhotos = useCallback((photos: Photo[]): Photo[] => {
+        // 1) Deduplicate by ID (keep the latest occurrence)
+        const seenIds = new Set<string>();
+        const byId: Photo[] = [];
+        for (let i = photos.length - 1; i >= 0; i--) {
+            const photo = photos[i];
+            if (seenIds.has(photo.id)) continue;
+            seenIds.add(photo.id);
+            byId.push(photo);
+        }
+        byId.reverse();
+
+        const normalizeName = (name: string | undefined) => (name || '').trim().toLowerCase();
+
+        // 2) Deduplicate by filename according to configured behavior
+        if (settings.duplicateUploadAction === 'replace') {
+            // Keep the latest (last occurrence) for same filename
+            const seenNames = new Set<string>();
+            const byName: Photo[] = [];
+            for (let i = byId.length - 1; i >= 0; i--) {
+                const photo = byId[i];
+                const key = normalizeName(photo.alt);
+                if (!key) {
+                    byName.push(photo);
+                    continue;
+                }
+                if (seenNames.has(key)) continue;
+                seenNames.add(key);
+                byName.push(photo);
+            }
+            byName.reverse();
+            return byName;
+        }
+
+        // Ignore mode: keep the first (oldest/first occurrence) for same filename
+        const seenNames = new Set<string>();
+        const byName: Photo[] = [];
+        for (const photo of byId) {
+            const key = normalizeName(photo.alt);
+            if (!key) {
+                byName.push(photo);
+                continue;
+            }
+            if (seenNames.has(key)) continue;
+            seenNames.add(key);
+            byName.push(photo);
+        }
+        return byName;
+    }, [settings.duplicateUploadAction]);
 
     const scanFiles = useCallback(async (items: DataTransferItemList): Promise<File[]> => {
         const files: File[] = [];
@@ -118,7 +170,77 @@ export function usePhotoGalleryManager({
             return;
         }
 
-        const newFiles = imageFiles;
+        const fileSignature = (file: File) =>
+            `${file.name}__${file.type}__${file.size}__${file.lastModified}`;
+        const normalizeFileName = (name: string) => name.trim().toLowerCase();
+
+        const seenSignatures = new Set<string>();
+        const duplicateFilesInSelection: File[] = [];
+        const dedupedFiles: File[] = [];
+
+        for (const file of imageFiles) {
+            const signature = fileSignature(file);
+            if (seenSignatures.has(signature)) {
+                duplicateFilesInSelection.push(file);
+                continue;
+            }
+            seenSignatures.add(signature);
+            dedupedFiles.push(file);
+        }
+
+        if (dedupedFiles.length === 0) {
+            toast({
+                title: 'No new photos to upload',
+                description: 'All selected files were duplicates of each other.',
+                variant: 'destructive'
+            });
+            setIsLoadingPhotos(false);
+            return;
+        }
+
+        let duplicateByNameSkipped = 0;
+        let newFiles: File[] = [];
+
+        if (settings.duplicateUploadAction === 'replace') {
+            // Overwrite Existing: keep only the LAST file for each duplicate filename
+            const keptByName = new Set<string>();
+            const reverseKept: File[] = [];
+
+            for (let i = dedupedFiles.length - 1; i >= 0; i--) {
+                const file = dedupedFiles[i];
+                const key = normalizeFileName(file.name);
+                if (keptByName.has(key)) {
+                    duplicateByNameSkipped++;
+                    continue;
+                }
+                keptByName.add(key);
+                reverseKept.push(file);
+            }
+
+            newFiles = reverseKept.reverse();
+        } else {
+            // Ignore Duplicates: keep only the FIRST file for each duplicate filename
+            const keptByName = new Set<string>();
+            for (const file of dedupedFiles) {
+                const key = normalizeFileName(file.name);
+                if (keptByName.has(key)) {
+                    duplicateByNameSkipped++;
+                    continue;
+                }
+                keptByName.add(key);
+                newFiles.push(file);
+            }
+        }
+
+        if (newFiles.length === 0) {
+            toast({
+                title: 'No new photos to upload',
+                description: 'All selected files were filtered as duplicates.',
+                variant: 'destructive'
+            });
+            setIsLoadingPhotos(false);
+            return;
+        }
 
         // Create temp photos for optimistic UI with EXIF data
         const tempPhotos: Photo[] = await Promise.all(newFiles.map(async file => {
@@ -157,8 +279,24 @@ export function usePhotoGalleryManager({
 
         toast({
             title: 'Uploading Photos',
-            description: `Uploading ${imageFiles.length} image(s)...`,
+            description: `Uploading ${newFiles.length} image(s)...`,
         });
+
+        if (duplicateFilesInSelection.length > 0) {
+            toast({
+                title: 'Duplicates skipped',
+                description: `${duplicateFilesInSelection.length} duplicate file(s) were skipped before upload.`,
+            });
+        }
+
+        if (duplicateByNameSkipped > 0) {
+            toast({
+                title: settings.duplicateUploadAction === 'replace' ? 'Overwrite mode applied' : 'Ignore mode applied',
+                description: settings.duplicateUploadAction === 'replace'
+                    ? `${duplicateByNameSkipped} duplicate filename(s) were collapsed to the last selected file.`
+                    : `${duplicateByNameSkipped} duplicate filename(s) were skipped (first selected kept).`,
+            });
+        }
 
         const tasks = newFiles.map((file, index) => ({
             file,
@@ -218,29 +356,69 @@ export function usePhotoGalleryManager({
                 }));
 
                 // Update state once per batch
-                setAllPhotos(prev => prev.map(p => {
-                    const result = results.find(r => r.tempId === p.id);
-                    if (result) {
+                setAllPhotos(prev => {
+                    const resultByTempId = new Map(results.map(r => [r.tempId, r]));
+                    const tempIds = new Set(results.map(r => r.tempId));
+                    const prevById = new Map(prev.map(photo => [photo.id, photo]));
+                    const knownFinalIds = new Set(prev.filter(photo => !tempIds.has(photo.id)).map(photo => photo.id));
+                    const replacementsById = new Map<string, Photo>();
+                    const next: Photo[] = [];
+
+                    for (const photo of prev) {
+                        const result = resultByTempId.get(photo.id);
+                        if (!result) {
+                            next.push(photo);
+                            continue;
+                        }
+
                         if (result.success && result.photo) {
-                            // OPTIMISTIC CONSISTENCY: Notify album editor to swap temp ID with real ID
-                            if (onPhotoUploadComplete) {
-                                onPhotoUploadComplete(p.id, result.photo);
+                            const finalPhoto: Photo = {
+                                ...result.photo,
+                                src: photo.src, // Keep Blob URL to avoid visual flicker
+                                remoteUrl: result.photo.src,
+                                isUploading: false,
+                            };
+
+                            if (knownFinalIds.has(finalPhoto.id)) {
+                                const existing =
+                                    replacementsById.get(finalPhoto.id) ||
+                                    next.find(p => p.id === finalPhoto.id) ||
+                                    prevById.get(finalPhoto.id) ||
+                                    finalPhoto;
+
+                                replacementsById.set(finalPhoto.id, {
+                                    ...existing,
+                                    ...result.photo,
+                                    remoteUrl: result.photo.src,
+                                    isUploading: false,
+                                });
+
+                                if (onPhotoUploadComplete) {
+                                    onPhotoUploadComplete(photo.id, replacementsById.get(finalPhoto.id)!);
+                                }
+
+                                // Drop this temp item to prevent duplicate gallery entries
+                                continue;
                             }
 
-                            // Success: Update ID to real ID, keep Blob URL as SRC to avoid flicker, store Real URL in remoteUrl
-                            return {
-                                ...result.photo,
-                                src: p.src, // Keep Blob URL
-                                remoteUrl: result.photo.src, // Store Real URL
-                                isUploading: false
-                            };
-                        } else {
-                            failedUploads.push({ file: result.fileName, error: result.error });
-                            return { ...p, isUploading: false, error: result.error || 'Upload Failed' };
+                            knownFinalIds.add(finalPhoto.id);
+                            if (onPhotoUploadComplete) {
+                                onPhotoUploadComplete(photo.id, finalPhoto);
+                            }
+                            next.push(finalPhoto);
+                            continue;
                         }
+
+                        failedUploads.push({ file: result.fileName, error: result.error });
+                        next.push({ ...photo, isUploading: false, error: result.error || 'Upload Failed' });
                     }
-                    return p;
-                }));
+
+                    if (replacementsById.size === 0) {
+                        return dedupeGalleryPhotos(next);
+                    }
+
+                    return dedupeGalleryPhotos(next.map(photo => replacementsById.get(photo.id) || photo));
+                });
 
                 successCount += results.filter(r => r.success).length;
 
@@ -288,7 +466,7 @@ export function usePhotoGalleryManager({
         } finally {
             setIsLoadingPhotos(false);
         }
-    }, [uploadPhoto, updateThumbnail, albumThumbnailUrl, setAllPhotos, toast]);
+    }, [uploadPhoto, updateThumbnail, albumThumbnailUrl, setAllPhotos, toast, scanFiles, sortDirection, onPhotoUploadComplete, settings.duplicateUploadAction, dedupeGalleryPhotos]);
 
     const handleSortPhotos = useCallback(() => {
         // Get current direction and toggle

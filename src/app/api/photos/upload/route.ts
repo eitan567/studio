@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
             .from('photos')
             .getPublicUrl(storagePath)
 
-        const publicUrl = urlData.publicUrl
+        let publicUrl = urlData.publicUrl
 
         let photoData = null;
         let dbError = null;
@@ -155,6 +155,55 @@ export async function POST(request: NextRequest) {
                 path: storagePath,
                 error: 'File uploaded but metadata save failed',
             })
+        }
+
+        // Enforce single row per (user_id, original_name) when in replace mode.
+        // This protects against concurrent uploads of the same filename.
+        if (duplicateAction === 'replace') {
+            const { data: sameNameRows, error: sameNameRowsError } = await supabase
+                .from('photos')
+                .select('*')
+                .eq('user_id', user.id)
+                .eq('original_name', file.name)
+                .order('updated_at', { ascending: false })
+                .order('created_at', { ascending: false })
+
+            if (!sameNameRowsError && sameNameRows && sameNameRows.length > 1) {
+                const keeper = sameNameRows[0]
+                const rowsToDelete = sameNameRows.slice(1)
+                const idsToDelete = rowsToDelete.map(row => row.id).filter(Boolean)
+                const storagePathsToDelete = Array.from(
+                    new Set(
+                        rowsToDelete
+                            .map(row => row.storage_path)
+                            .filter((path): path is string => !!path && path !== keeper.storage_path)
+                    )
+                )
+
+                if (storagePathsToDelete.length > 0) {
+                    const { error: removeStorageError } = await supabase.storage
+                        .from('photos')
+                        .remove(storagePathsToDelete)
+
+                    if (removeStorageError) {
+                        console.error('Failed to remove duplicate storage files:', removeStorageError)
+                    }
+                }
+
+                if (idsToDelete.length > 0) {
+                    const { error: deleteRowsError } = await supabase
+                        .from('photos')
+                        .delete()
+                        .in('id', idsToDelete)
+
+                    if (deleteRowsError) {
+                        console.error('Failed to remove duplicate photo rows:', deleteRowsError)
+                    }
+                }
+
+                photoData = keeper
+                publicUrl = keeper.url
+            }
         }
 
         return NextResponse.json({
