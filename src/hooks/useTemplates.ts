@@ -175,7 +175,7 @@ export const ADVANCED_TEMPLATES = getTemplatesSync();
 
 /**
  * Get photo count from any template type
- * Uses regions.length for all templates now
+ * Uses visible regions for all templates now
  */
 export function getPhotoCount(template: AdvancedTemplate | null | undefined): number {
     if (!template) return 1;
@@ -185,7 +185,7 @@ export function getPhotoCount(template: AdvancedTemplate | null | undefined): nu
         return template.photoCount;
     }
 
-    // Count regions
+    // Count visible regions
     if ('regions' in template && Array.isArray(template.regions)) {
         return template.regions.length;
     }

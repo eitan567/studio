@@ -52,7 +52,21 @@ export function processLayoutGeometry(
     );
 
     // 5. EXTRACT INTERIOR FACES
-    const rawPolygons = findFaces(snappedAtomicSegments);
+    let rawPolygons = findFaces(snappedAtomicSegments);
+
+    // Filter out faces that reside completely outside the defined page bounds
+    if (includePageBounds) {
+        rawPolygons = rawPolygons.filter(poly => {
+            const EPS = 0.5; // Tolerance for floating point snapping
+            for (const p of poly) {
+                // If any vertex of the polygon goes outside the [0, width] or [0, 100] box, discard it
+                if (p[0] < -EPS || p[0] > width + EPS || p[1] < -EPS || p[1] > 100 + EPS) {
+                    return false;
+                }
+            }
+            return true;
+        });
+    }
 
     // 6. APPLY GAP OFFSET (Shrink from edges)
     const finalPolygons = gap > 0
@@ -335,7 +349,7 @@ function findClosestPoint(p: Point, pts: Point[]) {
 }
 
 function polygonToRegion(poly: Point[], w: number): LayoutRegion {
-    let minX = 100, minY = 100, maxX = 0, maxY = 0;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     const pts = poly.map(p => {
         const x = (p[0] / w) * 100, y = p[1];
         minX = Math.min(minX, x); minY = Math.min(minY, y); maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);

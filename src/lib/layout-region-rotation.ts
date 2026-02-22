@@ -53,6 +53,15 @@ export const getRegionVisualRotationDeg = (region: LayoutRegion): number => {
         const lenSq = (dx * dx) + (dy * dy);
         if (lenSq < EPS) continue;
 
+        // Ignore edges that lie flush against the [0..100] page boundaries.
+        // Geometry cropping introduces these as artifacts, they don't represent structural "ground".
+        const isHorizontalCrop = Math.abs(dy) < 0.001 && (Math.abs(a[1]) < 0.001 || Math.abs(a[1] - 100) < 0.001);
+        const isVerticalCrop = Math.abs(dx) < 0.001 && (Math.abs(a[0]) < 0.001 || Math.abs(a[0] - 100) < 0.001);
+
+        if (isHorizontalCrop || isVerticalCrop) {
+            continue;
+        }
+
         const midY = (a[1] + b[1]) / 2;
         if (
             midY > bestMidY + EPS ||
