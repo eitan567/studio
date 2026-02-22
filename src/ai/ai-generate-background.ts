@@ -45,26 +45,47 @@ const aiGenerateBackgroundFlow = ai.defineFlow(
     },
     async (input) => {
         try {
-            // Use Gemini with image generation capability
-            const response = await ai.generate({
-                model: 'googleai/gemini-2.0-flash-exp',
-                prompt: `Generate a beautiful album background image based on this description: ${input.prompt}${input.style ? `. Style: ${input.style}` : ''}. 
-The image should be suitable as a photo album page background - subtle, elegant, and not too busy so it doesn't compete with the photos.`,
-                config: {
-                    responseModalities: ['TEXT', 'IMAGE'],
-                },
-            });
+            const prompt = `Generate a beautiful album background image based on this description: ${input.prompt}${input.style ? `. Style: ${input.style}` : ''}. 
+The image should be suitable as a photo album page background - subtle, elegant, and not too busy so it doesn't compete with the photos.`;
 
-            // Check if we got an image in the response
-            const media = response.media;
-            if (media && media.url) {
-                return {
-                    imageUrl: media.url,
-                    success: true,
-                };
+            const tryModel = async (model: string): Promise<string | null> => {
+                const response = await ai.generate({
+                    model,
+                    prompt,
+                    config: {
+                        temperature: 0.4,
+                    },
+                });
+
+                if (response.media?.url) {
+                    return response.media.url;
+                }
+
+                const mediaPart = response.message?.content?.find((part: any) => part?.media?.url);
+                if (mediaPart?.media?.url) {
+                    return mediaPart.media.url;
+                }
+
+                return null;
+            };
+
+            const modelCandidates = [
+                'googleai/nano-banana-pro-preview',
+                'googleai/gemini-2.5-flash-image',
+                'googleai/gemini-2.0-flash-exp-image-generation',
+                'googleai/imagen-4.0-fast-generate-001',
+            ];
+
+            for (const candidate of modelCandidates) {
+                const imageUrl = await tryModel(candidate);
+                if (imageUrl) {
+                    return {
+                        imageUrl,
+                        success: true,
+                    };
+                }
             }
 
-            // If no image, return error
             return {
                 imageUrl: '',
                 success: false,

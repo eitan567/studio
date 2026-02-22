@@ -26,6 +26,7 @@ export interface AlbumCoverProps {
     onUpdatePhotoPanAndZoom?: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
     onInteractionChange?: (isInteracting: boolean) => void;
     onRemovePhoto?: (pageId: string, photoId: string) => void;
+    onEnhancePhotoWithAi?: (pageId: string, photoId: string, photo: Photo) => void;
 
     // Image Object Handlers
     activeImageIds?: string[];
@@ -583,6 +584,7 @@ export const AlbumCover = ({
     onUpdatePhotoPanAndZoom, // This is for PageLayout Photos
     onInteractionChange,
     onRemovePhoto,
+    onEnhancePhotoWithAi,
     // onUpdateTitleSettings
     useSimpleImage,
     allPhotos = [],
@@ -894,6 +896,7 @@ export const AlbumCover = ({
                             useSimpleImage={useSimpleImage}
                             photoIndexOffset={0}
                             onRemovePhoto={onRemovePhoto}
+                            onEnhancePhotoWithAi={onEnhancePhotoWithAi}
                             cornerRadius={cornerRadius}
                             backgroundColor={config?.backgroundColor}
                             allPhotos={allPhotos}
@@ -936,6 +939,7 @@ export const AlbumCover = ({
                                 useSimpleImage={useSimpleImage}
                                 photoIndexOffset={0}
                                 onRemovePhoto={onRemovePhoto}
+                                onEnhancePhotoWithAi={onEnhancePhotoWithAi}
                                 cornerRadius={cornerRadius}
                                 backgroundColor={config?.backgroundColor}
                                 allPhotos={allPhotos}
@@ -1002,6 +1006,7 @@ export const AlbumCover = ({
                                 useSimpleImage={useSimpleImage}
                                 photoIndexOffset={backPhotoCount}
                                 onRemovePhoto={onRemovePhoto}
+                                onEnhancePhotoWithAi={onEnhancePhotoWithAi}
                                 cornerRadius={cornerRadius}
                                 backgroundColor={config?.backgroundColor}
                                 allPhotos={allPhotos}

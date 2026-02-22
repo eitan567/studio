@@ -46,6 +46,7 @@ interface VirtualizedPageListProps {
     onUpdateSpreadLayout: (pageId: string, side: 'left' | 'right', newLayout: string) => void;
     onOpenEditor?: (pageId: string) => void;
     onEnhanceWithAi?: (pageId: string) => void;
+    onEnhancePhotoWithAi?: (pageId: string, photoId: string, photo: Photo) => void;
     onUndo?: (pageId: string) => void;
 
     customTemplates: any[];
@@ -62,6 +63,7 @@ const PAGE_TOP_PADDING = 40; // Matches Row pt-10
 const PAGE_TOOLBAR_HEIGHT = 56; // Main top toolbar block above the canvas
 const PAGE_ADD_SPREAD_HEIGHT = 40; // "Add Spread" row shown on non-cover pages
 const PAGE_VERTICAL_GAP = 10; // Primary knob for spacing between page rows
+const VirtualWindowList = List as any;
 
 // Helper to calculate page height dynamically based on container width
 const getPageHeight = (
@@ -319,7 +321,7 @@ interface ItemData {
 
 // Item Renderer outside of component to maintain identity
 const Row = memo(({ index, style, ariaAttributes, ...data }: any) => {
-    const { pages, config, pageInfo, onOpenEditor, onEnhanceWithAi, onUndo, pageMaxWidth, ...rest } = data;
+    const { pages, config, pageInfo, onOpenEditor, onEnhanceWithAi, onEnhancePhotoWithAi, onUndo, pageMaxWidth, ...rest } = data;
     const page = pages?.[index];
     if (!page) return null;
 
@@ -353,6 +355,7 @@ const Row = memo(({ index, style, ariaAttributes, ...data }: any) => {
                     displayLabel={pageInfo[index]?.label}
                     onOpenEditor={onOpenEditor}
                     onEnhanceWithAi={onEnhanceWithAi}
+                    onEnhancePhotoWithAi={onEnhancePhotoWithAi}
                     onUndo={onUndo}
                     priority={isPriority}
                     {...(rest as any)}
@@ -367,6 +370,7 @@ export const VirtualizedPageList = memo(forwardRef(({
     config,
     onOpenEditor,
     onEnhanceWithAi,
+    onEnhancePhotoWithAi,
     onUndo,
     pageMaxWidth,
     ...props
@@ -410,10 +414,11 @@ export const VirtualizedPageList = memo(forwardRef(({
         pageInfo,
         onOpenEditor,
         onEnhanceWithAi,
+        onEnhancePhotoWithAi,
         onUndo,
         pageMaxWidth,
         ...props
-    }), [pages, config, pageInfo, onOpenEditor, onEnhanceWithAi, onUndo, pageMaxWidth, props]);
+    }), [pages, config, pageInfo, onOpenEditor, onEnhanceWithAi, onEnhancePhotoWithAi, onUndo, pageMaxWidth, props]);
 
     // Manual Centered Scrolling Logic
     const scrollToPageCentered = useCallback((index: number) => {
@@ -543,14 +548,14 @@ export const VirtualizedPageList = memo(forwardRef(({
 
             {width > 0 && height > 0 ? (
                 <>
-                    <List
+                    <VirtualWindowList
                         listRef={listRef}
                         height={height}
                         width={width}
                         rowCount={pages.length}
                         rowHeight={(index: number) => getPageHeight(index, pages, config, width, height, pageMaxWidth)}
                         rowProps={itemData}
-                        rowComponent={Row}
+                        rowComponent={Row as any}
                         className="custom-scrollbar"
                         overscanCount={1}
                         onScroll={onScroll}

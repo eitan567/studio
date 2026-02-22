@@ -586,6 +586,7 @@ const ScaledCoverPreview = React.memo(({
     onUpdatePhotoPanAndZoom,
     onInteractionChange,
     onRemovePhoto,
+    onEnhancePhotoWithAi,
     allPhotos = [],
     previousPagePhotos = [],
     activeView = 'full',
@@ -599,6 +600,7 @@ const ScaledCoverPreview = React.memo(({
     onUpdatePhotoPanAndZoom?: any;
     onInteractionChange?: (isInteracting: boolean) => void;
     onRemovePhoto?: any;
+    onEnhancePhotoWithAi?: (pageId: string, photoId: string, photo: Photo) => void;
     allPhotos?: Photo[];
     previousPagePhotos?: Photo[];
     activeView?: 'full' | 'split' | 'front' | 'back';
@@ -653,7 +655,7 @@ const ScaledCoverPreview = React.memo(({
                 <div className="absolute z-0 bg-background border-x border-transparent shadow-md" style={{ width: '98%', height: '94.5%', top: '50.4%', left: '50%', transform: 'translate(-50%, -50%)' }} />
                 <div className="relative w-[97%] h-[95%] shadow-lg z-10 overflow-hidden bg-background">
                     <div className="absolute inset-0 z-50">
-                        <AlbumCover page={page} config={config} mode="editor" activeView={activeView} onUpdateTitleSettings={onUpdateTitleSettings} onDropPhoto={onDropPhoto} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} onInteractionChange={onInteractionChange} onRemovePhoto={onRemovePhoto} allPhotos={allPhotos} previousPagePhotos={previousPagePhotos} priority={priority} chronologicalIndex={chronologicalIndex} />
+                        <AlbumCover page={page} config={config} mode="editor" activeView={activeView} onUpdateTitleSettings={onUpdateTitleSettings} onDropPhoto={onDropPhoto} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} onInteractionChange={onInteractionChange} onRemovePhoto={onRemovePhoto} onEnhancePhotoWithAi={onEnhancePhotoWithAi} allPhotos={allPhotos} previousPagePhotos={previousPagePhotos} priority={priority} chronologicalIndex={chronologicalIndex} />
                         {!page.isCover && page.type === 'spread' && <SpineEffectOverlay />}
                     </div>
                     <div className="absolute inset-0 z-60 pointer-events-none">
@@ -688,6 +690,7 @@ interface PageCanvasProps {
     onRemovePhoto: (pageId: string, photoId: string) => void;
     onOpenEditor?: (pageId: string) => void;
     onEnhanceWithAi?: (pageId: string) => void;
+    onEnhancePhotoWithAi?: (pageId: string, photoId: string, photo: Photo) => void;
     onUndo?: (pageId: string) => void;
     customTemplates?: any[];
     defaultViewMode?: 'single' | 'spread';
@@ -717,6 +720,7 @@ export const PageCanvas = React.memo(({
     onRemovePhoto,
     onOpenEditor,
     onEnhanceWithAi,
+    onEnhancePhotoWithAi,
     onUndo,
     allPhotos,
     customTemplates = [],
@@ -848,6 +852,7 @@ export const PageCanvas = React.memo(({
                                 onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
                                 onInteractionChange={setIsInteracting}
                                 onRemovePhoto={onRemovePhoto}
+                                onEnhancePhotoWithAi={onEnhancePhotoWithAi}
                                 allPhotos={allPhotos}
                                 previousPagePhotos={previousPagePhotos}
                                 activeView="full"

@@ -778,6 +778,33 @@ export function useAlbumPageEditor({
         });
     }, [setAlbumPages]);
 
+    const replacePhotoInSlot = useCallback((pageId: string, slotPhotoId: string, galleryPhoto: Photo) => {
+        setAlbumPages(prevPages => {
+            return prevPages.map(page => {
+                if (page.id !== pageId) return page;
+
+                const nextPhotos = page.photos.map(slotPhoto => {
+                    if (slotPhoto.id !== slotPhotoId) return slotPhoto;
+
+                    return {
+                        ...galleryPhoto,
+                        id: slotPhotoId,
+                        originalId: galleryPhoto.id,
+                        remoteUrl: galleryPhoto.remoteUrl || galleryPhoto.src,
+                        panAndZoom: { scale: 1, x: 50, y: 50 },
+                        width: galleryPhoto.width || slotPhoto.width || 800,
+                        height: galleryPhoto.height || slotPhoto.height || 600,
+                    };
+                });
+
+                return {
+                    ...page,
+                    photos: nextPhotos,
+                };
+            });
+        });
+    }, [setAlbumPages]);
+
     return {
         deletePage,
         addSpreadPage,
@@ -793,6 +820,7 @@ export function useAlbumPageEditor({
         updatePhotoPanAndZoom,
         handleDropPhoto,
         handleRemovePhotosFromAlbum,
-        replacePhotoId
+        replacePhotoId,
+        replacePhotoInSlot
     };
 }

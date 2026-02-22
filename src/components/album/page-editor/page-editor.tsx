@@ -75,6 +75,7 @@ import { usePhotoGalleryManager } from '@/hooks/usePhotoGalleryManager';
 import { useSettings } from '@/hooks/use-settings';
 import { ModeToggle } from '@/components/mode-toggle';
 import { ScrollToTopButton } from '../shared/scroll-to-top-button';
+import { AiPhotoEnhancerSheet } from '../shared/ai-photo-enhancer-sheet';
 import { AlbumConfigCard } from './sidebar/config-card';
 import { PhotoGalleryCard } from './sidebar/gallery-card';
 import { AlbumEditorToolbar } from './toolbar';
@@ -91,6 +92,13 @@ const configSchema = z.object({
 });
 
 type ConfigFormData = z.infer<typeof configSchema>;
+
+type EnhanceTarget = {
+  pageId: string;
+  photoId: string;
+  photo: Photo;
+  sourceImageUrl: string;
+};
 
 export function PageEditor({ albumId }: PageEditorProps) {
   const { settings, liveSettings, isLoaded: isSettingsLoaded } = useSettings();
@@ -148,6 +156,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
 
   // Expose local photos for UI
   const allPhotos = localPhotos;
+  const { uploadPhoto } = usePhotoUpload();
 
   // Track loading state via ref to access inside callbacks without dependencies
   const isLoadingPhotosRef = useRef(false);
@@ -239,7 +248,8 @@ export function PageEditor({ albumId }: PageEditorProps) {
     updatePhotoPanAndZoom,
     handleDropPhoto,
     handleRemovePhotosFromAlbum,
-    replacePhotoId
+    replacePhotoId,
+    replacePhotoInSlot
   } = useAlbumPageEditor({
     setAlbumPages,
     allPhotos,
@@ -248,6 +258,8 @@ export function PageEditor({ albumId }: PageEditorProps) {
   });
 
   const { toast } = useToast();
+  const [enhanceTarget, setEnhanceTarget] = useState<EnhanceTarget | null>(null);
+  const [isEnhancerOpen, setIsEnhancerOpen] = useState(false);
 
   const handleOpenEditor = useCallback((pageId: string) => {
     const page = albumPages.find(p => p.id === pageId);
@@ -256,6 +268,114 @@ export function PageEditor({ albumId }: PageEditorProps) {
     setEditingPageId(pageId);
     setIsCoverEditorOpen(true);
   }, [albumPages]);
+
+  const resolveEnhanceSourceUrl = useCallback((photo: Photo): string | null => {
+    if (photo.remoteUrl && photo.remoteUrl.trim()) return photo.remoteUrl.trim();
+    if (photo.src && !photo.src.startsWith('blob:')) return photo.src;
+    return null;
+  }, []);
+
+  const mimeToExtension = useCallback((mimeType?: string) => {
+    if (!mimeType) return '.png';
+    const lower = mimeType.toLowerCase();
+    if (lower.includes('jpeg') || lower.includes('jpg')) return '.jpg';
+    if (lower.includes('webp')) return '.webp';
+    if (lower.includes('gif')) return '.gif';
+    if (lower.includes('bmp')) return '.bmp';
+    if (lower.includes('heic')) return '.heic';
+    return '.png';
+  }, []);
+
+  const buildEnhancedFileName = useCallback((originalName: string, mimeType?: string) => {
+    const fallbackBase = 'photo';
+    const sanitizedOriginal = (originalName || fallbackBase).trim();
+    const dotIndex = sanitizedOriginal.lastIndexOf('.');
+    const hasExt = dotIndex > 0 && dotIndex < sanitizedOriginal.length - 1;
+    const base = hasExt ? sanitizedOriginal.slice(0, dotIndex) : sanitizedOriginal;
+    const extFromName = hasExt ? sanitizedOriginal.slice(dotIndex) : '';
+    const fallbackExt = mimeToExtension(mimeType);
+    const ext = extFromName || fallbackExt;
+    const normalizedBase = base.replace(/\s+/g, '_');
+    const existingNames = new Set(
+      allPhotos
+        .map(photo => photo.alt?.toLowerCase())
+        .filter((name): name is string => !!name)
+    );
+
+    let candidate = `${normalizedBase}_Enhance${ext}`;
+    let suffix = 2;
+    while (existingNames.has(candidate.toLowerCase())) {
+      candidate = `${normalizedBase}_Enhance_${suffix}${ext}`;
+      suffix += 1;
+    }
+
+    return candidate;
+  }, [allPhotos, mimeToExtension]);
+
+  const handleOpenPhotoEnhancer = useCallback((pageId: string, photoId: string, photo: Photo) => {
+    const sourceImageUrl = resolveEnhanceSourceUrl(photo);
+    if (!sourceImageUrl) {
+      toast({
+        title: 'Image is not ready',
+        description: 'Please wait for upload to finish before AI enhancement.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setEnhanceTarget({
+      pageId,
+      photoId,
+      photo,
+      sourceImageUrl,
+    });
+    setIsEnhancerOpen(true);
+  }, [resolveEnhanceSourceUrl, toast]);
+
+  const handleEnhancerOpenChange = useCallback((nextOpen: boolean) => {
+    setIsEnhancerOpen(nextOpen);
+    if (!nextOpen) {
+      setEnhanceTarget(null);
+    }
+  }, []);
+
+  const handleApproveEnhancedPhoto = useCallback(async (enhancedImageUrl: string) => {
+    if (!enhanceTarget) {
+      throw new Error('No photo selected for enhancement.');
+    }
+
+    const imageResponse = await fetch(enhancedImageUrl);
+    if (!imageResponse.ok) {
+      throw new Error('Could not download enhanced image.');
+    }
+
+    const blob = await imageResponse.blob();
+    const fileName = buildEnhancedFileName(enhanceTarget.photo.alt || 'photo', blob.type);
+    const file = new File([blob], fileName, {
+      type: blob.type || 'image/png',
+    });
+
+    // @ts-ignore - skipStateUpdates is supported by usePhotoUpload
+    const uploadResult = await uploadPhoto(file, { skipStateUpdates: true });
+    if (!uploadResult.success || !uploadResult.photo) {
+      throw new Error(uploadResult.error || 'Upload of enhanced photo failed.');
+    }
+
+    const uploadedPhoto: Photo = {
+      ...uploadResult.photo,
+      alt: fileName,
+      captureDate: enhanceTarget.photo.captureDate,
+      remoteUrl: uploadResult.photo.remoteUrl || uploadResult.photo.src,
+    };
+
+    setAllPhotos(prev => [...prev, uploadedPhoto]);
+    replacePhotoInSlot(enhanceTarget.pageId, enhanceTarget.photoId, uploadedPhoto);
+
+    toast({
+      title: 'Enhanced photo applied',
+      description: `${fileName} was added to the gallery and applied to the album.`,
+    });
+  }, [buildEnhancedFileName, enhanceTarget, replacePhotoInSlot, setAllPhotos, toast, uploadPhoto]);
 
   const handleEnhanceWithAi = useCallback((pageId: string) => {
     toast({
@@ -918,6 +1038,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
                 onUpdateSpreadLayout={handleUpdateSpreadLayout}
                 onOpenEditor={handleOpenEditor}
                 onEnhanceWithAi={handleEnhanceWithAi}
+                onEnhancePhotoWithAi={handleOpenPhotoEnhancer}
                 onUndo={handleUndo}
                 customTemplates={customTemplates}
                 defaultViewMode={settings.defaultEditorViewMode as "single" | "spread"}
@@ -1016,6 +1137,13 @@ export function PageEditor({ albumId }: PageEditorProps) {
             </div>
           </div>
         </div>
+        <AiPhotoEnhancerSheet
+          open={isEnhancerOpen}
+          onOpenChange={handleEnhancerOpenChange}
+          sourcePhoto={enhanceTarget?.photo || null}
+          sourceImageUrl={enhanceTarget?.sourceImageUrl || null}
+          onApprove={handleApproveEnhancedPhoto}
+        />
         {isBookViewOpen && (
           <BookViewOverlay
             pages={albumPages}

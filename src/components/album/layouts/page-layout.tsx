@@ -24,6 +24,7 @@ export interface PageLayoutProps {
     useSimpleImage?: boolean;
     photoIndexOffset?: number;
     onRemovePhoto?: (pageId: string, photoId: string) => void;
+    onEnhancePhotoWithAi?: (pageId: string, photoId: string, photo: Photo) => void;
     cornerRadius?: number;
     backgroundColor?: string;
     allPhotos?: Photo[];
@@ -46,6 +47,7 @@ const PageLayoutComponent = ({
     useSimpleImage,
     photoIndexOffset = 0,
     onRemovePhoto,
+    onEnhancePhotoWithAi,
     cornerRadius = 0,
     backgroundColor: configBackgroundColor,
     allPhotos = [],
@@ -243,6 +245,7 @@ const PageLayoutComponent = ({
                         isDragOver={dragOverPhotoId === (photo?.id || `__empty_${actualIndex}`)}
                         onRemovePhoto={(photoId) => onRemovePhoto?.(page.id, photoId)}
                         onReplace={(e, anchor) => handleEmptySlotClick(e, actualIndex, anchor)}
+                        onEnhanceWithAi={onEnhancePhotoWithAi}
                         pageId={page.id}
                         cornerRadius={cornerRadius}
                         imageRotationMode={regionImageMode}
@@ -276,6 +279,7 @@ export const PageLayout = React.memo(PageLayoutComponent, (prev, next) => {
     if (prev.page.id !== next.page.id) return false;
     if (prev.priority !== next.priority) return false;
     if (prev.onDropPhoto !== next.onDropPhoto) return false;
+    if (prev.onEnhancePhotoWithAi !== next.onEnhancePhotoWithAi) return false;
     if (prev.allPhotos !== next.allPhotos) return false;
     if (prev.previousPagePhotos !== next.previousPagePhotos) return false;
     if (prev.chronologicalIndex !== next.chronologicalIndex) return false;

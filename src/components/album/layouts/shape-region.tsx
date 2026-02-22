@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { Hash, RefreshCw, Trash2 } from 'lucide-react';
+import { Hash, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
 import { Photo } from '@/lib/types';
 import { LayoutRegion, TemplateImageRotationMode, regionToClipPath } from '@/lib/advanced-layout-types';
 import { PhotoRenderer } from './photo-renderer';
@@ -184,6 +184,7 @@ export const ShapeRegion = ({
     isDragOver = false,
     onRemovePhoto,
     onReplace,
+    onEnhanceWithAi,
     pageId,
     cornerRadius = 0,
     imageRotationMode = 'follow-frame',
@@ -206,6 +207,7 @@ export const ShapeRegion = ({
     isDragOver?: boolean;
     onRemovePhoto?: (photoId: string) => void;
     onReplace?: (e: React.MouseEvent, anchorElement?: HTMLElement) => void;
+    onEnhanceWithAi?: (pageId: string, photoId: string, photo: Photo) => void;
     pageId?: string;
     cornerRadius?: number;
     imageRotationMode?: TemplateImageRotationMode;
@@ -508,7 +510,8 @@ export const ShapeRegion = ({
     const galleryPhotoId = photo ? (photo.originalId || photo.id) : undefined;
     const photoNumber = galleryPhotoId ? chronologicalIndex?.[galleryPhotoId] : undefined;
     const hasGalleryJump = photoNumber !== undefined && !!scrollToGallery;
-    const hasAnyAction = !!(photo?.src && (onReplace || onRemovePhoto || hasGalleryJump));
+    const hasEnhanceAction = !!(photo?.src && pageId && onEnhanceWithAi);
+    const hasAnyAction = !!(photo?.src && (onReplace || onRemovePhoto || hasGalleryJump || hasEnhanceAction));
     const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number } | null>(null);
 
     const closeContextMenu = React.useCallback(() => {
@@ -552,7 +555,7 @@ export const ShapeRegion = ({
         onReplace(syntheticEvent, rootRef.current);
     };
 
-    const actionCount = (onReplace ? 1 : 0) + (onRemovePhoto ? 1 : 0) + (hasGalleryJump ? 1 : 0);
+    const actionCount = (onReplace ? 1 : 0) + (hasEnhanceAction ? 1 : 0) + (onRemovePhoto ? 1 : 0) + (hasGalleryJump ? 1 : 0);
     const menuWidth = 200;
     const menuHeight = 12 + (actionCount * 34);
     const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
@@ -587,6 +590,19 @@ export const ShapeRegion = ({
                         >
                             <RefreshCw className="h-4 w-4 shrink-0 opacity-80" />
                             <span>Replace photo</span>
+                        </button>
+                    )}
+                    {hasEnhanceAction && (
+                        <button
+                            type="button"
+                            className="flex w-full items-center gap-2.5 rounded-sm px-2.5 py-2 text-left text-sm leading-5 hover:bg-accent hover:text-accent-foreground"
+                            onClick={() => {
+                                onEnhanceWithAi?.(pageId!, photo!.id, photo!);
+                                closeContextMenu();
+                            }}
+                        >
+                            <Sparkles className="h-4 w-4 shrink-0 opacity-80" />
+                            <span>Enhance with AI</span>
                         </button>
                     )}
                     {onRemovePhoto && (
