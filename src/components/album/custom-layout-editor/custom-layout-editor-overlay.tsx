@@ -1476,14 +1476,19 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         setDeleteConfirmation(null); // Close dialog immediately
 
         try {
-            const isNew = typeof template.id === 'string' && template.id.includes('-');
+            const templateId = String(template.id);
+            const isLocalDraft = createdTemplates.some((t) => String(t.id) === templateId);
 
-            if (isNew) {
-                // Delete from local state only
-                setCreatedTemplates(prev => prev.filter(t => t.id !== template.id));
-                // If the deleted template was selected, clear selection
-                if (selectedAdvancedTemplate?.id === template.id) {
+            // Templates in "New" are local drafts for this session, even when their ID is numeric
+            // (e.g. draft edits of an existing template before Save).
+            if (isLocalDraft) {
+                setCreatedTemplates((prev) => prev.filter((t) => String(t.id) !== templateId));
+                if (String(selectedAdvancedTemplate?.id) === templateId) {
                     handleClearAll();
+                }
+                if (String(editingTemplateId) === templateId) {
+                    setEditingTemplateId(null);
+                    setTemplateName('');
                 }
             } else {
                 // Delete from Database
@@ -1499,8 +1504,12 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 await refresh();
 
                 // If the deleted template was selected, clear selection
-                if (selectedAdvancedTemplate?.id === template.id) {
+                if (String(selectedAdvancedTemplate?.id) === templateId) {
                     handleClearAll();
+                }
+                if (String(editingTemplateId) === templateId) {
+                    setEditingTemplateId(null);
+                    setTemplateName('');
                 }
             }
         } catch (error) {
