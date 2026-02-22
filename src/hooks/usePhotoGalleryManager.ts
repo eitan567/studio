@@ -175,13 +175,11 @@ export function usePhotoGalleryManager({
         const normalizeFileName = (name: string) => name.trim().toLowerCase();
 
         const seenSignatures = new Set<string>();
-        const duplicateFilesInSelection: File[] = [];
         const dedupedFiles: File[] = [];
 
         for (const file of imageFiles) {
             const signature = fileSignature(file);
             if (seenSignatures.has(signature)) {
-                duplicateFilesInSelection.push(file);
                 continue;
             }
             seenSignatures.add(signature);
@@ -189,16 +187,10 @@ export function usePhotoGalleryManager({
         }
 
         if (dedupedFiles.length === 0) {
-            toast({
-                title: 'No new photos to upload',
-                description: 'All selected files were duplicates of each other.',
-                variant: 'destructive'
-            });
             setIsLoadingPhotos(false);
             return;
         }
 
-        let duplicateByNameSkipped = 0;
         let newFiles: File[] = [];
 
         if (settings.duplicateUploadAction === 'replace') {
@@ -210,7 +202,6 @@ export function usePhotoGalleryManager({
                 const file = dedupedFiles[i];
                 const key = normalizeFileName(file.name);
                 if (keptByName.has(key)) {
-                    duplicateByNameSkipped++;
                     continue;
                 }
                 keptByName.add(key);
@@ -224,7 +215,6 @@ export function usePhotoGalleryManager({
             for (const file of dedupedFiles) {
                 const key = normalizeFileName(file.name);
                 if (keptByName.has(key)) {
-                    duplicateByNameSkipped++;
                     continue;
                 }
                 keptByName.add(key);
@@ -232,12 +222,28 @@ export function usePhotoGalleryManager({
             }
         }
 
+        // Ignore mode: also skip files that already exist in the current gallery by filename
+        // so no temp photo is created and no visual refresh occurs.
+        if (settings.duplicateUploadAction === 'ignore' && newFiles.length > 0) {
+            const existingNames = new Set(
+                allPhotos
+                    .map(photo => normalizeFileName(photo.alt))
+                    .filter(Boolean)
+            );
+
+            const filtered: File[] = [];
+            for (const file of newFiles) {
+                const key = normalizeFileName(file.name);
+                if (key && existingNames.has(key)) {
+                    continue;
+                }
+                filtered.push(file);
+                if (key) existingNames.add(key);
+            }
+            newFiles = filtered;
+        }
+
         if (newFiles.length === 0) {
-            toast({
-                title: 'No new photos to upload',
-                description: 'All selected files were filtered as duplicates.',
-                variant: 'destructive'
-            });
             setIsLoadingPhotos(false);
             return;
         }
@@ -282,22 +288,6 @@ export function usePhotoGalleryManager({
             description: `Uploading ${newFiles.length} image(s)...`,
         });
 
-        if (duplicateFilesInSelection.length > 0) {
-            toast({
-                title: 'Duplicates skipped',
-                description: `${duplicateFilesInSelection.length} duplicate file(s) were skipped before upload.`,
-            });
-        }
-
-        if (duplicateByNameSkipped > 0) {
-            toast({
-                title: settings.duplicateUploadAction === 'replace' ? 'Overwrite mode applied' : 'Ignore mode applied',
-                description: settings.duplicateUploadAction === 'replace'
-                    ? `${duplicateByNameSkipped} duplicate filename(s) were collapsed to the last selected file.`
-                    : `${duplicateByNameSkipped} duplicate filename(s) were skipped (first selected kept).`,
-            });
-        }
-
         const tasks = newFiles.map((file, index) => ({
             file,
             tempId: tempPhotos[index].id
@@ -320,6 +310,7 @@ export function usePhotoGalleryManager({
                     let success = false;
                     let lastError = 'Unknown error';
                     let uploadedPhoto: Photo | undefined;
+                    let ignoredDuplicate = false;
 
                     while (attempts < maxAttempts && !success) {
                         attempts++;
@@ -338,6 +329,7 @@ export function usePhotoGalleryManager({
                             if (result.success && result.photo) {
                                 success = true;
                                 uploadedPhoto = result.photo;
+                                ignoredDuplicate = !!result.ignoredDuplicate;
                             } else {
                                 throw new Error(result.error || 'Upload failed');
                             }
@@ -352,7 +344,14 @@ export function usePhotoGalleryManager({
                         }
                     }
 
-                    return { tempId, success, photo: uploadedPhoto, error: success ? null : lastError, fileName: file.name };
+                    return {
+                        tempId,
+                        success,
+                        photo: uploadedPhoto,
+                        ignoredDuplicate,
+                        error: success ? null : lastError,
+                        fileName: file.name
+                    };
                 }));
 
                 // Update state once per batch
@@ -368,6 +367,12 @@ export function usePhotoGalleryManager({
                         const result = resultByTempId.get(photo.id);
                         if (!result) {
                             next.push(photo);
+                            continue;
+                        }
+
+                        if (result.success && result.ignoredDuplicate) {
+                            // Server confirmed duplicate-ignore: remove temp item only.
+                            // Do not touch the existing gallery photo to avoid visual refresh.
                             continue;
                         }
 
@@ -420,11 +425,11 @@ export function usePhotoGalleryManager({
                     return dedupeGalleryPhotos(next.map(photo => replacementsById.get(photo.id) || photo));
                 });
 
-                successCount += results.filter(r => r.success).length;
+                successCount += results.filter(r => r.success && !r.ignoredDuplicate).length;
 
                 // Thumbnail update on first batch
                 if (i === 0) {
-                    const firstSuccess = results.find(r => r.success && r.photo);
+                    const firstSuccess = results.find(r => r.success && r.photo && !r.ignoredDuplicate);
                     if (firstSuccess?.photo) {
                         try {
                             const isPlaceholder = !albumThumbnailUrl || placeholderImages.some(p => p.imageUrl === albumThumbnailUrl);
@@ -466,7 +471,7 @@ export function usePhotoGalleryManager({
         } finally {
             setIsLoadingPhotos(false);
         }
-    }, [uploadPhoto, updateThumbnail, albumThumbnailUrl, setAllPhotos, toast, scanFiles, sortDirection, onPhotoUploadComplete, settings.duplicateUploadAction, dedupeGalleryPhotos]);
+    }, [uploadPhoto, updateThumbnail, albumThumbnailUrl, setAllPhotos, allPhotos, toast, scanFiles, sortDirection, onPhotoUploadComplete, settings.duplicateUploadAction, dedupeGalleryPhotos]);
 
     const handleSortPhotos = useCallback(() => {
         // Get current direction and toggle

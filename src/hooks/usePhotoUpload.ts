@@ -14,6 +14,7 @@ interface UploadResult {
     photo?: Photo
     url?: string
     error?: string
+    ignoredDuplicate?: boolean
 }
 
 export function usePhotoUpload() {
@@ -85,6 +86,11 @@ export function usePhotoUpload() {
                 setProgress({ loaded: file.size, total: file.size, percent: 100 })
             }
 
+            const ignoredDuplicate =
+                data?.duplicate === true ||
+                (typeof data?.message === 'string' &&
+                    data.message.toLowerCase().includes('ignored'))
+
             // Convert to Photo type
             const photo: Photo = {
                 id: data.photo?.id || crypto.randomUUID(),
@@ -95,7 +101,7 @@ export function usePhotoUpload() {
                 captureDate: captureDate, // Use extracted date
             }
 
-            return { success: true, photo, url: data.url }
+            return { success: true, photo, url: data.url, ignoredDuplicate }
         } catch (err: any) {
             const errorMessage = err instanceof Error ? err.message : 'Upload failed'
             // Don't set global error state if skipped, but do return it
