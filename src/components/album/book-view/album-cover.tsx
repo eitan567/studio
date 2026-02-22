@@ -600,6 +600,7 @@ export const AlbumCover = ({
         defaultCoverTemplate
     } = useTemplates();
     const containerRef = useRef<HTMLDivElement>(null);
+    const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
     // Optimization: Local state for drag positions to avoid global re-renders
     const [dragPositions, setDragPositions] = useState<Record<string, { x: number, y: number }>>({});
 
@@ -610,6 +611,25 @@ export const AlbumCover = ({
             onSelectImage?.(null);
         }
     };
+
+    useEffect(() => {
+        if (!containerRef.current) return;
+
+        const measure = () => {
+            if (!containerRef.current) return;
+            const rect = containerRef.current.getBoundingClientRect();
+            setContainerSize({
+                width: rect.width,
+                height: rect.height
+            });
+        };
+
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(containerRef.current);
+
+        return () => observer.disconnect();
+    }, []);
 
     const handleUpdateTextPosition = (triggerId: string, newX: number, newY: number) => {
         // Here we update LOCAL state instead of calling onUpdatePage
@@ -799,6 +819,9 @@ export const AlbumCover = ({
 
     // Derived Styles
     const pageMargin = page.pageMargin ?? config?.pageMargin ?? 0;
+    const normalizedPageMargin = Number(pageMargin);
+    const safePageMargin = Number.isFinite(normalizedPageMargin) ? Math.max(0, normalizedPageMargin) : 0;
+    const pageMarginStyle = safePageMargin > 0 ? { padding: `${safePageMargin}px` } : undefined;
     // Assuming config.photoGap is number. If string, parse it.
     const photoGap = page.photoGap ?? config?.photoGap ?? 0;
     const configCornerRadiusRaw = Number(config?.cornerRadius);
@@ -832,8 +855,102 @@ export const AlbumCover = ({
 
     // Calculate aspect ratio for smart layout
     const singlePageRatio = configW / configH;
-    const spreadRatio = ((singlePageW * 2) + spineWidth) / BASE_PAGE_PX; // Approximation using calculated px values
-    const aspectRatio = isFullSpread ? spreadRatio : singlePageRatio;
+    const spreadRatioWithSpine = ((singlePageW * 2) + spineWidth) / BASE_PAGE_PX;
+    const spreadRatioWithoutSpine = (singlePageW * 2) / BASE_PAGE_PX;
+    const fullLayoutRatio = page.isCover ? spreadRatioWithSpine : spreadRatioWithoutSpine;
+
+    const measuredRootRatio = (containerSize.width > 0 && containerSize.height > 0)
+        ? (containerSize.width / containerSize.height)
+        : null;
+
+    const measuredFullSpreadRatio = measuredRootRatio
+        ? (isFull ? measuredRootRatio : measuredRootRatio * 2)
+        : fullLayoutRatio;
+
+    const measuredSinglePageRatio = (() => {
+        if (!measuredRootRatio || containerSize.height <= 0) {
+            return singlePageRatio;
+        }
+
+        if (!isFullSpread && isFull) {
+            const totalWidth = containerSize.width;
+            const pageWidth = page.isCover
+                ? Math.max(1, (totalWidth - spineWidth) / 2)
+                : (totalWidth / 2);
+            return pageWidth / containerSize.height;
+        }
+
+        return measuredRootRatio;
+    })();
+
+    const getBalancedAspectRatio = (targetRatio: number): number => {
+        if (safePageMargin <= 0) return targetRatio;
+
+        const logicalHeight = BASE_PAGE_PX;
+        const logicalWidth = targetRatio * logicalHeight;
+        const innerWidth = Math.max(1, logicalWidth - (safePageMargin * 2));
+        const innerHeight = Math.max(1, logicalHeight - (safePageMargin * 2));
+        const innerRatio = innerWidth / innerHeight;
+
+        if (!Number.isFinite(innerRatio) || innerRatio <= 0) {
+            return targetRatio;
+        }
+
+        const marginProgress = Math.min(1, safePageMargin / 80);
+        const maxExtraFactor = 0.15 + (0.45 * marginProgress);
+        const maxExtra = safePageMargin * maxExtraFactor;
+
+        if (innerRatio > targetRatio) {
+            const idealExtraX = (innerWidth - (targetRatio * innerHeight)) / 2;
+            const allowedExtraX = Math.max(0, Math.min(idealExtraX, maxExtra));
+            const adjustedWidth = innerWidth - (allowedExtraX * 2);
+            return Math.max(0.01, adjustedWidth / innerHeight);
+        }
+
+        if (innerRatio < targetRatio) {
+            const idealExtraY = (innerHeight - (innerWidth / targetRatio)) / 2;
+            const allowedExtraY = Math.max(0, Math.min(idealExtraY, maxExtra));
+            const adjustedHeight = innerHeight - (allowedExtraY * 2);
+            return Math.max(0.01, innerWidth / Math.max(1, adjustedHeight));
+        }
+
+        return targetRatio;
+    };
+
+    const renderLayoutInPage = (
+        layoutNode: React.ReactNode,
+        ratio: number,
+        containerClassName = 'absolute inset-0'
+    ) => {
+        if (safePageMargin <= 0) {
+            return (
+                <div className={containerClassName}>
+                    {layoutNode}
+                </div>
+            );
+        }
+
+        const balancedRatio = getBalancedAspectRatio(ratio);
+
+        return (
+            <div className={containerClassName} style={pageMarginStyle}>
+                <div className="h-full w-full flex items-center justify-center">
+                    <div
+                        className="relative"
+                        style={{
+                            aspectRatio: balancedRatio,
+                            height: '100%',
+                            width: 'auto',
+                            maxWidth: '100%',
+                            maxHeight: '100%'
+                        }}
+                    >
+                        {layoutNode}
+                    </div>
+                </div>
+            </div>
+        );
+    };
 
 
     // --- Render Content Helper ---
@@ -846,11 +963,10 @@ export const AlbumCover = ({
                     style={{
                         width: isFull ? '100%' : '200%',
                         transform: isFront ? 'translateX(-50%)' : 'none',
-                        backgroundColor: page.backgroundColor || config?.backgroundColor || (pageMargin > 0 ? '#fff' : 'transparent'),
+                        backgroundColor: page.backgroundColor || config?.backgroundColor || (safePageMargin > 0 ? '#fff' : 'transparent'),
                         backgroundImage: (page.backgroundImage || config?.backgroundImage) ? `url(${page.backgroundImage || config?.backgroundImage})` : undefined,
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
-                        padding: `${pageMargin}px`
                     }}
                 >
                     {/* Spine Visual Guide (Overlay) */}
@@ -883,7 +999,7 @@ export const AlbumCover = ({
                     )}
 
                     {/* Spread Content */}
-                    <div className="h-full w-full relative z-0">
+                    {renderLayoutInPage(
                         <PageLayout
                             page={page}
                             photoGap={photoGap}
@@ -903,9 +1019,11 @@ export const AlbumCover = ({
                             previousPagePhotos={previousPagePhotos}
                             priority={priority}
                             chronologicalIndex={chronologicalIndex}
-                            aspectRatio={aspectRatio}
-                        />
-                    </div>
+                            aspectRatio={measuredFullSpreadRatio}
+                        />,
+                        measuredFullSpreadRatio,
+                        'absolute inset-0 z-0'
+                    )}
                 </div>
             ) : (
                 /* SPLIT COVER MODE */
@@ -917,14 +1035,13 @@ export const AlbumCover = ({
                             isFull ? "flex-1" : isBack ? "w-full" : "hidden"
                         )}
                         style={{
-                            backgroundColor: page.backgroundColor || config?.backgroundColor || (pageMargin > 0 ? '#fff' : 'transparent'),
+                            backgroundColor: page.backgroundColor || config?.backgroundColor || (safePageMargin > 0 ? '#fff' : 'transparent'),
                             backgroundImage: (page.backgroundImage || config?.backgroundImage) ? `url(${page.backgroundImage || config?.backgroundImage})` : undefined,
                             backgroundSize: 'cover',
                             backgroundPosition: 'center',
-                            padding: `${pageMargin}px`
                         }}
                     >
-                        <div className="h-full w-full">
+                        {renderLayoutInPage(
                             <PageLayout
                                 page={page}
                                 photoGap={photoGap}
@@ -946,9 +1063,10 @@ export const AlbumCover = ({
                                 previousPagePhotos={previousPagePhotos}
                                 priority={priority}
                                 chronologicalIndex={chronologicalIndex}
-                                aspectRatio={singlePageRatio}
-                            />
-                        </div>
+                                aspectRatio={measuredSinglePageRatio}
+                            />,
+                            measuredSinglePageRatio
+                        )}
                     </div>
 
                     {/* Spine (Only for Covers) */}
@@ -984,14 +1102,13 @@ export const AlbumCover = ({
                             isFull ? "flex-1" : isFront ? "w-full" : "hidden"
                         )}
                         style={{
-                            backgroundColor: page.backgroundColor || config?.backgroundColor || (pageMargin > 0 ? '#fff' : 'transparent'),
+                            backgroundColor: page.backgroundColor || config?.backgroundColor || (safePageMargin > 0 ? '#fff' : 'transparent'),
                             backgroundImage: (page.backgroundImage || config?.backgroundImage) ? `url(${page.backgroundImage || config?.backgroundImage})` : undefined,
                             backgroundSize: 'cover',
                             backgroundPosition: 'center',
-                            padding: `${pageMargin}px`
                         }}
                     >
-                        <div className="h-full w-full">
+                        {renderLayoutInPage(
                             <PageLayout
                                 page={page}
                                 photoGap={photoGap}
@@ -1013,9 +1130,10 @@ export const AlbumCover = ({
                                 previousPagePhotos={previousPagePhotos}
                                 priority={priority}
                                 chronologicalIndex={chronologicalIndex}
-                                aspectRatio={singlePageRatio}
-                            />
-                        </div>
+                                aspectRatio={measuredSinglePageRatio}
+                            />,
+                            measuredSinglePageRatio
+                        )}
                     </div>
                 </div>
             )}
