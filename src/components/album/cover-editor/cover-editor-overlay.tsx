@@ -265,6 +265,11 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos, isC
         setLocalPage({ ...localPage, coverTexts: newTexts });
     };
 
+    const selectionInfoParts: string[] = [];
+    if (activeTextIds.length > 0) selectionInfoParts.push(`${activeTextIds.length} text items selected`);
+    if (activeImageIds.length > 0) selectionInfoParts.push(`${activeImageIds.length} image items selected`);
+    const selectionInfo = selectionInfoParts.join(' • ');
+
     return (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-8">
             <div className="w-full h-full max-w-[1800px] bg-background border shadow-2xl rounded-xl flex overflow-hidden">
@@ -300,11 +305,6 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos, isC
                                 onChange={handleImageUpload}
                             />
 
-                            {/* Selection Info (Integrated) */}
-                            <div className="text-xs text-muted-foreground font-medium border-l pl-4 ml-2">
-                                {activeTextIds.length > 0 ? `${activeTextIds.length} text items selected` : ''}
-                                {activeImageIds.length > 0 ? `${activeImageIds.length} image items selected` : ''}
-                            </div>
                         </div>
 
 
@@ -473,14 +473,14 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos, isC
                             isCover={isCover}
                             config={config}
                         />
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 text-xs text-muted-foreground font-medium text-center whitespace-nowrap pointer-events-none">
+                            {selectionInfo}
+                        </div>
                     </div>
 
                     {/* Bottom Toolbar */}
-                    <div className="h-14 border-t bg-background flex items-center justify-between px-4 z-10 shrink-0">
-                        <div className="text-xs text-muted-foreground">
-                            {/* Optional status or info */}
-                        </div>
-                        <div className="flex items-center gap-2">
+                    <div className="h-14 border-t bg-background flex items-center px-4 z-10 shrink-0">
+                        <div className="flex items-center gap-2 ml-auto">
                             <Button
                                 variant="outline"
                                 onClick={handleCancel}
