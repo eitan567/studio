@@ -17,6 +17,8 @@ import {
     Calendar,
     Hash,
     Trash2,
+    Search,
+    X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +26,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from "@/components/ui/switch";
+import { Input } from '@/components/ui/input';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -514,6 +517,7 @@ const PhotoGalleryCardComponent = ({
 
     const [hideUsedPhotos, setHideUsedPhotos] = useState(false);
     const [isSingleColumn, setIsSingleColumn] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
 
     // Track container width for justified layout
     const [containerWidth, setContainerWidth] = useState(0); // Initialize at 0 to wait for measurement
@@ -549,9 +553,19 @@ const PhotoGalleryCardComponent = ({
     const cachedRowsRef = useRef<{ photos: Photo[]; height: number; isLast?: boolean }[]>([]);
 
     // Filtered photos
-    const filteredPhotos = useMemo(() => hideUsedPhotos
-        ? allPhotos.filter(p => !photoUsageDetails[p.id])
-        : allPhotos, [allPhotos, hideUsedPhotos, photoUsageDetails]);
+    const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+
+    const filteredPhotos = useMemo(() => {
+        const usageFilteredPhotos = hideUsedPhotos
+            ? allPhotos.filter(p => !photoUsageDetails[p.id])
+            : allPhotos;
+
+        if (!normalizedSearchQuery) {
+            return usageFilteredPhotos;
+        }
+
+        return usageFilteredPhotos.filter(photo => (photo.alt || '').toLowerCase().includes(normalizedSearchQuery));
+    }, [allPhotos, hideUsedPhotos, photoUsageDetails, normalizedSearchQuery]);
 
     // Merge dimensions from cache
     const effectivePhotos = useMemo(() => {
@@ -860,6 +874,26 @@ const PhotoGalleryCardComponent = ({
                                 </>
                             )}
                         </div>
+                    </div>
+
+                    <div className="relative">
+                        <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search by image name..."
+                            className="h-8 pl-7 pr-7 text-xs"
+                        />
+                        {searchQuery && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchQuery('')}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                aria-label="Clear search"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </button>
+                        )}
                     </div>
 
                     <input ref={folderUploadRef} type="file" accept="image/*" multiple className="hidden"
