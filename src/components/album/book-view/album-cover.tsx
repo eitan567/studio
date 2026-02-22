@@ -1175,7 +1175,9 @@ export const AlbumCover = ({
             // Font Scaling (Responsive cqw)
             // 'cqw' requires the container to have 'container-type: inline-size'.
             const referenceWidth = isFull ? 3200 : 1600;
-            const fontSizeCss = `${(textItem.style.fontSize / referenceWidth) * 100} cqw`;
+            const normalizedFontSize = Number(textItem.style.fontSize) || 24;
+            // CSS unit values cannot contain whitespace between number and unit (e.g. "2cqw", not "2 cqw").
+            const fontSizeCss = `${(normalizedFontSize / referenceWidth) * 100}cqw`;
 
             const isSelected = activeTextIds.includes(textItem.id);
 
