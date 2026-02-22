@@ -5,9 +5,9 @@ import { LayoutSidebarRight } from './layout-sidebar-right';
 import { LayoutCanvas } from './layout-canvas';
 import { FloatingToolbar } from './floating-toolbar';
 import { LayersPanel } from './layers-panel';
+import { LayoutSettingsPanel } from './layout-settings-panel';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import {
     Check,
@@ -27,12 +27,12 @@ import {
     AlignVerticalDistributeCenter,
     AlignHorizontalJustifyCenter,
     AlignVerticalJustifyCenter,
-    RotateCw
+    RotateCw,
+    SlidersHorizontal
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
 import { Sheet } from '@/components/ui/sheet';
-import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { processLayoutGeometry } from '@/lib/layout-geometry';
 import { markLikelyBackgroundRegions } from '@/lib/layout-background-region';
@@ -515,6 +515,11 @@ type CloneDraft = {
 const LAYERS_PANEL_SAFE_MARGIN = 8;
 const LAYERS_PANEL_DOCK_THRESHOLD = 26;
 const LAYERS_PANEL_MIN_HEIGHT = 96;
+const SETTINGS_PANEL_SAFE_MARGIN = LAYERS_PANEL_SAFE_MARGIN;
+const SETTINGS_PANEL_DOCK_THRESHOLD = LAYERS_PANEL_DOCK_THRESHOLD;
+const SETTINGS_PANEL_WIDTH = 230;
+const SETTINGS_PANEL_MIN_HEIGHT = 240;
+const SETTINGS_PANEL_ESTIMATED_HEIGHT = 470;
 
 export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, onAddTemplate }: CustomLayoutEditorOverlayProps) => {
     const { findGridTemplate, defaultGridTemplate, allTemplates, refresh } = useTemplates();
@@ -610,6 +615,11 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const [layersPanelPosition, setLayersPanelPosition] = useState({ x: 24, y: 24 });
     const [layersPanelDockSide, setLayersPanelDockSide] = useState<LayersDockSide>(null);
     const [isLayersPanelDockLocked, setIsLayersPanelDockLocked] = useState(false);
+    const [settingsPanelPosition, setSettingsPanelPosition] = useState({ x: 240, y: 160 });
+    const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(true);
+    const [settingsPanelDockSide, setSettingsPanelDockSide] = useState<LayersDockSide>(null);
+    const [isSettingsPanelDockLocked, setIsSettingsPanelDockLocked] = useState(false);
+    const [settingsPanelMeasuredHeight, setSettingsPanelMeasuredHeight] = useState(SETTINGS_PANEL_ESTIMATED_HEIGHT);
     const [layersPanelCollapsedState, setLayersPanelCollapsedState] = useState<Record<number, boolean>>({});
     const [workspaceSize, setWorkspaceSize] = useState({ width: 0, height: 0 });
     const [isLeaderGroupRotateEnabled, setIsLeaderGroupRotateEnabled] = useState(false);
@@ -622,7 +632,10 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const [gridDesignerSegments, setGridDesignerSegments] = useState<GridDesignerSegment[]>([]);
     const [imageRotationMode, setImageRotationMode] = useState<TemplateImageRotationMode>('follow-frame');
     const canvasWorkspaceRef = useRef<HTMLDivElement>(null);
+    const canvasFloatingHostRef = useRef<HTMLDivElement>(null);
     const floatingLayersRef = useRef<HTMLDivElement>(null);
+    const floatingSettingsRef = useRef<HTMLDivElement>(null);
+    const didInitSettingsPositionRef = useRef(false);
 
     const canvasLogicalWidthUnits = useMemo(() => {
         let configW = 20;
@@ -891,7 +904,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const isGridRotationActive = Math.abs(gridRotationDeg) > 0.0001;
 
     useEffect(() => {
-        const workspace = canvasWorkspaceRef.current;
+        const workspace = canvasFloatingHostRef.current ?? canvasWorkspaceRef.current;
         if (!workspace) return;
 
         const measure = () => {
@@ -917,6 +930,42 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             y: Math.max(LAYERS_PANEL_SAFE_MARGIN, Math.min(maxY, prev.y))
         }));
     }, [isLayersPanelOpen, layersPanelDockSide, isLayersPanelDockLocked, layersPanelSizing.width, workspaceSize.width, workspaceSize.height]);
+
+    useEffect(() => {
+        if (!isSettingsPanelOpen) return;
+        if (didInitSettingsPositionRef.current) return;
+        if (workspaceSize.width <= 0 || workspaceSize.height <= 0) return;
+
+        const settingsPanelClampHeight = Math.max(SETTINGS_PANEL_MIN_HEIGHT, settingsPanelMeasuredHeight);
+        const maxX = Math.max(SETTINGS_PANEL_SAFE_MARGIN, workspaceSize.width - SETTINGS_PANEL_WIDTH - SETTINGS_PANEL_SAFE_MARGIN);
+        const maxY = Math.max(SETTINGS_PANEL_SAFE_MARGIN, workspaceSize.height - settingsPanelClampHeight - SETTINGS_PANEL_SAFE_MARGIN);
+        const centeredX = Math.max(
+            SETTINGS_PANEL_SAFE_MARGIN,
+            Math.min(maxX, Math.round((workspaceSize.width - SETTINGS_PANEL_WIDTH) / 2))
+        );
+        const defaultY = Math.max(
+            SETTINGS_PANEL_SAFE_MARGIN,
+            Math.min(maxY, workspaceSize.height - settingsPanelClampHeight - SETTINGS_PANEL_SAFE_MARGIN)
+        );
+
+        setSettingsPanelPosition({ x: centeredX, y: defaultY });
+        didInitSettingsPositionRef.current = true;
+    }, [isSettingsPanelOpen, workspaceSize.width, workspaceSize.height, settingsPanelMeasuredHeight]);
+
+    useEffect(() => {
+        if (!isSettingsPanelOpen) return;
+        if (settingsPanelDockSide && isSettingsPanelDockLocked) return;
+        if (workspaceSize.width <= 0 || workspaceSize.height <= 0) return;
+
+        const settingsPanelClampHeight = Math.max(SETTINGS_PANEL_MIN_HEIGHT, settingsPanelMeasuredHeight);
+        const maxX = Math.max(SETTINGS_PANEL_SAFE_MARGIN, workspaceSize.width - SETTINGS_PANEL_WIDTH - SETTINGS_PANEL_SAFE_MARGIN);
+        const maxY = Math.max(SETTINGS_PANEL_SAFE_MARGIN, workspaceSize.height - settingsPanelClampHeight - SETTINGS_PANEL_SAFE_MARGIN);
+
+        setSettingsPanelPosition((prev) => ({
+            x: Math.max(SETTINGS_PANEL_SAFE_MARGIN, Math.min(maxX, prev.x)),
+            y: Math.max(SETTINGS_PANEL_SAFE_MARGIN, Math.min(maxY, prev.y))
+        }));
+    }, [isSettingsPanelOpen, settingsPanelDockSide, isSettingsPanelDockLocked, workspaceSize.width, workspaceSize.height, settingsPanelMeasuredHeight]);
 
     // Dynamic Theme Update: When theme changes, update state AND existing objects
     useEffect(() => {
@@ -1793,7 +1842,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const handleStartDragLayersPanel = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
         if (isLayersPanelDockLocked) return;
         if (e.button !== 0) return;
-        const workspace = canvasWorkspaceRef.current;
+        const workspace = canvasFloatingHostRef.current ?? canvasWorkspaceRef.current;
         const panel = floatingLayersRef.current;
         if (!workspace || !panel) return;
 
@@ -1846,6 +1895,74 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         window.addEventListener('pointermove', onPointerMove);
         window.addEventListener('pointerup', onPointerUp);
     }, [isLayersPanelDockLocked, layersPanelPosition]);
+
+    const handleToggleSettingsDockLock = useCallback(() => {
+        if (!settingsPanelDockSide) return;
+        if (isSettingsPanelDockLocked) {
+            setIsSettingsPanelDockLocked(false);
+            setSettingsPanelDockSide(null);
+        } else {
+            setIsSettingsPanelDockLocked(true);
+        }
+    }, [isSettingsPanelDockLocked, settingsPanelDockSide]);
+
+    const handleStartDragSettingsPanel = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+        if (isSettingsPanelDockLocked) return;
+        if (e.button !== 0) return;
+        const workspace = canvasFloatingHostRef.current ?? canvasWorkspaceRef.current;
+        const panel = floatingSettingsRef.current;
+        if (!workspace || !panel) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const workspaceRect = workspace.getBoundingClientRect();
+        const panelRect = panel.getBoundingClientRect();
+        const offsetX = e.clientX - panelRect.left;
+        const offsetY = e.clientY - panelRect.top;
+        const maxX = Math.max(SETTINGS_PANEL_SAFE_MARGIN, workspaceRect.width - panelRect.width - SETTINGS_PANEL_SAFE_MARGIN);
+        const panelHeight = Math.max(SETTINGS_PANEL_MIN_HEIGHT, panelRect.height);
+        const maxY = Math.max(SETTINGS_PANEL_SAFE_MARGIN, workspaceRect.height - panelHeight - SETTINGS_PANEL_SAFE_MARGIN);
+        let dockSideOnRelease: LayersDockSide = null;
+        let lastPosition = { ...settingsPanelPosition };
+
+        const onPointerMove = (ev: PointerEvent) => {
+            const rawX = ev.clientX - workspaceRect.left - offsetX;
+            const rawY = ev.clientY - workspaceRect.top - offsetY;
+
+            const nearLeft = rawX <= SETTINGS_PANEL_DOCK_THRESHOLD;
+            const nearRight = rawX >= (maxX - SETTINGS_PANEL_DOCK_THRESHOLD);
+            dockSideOnRelease = nearLeft ? 'left' : (nearRight ? 'right' : null);
+
+            const snappedX = dockSideOnRelease === 'left'
+                ? SETTINGS_PANEL_SAFE_MARGIN
+                : dockSideOnRelease === 'right'
+                    ? maxX
+                    : Math.max(SETTINGS_PANEL_SAFE_MARGIN, Math.min(maxX, rawX));
+
+            const nextY = Math.max(SETTINGS_PANEL_SAFE_MARGIN, Math.min(maxY, rawY));
+            setSettingsPanelDockSide(dockSideOnRelease);
+            setIsSettingsPanelDockLocked(false);
+            lastPosition = { x: snappedX, y: nextY };
+            setSettingsPanelPosition(lastPosition);
+        };
+
+        const onPointerUp = () => {
+            if (dockSideOnRelease) {
+                setSettingsPanelDockSide(dockSideOnRelease);
+                setIsSettingsPanelDockLocked(true);
+            } else {
+                setSettingsPanelDockSide(null);
+                setIsSettingsPanelDockLocked(false);
+            }
+            setSettingsPanelPosition(lastPosition);
+            window.removeEventListener('pointermove', onPointerMove);
+            window.removeEventListener('pointerup', onPointerUp);
+        };
+
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+    }, [isSettingsPanelDockLocked, settingsPanelPosition]);
 
     const processObjectsToTemplate = useCallback((
         objectsToProcess: VectorObject[],
@@ -2188,6 +2305,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const canDistributeSelection = selectedShapeIndices.length >= 3;
     const canMatchSizeSelection = selectedShapeIndices.length >= 2;
     const isLayersDocked = layersPanelDockSide !== null && isLayersPanelDockLocked;
+    const isSettingsDocked = settingsPanelDockSide !== null && isSettingsPanelDockLocked;
     const floatingPanelTop = Math.max(LAYERS_PANEL_SAFE_MARGIN, layersPanelPosition.y);
     const layersPanelTop = isLayersDocked ? LAYERS_PANEL_SAFE_MARGIN : floatingPanelTop;
     const floatingAvailableHeight = Math.max(
@@ -2211,6 +2329,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     );
     const effectivePanelHeight = isLayersDocked ? dockedAvailableHeight : floatingPanelHeight;
     const layersPanelContentScrollable = layersPanelSizing.naturalHeight > (effectivePanelHeight + 1);
+    const floatingSettingsTop = Math.max(SETTINGS_PANEL_SAFE_MARGIN, settingsPanelPosition.y);
     const layersPanelNode = (
         <LayersPanel
             vectorObjects={vectorObjects}
@@ -2228,6 +2347,28 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             onToggleDockLock={handleToggleLayersDockLock}
             onCollapsedLayersChange={handleLayersCollapsedChange}
             contentScrollable={layersPanelContentScrollable}
+        />
+    );
+    const settingsPanelNode = (
+        <LayoutSettingsPanel
+            photoGap={photoGap}
+            onPhotoGapChange={handlePhotoGapChange}
+            pageMargin={pageMargin}
+            onPageMarginChange={handlePageMarginChange}
+            cornerRadius={cornerRadius}
+            onCornerRadiusChange={handleCornerRadiusChange}
+            backgroundColor={backgroundColor}
+            onBackgroundColorChange={handleBackgroundColorChange}
+            imageRotationMode={imageRotationMode}
+            onImageRotationModeChange={setImageRotationMode}
+            useDummyPhotos={useDummyPhotos}
+            onUseDummyPhotosChange={handleUseDummyPhotosChange}
+            onDragStart={isSettingsPanelDockLocked ? undefined : handleStartDragSettingsPanel}
+            isDocked={settingsPanelDockSide !== null}
+            isDockLocked={isSettingsPanelDockLocked}
+            onToggleDockLock={handleToggleSettingsDockLock}
+            onClose={() => setIsSettingsPanelOpen(false)}
+            onHeightChange={setSettingsPanelMeasuredHeight}
         />
     );
 
@@ -2273,6 +2414,16 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         </>
                     )}
 
+                    <Button
+                        variant={isSettingsPanelOpen ? "secondary" : "ghost"}
+                        size="icon"
+                        className={cn("h-8 w-8", isSettingsPanelOpen && "text-primary")}
+                        onClick={() => setIsSettingsPanelOpen((prev) => !prev)}
+                        title={isSettingsPanelOpen ? "Hide Layout Settings" : "Show Layout Settings"}
+                    >
+                        <SlidersHorizontal className="h-4 w-4" />
+                    </Button>
+
                     <ModeToggle />
                     <div className="h-4 w-px bg-border mx-1" />
                     <UserNav showSettingsLink={false} />
@@ -2290,6 +2441,17 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
                 {/* Main Canvas Area */}
                 <div ref={canvasWorkspaceRef} className="flex-1 flex relative bg-muted/10 h-full overflow-hidden">
+                    {isSettingsPanelOpen && isSettingsDocked && settingsPanelDockSide === 'left' && (
+                        <div
+                            className="relative z-[55] h-full flex-shrink-0 border-r bg-background"
+                            style={{ width: SETTINGS_PANEL_WIDTH }}
+                        >
+                            <div className="w-full">
+                                {settingsPanelNode}
+                            </div>
+                        </div>
+                    )}
+
                     {isLayersPanelOpen && isLayersDocked && layersPanelDockSide === 'left' && (
                         <div
                             className="relative z-[60] h-full flex-shrink-0 border-r bg-background"
@@ -2303,7 +2465,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
 
                     {/* Canvas */}
-                    <div className="flex-1 relative overflow-hidden flex flex-col">
+                    <div ref={canvasFloatingHostRef} className="flex-1 relative overflow-hidden flex flex-col">
                         <FloatingToolbar
                             toolMode={toolMode}
                             onToolChange={setToolMode}
@@ -2543,6 +2705,22 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             </Button>
                         </div>
 
+                        {isSettingsPanelOpen && !isSettingsDocked && (
+                            <div
+                                ref={floatingSettingsRef}
+                                className="absolute z-[55]"
+                                style={{
+                                    left: settingsPanelPosition.x,
+                                    top: floatingSettingsTop,
+                                    width: SETTINGS_PANEL_WIDTH,
+                                    maxWidth: `calc(100% - ${SETTINGS_PANEL_SAFE_MARGIN * 2}px)`,
+                                    height: settingsPanelMeasuredHeight
+                                }}
+                            >
+                                {settingsPanelNode}
+                            </div>
+                        )}
+
                         {isLayersPanelOpen && !isLayersDocked && (
                             <div
                                 ref={floatingLayersRef}
@@ -2567,6 +2745,17 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         >
                             <div className="h-full w-full" style={{ height: layersPanelHeight }}>
                                 {layersPanelNode}
+                            </div>
+                        </div>
+                    )}
+
+                    {isSettingsPanelOpen && isSettingsDocked && settingsPanelDockSide === 'right' && (
+                        <div
+                            className="relative z-[55] h-full flex-shrink-0 border-l bg-background"
+                            style={{ width: SETTINGS_PANEL_WIDTH }}
+                        >
+                            <div className="w-full">
+                                {settingsPanelNode}
                             </div>
                         </div>
                     )}
@@ -2602,151 +2791,9 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 </div>
             </div>
 
-            {/* 3. Full-Width Bottom Toolbar & Actions */}
-            <div className="h-16 border-t bg-background grid grid-cols-[300px_1fr_300px] items-center px-6 shrink-0 z-20">
-                {/* Left side empty placeholder to balance the grid for centering */}
-                <div />
-
-                {/* Spacing Controls (Center) */}
-                <div className="flex items-center gap-3 justify-start">
-                    {/* Photo Gap */}
-                    <div className="flex items-center gap-4 min-w-[180px]">
-                        <Label className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Photo Gap</Label>
-                        <div className="flex items-center gap-3 flex-1">
-                            <Slider
-                                min={0}
-                                max={50}
-                                step={1}
-                                value={[photoGap]}
-                                onValueChange={(vals) => handlePhotoGapChange(vals[0])}
-                                className="w-24"
-                            />
-                            <Input
-                                type="number"
-                                className="w-10 h-7 text-[10px] text-center px-1 bg-muted/30"
-                                value={photoGap}
-                                min={0}
-                                max={50}
-                                onChange={(e) => handlePhotoGapChange(Math.max(0, Math.min(50, Number(e.target.value))))}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Page Margin */}
-                    <div className="flex items-center gap-4 min-w-[180px]">
-                        <Label className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Page Margin</Label>
-                        <div className="flex items-center gap-3 flex-1">
-                            <Slider
-                                min={0}
-                                max={50}
-                                step={1}
-                                value={[pageMargin]}
-                                onValueChange={(vals) => handlePageMarginChange(vals[0])}
-                                className="w-24"
-                            />
-                            <Input
-                                type="number"
-                                className="w-10 h-7 text-[10px] text-center px-1 bg-muted/30"
-                                value={pageMargin}
-                                min={0}
-                                max={50}
-                                onChange={(e) => handlePageMarginChange(Math.max(0, Math.min(50, Number(e.target.value))))}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Corner Radius */}
-                    <div className="flex items-center gap-4 min-w-[180px] hidden xl:flex">
-                        <Label className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Corner Radius</Label>
-                        <div className="flex items-center gap-3 flex-1">
-                            <Slider
-                                min={0}
-                                max={20}
-                                step={1}
-                                value={[cornerRadius]}
-                                onValueChange={(vals) => handleCornerRadiusChange(vals[0])}
-                                className="w-24"
-                            />
-                            <Input
-                                type="number"
-                                className="w-10 h-7 text-[10px] text-center px-1 bg-muted/30"
-                                value={cornerRadius}
-                                min={0}
-                                max={20}
-                                onChange={(e) => handleCornerRadiusChange(Math.max(0, Math.min(20, Number(e.target.value))))}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Background Color */}
-                    <div className="flex items-center gap-4 min-w-[170px]">
-                        <Label className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Background</Label>
-                        <div className="flex items-center gap-2">
-                            <div
-                                className="relative h-7 w-8 overflow-hidden rounded border border-border"
-                                style={{ backgroundColor }}
-                                title={backgroundColor}
-                            >
-                                <input
-                                    type="color"
-                                    value={backgroundColor}
-                                    onChange={(e) => handleBackgroundColorChange(e.target.value)}
-                                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                                />
-                            </div>
-                            <Input
-                                type="text"
-                                className="w-20 h-7 text-[10px] font-mono text-center px-1 bg-muted/30"
-                                value={backgroundColor}
-                                onChange={(e) => {
-                                    const val = e.target.value.trim();
-                                    if (/^#[0-9A-Fa-f]{6}$/.test(val)) handleBackgroundColorChange(val);
-                                    if (val === '') handleBackgroundColorChange('#ffffff');
-                                }}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Image Rotation Mode (per-template) */}
-                    <div className="flex items-center gap-4 min-w-[240px]">
-                        <Label className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Image Mode</Label>
-                        <div className="flex items-center gap-1 rounded-md border border-border/60 bg-muted/20 p-1">
-                            <Button
-                                type="button"
-                                variant={imageRotationMode === 'follow-frame' ? 'secondary' : 'ghost'}
-                                size="sm"
-                                className="h-7 px-2 text-[10px]"
-                                onClick={() => setImageRotationMode('follow-frame')}
-                            >
-                                Follow Frame
-                            </Button>
-                            <Button
-                                type="button"
-                                variant={imageRotationMode === 'keep-horizontal' ? 'secondary' : 'ghost'}
-                                size="sm"
-                                className="h-7 px-2 text-[10px]"
-                                onClick={() => setImageRotationMode('keep-horizontal')}
-                            >
-                                Keep Horizontal
-                            </Button>
-                        </div>
-                    </div>
-
-                    {/* Dummy Photos Toggle */}
-                    <div className="flex items-center gap-3 pl-4 border-l hidden 2xl:flex">
-                        <Switch
-                            id="dummy-photos-bottom"
-                            checked={useDummyPhotos}
-                            onCheckedChange={handleUseDummyPhotosChange}
-                        />
-                        <Label htmlFor="dummy-photos-bottom" className="text-xs font-semibold whitespace-nowrap cursor-pointer">
-                            Sample Photos
-                        </Label>
-                    </div>
-                </div>
-
-                {/* Action Buttons (Right) */}
-                <div className="flex items-center gap-3 justify-end">
+            {/* 3. Bottom Actions */}
+            <div className="h-16 border-t bg-background flex items-center justify-end px-6 shrink-0 z-20">
+                <div className="flex items-center gap-3">
                     <Button
                         variant="ghost"
                         size="sm"
