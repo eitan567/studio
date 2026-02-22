@@ -909,7 +909,7 @@ export const LayoutCanvas = ({
             if (availW === 0 || availH === 0) return;
             const scaleX = availW / logicalWidth;
             const scaleY = availH / logicalHeight;
-            setScale(Math.min(scaleX, scaleY) * 0.85);
+            setScale(Math.min(scaleX, scaleY) * 0.78);
         };
         measure();
         const observer = new ResizeObserver(measure);
