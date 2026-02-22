@@ -11,7 +11,7 @@ export type Polygon = Point[];
 const EPSILON = 0.01;        // General equality tolerance
 const GRID_SNAP = 0.001;     // Normalization grid
 const MERGE_RADIUS = 0.1;    // Pull nearby vertices together
-const BORDER_SNAP = 2.5;     // Matches editor line boundary snap to prevent edge slivers
+const BORDER_SNAP = 0.5;     // Keep border snap conservative to avoid global shear/trapezoid distortion
 
 // ----------------------------------------------------------------------
 // MAIN EXPORT
