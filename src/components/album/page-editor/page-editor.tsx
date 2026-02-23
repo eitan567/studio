@@ -528,15 +528,19 @@ export function PageEditor({ albumId }: PageEditorProps) {
   const [multiSelectMode, setMultiSelectModeLocal] = useState(true); // true = checkboxes, false = trash icons
   // Left Config Sidebar State
   const CONFIG_PANEL_WIDTH = 300;
+  const PAGE_LIST_ROW_HORIZONTAL_PADDING = 32; // Must match VirtualizedPageList ROW_HORIZONTAL_PADDING
   const [isConfigPanelPinned, setIsConfigPanelPinned] = useState(true);
   const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(true);
   const configPanelRecenterTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const configPanelAutoOpenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const CONFIG_PANEL_TRANSITION_MS = 300;
   const CONFIG_PANEL_AUTO_OPEN_DELAY_MS = 220;
+  const mainContentRef = useRef<HTMLDivElement>(null);
+  const [mainContentWidth, setMainContentWidth] = useState(0);
   // Gallery Sidebar State
   type GalleryMode = 'collapsed' | 'default' | 'expanded';
   const [galleryMode, setGalleryMode] = useState<GalleryMode>('default');
+  const [configPanelPageMaxWidthByGalleryMode, setConfigPanelPageMaxWidthByGalleryMode] = useState<Partial<Record<GalleryMode, number>>>({});
   const galleryRecenterTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const GALLERY_WIDTH_TRANSITION_MS = 300;
   const COLLAPSED_PAGE_MAX_WIDTH = 1300;
@@ -548,6 +552,14 @@ export function PageEditor({ albumId }: PageEditorProps) {
       default: return 356;
     }
   };
+
+  const resolveConfigPanelCapForMode = useCallback((mode: GalleryMode) => {
+    return configPanelPageMaxWidthByGalleryMode[mode]
+      ?? configPanelPageMaxWidthByGalleryMode.default
+      ?? configPanelPageMaxWidthByGalleryMode.expanded
+      ?? configPanelPageMaxWidthByGalleryMode.collapsed
+      ?? undefined;
+  }, [configPanelPageMaxWidthByGalleryMode]);
 
   const setGalleryModePreservingPage = useCallback((nextMode: GalleryMode) => {
     if (nextMode === galleryMode) return;
@@ -636,6 +648,41 @@ export function PageEditor({ albumId }: PageEditorProps) {
       configPanelAutoOpenTimeoutRef.current = null;
     }, CONFIG_PANEL_AUTO_OPEN_DELAY_MS);
   }, [isConfigPanelPinned, isConfigPanelOpen, setConfigPanelOpenPreservingPage]);
+
+  useEffect(() => {
+    const target = mainContentRef.current;
+    if (!target) return;
+
+    const updateWidth = () => {
+      const nextWidth = Math.floor(target.clientWidth || 0);
+      setMainContentWidth(prev => (prev === nextWidth ? prev : nextWidth));
+    };
+
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!isConfigPanelOpen || mainContentWidth <= 0) return;
+    const nextCap = Math.max(0, mainContentWidth - PAGE_LIST_ROW_HORIZONTAL_PADDING);
+
+    setConfigPanelPageMaxWidthByGalleryMode(prev => {
+      if (prev[galleryMode] === nextCap) return prev;
+      return { ...prev, [galleryMode]: nextCap };
+    });
+  }, [isConfigPanelOpen, mainContentWidth, galleryMode]);
+
+  const effectivePageMaxWidth = useMemo(() => {
+    const galleryCap = galleryMode === 'collapsed' ? COLLAPSED_PAGE_MAX_WIDTH : undefined;
+    const configPanelCap = (!isConfigPanelPinned && !isConfigPanelOpen)
+      ? resolveConfigPanelCapForMode(galleryMode)
+      : undefined;
+
+    if (galleryCap && configPanelCap) return Math.min(galleryCap, configPanelCap);
+    return galleryCap ?? configPanelCap;
+  }, [galleryMode, isConfigPanelPinned, isConfigPanelOpen, resolveConfigPanelCapForMode]);
 
   useEffect(() => {
     return () => {
@@ -1134,7 +1181,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
           )}
 
           {/* Main Content: Album Preview */}
-          <div className="flex-1 min-w-0 pr-6 h-full flex flex-col" style={{ colorScheme: 'light' }}>
+          <div ref={mainContentRef} className="flex-1 min-w-0 pr-6 h-full flex flex-col" style={{ colorScheme: 'light' }}>
             {isLoading || isAlbumLoading || !isInitialized ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center animate-in fade-in duration-300 bg-muted/30 border-2 border-dashed rounded-lg">
                 <Loader2 className="h-12 w-12 mb-4 animate-spin text-primary" />
@@ -1150,7 +1197,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
                 pages={albumPages}
                 config={config}
                 allPhotos={allPhotos}
-                pageMaxWidth={galleryMode === 'collapsed' ? COLLAPSED_PAGE_MAX_WIDTH : undefined}
+                pageMaxWidth={effectivePageMaxWidth}
                 onDeletePage={deletePage}
                 onAddSpread={addSpreadPage}
                 onUpdateLayout={updatePageLayout}
