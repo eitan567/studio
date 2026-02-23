@@ -693,6 +693,8 @@ const PhotoGalleryCardComponent = ({
     const selectedUnusedCount = selectedPhotos.size - selectedUsedCount;
 
     const usedCount = Object.keys(photoUsageDetails).length;
+    const showRiskyGalleryToolbarActions = settings.showRiskyGalleryToolbarActions;
+    const showDangerousGalleryResetActions = settings.showDangerousGalleryResetActions;
 
     return (
         <div className="h-full space-y-0">
@@ -719,14 +721,16 @@ const PhotoGalleryCardComponent = ({
                         <div className="flex items-center gap-1">
                             {/* Icon Buttons */}
                             <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={generateDummyPhotos} disabled={isLoadingPhotos || !randomSeed}>
-                                            {isLoadingPhotos ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Load sample photos</TooltipContent>
-                                </Tooltip>
+                                {showRiskyGalleryToolbarActions && (
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={generateDummyPhotos} disabled={isLoadingPhotos || !randomSeed}>
+                                                {isLoadingPhotos ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Load sample photos</TooltipContent>
+                                    </Tooltip>
+                                )}
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => folderUploadRef.current?.click()}>
@@ -743,22 +747,26 @@ const PhotoGalleryCardComponent = ({
                                     </TooltipTrigger>
                                     <TooltipContent>Upload photos</TooltipContent>
                                 </Tooltip>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleGenerateAlbum}>
-                                            <Wand2 className="h-3 w-3" />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Auto-fill Album (Regenerate)</TooltipContent>
-                                </Tooltip>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleAutoFillAlbum}>
-                                            <RotateCcw className="h-3 w-3 rotate-90" />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Fill Empty Slots (Keep Layout)</TooltipContent>
-                                </Tooltip>
+                                {showRiskyGalleryToolbarActions && (
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleGenerateAlbum}>
+                                                <Wand2 className="h-3 w-3" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Auto-fill Album (Regenerate)</TooltipContent>
+                                    </Tooltip>
+                                )}
+                                {showRiskyGalleryToolbarActions && (
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleAutoFillAlbum}>
+                                                <RotateCcw className="h-3 w-3 rotate-90" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Fill Empty Slots (Keep Layout)</TooltipContent>
+                                    </Tooltip>
+                                )}
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <Button
@@ -968,49 +976,51 @@ const PhotoGalleryCardComponent = ({
 
                 {/* Footer Bar with Photo Count and Action Buttons */}
                 <div className="p-3 border-t bg-muted/30 flex flex-col gap-2">
-                    <div className="flex items-center justify-center gap-2">
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
-                                    <Eraser className="h-3 w-3" />
-                                    Clear Gallery
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Clear entire gallery?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        This will remove all photos. This action cannot be undone.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={handleClearGallery}>Clear Gallery</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
+                    {showDangerousGalleryResetActions && (
+                        <div className="flex items-center justify-center gap-2">
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                                        <Eraser className="h-3 w-3" />
+                                        Clear Gallery
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Clear entire gallery?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This will remove all photos. This action cannot be undone.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleClearGallery}>Clear Gallery</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
 
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
-                                    <RotateCcw className="h-3 w-3" />
-                                    Reset Album
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Reset album layout?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        This will remove all pages and photos from the album. The gallery will remain.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={handleResetAlbum}>Reset Album</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    </div>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                                        <RotateCcw className="h-3 w-3" />
+                                        Reset Album
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Reset album layout?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This will remove all pages and photos from the album. The gallery will remain.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleResetAlbum}>Reset Album</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
+                    )}
                     <p className="text-[11px] text-muted-foreground text-center px-1">
                         {allPhotos.length} photos total • {usedCount} used{emptySlots > 0 && ` • ${emptySlots} empty`} • {settings.duplicateUploadAction === 'ignore' ? 'Ignore dupes' : 'Overwrite dupes'}
                     </p>

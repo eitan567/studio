@@ -504,6 +504,37 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                     <div className="space-y-6">
                                         {/* Appearance Section Removed per user request */}
 
+                                        <div className="space-y-4">
+                                            <h3 className="text-lg font-medium">Gallery Safety</h3>
+                                            <div className="space-y-3">
+                                                <div className="flex items-center justify-between rounded-md border p-3">
+                                                    <div className="space-y-0.5">
+                                                        <Label className="text-base">Show risky gallery toolbar icons</Label>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Includes: sample photos, regenerate album, and fill empty slots.
+                                                        </p>
+                                                    </div>
+                                                    <Switch
+                                                        checked={localSettings.showRiskyGalleryToolbarActions}
+                                                        onCheckedChange={(checked) => handleUpdateLocal({ showRiskyGalleryToolbarActions: checked })}
+                                                    />
+                                                </div>
+
+                                                <div className="flex items-center justify-between rounded-md border p-3">
+                                                    <div className="space-y-0.5">
+                                                        <Label className="text-base">Show dangerous reset buttons in gallery</Label>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Includes: Clear Gallery and Reset Album actions.
+                                                        </p>
+                                                    </div>
+                                                    <Switch
+                                                        checked={localSettings.showDangerousGalleryResetActions}
+                                                        onCheckedChange={(checked) => handleUpdateLocal({ showDangerousGalleryResetActions: checked })}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         <div className="pt-6 border-t">
                                             <h3 className="text-lg font-medium text-destructive mb-4">Danger Zone</h3>
                                             <AlertDialog>

@@ -55,6 +55,10 @@ export interface UserSettings {
 
     // --- [CATEGORY: Upload API] ---
     duplicateUploadAction: 'ignore' | 'replace';
+
+    // --- [CATEGORY: Safety Controls] ---
+    showRiskyGalleryToolbarActions: boolean;
+    showDangerousGalleryResetActions: boolean;
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -77,6 +81,9 @@ export const DEFAULT_SETTINGS: UserSettings = {
     hiddenTemplateIds: [],
 
     duplicateUploadAction: 'ignore',
+
+    showRiskyGalleryToolbarActions: false,
+    showDangerousGalleryResetActions: false,
 
     defaultSpineWidth: 15,
     defaultSpineColor: '#000000',
