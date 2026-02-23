@@ -526,6 +526,14 @@ export function PageEditor({ albumId }: PageEditorProps) {
   const [isClient, setIsClient] = useState(false);
   // allowDuplicates moved up
   const [multiSelectMode, setMultiSelectModeLocal] = useState(true); // true = checkboxes, false = trash icons
+  // Left Config Sidebar State
+  const CONFIG_PANEL_WIDTH = 300;
+  const [isConfigPanelPinned, setIsConfigPanelPinned] = useState(true);
+  const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(true);
+  const configPanelRecenterTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const configPanelAutoOpenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const CONFIG_PANEL_TRANSITION_MS = 300;
+  const CONFIG_PANEL_AUTO_OPEN_DELAY_MS = 220;
   // Gallery Sidebar State
   type GalleryMode = 'collapsed' | 'default' | 'expanded';
   const [galleryMode, setGalleryMode] = useState<GalleryMode>('default');
@@ -572,10 +580,73 @@ export function PageEditor({ albumId }: PageEditorProps) {
     }, GALLERY_WIDTH_TRANSITION_MS + 40);
   }, [galleryMode]);
 
+  const setConfigPanelOpenPreservingPage = useCallback((nextOpen: boolean) => {
+    if (nextOpen === isConfigPanelOpen) return;
+
+    const currentPageIndex = virtualListRef.current?.getCurrentPageIndex?.();
+
+    if (configPanelRecenterTimeoutRef.current) {
+      clearTimeout(configPanelRecenterTimeoutRef.current);
+      configPanelRecenterTimeoutRef.current = null;
+    }
+
+    setIsConfigPanelOpen(nextOpen);
+
+    if (typeof currentPageIndex !== 'number' || Number.isNaN(currentPageIndex)) {
+      return;
+    }
+
+    const recenterToPreviousPage = () => {
+      virtualListRef.current?.scrollToPage(currentPageIndex);
+    };
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(recenterToPreviousPage);
+    });
+
+    configPanelRecenterTimeoutRef.current = setTimeout(() => {
+      recenterToPreviousPage();
+      configPanelRecenterTimeoutRef.current = null;
+    }, CONFIG_PANEL_TRANSITION_MS + 40);
+  }, [isConfigPanelOpen]);
+
+  const handleToggleConfigPanelPinned = useCallback(() => {
+    setIsConfigPanelPinned((prev) => {
+      const next = !prev;
+      if (next) {
+        setConfigPanelOpenPreservingPage(true);
+      }
+      return next;
+    });
+  }, [setConfigPanelOpenPreservingPage]);
+
+  const cancelConfigPanelAutoOpen = useCallback(() => {
+    if (configPanelAutoOpenTimeoutRef.current) {
+      clearTimeout(configPanelAutoOpenTimeoutRef.current);
+      configPanelAutoOpenTimeoutRef.current = null;
+    }
+  }, []);
+
+  const scheduleConfigPanelAutoOpen = useCallback(() => {
+    if (isConfigPanelPinned || isConfigPanelOpen) return;
+    if (configPanelAutoOpenTimeoutRef.current) return;
+
+    configPanelAutoOpenTimeoutRef.current = setTimeout(() => {
+      setConfigPanelOpenPreservingPage(true);
+      configPanelAutoOpenTimeoutRef.current = null;
+    }, CONFIG_PANEL_AUTO_OPEN_DELAY_MS);
+  }, [isConfigPanelPinned, isConfigPanelOpen, setConfigPanelOpenPreservingPage]);
+
   useEffect(() => {
     return () => {
       if (galleryRecenterTimeoutRef.current) {
         clearTimeout(galleryRecenterTimeoutRef.current);
+      }
+      if (configPanelRecenterTimeoutRef.current) {
+        clearTimeout(configPanelRecenterTimeoutRef.current);
+      }
+      if (configPanelAutoOpenTimeoutRef.current) {
+        clearTimeout(configPanelAutoOpenTimeoutRef.current);
       }
     };
   }, []);
@@ -975,34 +1046,92 @@ export function PageEditor({ albumId }: PageEditorProps) {
           }}
         >
           {/* Left Sidebar: Config & Tools */}
-          <div className="w-[300px] shrink-0 overflow-y-auto border-r bg-background z-10">
-            {isClient && isInitialized ? (
-              <AlbumConfigCard
-                form={form}
-                photoGap={photoGap}
-                setPhotoGap={setPhotoGap}
-                pageMargin={pageMargin}
-                setPageMargin={setPageMargin}
-                cornerRadius={cornerRadius}
-                setCornerRadius={setCornerRadius}
-                backgroundColor={backgroundColor}
-                setBackgroundColor={setBackgroundColor}
-                handleColorChange={handleColorChange}
-                backgroundImage={backgroundImage}
-                setBackgroundImage={setBackgroundImage}
-                availableBackgrounds={availableBackgrounds}
-                setAvailableBackgrounds={setAvailableBackgrounds}
-                backgroundUploadRef={backgroundUploadRef}
-                pagesWithEmptySlots={pagesWithEmptySlots}
-                onNavigateToPage={(index) => virtualListRef.current?.scrollToPage(index)}
-              />
-            ) : (
-              <div className="space-y-4">
-                <Skeleton className="h-[300px] w-full rounded-xl" />
-                <Skeleton className="h-[100px] w-full rounded-xl" />
-              </div>
-            )}
+          <div
+            style={{ width: `${isConfigPanelOpen ? CONFIG_PANEL_WIDTH : 0}px` }}
+            className="shrink-0 transition-[width] duration-300 ease-in-out overflow-hidden will-change-[width]"
+            onMouseLeave={() => {
+              if (!isConfigPanelPinned) {
+                setConfigPanelOpenPreservingPage(false);
+              }
+            }}
+          >
+            {/* Rigid container to prevent layout thrashing during transition */}
+            <div
+              className={cn(
+                "h-full w-[300px] min-w-full overflow-y-auto border-r bg-background z-10 transition-transform duration-300 ease-in-out will-change-transform",
+                isConfigPanelOpen ? "translate-x-0" : "-translate-x-full"
+              )}
+            >
+              {isClient && isInitialized ? (
+                <AlbumConfigCard
+                  form={form}
+                  photoGap={photoGap}
+                  setPhotoGap={setPhotoGap}
+                  pageMargin={pageMargin}
+                  setPageMargin={setPageMargin}
+                  cornerRadius={cornerRadius}
+                  setCornerRadius={setCornerRadius}
+                  backgroundColor={backgroundColor}
+                  setBackgroundColor={setBackgroundColor}
+                  handleColorChange={handleColorChange}
+                  backgroundImage={backgroundImage}
+                  setBackgroundImage={setBackgroundImage}
+                  availableBackgrounds={availableBackgrounds}
+                  setAvailableBackgrounds={setAvailableBackgrounds}
+                  backgroundUploadRef={backgroundUploadRef}
+                  pagesWithEmptySlots={pagesWithEmptySlots}
+                  onNavigateToPage={(index) => virtualListRef.current?.scrollToPage(index)}
+                  isPinned={isConfigPanelPinned}
+                  onTogglePinned={handleToggleConfigPanelPinned}
+                />
+              ) : (
+                <div className="space-y-4">
+                  <Skeleton className="h-[300px] w-full rounded-xl" />
+                  <Skeleton className="h-[100px] w-full rounded-xl" />
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Config Control Strip (visible only when unpinned) */}
+          {!isConfigPanelPinned && (
+            <div
+              className="w-[1px] shrink-0 bg-border z-20 flex flex-col items-center justify-center relative overflow-visible"
+              onMouseEnter={scheduleConfigPanelAutoOpen}
+              onMouseLeave={cancelConfigPanelAutoOpen}
+            >
+              {!isConfigPanelOpen && (
+                <div
+                  className="absolute top-0 left-0 h-full w-6"
+                  onMouseEnter={scheduleConfigPanelAutoOpen}
+                  onMouseLeave={cancelConfigPanelAutoOpen}
+                />
+              )}
+              <div className="absolute top-8 -translate-y-1/2 flex flex-col gap-1 -left-2 -translate-x-[50%] z-30">
+                {isConfigPanelOpen ? (
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="h-10 w-4 rounded-r-md rounded-l-none border shadow-md bg-background translate-x-full"
+                    onClick={() => setConfigPanelOpenPreservingPage(false)}
+                    title="Collapse Album Config"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="h-10 w-4 rounded-r-md rounded-l-none border shadow-md bg-background translate-x-full"
+                    onClick={() => setConfigPanelOpenPreservingPage(true)}
+                    title="Open Album Config"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Main Content: Album Preview */}
           <div className="flex-1 min-w-0 pr-6 h-full flex flex-col" style={{ colorScheme: 'light' }}>

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import { Trash2 } from 'lucide-react';
+import { Lock, Trash2, Unlock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Form,
@@ -43,6 +43,8 @@ interface AlbumConfigCardProps {
     backgroundUploadRef: React.RefObject<HTMLInputElement | null>;
     pagesWithEmptySlots?: { index: number; label: string }[];
     onNavigateToPage?: (index: number) => void;
+    isPinned?: boolean;
+    onTogglePinned?: () => void;
     // No preview callbacks - handled by context
 }
 
@@ -64,6 +66,8 @@ export function AlbumConfigCard({
     backgroundUploadRef,
     pagesWithEmptySlots = [],
     onNavigateToPage,
+    isPinned = true,
+    onTogglePinned,
 }: AlbumConfigCardProps) {
     const { setPreviewPhotoGap, setPreviewPageMargin, setPreviewCornerRadius } = useAlbumEditor();
     // Local slider states for smooth dragging UX
@@ -109,8 +113,20 @@ export function AlbumConfigCard({
 
     return (
         <div className="h-full flex flex-col bg-background">
-            <div className="p-4 py-3 border-b">
+            <div className="p-4 py-3 border-b flex items-center justify-between gap-2">
                 <h2 className="font-semibold text-sm">Album Config</h2>
+                {onTogglePinned && (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={onTogglePinned}
+                        title={isPinned ? 'Unlock panel collapse' : 'Lock panel open'}
+                    >
+                        {isPinned ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
+                    </Button>
+                )}
             </div>
             <div className="p-4 space-y-6">
                 <Form {...form}>
