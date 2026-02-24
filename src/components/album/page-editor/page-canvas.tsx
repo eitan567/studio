@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import {
     Trash2, LayoutTemplate, Download, Wand2, Undo, Pencil, BookOpen,
@@ -57,17 +58,32 @@ type TemplateSection = {
     templates: AdvancedTemplate[];
 };
 
+const TEMPLATE_HOVER_PREVIEW_DELAY_MS = 2000;
+
+type TemplateHoverPreviewState = {
+    template: AdvancedTemplate;
+    aspectRatio: number;
+    pointerX: number;
+    pointerY: number;
+};
+
 
 const TemplateThumbnail = ({
     template,
     isSelected,
     onSelect,
-    aspectRatio = 1
+    aspectRatio = 1,
+    onHoverStart,
+    onHoverMove,
+    onHoverEnd
 }: {
     template: AdvancedTemplate;
     isSelected: boolean;
     onSelect: (templateId: string) => void;
     aspectRatio?: number;
+    onHoverStart?: (template: AdvancedTemplate, aspectRatio: number, event: React.MouseEvent<HTMLDivElement>) => void;
+    onHoverMove?: (template: AdvancedTemplate, aspectRatio: number, event: React.MouseEvent<HTMLDivElement>) => void;
+    onHoverEnd?: (templateId: string | number) => void;
 }) => {
     const renderPreview = () => {
         // All templates now use regions
@@ -81,6 +97,9 @@ const TemplateThumbnail = ({
     return (
         <DropdownMenuItem
             onSelect={() => onSelect(String(template.id))}
+            onMouseEnter={(event) => onHoverStart?.(template, aspectRatio, event)}
+            onMouseMove={(event) => onHoverMove?.(template, aspectRatio, event)}
+            onMouseLeave={() => onHoverEnd?.(template.id)}
             className={cn("p-0 focus:bg-accent/50 rounded-md cursor-pointer", isSelected && "ring-2 ring-primary")}
         >
             <div
@@ -273,6 +292,92 @@ const PageToolbar = ({
     const filteredCoverTemplates = filterTemplates(coverTemplates, 'cover');
     const filteredAdvancedTemplates = filterTemplates(advancedTemplates, 'advanced');
     const [latestSavedTemplateIds, setLatestSavedTemplateIds] = useState<string[]>([]);
+    const [templateHoverPreview, setTemplateHoverPreview] = useState<TemplateHoverPreviewState | null>(null);
+    const hoverPreviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const hoveredTemplateIdRef = useRef<string | null>(null);
+    const hoverPointerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+    const clearHoverPreviewTimer = useCallback(() => {
+        if (hoverPreviewTimerRef.current) {
+            clearTimeout(hoverPreviewTimerRef.current);
+            hoverPreviewTimerRef.current = null;
+        }
+    }, []);
+
+    const hideTemplateHoverPreview = useCallback((templateId?: string | number) => {
+        const normalizedId = templateId === undefined || templateId === null ? null : String(templateId);
+
+        if (normalizedId === null || hoveredTemplateIdRef.current === normalizedId) {
+            hoveredTemplateIdRef.current = null;
+            clearHoverPreviewTimer();
+        }
+
+        setTemplateHoverPreview((current) => {
+            if (!current) return null;
+            if (normalizedId === null || String(current.template.id) === normalizedId) return null;
+            return current;
+        });
+    }, [clearHoverPreviewTimer]);
+
+    const handleTemplateHoverStart = useCallback((
+        template: AdvancedTemplate,
+        aspectRatio: number,
+        event: React.MouseEvent<HTMLDivElement>
+    ) => {
+        const templateId = String(template.id);
+        hoveredTemplateIdRef.current = templateId;
+        hoverPointerRef.current = { x: event.clientX, y: event.clientY };
+        clearHoverPreviewTimer();
+
+        hoverPreviewTimerRef.current = setTimeout(() => {
+            if (hoveredTemplateIdRef.current !== templateId) return;
+            setTemplateHoverPreview({
+                template,
+                aspectRatio,
+                pointerX: hoverPointerRef.current.x,
+                pointerY: hoverPointerRef.current.y
+            });
+        }, TEMPLATE_HOVER_PREVIEW_DELAY_MS);
+    }, [clearHoverPreviewTimer]);
+
+    const handleTemplateHoverMove = useCallback((
+        template: AdvancedTemplate,
+        aspectRatio: number,
+        event: React.MouseEvent<HTMLDivElement>
+    ) => {
+        const templateId = String(template.id);
+        if (hoveredTemplateIdRef.current !== templateId) return;
+
+        hoverPointerRef.current = { x: event.clientX, y: event.clientY };
+
+        setTemplateHoverPreview((current) => {
+            // Before opening, only keep latest pointer for the delayed initial position.
+            if (!current || String(current.template.id) !== templateId) {
+                return current;
+            }
+
+            if (
+                current.pointerX === event.clientX
+                && current.pointerY === event.clientY
+                && current.aspectRatio === aspectRatio
+            ) {
+                return current;
+            }
+
+            return {
+                ...current,
+                aspectRatio,
+                pointerX: event.clientX,
+                pointerY: event.clientY
+            };
+        });
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            clearHoverPreviewTimer();
+        };
+    }, [clearHoverPreviewTimer]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -387,7 +492,11 @@ const PageToolbar = ({
         const hasTemplates = sections.some((section) => section.templates.length > 0);
 
         return (
-            <DropdownMenuContent className="p-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 w-[440px]">
+            <DropdownMenuContent
+                className="p-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 w-[440px]"
+                onEscapeKeyDown={() => hideTemplateHoverPreview()}
+                onInteractOutside={() => hideTemplateHoverPreview()}
+            >
                 {!hasTemplates ? (
                     <div className="px-2 py-1 text-xs text-muted-foreground">No templates found</div>
                 ) : (
@@ -406,8 +515,14 @@ const PageToolbar = ({
                                             key={template.id}
                                             template={template}
                                             isSelected={isTemplateSelected(selectedLayoutId, template.id)}
-                                            onSelect={onSelectTemplate}
+                                            onSelect={(templateId) => {
+                                                hideTemplateHoverPreview();
+                                                onSelectTemplate(templateId);
+                                            }}
                                             aspectRatio={aspectRatio}
+                                            onHoverStart={handleTemplateHoverStart}
+                                            onHoverMove={handleTemplateHoverMove}
+                                            onHoverEnd={hideTemplateHoverPreview}
                                         />
                                     ))}
                                 </div>
@@ -419,6 +534,32 @@ const PageToolbar = ({
         );
     };
 
+    const renderTemplateHoverPreview = () => {
+        if (!templateHoverPreview) return null;
+        if (typeof document === 'undefined') return null;
+
+        const previewWidth = templateHoverPreview.aspectRatio >= 1.5 ? 340 : 280;
+
+        return createPortal(
+            <div
+                className="pointer-events-none fixed z-[9999] w-auto rounded-lg border border-border/80 bg-background/95 p-2 shadow-2xl backdrop-blur-sm"
+                style={{
+                    left: templateHoverPreview.pointerX,
+                    top: templateHoverPreview.pointerY,
+                    width: previewWidth,
+                    transform: 'translate(-100%, -100%)'
+                }}
+            >
+                <div className="mb-1.5 text-[11px] font-semibold text-foreground truncate">
+                    {templateHoverPreview.template.name}
+                </div>
+                <div className="overflow-hidden rounded-md border border-border/70 bg-muted" style={{ aspectRatio: templateHoverPreview.aspectRatio }}>
+                    <TemplatePreview template={templateHoverPreview.template} />
+                </div>
+            </div>,
+            document.body
+        );
+    };
     const [showSpineSettings, setShowSpineSettings] = useState(false);
     const isCoverOrSpread = page.isCover || page.type === 'spread';
     const isSplit = page.isCover ? (page.coverType === 'split' || !page.coverType) : (page.spreadMode === 'split');
@@ -464,9 +605,10 @@ const PageToolbar = ({
 
     if (isCoverOrSpread) {
         return (
-            <div className="">
-                <TooltipProvider>
-                    <div className="flex items-center gap-1 rounded-lg border bg-background p-0.5 shadow-lg px-2 flex-wrap min-h-[42px]">
+            <>
+                <div className="">
+                    <TooltipProvider>
+                        <div className="flex items-center gap-1 rounded-lg border bg-background p-0.5 shadow-lg px-2 flex-wrap min-h-[42px]">
                         <span className="text-sm font-semibold text-muted-foreground mr-auto pl-1 whitespace-nowrap">{displayLabel || (page.isCover ? "Cover" : `Page ${pageNumber}`)}</span>
 
                         {/* Layout Toggle - BookOpen icon */}
@@ -656,16 +798,19 @@ const PageToolbar = ({
                         <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => onDownloadPage?.(page.id)}><Download className="h-5 w-5" /></Button></TooltipTrigger><TooltipContent>Download {page.isCover ? "Cover" : "Spread"}</TooltipContent></Tooltip>
                         {!page.isCover && <><div className="h-4 w-px bg-border mx-2" /><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className={cn("text-destructive hover:bg-destructive/10 hover:text-destructive", !canDelete && "opacity-50 cursor-not-allowed")} onClick={() => canDelete && onDeletePage(page.id)} disabled={!canDelete}><Trash2 className="h-5 w-5" /></Button></TooltipTrigger><TooltipContent>Delete Spread</TooltipContent></Tooltip></>}
 
-                    </div >
-                </TooltipProvider >
-            </div >
+                        </div >
+                    </TooltipProvider >
+                </div >
+                {renderTemplateHoverPreview()}
+            </>
         );
     }
 
     return (
-        <div className="mb-2">
-            <TooltipProvider>
-                <div className="flex items-center justify-between gap-1 rounded-lg border bg-background p-0.5 shadow-lg px-2 min-h-[42px]">
+        <>
+            <div className="mb-2">
+                <TooltipProvider>
+                    <div className="flex items-center justify-between gap-1 rounded-lg border bg-background p-0.5 shadow-lg px-2 min-h-[42px]">
                     <span className="text-sm font-semibold text-muted-foreground mr-auto">{displayLabel || `Page ${pageNumber}`}</span>
 
                     {/* Integrated Actions for Single Page */}
@@ -724,9 +869,11 @@ const PageToolbar = ({
                             </div>
                         )
                     }
-                </div >
-            </TooltipProvider >
-        </div >
+                    </div >
+                </TooltipProvider >
+            </div >
+            {renderTemplateHoverPreview()}
+        </>
     );
 };
 
