@@ -554,7 +554,7 @@ const PageToolbar = ({
                     {templateHoverPreview.template.name}
                 </div>
                 <div className="overflow-hidden rounded-md border border-border/70 bg-muted" style={{ aspectRatio: templateHoverPreview.aspectRatio }}>
-                    <TemplatePreview template={templateHoverPreview.template} />
+                    <TemplatePreview template={templateHoverPreview.template} variant="detailed" />
                 </div>
             </div>,
             document.body
