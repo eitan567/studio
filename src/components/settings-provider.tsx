@@ -59,6 +59,7 @@ export interface UserSettings {
     // --- [CATEGORY: Safety Controls] ---
     showRiskyGalleryToolbarActions: boolean;
     showDangerousGalleryResetActions: boolean;
+    showExistingTemplateEditDeleteIcons: boolean;
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -84,6 +85,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
 
     showRiskyGalleryToolbarActions: false,
     showDangerousGalleryResetActions: false,
+    showExistingTemplateEditDeleteIcons: false,
 
     defaultSpineWidth: 15,
     defaultSpineColor: '#000000',

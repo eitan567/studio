@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import { Save, RotateCcw } from 'lucide-react';
 import { DEFAULT_SETTINGS } from '@/components/settings-provider';
 import {
@@ -432,6 +433,7 @@ export function AdminSettingsDialog({ open, onOpenChange }: AdminSettingsDialogP
         spineEffectOpacity: settings.spineEffectOpacity,
         spineEffectCenterOpacity: settings.spineEffectCenterOpacity,
         duplicateUploadAction: settings.duplicateUploadAction,
+        showExistingTemplateEditDeleteIcons: settings.showExistingTemplateEditDeleteIcons,
     });
 
     // Preview Image State
@@ -460,6 +462,7 @@ export function AdminSettingsDialog({ open, onOpenChange }: AdminSettingsDialogP
                 spineEffectOpacity: settings.spineEffectOpacity,
                 spineEffectCenterOpacity: settings.spineEffectCenterOpacity,
                 duplicateUploadAction: settings.duplicateUploadAction,
+                showExistingTemplateEditDeleteIcons: settings.showExistingTemplateEditDeleteIcons,
             });
         }
     }, [settings, open]);
@@ -473,7 +476,8 @@ export function AdminSettingsDialog({ open, onOpenChange }: AdminSettingsDialogP
             localSettings.spineEffectWidth !== settings.spineEffectWidth ||
             localSettings.spineEffectOpacity !== settings.spineEffectOpacity ||
             localSettings.spineEffectCenterOpacity !== settings.spineEffectCenterOpacity ||
-            localSettings.duplicateUploadAction !== settings.duplicateUploadAction
+            localSettings.duplicateUploadAction !== settings.duplicateUploadAction ||
+            localSettings.showExistingTemplateEditDeleteIcons !== settings.showExistingTemplateEditDeleteIcons
         );
     }, [localSettings, settings]);
 
@@ -506,6 +510,7 @@ export function AdminSettingsDialog({ open, onOpenChange }: AdminSettingsDialogP
             spineEffectOpacity: DEFAULT_SETTINGS.spineEffectOpacity,
             spineEffectCenterOpacity: DEFAULT_SETTINGS.spineEffectCenterOpacity,
             duplicateUploadAction: DEFAULT_SETTINGS.duplicateUploadAction,
+            showExistingTemplateEditDeleteIcons: DEFAULT_SETTINGS.showExistingTemplateEditDeleteIcons,
         });
     };
 
@@ -753,6 +758,19 @@ export function AdminSettingsDialog({ open, onOpenChange }: AdminSettingsDialogP
                                                 </div>
                                             </div>
                                         </RadioGroup>
+                                    </div>
+
+                                    <div className="flex items-center justify-between rounded-md border p-3">
+                                        <div className="space-y-0.5">
+                                            <Label className="text-base">Show edit/delete/metadata icons for existing templates</Label>
+                                            <p className="text-xs text-muted-foreground">
+                                                When off, edit/delete/metadata icons are shown only for new unsaved templates in the NEW tab.
+                                            </p>
+                                        </div>
+                                        <Switch
+                                            checked={localSettings.showExistingTemplateEditDeleteIcons}
+                                            onCheckedChange={(checked) => setLocalSettings(prev => ({ ...prev, showExistingTemplateEditDeleteIcons: checked }))}
+                                        />
                                     </div>
                                 </div>
                             </div>

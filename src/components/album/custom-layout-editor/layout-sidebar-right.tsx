@@ -11,6 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { TemplatePreview } from '@/components/album/shared/template-preview';
 import { TemplateMetadataDialog } from './template-metadata-dialog';
+import { useSettings } from '@/hooks/use-settings';
 
 import { AlbumConfig } from '@/lib/types';
 import { AdvancedTemplate } from '@/lib/advanced-layout-types';
@@ -67,6 +68,7 @@ export const LayoutSidebarRight = ({
     onUpdateLocalTemplateMetadata
 }: LayoutSidebarRightProps) => {
     const { allTemplates: hookTemplates, refresh } = useTemplates();
+    const { settings } = useSettings();
     const [activeTab, setActiveTab] = React.useState<'standard' | 'new'>('standard');
 
     // Use prop if available (reactive from parent), otherwise fall back to hook
@@ -141,6 +143,12 @@ export const LayoutSidebarRight = ({
         if (templateId === null || templateId === undefined) return false;
         return String(editingTemplateId) === String(templateId);
     }, [editingTemplateId]);
+    const isUnsavedNewTemplate = React.useCallback((template: AdvancedTemplate) => {
+        return typeof template.id === 'string' && template.id.includes('-');
+    }, []);
+    const canShowEditDeleteActions = React.useCallback((template: AdvancedTemplate) => {
+        return settings.showExistingTemplateEditDeleteIcons || isUnsavedNewTemplate(template);
+    }, [isUnsavedNewTemplate, settings.showExistingTemplateEditDeleteIcons]);
 
     return (
         <div className="w-full h-full border-l bg-background flex flex-col shrink-0 overflow-hidden">
@@ -263,53 +271,61 @@ export const LayoutSidebarRight = ({
                                                     </span>
                                                 )}
 
-                                                {/* Edit Action (Top Right) */}
-                                                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                                                    <Button
-                                                        variant="secondary"
-                                                        size="icon"
-                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            onEditAdvancedTemplate?.(template, sidebarMode);
-                                                        }}
-                                                        title="Edit this Layout"
-                                                    >
-                                                        <Pencil className="h-2.5 w-2.5 text-foreground" />
-                                                    </Button>
-                                                </div>
+                                                {canShowEditDeleteActions(template) && (
+                                                    <>
+                                                        {/* Edit Action (Top Right) */}
+                                                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                            <Button
+                                                                variant="secondary"
+                                                                size="icon"
+                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    onEditAdvancedTemplate?.(template, sidebarMode);
+                                                                }}
+                                                                title="Edit this Layout"
+                                                            >
+                                                                <Pencil className="h-2.5 w-2.5 text-foreground" />
+                                                            </Button>
+                                                        </div>
 
-                                                {/* Delete Action (Top Left) */}
-                                                <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-destructive hover:text-destructive-foreground text-destructive border border-border/10 backdrop-blur-[2px] p-0"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            onDeleteTemplate?.(template);
-                                                        }}
-                                                        title="Delete Template"
-                                                    >
-                                                        <Trash2 className="h-2.5 w-2.5" />
-                                                    </Button>
-                                                </div>
+                                                        {/* Delete Action (Top Left) */}
+                                                        <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-destructive hover:text-destructive-foreground text-destructive border border-border/10 backdrop-blur-[2px] p-0"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    onDeleteTemplate?.(template);
+                                                                }}
+                                                                title="Delete Template"
+                                                            >
+                                                                <Trash2 className="h-2.5 w-2.5" />
+                                                            </Button>
+                                                        </div>
+                                                    </>
+                                                )}
 
-                                                {/* Metadata Action (Bottom Left) */}
-                                                <div className="absolute bottom-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                                                    <Button
-                                                        variant="secondary"
-                                                        size="icon"
-                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setMetadataInfoTemplate(template);
-                                                        }}
-                                                        title="Edit Metadata"
-                                                    >
-                                                        <Settings className="h-2.5 w-2.5 text-foreground" />
-                                                    </Button>
-                                                </div>
+                                                {canShowEditDeleteActions(template) && (
+                                                    <>
+                                                        {/* Metadata Action (Bottom Left) */}
+                                                        <div className="absolute bottom-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                            <Button
+                                                                variant="secondary"
+                                                                size="icon"
+                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setMetadataInfoTemplate(template);
+                                                                }}
+                                                                title="Edit Metadata"
+                                                            >
+                                                                <Settings className="h-2.5 w-2.5 text-foreground" />
+                                                            </Button>
+                                                        </div>
+                                                    </>
+                                                )}
 
                                                 {/* Clone Action (Bottom Right) */}
                                                 <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
@@ -374,53 +390,61 @@ export const LayoutSidebarRight = ({
                                                             </span>
                                                         )}
 
-                                                        {/* Edit Action (Top Right) */}
-                                                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                                                            <Button
-                                                                variant="secondary"
-                                                                size="icon"
-                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    onEditAdvancedTemplate?.(template, sidebarMode);
-                                                                }}
-                                                                title="Edit Template"
-                                                            >
-                                                                <Pencil className="h-2.5 w-2.5 text-foreground" />
-                                                            </Button>
-                                                        </div>
+                                                        {canShowEditDeleteActions(template) && (
+                                                            <>
+                                                                {/* Edit Action (Top Right) */}
+                                                                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                                    <Button
+                                                                        variant="secondary"
+                                                                        size="icon"
+                                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            onEditAdvancedTemplate?.(template, sidebarMode);
+                                                                        }}
+                                                                        title="Edit Template"
+                                                                    >
+                                                                        <Pencil className="h-2.5 w-2.5 text-foreground" />
+                                                                    </Button>
+                                                                </div>
 
-                                                        {/* Delete Action (Top Left) */}
-                                                        <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-destructive hover:text-destructive-foreground text-destructive border border-border/10 backdrop-blur-[2px] p-0"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    onDeleteTemplate?.(template);
-                                                                }}
-                                                                title="Delete Template"
-                                                            >
-                                                                <Trash2 className="h-2.5 w-2.5" />
-                                                            </Button>
-                                                        </div>
+                                                                {/* Delete Action (Top Left) */}
+                                                                <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-destructive hover:text-destructive-foreground text-destructive border border-border/10 backdrop-blur-[2px] p-0"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            onDeleteTemplate?.(template);
+                                                                        }}
+                                                                        title="Delete Template"
+                                                                    >
+                                                                        <Trash2 className="h-2.5 w-2.5" />
+                                                                    </Button>
+                                                                </div>
+                                                            </>
+                                                        )}
 
-                                                        {/* Metadata Action (Bottom Left) */}
-                                                        <div className="absolute bottom-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                                                            <Button
-                                                                variant="secondary"
-                                                                size="icon"
-                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setMetadataInfoTemplate(template);
-                                                                }}
-                                                                title="Edit Metadata"
-                                                            >
-                                                                <Settings className="h-2.5 w-2.5 text-foreground" />
-                                                            </Button>
-                                                        </div>
+                                                        {canShowEditDeleteActions(template) && (
+                                                            <>
+                                                                {/* Metadata Action (Bottom Left) */}
+                                                                <div className="absolute bottom-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                                    <Button
+                                                                        variant="secondary"
+                                                                        size="icon"
+                                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setMetadataInfoTemplate(template);
+                                                                        }}
+                                                                        title="Edit Metadata"
+                                                                    >
+                                                                        <Settings className="h-2.5 w-2.5 text-foreground" />
+                                                                    </Button>
+                                                                </div>
+                                                            </>
+                                                        )}
 
                                                         {/* Clone Action (Bottom Right) */}
                                                         <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
@@ -479,53 +503,61 @@ export const LayoutSidebarRight = ({
                                                                     </span>
                                                                 )}
 
-                                                                {/* Edit Action (Top Right) */}
-                                                                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                                                                    <Button
-                                                                        variant="secondary"
-                                                                        size="icon"
-                                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            onEditAdvancedTemplate?.(template, sidebarMode);
-                                                                        }}
-                                                                        title="Edit Template"
-                                                                    >
-                                                                        <Pencil className="h-2.5 w-2.5 text-foreground" />
-                                                                    </Button>
-                                                                </div>
+                                                                {canShowEditDeleteActions(template) && (
+                                                                    <>
+                                                                        {/* Edit Action (Top Right) */}
+                                                                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                                            <Button
+                                                                                variant="secondary"
+                                                                                size="icon"
+                                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    onEditAdvancedTemplate?.(template, sidebarMode);
+                                                                                }}
+                                                                                title="Edit Template"
+                                                                            >
+                                                                                <Pencil className="h-2.5 w-2.5 text-foreground" />
+                                                                            </Button>
+                                                                        </div>
 
-                                                                {/* Delete Action (Top Left) */}
-                                                                <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-destructive hover:text-destructive-foreground text-destructive border border-border/10 backdrop-blur-[2px] p-0"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            onDeleteTemplate?.(template);
-                                                                        }}
-                                                                        title="Delete Template"
-                                                                    >
-                                                                        <Trash2 className="h-2.5 w-2.5" />
-                                                                    </Button>
-                                                                </div>
+                                                                        {/* Delete Action (Top Left) */}
+                                                                        <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-destructive hover:text-destructive-foreground text-destructive border border-border/10 backdrop-blur-[2px] p-0"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    onDeleteTemplate?.(template);
+                                                                                }}
+                                                                                title="Delete Template"
+                                                                            >
+                                                                                <Trash2 className="h-2.5 w-2.5" />
+                                                                            </Button>
+                                                                        </div>
+                                                                    </>
+                                                                )}
 
-                                                                {/* Metadata Action (Bottom Left) */}
-                                                                <div className="absolute bottom-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                                                                    <Button
-                                                                        variant="secondary"
-                                                                        size="icon"
-                                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            setMetadataInfoTemplate(template);
-                                                                        }}
-                                                                        title="Edit Metadata"
-                                                                    >
-                                                                        <Settings className="h-2.5 w-2.5 text-foreground" />
-                                                                    </Button>
-                                                                </div>
+                                                                {canShowEditDeleteActions(template) && (
+                                                                    <>
+                                                                        {/* Metadata Action (Bottom Left) */}
+                                                                        <div className="absolute bottom-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                                            <Button
+                                                                                variant="secondary"
+                                                                                size="icon"
+                                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setMetadataInfoTemplate(template);
+                                                                                }}
+                                                                                title="Edit Metadata"
+                                                                            >
+                                                                                <Settings className="h-2.5 w-2.5 text-foreground" />
+                                                                            </Button>
+                                                                        </div>
+                                                                    </>
+                                                                )}
 
                                                                 {/* Clone Action (Bottom Right) */}
                                                                 <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
