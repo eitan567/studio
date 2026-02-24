@@ -117,6 +117,11 @@ export const LayoutSidebarRight = ({
     ).length, [systemTemplates]);
 
     const customCount = customTemplates.length;
+    const isEditingTemplate = React.useCallback((templateId: string | number | null | undefined) => {
+        if (editingTemplateId === null || editingTemplateId === undefined) return false;
+        if (templateId === null || templateId === undefined) return false;
+        return String(editingTemplateId) === String(templateId);
+    }, [editingTemplateId]);
 
     return (
         <div className="w-full h-full border-l bg-background flex flex-col shrink-0 overflow-hidden">
@@ -201,7 +206,8 @@ export const LayoutSidebarRight = ({
                                                     "w-full rounded-md border-2 p-1 transition-all hover:border-primary/50 relative overflow-hidden",
                                                     selectedLayout === String(template.id)
                                                         ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                                                        : "border-muted bg-muted/30"
+                                                        : "border-muted bg-muted/30",
+                                                    isEditingTemplate(template.id) && "ring-2 ring-indigo-500/50 border-indigo-500"
                                                 )}
                                                 style={{ aspectRatio }}
                                                 title={template.name}
@@ -210,6 +216,12 @@ export const LayoutSidebarRight = ({
                                                     <TemplatePreview template={template} />
                                                 </div>
                                             </button>
+
+                                            {isEditingTemplate(template.id) && (
+                                                <span className="absolute top-1 left-1/2 -translate-x-1/2 rounded-full bg-indigo-500/90 px-1.5 py-0.5 text-[8px] font-semibold text-white pointer-events-none z-20">
+                                                    Editing
+                                                </span>
+                                            )}
 
                                             {/* Edit Action (Top Right) */}
                                             <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
@@ -294,7 +306,7 @@ export const LayoutSidebarRight = ({
                                                                 selectedAdvancedTemplate?.id === template.id
                                                                     ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                                                                     : "border-muted bg-muted/30",
-                                                                editingTemplateId === template.id && "ring-2 ring-indigo-500/50 border-indigo-500"
+                                                                isEditingTemplate(template.id) && "ring-2 ring-indigo-500/50 border-indigo-500"
                                                             )}
                                                             title={`${template.name} (${getPhotoCount(template)} photos)`}
                                                         >
@@ -303,9 +315,14 @@ export const LayoutSidebarRight = ({
                                                             </div>
                                                             <span className="absolute bottom-0 left-0 right-0 text-[8px] text-center bg-background/80 py-0.5 font-medium truncate px-1">
                                                                 {template.name}
-                                                                {editingTemplateId === template.id && " (Editing)"}
                                                             </span>
                                                         </button>
+
+                                                        {isEditingTemplate(template.id) && (
+                                                            <span className="absolute top-1 left-1/2 -translate-x-1/2 rounded-full bg-indigo-500/90 px-1.5 py-0.5 text-[8px] font-semibold text-white pointer-events-none z-20">
+                                                                Editing
+                                                            </span>
+                                                        )}
 
                                                         {/* Edit Action (Top Right) */}
                                                         <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
@@ -394,7 +411,7 @@ export const LayoutSidebarRight = ({
                                                                         selectedAdvancedTemplate?.id === template.id
                                                                             ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                                                                             : "border-muted bg-muted/30",
-                                                                        editingTemplateId === template.id && "ring-2 ring-indigo-500/50 border-indigo-500"
+                                                                        isEditingTemplate(template.id) && "ring-2 ring-indigo-500/50 border-indigo-500"
                                                                     )}
                                                                     title={`${template.name} (${getPhotoCount(template)} photos)`}
                                                                 >
@@ -403,9 +420,14 @@ export const LayoutSidebarRight = ({
                                                                     </div>
                                                                     <span className="absolute bottom-0 left-0 right-0 text-[8px] text-center bg-background/80 py-0.5 font-medium truncate px-1">
                                                                         {template.name}
-                                                                        {editingTemplateId === template.id && " (Editing)"}
                                                                     </span>
                                                                 </button>
+
+                                                                {isEditingTemplate(template.id) && (
+                                                                    <span className="absolute top-1 left-1/2 -translate-x-1/2 rounded-full bg-indigo-500/90 px-1.5 py-0.5 text-[8px] font-semibold text-white pointer-events-none z-20">
+                                                                        Editing
+                                                                    </span>
+                                                                )}
 
                                                                 {/* Edit Action (Top Right) */}
                                                                 <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
