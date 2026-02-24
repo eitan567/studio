@@ -530,6 +530,8 @@ const SETTINGS_PANEL_DOCK_THRESHOLD = LAYERS_PANEL_DOCK_THRESHOLD;
 const SETTINGS_PANEL_WIDTH = 230;
 const SETTINGS_PANEL_MIN_HEIGHT = 240;
 const SETTINGS_PANEL_ESTIMATED_HEIGHT = 470;
+const LATEST_SAVED_TEMPLATES_STORAGE_KEY = 'album:last-saved-template-ids';
+const LATEST_SAVED_TEMPLATES_EVENT = 'album:last-saved-templates';
 
 export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, onAddTemplate }: CustomLayoutEditorOverlayProps) => {
     const { findGridTemplate, defaultGridTemplate, allTemplates, refresh } = useTemplates();
@@ -1533,6 +1535,23 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                         .upsert(templatesToProcess, { onConflict: 'id' });
 
                     if (upsertError) throw upsertError;
+
+                    const latestSavedTemplateIds = Array.from(
+                        new Set(templatesToProcess.map((template) => String(template.id)))
+                    );
+                    if (typeof window !== 'undefined') {
+                        const payload = {
+                            ids: latestSavedTemplateIds,
+                            savedAt: new Date().toISOString()
+                        };
+                        window.localStorage.setItem(
+                            LATEST_SAVED_TEMPLATES_STORAGE_KEY,
+                            JSON.stringify(payload)
+                        );
+                        window.dispatchEvent(
+                            new CustomEvent(LATEST_SAVED_TEMPLATES_EVENT, { detail: payload })
+                        );
+                    }
                 }
                 console.log('Templates saved successfully to Supabase');
 

@@ -43,6 +43,20 @@ import { TemplatePreview } from '@/components/album/shared/template-preview';
 
 
 
+const LATEST_SAVED_TEMPLATES_STORAGE_KEY = 'album:last-saved-template-ids';
+const LATEST_SAVED_TEMPLATES_EVENT = 'album:last-saved-templates';
+
+type LatestSavedTemplatesPayload = {
+    ids?: Array<string | number>;
+    savedAt?: string;
+};
+
+type TemplateSection = {
+    key: string;
+    title: string;
+    templates: AdvancedTemplate[];
+};
+
 
 const TemplateThumbnail = ({
     template,
@@ -258,6 +272,152 @@ const PageToolbar = ({
     const filteredGridTemplates = filterTemplates(gridTemplates, 'grid');
     const filteredCoverTemplates = filterTemplates(coverTemplates, 'cover');
     const filteredAdvancedTemplates = filterTemplates(advancedTemplates, 'advanced');
+    const [latestSavedTemplateIds, setLatestSavedTemplateIds] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const readLatestSavedTemplateIds = () => {
+            try {
+                const raw = window.localStorage.getItem(LATEST_SAVED_TEMPLATES_STORAGE_KEY);
+                if (!raw) {
+                    setLatestSavedTemplateIds([]);
+                    return;
+                }
+                const parsed = JSON.parse(raw) as LatestSavedTemplatesPayload;
+                const ids = Array.isArray(parsed?.ids) ? parsed.ids.map((id) => String(id)) : [];
+                setLatestSavedTemplateIds(ids);
+            } catch {
+                setLatestSavedTemplateIds([]);
+            }
+        };
+
+        const handleLatestSavedTemplates = (event: Event) => {
+            const { detail } = event as CustomEvent<LatestSavedTemplatesPayload>;
+            const ids = Array.isArray(detail?.ids) ? detail.ids.map((id) => String(id)) : [];
+            setLatestSavedTemplateIds(ids);
+        };
+
+        readLatestSavedTemplateIds();
+        window.addEventListener(LATEST_SAVED_TEMPLATES_EVENT, handleLatestSavedTemplates as EventListener);
+
+        return () => {
+            window.removeEventListener(LATEST_SAVED_TEMPLATES_EVENT, handleLatestSavedTemplates as EventListener);
+        };
+    }, []);
+
+    const getTemplateRecencyScore = (template: AdvancedTemplate) => {
+        const metadata = template as unknown as Record<string, unknown>;
+        const createdAt = metadata.created_at ?? metadata.createdAt;
+        const updatedAt = metadata.updated_at ?? metadata.updatedAt;
+        const dateValue = (typeof createdAt === 'string' ? createdAt : null) || (typeof updatedAt === 'string' ? updatedAt : null);
+
+        if (dateValue) {
+            const parsedDate = Date.parse(dateValue);
+            if (!Number.isNaN(parsedDate)) return parsedDate;
+        }
+
+        const numericId = Number(template.id);
+        if (!Number.isNaN(numericId)) return numericId;
+
+        return 0;
+    };
+
+    const sortTemplatesByRecency = (templates: AdvancedTemplate[]) => {
+        return [...templates].sort((a, b) => {
+            const recencyDiff = getTemplateRecencyScore(b) - getTemplateRecencyScore(a);
+            if (recencyDiff !== 0) return recencyDiff;
+
+            const numericIdDiff = Number(b.id) - Number(a.id);
+            if (!Number.isNaN(numericIdDiff) && numericIdDiff !== 0) return numericIdDiff;
+
+            return String(b.id).localeCompare(String(a.id));
+        });
+    };
+
+    const buildTemplateSections = (templates: AdvancedTemplate[], type: 'single' | 'spread'): TemplateSection[] => {
+        const typedTemplates = filterByType(templates, type);
+        const sortedTemplates = sortTemplatesByRecency(typedTemplates);
+        const latestIdSet = new Set(latestSavedTemplateIds);
+        const latestFromLastSave = sortedTemplates.filter((template) => latestIdSet.has(String(template.id)));
+        const latestTemplates = latestFromLastSave.length > 0
+            ? latestFromLastSave
+            : sortedTemplates.slice(0, 3);
+        const latestTemplateIdSet = new Set(latestTemplates.map((template) => String(template.id)));
+        const remainingTemplates = sortedTemplates.filter((template) => !latestTemplateIdSet.has(String(template.id)));
+
+        const sections: TemplateSection[] = [];
+
+        sections.push({
+            key: 'latest',
+            title: 'Latest',
+            templates: latestTemplates
+        });
+
+        const groupedByPhotoCount = new Map<number, AdvancedTemplate[]>();
+        for (const template of remainingTemplates) {
+            const photoCount = getPhotoCount(template);
+            if (!groupedByPhotoCount.has(photoCount)) {
+                groupedByPhotoCount.set(photoCount, []);
+            }
+            groupedByPhotoCount.get(photoCount)!.push(template);
+        }
+
+        const sortedPhotoCounts = Array.from(groupedByPhotoCount.keys()).sort((a, b) => a - b);
+        for (const photoCount of sortedPhotoCounts) {
+            const countTemplates = groupedByPhotoCount.get(photoCount) ?? [];
+            sections.push({
+                key: `count-${photoCount}`,
+                title: `${photoCount} ${photoCount === 1 ? 'Photo' : 'Photos'}`,
+                templates: countTemplates
+            });
+        }
+
+        return sections;
+    };
+
+    const renderTemplateDropdownContent = (
+        templates: AdvancedTemplate[],
+        type: 'single' | 'spread',
+        selectedLayoutId: string | number | null | undefined,
+        onSelectTemplate: (templateId: string) => void,
+        aspectRatio: number
+    ) => {
+        const sections = buildTemplateSections(templates, type);
+        const hasTemplates = sections.some((section) => section.templates.length > 0);
+
+        return (
+            <DropdownMenuContent className="p-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 w-[440px]">
+                {!hasTemplates ? (
+                    <div className="px-2 py-1 text-xs text-muted-foreground">No templates found</div>
+                ) : (
+                    <div className="space-y-3">
+                        {sections.filter((section) => section.templates.length > 0).map((section) => (
+                            <div key={section.key} className="space-y-1.5">
+                                <div className="flex items-center gap-2 rounded-md border border-border/70 bg-muted/50 px-2 py-1">
+                                    <span className="inline-block h-2 w-2 rounded-full bg-primary/80" />
+                                    <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-foreground/90">
+                                        {section.title}
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-4 gap-2">
+                                    {section.templates.map((template) => (
+                                        <TemplateThumbnail
+                                            key={template.id}
+                                            template={template}
+                                            isSelected={isTemplateSelected(selectedLayoutId, template.id)}
+                                            onSelect={onSelectTemplate}
+                                            aspectRatio={aspectRatio}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </DropdownMenuContent>
+        );
+    };
 
     const [showSpineSettings, setShowSpineSettings] = useState(false);
     const isCoverOrSpread = page.isCover || page.type === 'spread';
@@ -339,27 +499,20 @@ const PageToolbar = ({
                                 <>
                                     <DropdownMenu>
                                         <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">{page.isCover ? "Back" : "Page 1"}</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>{page.isCover ? "Back Cover Layout" : "Page 1 Layout"}</TooltipContent></Tooltip>
-                                        <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
-                                            {filterByType(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates], 'single').map(template => (
-                                                <TemplateThumbnail
-                                                    key={template.id}
-                                                    template={template}
-                                                    isSelected={isTemplateSelected(
-                                                        page.isCover
-                                                            ? (page.coverLayouts?.back || defaultCoverTemplate?.id || '')
-                                                            : (page.spreadLayouts?.left || defaultGridTemplate?.id || ''),
-                                                        template.id
-                                                    )}
-                                                    onSelect={(templateId) => {
-                                                        // Reset rotation to 0 when selecting new template
-                                                        const finalId = templateId;
-                                                        if (page.isCover) onUpdateCoverLayout?.(page.id, 'back', String(finalId));
-                                                        else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'left', String(finalId)) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate?.id || '', right: defaultGridTemplate?.id || '' }), left: String(finalId) } });
-                                                    }}
-                                                    aspectRatio={singleAspectRatio}
-                                                />
-                                            ))}
-                                        </DropdownMenuContent>
+                                        {renderTemplateDropdownContent(
+                                            page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates],
+                                            'single',
+                                            page.isCover
+                                                ? (page.coverLayouts?.back || defaultCoverTemplate?.id || '')
+                                                : (page.spreadLayouts?.left || defaultGridTemplate?.id || ''),
+                                            (templateId) => {
+                                                // Reset rotation to 0 when selecting new template
+                                                const finalId = templateId;
+                                                if (page.isCover) onUpdateCoverLayout?.(page.id, 'back', String(finalId));
+                                                else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'left', String(finalId)) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate?.id || '', right: defaultGridTemplate?.id || '' }), left: String(finalId) } });
+                                            },
+                                            singleAspectRatio
+                                        )}
                                     </DropdownMenu>
                                     <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative h-8 w-8" onClick={() => {
                                         const currentLayoutId = page.isCover ? page.coverLayouts?.back : page.spreadLayouts?.left;
@@ -396,27 +549,20 @@ const PageToolbar = ({
                                     <div className="h-4 w-px bg-border mx-1" />
                                     <DropdownMenu>
                                         <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">{page.isCover ? "Front" : "Page 2"}</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>{page.isCover ? "Front Cover Layout" : "Page 2 Layout"}</TooltipContent></Tooltip>
-                                        <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
-                                            {filterByType(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates], 'single').map(template => (
-                                                <TemplateThumbnail
-                                                    key={template.id}
-                                                    template={template}
-                                                    isSelected={isTemplateSelected(
-                                                        page.isCover
-                                                            ? (page.coverLayouts?.front || defaultCoverTemplate?.id || '')
-                                                            : (page.spreadLayouts?.right || defaultGridTemplate?.id || ''),
-                                                        template.id
-                                                    )}
-                                                    onSelect={(templateId) => {
-                                                        // Reset rotation to 0 when selecting new template
-                                                        const finalId = templateId;
-                                                        if (page.isCover) onUpdateCoverLayout?.(page.id, 'front', String(finalId));
-                                                        else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'right', String(finalId)) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate?.id || '', right: defaultGridTemplate?.id || '' }), right: String(finalId) } });
-                                                    }}
-                                                    aspectRatio={singleAspectRatio}
-                                                />
-                                            ))}
-                                        </DropdownMenuContent>
+                                        {renderTemplateDropdownContent(
+                                            page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates],
+                                            'single',
+                                            page.isCover
+                                                ? (page.coverLayouts?.front || defaultCoverTemplate?.id || '')
+                                                : (page.spreadLayouts?.right || defaultGridTemplate?.id || ''),
+                                            (templateId) => {
+                                                // Reset rotation to 0 when selecting new template
+                                                const finalId = templateId;
+                                                if (page.isCover) onUpdateCoverLayout?.(page.id, 'front', String(finalId));
+                                                else onUpdateSpreadLayout ? onUpdateSpreadLayout(page.id, 'right', String(finalId)) : onUpdatePage?.({ ...page, spreadLayouts: { ...(page.spreadLayouts || { left: defaultGridTemplate?.id || '', right: defaultGridTemplate?.id || '' }), right: String(finalId) } });
+                                            },
+                                            singleAspectRatio
+                                        )}
                                     </DropdownMenu>
                                     <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative h-8 w-8" onClick={() => {
                                         const currentLayoutId = page.isCover ? page.coverLayouts?.front : page.spreadLayouts?.right;
@@ -443,22 +589,18 @@ const PageToolbar = ({
                                 <>
                                     <DropdownMenu>
                                         <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">Layout</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>Spread Layout</TooltipContent></Tooltip>
-                                        <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
-                                            {filterByType(page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates], 'spread').map(template => (
-                                                <TemplateThumbnail
-                                                    key={template.id}
-                                                    template={template}
-                                                    isSelected={isTemplateSelected(page.layout || defaultGridTemplate?.id || '', template.id)}
-                                                    onSelect={(templateId) => {
-                                                        // Reset rotation to 0 when selecting new template
-                                                        const finalId = templateId;
-                                                        if (page.isCover) onUpdateCoverLayout?.(page.id, 'full', String(finalId));
-                                                        else onUpdateLayout(page.id, String(finalId));
-                                                    }}
-                                                    aspectRatio={spreadAspectRatio}
-                                                />
-                                            ))}
-                                        </DropdownMenuContent>
+                                        {renderTemplateDropdownContent(
+                                            page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates],
+                                            'spread',
+                                            page.layout || defaultGridTemplate?.id || '',
+                                            (templateId) => {
+                                                // Reset rotation to 0 when selecting new template
+                                                const finalId = templateId;
+                                                if (page.isCover) onUpdateCoverLayout?.(page.id, 'full', String(finalId));
+                                                else onUpdateLayout(page.id, String(finalId));
+                                            },
+                                            spreadAspectRatio
+                                        )}
                                     </DropdownMenu>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
@@ -533,24 +675,17 @@ const PageToolbar = ({
                     <div className="flex items-center gap-1">
                         <DropdownMenu>
                             <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><LayoutTemplate className="h-5 w-5" /></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>Page Layout</TooltipContent></Tooltip>
-                            <DropdownMenuContent className="p-2 grid grid-cols-4 gap-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
-                                {filterByType([...gridTemplates, ...advancedTemplates], 'single').map(template => (
-                                    <TemplateThumbnail
-                                        key={template.id}
-                                        template={template}
-                                        isSelected={isTemplateSelected(
-                                            page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '',
-                                            template.id
-                                        )}
-                                        onSelect={(templateId) => {
-                                            // Reset rotation to 0 when selecting new template
-                                            const finalId = templateId;
-                                            onUpdateLayout(page.id, String(finalId));
-                                        }}
-                                        aspectRatio={singleAspectRatio}
-                                    />
-                                ))}
-                            </DropdownMenuContent>
+                            {renderTemplateDropdownContent(
+                                [...filteredGridTemplates, ...filteredAdvancedTemplates],
+                                'single',
+                                page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '',
+                                (templateId) => {
+                                    // Reset rotation to 0 when selecting new template
+                                    const finalId = templateId;
+                                    onUpdateLayout(page.id, String(finalId));
+                                },
+                                singleAspectRatio
+                            )}
                         </DropdownMenu>
                         <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative" onClick={() => {
                             const { baseId, rotation } = parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '');
