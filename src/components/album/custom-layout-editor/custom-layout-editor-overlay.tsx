@@ -2359,8 +2359,6 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
             onCornerRadiusChange={handleCornerRadiusChange}
             backgroundColor={backgroundColor}
             onBackgroundColorChange={handleBackgroundColorChange}
-            imageRotationMode={imageRotationMode}
-            onImageRotationModeChange={setImageRotationMode}
             useDummyPhotos={useDummyPhotos}
             onUseDummyPhotosChange={handleUseDummyPhotosChange}
             onDragStart={isSettingsPanelDockLocked ? undefined : handleStartDragSettingsPanel}
@@ -2477,6 +2475,8 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                             onStrokeWidthChange={setStrokeWidth}
                             fillColor={fillColor}
                             onFillColorChange={setFillColor}
+                            imageRotationMode={imageRotationMode}
+                            onImageRotationModeChange={setImageRotationMode}
                             spreadMode={spreadMode}
                             onToggleSpreadMode={() => handleSpreadModeChange(spreadMode === 'full' ? 'split' : 'full')}
                             showGuides={showGuides}

@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 import { ToolMode } from './custom-layout-editor-overlay';
 import { Separator } from '@/components/ui/separator';
 import { GridDesignerMode } from './grid-designer-types';
+import { TemplateImageRotationMode } from '@/lib/advanced-layout-types';
 
 // Interface
 interface FloatingToolbarProps {
@@ -39,6 +40,8 @@ interface FloatingToolbarProps {
     onStrokeWidthChange: (width: number) => void;
     fillColor: string;
     onFillColorChange: (color: string) => void;
+    imageRotationMode: TemplateImageRotationMode;
+    onImageRotationModeChange: (mode: TemplateImageRotationMode) => void;
     // Spacing/Layout Controls
     spreadMode: 'full' | 'split';
     onToggleSpreadMode: () => void;
@@ -75,6 +78,8 @@ export const FloatingToolbar = ({
     onStrokeWidthChange,
     fillColor,
     onFillColorChange,
+    imageRotationMode,
+    onImageRotationModeChange,
     spreadMode,
     onToggleSpreadMode,
     showGuides,
@@ -297,6 +302,35 @@ export const FloatingToolbar = ({
 
             {/* Bottom Toolbar: style + actions */}
             <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-50 bg-background/95 backdrop-blur-sm border shadow-md rounded-full p-2 px-4 flex items-center gap-4">
+                {/* Image Mode Group */}
+                <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
+                        Image Mode
+                    </span>
+                    <div className="flex items-center rounded-full border border-border/70 bg-muted/20 p-0.5">
+                        <Button
+                            type="button"
+                            variant={imageRotationMode === 'follow-frame' ? 'secondary' : 'ghost'}
+                            size="sm"
+                            className="h-6 rounded-full px-2 text-[10px]"
+                            onClick={() => onImageRotationModeChange('follow-frame')}
+                        >
+                            Follow
+                        </Button>
+                        <Button
+                            type="button"
+                            variant={imageRotationMode === 'keep-horizontal' ? 'secondary' : 'ghost'}
+                            size="sm"
+                            className="h-6 rounded-full px-2 text-[10px]"
+                            onClick={() => onImageRotationModeChange('keep-horizontal')}
+                        >
+                            Horizontal
+                        </Button>
+                    </div>
+                </div>
+
+                <Separator orientation="vertical" className="h-6" />
+
                 {/* Shape Properties Group */}
                 <div className="flex items-center gap-3">
                     {/* Stroke Color */}

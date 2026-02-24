@@ -1,6 +1,5 @@
 import React from 'react';
 import { Lock, LockOpen, SlidersHorizontal, X } from 'lucide-react';
-import { TemplateImageRotationMode } from '@/lib/advanced-layout-types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,8 +16,6 @@ interface LayoutSettingsPanelProps {
     onCornerRadiusChange: (value: number) => void;
     backgroundColor: string;
     onBackgroundColorChange: (value: string) => void;
-    imageRotationMode: TemplateImageRotationMode;
-    onImageRotationModeChange: (value: TemplateImageRotationMode) => void;
     useDummyPhotos: boolean;
     onUseDummyPhotosChange: (value: boolean) => void;
     onDragStart?: (e: React.PointerEvent<HTMLDivElement>) => void;
@@ -39,8 +36,6 @@ export const LayoutSettingsPanel = ({
     onCornerRadiusChange,
     backgroundColor,
     onBackgroundColorChange,
-    imageRotationMode,
-    onImageRotationModeChange,
     useDummyPhotos,
     onUseDummyPhotosChange,
     onDragStart,
@@ -217,30 +212,6 @@ export const LayoutSettingsPanel = ({
                                     if (val === '') onBackgroundColorChange('#ffffff');
                                 }}
                             />
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label className="text-xs font-semibold text-muted-foreground">Image Mode</Label>
-                        <div className="flex flex-col gap-1 rounded-md border border-border/60 bg-muted/20 p-1">
-                            <Button
-                                type="button"
-                                variant={imageRotationMode === 'follow-frame' ? 'secondary' : 'ghost'}
-                                size="sm"
-                                className="h-8 w-full justify-start px-2 text-[11px]"
-                                onClick={() => onImageRotationModeChange('follow-frame')}
-                            >
-                                Follow Frame
-                            </Button>
-                            <Button
-                                type="button"
-                                variant={imageRotationMode === 'keep-horizontal' ? 'secondary' : 'ghost'}
-                                size="sm"
-                                className="h-8 w-full justify-start px-2 text-[11px]"
-                                onClick={() => onImageRotationModeChange('keep-horizontal')}
-                            >
-                                Keep Horizontal
-                            </Button>
                         </div>
                     </div>
 
