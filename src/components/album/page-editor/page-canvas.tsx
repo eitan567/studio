@@ -808,7 +808,8 @@ export const PageCanvas = React.memo(({
     const resolveTemplateName = useCallback((layoutId: string | number | null | undefined, fallbackId: string | number | undefined) => {
         const { baseId } = parseLayoutId(layoutId || fallbackId || '');
         const template = findTemplate(baseId);
-        return template?.name || String(baseId || 'Template');
+        const name = template?.name || String(baseId || 'Template');
+        return `${name} (ID: ${String(baseId)})`;
     }, [findTemplate]);
 
     const currentTemplateName = useMemo(() => {
