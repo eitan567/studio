@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useTemplates } from '@/hooks/useTemplates';
 import { cn } from '@/lib/utils';
-import { Settings2, Layout, Settings, Pencil, Play, Trash2, Copy } from 'lucide-react';
+import { Settings2, Layout, Settings, Pencil, Play, Trash2, Copy, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -159,13 +159,25 @@ export const LayoutSidebarRight = ({
                         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                             Search Template
                         </Label>
-                        <Input
-                            type="text"
-                            value={templateSearch}
-                            onChange={(e) => setTemplateSearch(e.target.value)}
-                            placeholder="Search by name or ID..."
-                            className="h-8 text-xs"
-                        />
+                        <div className="relative">
+                            <Input
+                                type="text"
+                                value={templateSearch}
+                                onChange={(e) => setTemplateSearch(e.target.value)}
+                                placeholder="Search by name or ID..."
+                                className="h-8 pr-7 text-xs"
+                            />
+                            {templateSearch && (
+                                <button
+                                    type="button"
+                                    onClick={() => setTemplateSearch('')}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                    aria-label="Clear search"
+                                >
+                                    <X className="h-3.5 w-3.5" />
+                                </button>
+                            )}
+                        </div>
                     </div>
                     <div className="space-y-2">
                         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
