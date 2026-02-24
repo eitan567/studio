@@ -263,6 +263,10 @@ const PageToolbar = ({
     const isCoverOrSpread = page.isCover || page.type === 'spread';
     const isSplit = page.isCover ? (page.coverType === 'split' || !page.coverType) : (page.spreadMode === 'split');
     const isFull = !isSplit;
+    const isTemplateSelected = useCallback((layoutId: string | number | null | undefined, templateId: string | number) => {
+        const { baseId } = parseLayoutId(layoutId || '');
+        return String(baseId) === String(templateId);
+    }, []);
 
     const renderLayoutCycleButtons = () => (
         <div className="flex items-center gap-0.5 border-r pr-2 mr-2">
@@ -340,7 +344,12 @@ const PageToolbar = ({
                                                 <TemplateThumbnail
                                                     key={template.id}
                                                     template={template}
-                                                    isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.back || defaultCoverTemplate?.id || '' : page.spreadLayouts?.left || defaultGridTemplate?.id || '').baseId === template.id}
+                                                    isSelected={isTemplateSelected(
+                                                        page.isCover
+                                                            ? (page.coverLayouts?.back || defaultCoverTemplate?.id || '')
+                                                            : (page.spreadLayouts?.left || defaultGridTemplate?.id || ''),
+                                                        template.id
+                                                    )}
                                                     onSelect={(templateId) => {
                                                         // Reset rotation to 0 when selecting new template
                                                         const finalId = templateId;
@@ -392,7 +401,12 @@ const PageToolbar = ({
                                                 <TemplateThumbnail
                                                     key={template.id}
                                                     template={template}
-                                                    isSelected={parseLayoutId(page.isCover ? page.coverLayouts?.front || defaultCoverTemplate?.id || '' : page.spreadLayouts?.right || defaultGridTemplate?.id || '').baseId === template.id}
+                                                    isSelected={isTemplateSelected(
+                                                        page.isCover
+                                                            ? (page.coverLayouts?.front || defaultCoverTemplate?.id || '')
+                                                            : (page.spreadLayouts?.right || defaultGridTemplate?.id || ''),
+                                                        template.id
+                                                    )}
                                                     onSelect={(templateId) => {
                                                         // Reset rotation to 0 when selecting new template
                                                         const finalId = templateId;
@@ -434,7 +448,7 @@ const PageToolbar = ({
                                                 <TemplateThumbnail
                                                     key={template.id}
                                                     template={template}
-                                                    isSelected={parseLayoutId(page.layout || defaultGridTemplate?.id || '').baseId === template.id}
+                                                    isSelected={isTemplateSelected(page.layout || defaultGridTemplate?.id || '', template.id)}
                                                     onSelect={(templateId) => {
                                                         // Reset rotation to 0 when selecting new template
                                                         const finalId = templateId;
@@ -524,7 +538,10 @@ const PageToolbar = ({
                                     <TemplateThumbnail
                                         key={template.id}
                                         template={template}
-                                        isSelected={parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '').baseId === template.id}
+                                        isSelected={isTemplateSelected(
+                                            page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '',
+                                            template.id
+                                        )}
                                         onSelect={(templateId) => {
                                             // Reset rotation to 0 when selecting new template
                                             const finalId = templateId;
@@ -592,6 +609,7 @@ const ScaledCoverPreview = React.memo(({
     activeView = 'full',
     priority = false, // Add priority here
     chronologicalIndex,
+    templateName,
 }: {
     page: AlbumPage;
     config: AlbumConfig;
@@ -606,6 +624,7 @@ const ScaledCoverPreview = React.memo(({
     activeView?: 'full' | 'split' | 'front' | 'back';
     priority?: boolean;
     chronologicalIndex?: Record<string, number>;
+    templateName?: string;
 }) => {
     const wrapperRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
@@ -662,6 +681,16 @@ const ScaledCoverPreview = React.memo(({
                         {page.titleText && <DraggableTitle text={page.titleText} color={page.titleColor} fontSize={page.titleFontSize} fontFamily={page.titleFontFamily} position={page.titlePosition} containerId={`front-cover-container-${page.id}`} onUpdatePosition={(x, y) => onUpdateTitleSettings?.(page.id, { position: { x, y } })} />}
                     </div>
                 </div>
+                {templateName && (
+                    <div className="pointer-events-none absolute left-0 -bottom-6 z-[70]">
+                        <div
+                            className="inline-flex items-center rounded-full border border-border/60 bg-background/82 px-2 py-0.5 text-[9px] font-medium text-foreground/90 shadow-sm backdrop-blur-sm whitespace-nowrap"
+                            title={templateName}
+                        >
+                            {templateName}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -776,6 +805,51 @@ export const PageCanvas = React.memo(({
         return `Page ${pageIndex + 1}`;
     }, [page, pageIndex, externalDisplayLabel]);
 
+    const resolveTemplateName = useCallback((layoutId: string | number | null | undefined, fallbackId: string | number | undefined) => {
+        const { baseId } = parseLayoutId(layoutId || fallbackId || '');
+        const template = findTemplate(baseId);
+        return template?.name || String(baseId || 'Template');
+    }, [findTemplate]);
+
+    const currentTemplateName = useMemo(() => {
+        const defaultGridId = defaultGridTemplate?.id;
+        const defaultCoverId = defaultCoverTemplate?.id;
+
+        if (page.isCover) {
+            const isCoverSplit = page.coverType === 'split' || !page.coverType;
+            if (isCoverSplit) {
+                const backName = resolveTemplateName(page.coverLayouts?.back, defaultCoverId);
+                const frontName = resolveTemplateName(page.coverLayouts?.front, defaultCoverId);
+                return `Back: ${backName} | Front: ${frontName}`;
+            }
+            return resolveTemplateName(page.layout, defaultCoverId);
+        }
+
+        if (page.type === 'spread') {
+            if (page.spreadMode === 'split') {
+                const leftName = resolveTemplateName(page.spreadLayouts?.left, defaultGridId);
+                const rightName = resolveTemplateName(page.spreadLayouts?.right, defaultGridId);
+                return `Page 1: ${leftName} | Page 2: ${rightName}`;
+            }
+            return resolveTemplateName(page.layout, defaultGridId);
+        }
+
+        return resolveTemplateName(page.layout, defaultGridId);
+    }, [
+        page.isCover,
+        page.coverType,
+        page.coverLayouts?.back,
+        page.coverLayouts?.front,
+        page.spreadMode,
+        page.spreadLayouts?.left,
+        page.spreadLayouts?.right,
+        page.type,
+        page.layout,
+        defaultGridTemplate?.id,
+        defaultCoverTemplate?.id,
+        resolveTemplateName
+    ]);
+
     if (!config) {
         logger.error('Missing config for page:', page.id);
         return <div className="p-4 text-red-500">Missing Configuration</div>;
@@ -823,7 +897,7 @@ export const PageCanvas = React.memo(({
                 />
             </div>
 
-            <div className={cn(page.type === 'single' && 'w-1/2 mx-auto')}>
+            <div className={cn("relative", page.type === 'single' && 'w-1/2 mx-auto')}>
                 <AspectRatio
                     ratio={(
                         () => {
@@ -858,6 +932,7 @@ export const PageCanvas = React.memo(({
                                 activeView="full"
                                 priority={priority}
                                 chronologicalIndex={chronologicalIndex}
+                                templateName={currentTemplateName}
                             />
                         </CardContent>
                     </Card>
