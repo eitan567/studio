@@ -1857,6 +1857,17 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         const maxY = Math.max(LAYERS_PANEL_SAFE_MARGIN, workspaceRect.height - LAYERS_PANEL_MIN_HEIGHT - LAYERS_PANEL_SAFE_MARGIN);
         let dockSideOnRelease: LayersDockSide = null;
         let lastPosition = { ...layersPanelPosition };
+        let pendingPosition = { ...lastPosition };
+        let rafId: number | null = null;
+
+        panel.style.willChange = 'left, top';
+        document.body.style.userSelect = 'none';
+
+        const flushPosition = () => {
+            rafId = null;
+            panel.style.left = `${pendingPosition.x}px`;
+            panel.style.top = `${pendingPosition.y}px`;
+        };
 
         const onPointerMove = (ev: PointerEvent) => {
             const rawX = ev.clientX - workspaceRect.left - offsetX;
@@ -1873,13 +1884,28 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                     : Math.max(LAYERS_PANEL_SAFE_MARGIN, Math.min(maxX, rawX));
 
             const nextY = Math.max(LAYERS_PANEL_SAFE_MARGIN, Math.min(maxY, rawY));
-            setLayersPanelDockSide(dockSideOnRelease);
-            setIsLayersPanelDockLocked(false);
             lastPosition = { x: snappedX, y: nextY };
-            setLayersPanelPosition(lastPosition);
+            pendingPosition = lastPosition;
+            if (rafId === null) {
+                rafId = window.requestAnimationFrame(flushPosition);
+            }
+        };
+
+        const cleanup = () => {
+            if (rafId !== null) {
+                window.cancelAnimationFrame(rafId);
+                rafId = null;
+            }
+            panel.style.willChange = '';
+            document.body.style.userSelect = '';
+            window.removeEventListener('pointermove', onPointerMove);
+            window.removeEventListener('pointerup', onPointerUp);
+            window.removeEventListener('pointercancel', onPointerUp);
+            window.removeEventListener('blur', onPointerUp);
         };
 
         const onPointerUp = () => {
+            cleanup();
             if (dockSideOnRelease) {
                 setLayersPanelDockSide(dockSideOnRelease);
                 setIsLayersPanelDockLocked(true);
@@ -1888,12 +1914,12 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 setIsLayersPanelDockLocked(false);
             }
             setLayersPanelPosition(lastPosition);
-            window.removeEventListener('pointermove', onPointerMove);
-            window.removeEventListener('pointerup', onPointerUp);
         };
 
-        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointermove', onPointerMove, { passive: true });
         window.addEventListener('pointerup', onPointerUp);
+        window.addEventListener('pointercancel', onPointerUp);
+        window.addEventListener('blur', onPointerUp);
     }, [isLayersPanelDockLocked, layersPanelPosition]);
 
     const handleToggleSettingsDockLock = useCallback(() => {
@@ -1925,6 +1951,17 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         const maxY = Math.max(SETTINGS_PANEL_SAFE_MARGIN, workspaceRect.height - panelHeight - SETTINGS_PANEL_SAFE_MARGIN);
         let dockSideOnRelease: LayersDockSide = null;
         let lastPosition = { ...settingsPanelPosition };
+        let pendingPosition = { ...lastPosition };
+        let rafId: number | null = null;
+
+        panel.style.willChange = 'left, top';
+        document.body.style.userSelect = 'none';
+
+        const flushPosition = () => {
+            rafId = null;
+            panel.style.left = `${pendingPosition.x}px`;
+            panel.style.top = `${pendingPosition.y}px`;
+        };
 
         const onPointerMove = (ev: PointerEvent) => {
             const rawX = ev.clientX - workspaceRect.left - offsetX;
@@ -1941,13 +1978,28 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                     : Math.max(SETTINGS_PANEL_SAFE_MARGIN, Math.min(maxX, rawX));
 
             const nextY = Math.max(SETTINGS_PANEL_SAFE_MARGIN, Math.min(maxY, rawY));
-            setSettingsPanelDockSide(dockSideOnRelease);
-            setIsSettingsPanelDockLocked(false);
             lastPosition = { x: snappedX, y: nextY };
-            setSettingsPanelPosition(lastPosition);
+            pendingPosition = lastPosition;
+            if (rafId === null) {
+                rafId = window.requestAnimationFrame(flushPosition);
+            }
+        };
+
+        const cleanup = () => {
+            if (rafId !== null) {
+                window.cancelAnimationFrame(rafId);
+                rafId = null;
+            }
+            panel.style.willChange = '';
+            document.body.style.userSelect = '';
+            window.removeEventListener('pointermove', onPointerMove);
+            window.removeEventListener('pointerup', onPointerUp);
+            window.removeEventListener('pointercancel', onPointerUp);
+            window.removeEventListener('blur', onPointerUp);
         };
 
         const onPointerUp = () => {
+            cleanup();
             if (dockSideOnRelease) {
                 setSettingsPanelDockSide(dockSideOnRelease);
                 setIsSettingsPanelDockLocked(true);
@@ -1956,12 +2008,12 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 setIsSettingsPanelDockLocked(false);
             }
             setSettingsPanelPosition(lastPosition);
-            window.removeEventListener('pointermove', onPointerMove);
-            window.removeEventListener('pointerup', onPointerUp);
         };
 
-        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointermove', onPointerMove, { passive: true });
         window.addEventListener('pointerup', onPointerUp);
+        window.addEventListener('pointercancel', onPointerUp);
+        window.addEventListener('blur', onPointerUp);
     }, [isSettingsPanelDockLocked, settingsPanelPosition]);
 
     const processObjectsToTemplate = useCallback((
