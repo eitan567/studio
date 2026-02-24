@@ -446,21 +446,6 @@ export const LayoutSidebarRight = ({
                                                             </>
                                                         )}
 
-                                                        {/* Clone Action (Bottom Right) */}
-                                                        <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                                                            <Button
-                                                                variant="secondary"
-                                                                size="icon"
-                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    onCloneAdvancedTemplate?.(template, sidebarMode);
-                                                                }}
-                                                                title="Clone"
-                                                            >
-                                                                <Copy className="h-2.5 w-2.5 text-foreground" />
-                                                            </Button>
-                                                        </div>
                                                     </div>
                                                 ))}
                                         </div>
@@ -559,21 +544,6 @@ export const LayoutSidebarRight = ({
                                                                     </>
                                                                 )}
 
-                                                                {/* Clone Action (Bottom Right) */}
-                                                                <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                                                                    <Button
-                                                                        variant="secondary"
-                                                                        size="icon"
-                                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            onCloneAdvancedTemplate?.(template, sidebarMode);
-                                                                        }}
-                                                                        title="Clone"
-                                                                    >
-                                                                        <Copy className="h-2.5 w-2.5 text-foreground" />
-                                                                    </Button>
-                                                                </div>
                                                             </div>
                                                         ))}
                                                 </div>
