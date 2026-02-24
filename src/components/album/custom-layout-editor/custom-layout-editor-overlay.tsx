@@ -275,6 +275,16 @@ const cloneVectorObjects = (objects?: VectorObject[]): VectorObject[] => {
     }));
 };
 
+const cloneLayoutRegions = (regions?: LayoutRegion[]): LayoutRegion[] => {
+    if (!Array.isArray(regions)) return [];
+    return regions.map((region) => ({
+        ...region,
+        bounds: { ...region.bounds },
+        radius: region.radius ? { ...region.radius } : undefined,
+        points: region.points?.map((p) => [p[0], p[1]] as [number, number])
+    }));
+};
+
 const buildRectPointsFromBounds = (minX: number, minY: number, maxX: number, maxY: number): Point[] => ([
     [minX, minY],
     [maxX, minY],
@@ -1254,10 +1264,41 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
     const handleConfirmClone = () => {
         if (!cloneDraft) return;
-        const cloneName = cloneDraft.name.trim() || `${cloneDraft.template.name} Copy`;
-        setPendingCloneTemplate(cloneDraft.template);
-        handleSelectAdvancedTemplate(cloneDraft.template, cloneDraft.preferredMode, true);
-        setEditingTemplateId(null);
+        const sourceTemplate = cloneDraft.template;
+        const cloneName = cloneDraft.name.trim() || `${sourceTemplate.name} Copy`;
+        const cloneId = uuidv4();
+        const targetSpreadMode: 'full' | 'split' =
+            cloneDraft.preferredMode
+            ?? sourceTemplate._editorSpreadMode
+            ?? (sourceTemplate.type === 'single' ? 'split' : 'full');
+        const targetType: 'single' | 'spread' = targetSpreadMode === 'split' ? 'single' : 'spread';
+
+        const sourceTemplateConfig = parseTemplateConfigObject(sourceTemplate.template_config);
+        const clonedEditorObjects = cloneVectorObjects(sourceTemplate._editorObjects);
+        const clonedTemplateConfig = {
+            ...sourceTemplateConfig,
+            _editorSpreadMode: targetSpreadMode,
+            _editorObjects: clonedEditorObjects,
+            type: targetType
+        };
+
+        const clonedTemplate: AdvancedTemplate = {
+            ...sourceTemplate,
+            id: cloneId,
+            name: cloneName,
+            type: targetType,
+            regions: cloneLayoutRegions(sourceTemplate.regions),
+            photoCount: sourceTemplate.photoCount ?? sourceTemplate.regions.length,
+            isCustom: true,
+            createdBy: null,
+            _editorSpreadMode: targetSpreadMode,
+            _editorObjects: clonedEditorObjects,
+            template_config: JSON.stringify(clonedTemplateConfig)
+        };
+
+        setCreatedTemplates((prev) => [...prev, clonedTemplate]);
+        setPendingCloneTemplate(clonedTemplate);
+        handleSelectAdvancedTemplate(clonedTemplate, targetSpreadMode, true);
         setTemplateName(cloneName);
         setCloneDraft(null);
     };
@@ -1392,7 +1433,11 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     };
 
     const handleSave = async () => {
-        if (editingTemplateId && selectedAdvancedTemplate) {
+        const isEditingLocalDraft = editingTemplateId !== null && editingTemplateId !== undefined
+            ? createdTemplates.some((template) => String(template.id) === String(editingTemplateId))
+            : false;
+
+        if (editingTemplateId && selectedAdvancedTemplate && !isEditingLocalDraft) {
             const proceed = window.confirm(
                 "שימו לב: שינוי זה ישפיע על כל האלבומים הקיימים שמשתמשים בתבנית זו"
             );
@@ -2909,3 +2954,4 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         </div>
     );
 };
+

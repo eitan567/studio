@@ -78,6 +78,16 @@ export const LayoutSidebarRight = ({
     const [metadataInfoTemplate, setMetadataInfoTemplate] = React.useState<AdvancedTemplate | null>(null);
     const [templateSearch, setTemplateSearch] = React.useState('');
 
+    React.useEffect(() => {
+        if (editingTemplateId === null || editingTemplateId === undefined) return;
+        const isEditingLocalDraft = customTemplates.some(
+            (template) => String(template.id) === String(editingTemplateId)
+        );
+        if (isEditingLocalDraft) {
+            setActiveTab('new');
+        }
+    }, [editingTemplateId, customTemplates]);
+
     const matchesTemplateSearch = React.useCallback((template: AdvancedTemplate) => {
         const query = templateSearch.trim().toLowerCase();
         if (!query) return true;
