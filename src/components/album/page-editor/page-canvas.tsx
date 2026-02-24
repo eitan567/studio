@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 
 import type { AlbumPage, AlbumConfig, Photo, PhotoPanAndZoom } from '@/lib/types';
+import type { ExportDpi, ExportRenderOptions } from '@/components/album/shared/album-exporter';
 import { logger } from '@/lib/logger';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -603,6 +604,35 @@ const PageToolbar = ({
         </>
     );
 
+    const renderDownloadMenu = (tooltipLabel: string) => (
+        <DropdownMenu>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                            <Download className="h-5 w-5" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>{tooltipLabel}</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end">
+                {[
+                    { dpi: 150 as ExportDpi, label: 'Download 150 DPI (Fast)' },
+                    { dpi: 200 as ExportDpi, label: 'Download 200 DPI (Balanced)' },
+                    { dpi: 300 as ExportDpi, label: 'Download 300 DPI (Print)' },
+                ].map((option) => (
+                    <DropdownMenuItem
+                        key={option.dpi}
+                        onSelect={() => onDownloadPage?.(page.id, { dpi: option.dpi })}
+                    >
+                        {option.label}
+                    </DropdownMenuItem>
+                ))}
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+
     if (isCoverOrSpread) {
         return (
             <>
@@ -795,7 +825,7 @@ const PageToolbar = ({
                                 </Popover>
                             )
                         }
-                        <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => onDownloadPage?.(page.id)}><Download className="h-5 w-5" /></Button></TooltipTrigger><TooltipContent>Download {page.isCover ? "Cover" : "Spread"}</TooltipContent></Tooltip>
+                        {renderDownloadMenu(`Download ${page.isCover ? "Cover" : "Spread"}`)}
                         {!page.isCover && <><div className="h-4 w-px bg-border mx-2" /><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className={cn("text-destructive hover:bg-destructive/10 hover:text-destructive", !canDelete && "opacity-50 cursor-not-allowed")} onClick={() => canDelete && onDeletePage(page.id)} disabled={!canDelete}><Trash2 className="h-5 w-5" /></Button></TooltipTrigger><TooltipContent>Delete Spread</TooltipContent></Tooltip></>}
 
                         </div >
@@ -850,7 +880,7 @@ const PageToolbar = ({
                         {page.isCover && (
                             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className={cn(showSpineSettings && "text-primary bg-primary/10")} onClick={() => setShowSpineSettings(!showSpineSettings)}><Settings2 className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Show Title Settings</TooltipContent></Tooltip>
                         )}
-                        <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => onDownloadPage?.(page.id)}><Download className="h-5 w-5" /></Button></TooltipTrigger><TooltipContent>Download Page</TooltipContent></Tooltip>
+                        {renderDownloadMenu('Download Page')}
                         <div className="mx-1 h-6 w-px bg-border" />
                         <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className={cn("text-destructive hover:bg-destructive/10 hover:text-destructive", !canDelete && "opacity-50 cursor-not-allowed")} onClick={() => canDelete && onDeletePage(page.id)} disabled={!canDelete}><Trash2 className="h-5 w-5" /></Button></TooltipTrigger><TooltipContent>{canDelete ? "Delete Page" : "Cannot delete first/last page"}</TooltipContent></Tooltip>
                     </div>
@@ -997,7 +1027,7 @@ interface PageCanvasProps {
     onUpdateTitleSettings?: (pageId: string, settings: any) => void;
     onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => void;
     onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string, sourceInfo?: { pageId: string; photoId: string }) => void;
-    onDownloadPage: (pageId: string) => void;
+    onDownloadPage: (pageId: string, options?: ExportRenderOptions) => void;
     onRemovePhoto: (pageId: string, photoId: string) => void;
     onOpenEditor?: (pageId: string) => void;
     onEnhanceWithAi?: (pageId: string) => void;

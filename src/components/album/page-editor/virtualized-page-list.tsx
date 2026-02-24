@@ -5,6 +5,7 @@ import { List } from 'react-window';
 import { AlbumPage, AlbumConfig, Photo } from '@/lib/types';
 import { logger } from '@/lib/logger';
 import { PageCanvas } from '@/components/album/page-editor/page-canvas';
+import type { ExportRenderOptions } from '@/components/album/shared/album-exporter';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,7 +36,7 @@ interface VirtualizedPageListProps {
     onUpdateLayout: (pageId: string, layoutId: string) => void;
     onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: any) => void;
     onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string, sourceInfo?: { pageId: string; photoId: string }) => void;
-    onDownloadPage: (pageId: string) => void;
+    onDownloadPage: (pageId: string, options?: ExportRenderOptions) => void;
     onRemovePhoto: (pageId: string, photoId: string) => void;
 
     onUpdateCoverLayout: (pageId: string, side: 'front' | 'back' | 'full', newLayout: string) => void;

@@ -63,7 +63,7 @@ import Image from 'next/image';
 // Fix for alert import
 import { Alert as AlertUI, AlertDescription as AlertDescriptionUI, AlertTitle as AlertTitleUI } from '@/components/ui/alert';
 import { AiBackgroundGenerator } from '../shared/ai-background-generator';
-import { AlbumExporter, AlbumExporterRef } from '../shared/album-exporter';
+import { AlbumExporter, AlbumExporterRef, type ExportRenderOptions } from '../shared/album-exporter';
 import { ExportDialog, ExportOptions } from './export-dialog';
 import { CustomLayoutEditorOverlay } from '../custom-layout-editor/custom-layout-editor-overlay';
 import { CoverEditorOverlay } from '../cover-editor/cover-editor-overlay';
@@ -725,9 +725,9 @@ export function PageEditor({ albumId }: PageEditorProps) {
     setExportDialogOpen(false);
     const range = options.pageRange === 'all' ? undefined : options.pageRange;
     if (options.format === 'pdf') {
-      exporterRef.current?.exportToPdf(range);
+      exporterRef.current?.exportToPdf(range, { dpi: options.dpi });
     } else {
-      exporterRef.current?.exportAlbum(range);
+      exporterRef.current?.exportAlbum(range, { dpi: options.dpi });
     }
   };
 
@@ -1013,9 +1013,10 @@ export function PageEditor({ albumId }: PageEditorProps) {
     });
   }, [generateEmptyAlbum, toast]);
 
-  const handleDownloadPage = useCallback(async (pageId: string) => {
-    toast({ title: "Downloading page..." });
-    await exporterRef.current?.exportPage(pageId);
+  const handleDownloadPage = useCallback(async (pageId: string, options?: ExportRenderOptions) => {
+    const dpi = options?.dpi ?? 300;
+    toast({ title: `Downloading page (${dpi} DPI)...` });
+    await exporterRef.current?.exportPage(pageId, { dpi });
   }, [toast]);
 
 

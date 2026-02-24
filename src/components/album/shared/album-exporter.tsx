@@ -28,10 +28,22 @@ interface AlbumExporterProps {
     onExportError?: (error: any) => void;
 }
 
+export type ExportDpi = 150 | 200 | 300;
+
+export interface ExportRenderOptions {
+    dpi?: ExportDpi;
+}
+
 export interface AlbumExporterRef {
-    exportAlbum: (pageRange?: 'cover' | 'singles' | { from: number; to: number }) => Promise<void>;
-    exportPage: (pageId: string) => Promise<void>;
-    exportToPdf: (pageRange?: 'cover' | 'singles' | { from: number; to: number }) => Promise<void>;
+    exportAlbum: (
+        pageRange?: 'cover' | 'singles' | { from: number; to: number },
+        options?: ExportRenderOptions
+    ) => Promise<void>;
+    exportPage: (pageId: string, options?: ExportRenderOptions) => Promise<void>;
+    exportToPdf: (
+        pageRange?: 'cover' | 'singles' | { from: number; to: number },
+        options?: ExportRenderOptions
+    ) => Promise<void>;
 }
 
 export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
@@ -47,6 +59,44 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
     const [isRendering, setIsRendering] = useState(false);
     const [duplicateWarningOpen, setDuplicateWarningOpen] = useState(false);
     const duplicateWarningResolverRef = React.useRef<((proceed: boolean) => void) | null>(null);
+    const BASE_SINGLE_WIDTH_PX = 500;
+    const BASE_SPREAD_WIDTH_PX = 1000;
+    const CM_PER_INCH = 2.54;
+    const MIN_PIXEL_RATIO = 1;
+    const MAX_PIXEL_RATIO = 8;
+    const DEFAULT_IMAGES_DPI: ExportDpi = 300;
+    const DEFAULT_SINGLE_PAGE_DPI: ExportDpi = 300;
+    const DEFAULT_PDF_DPI: ExportDpi = 200;
+
+    const parseAlbumSizeCm = React.useCallback(() => {
+        const [rawW, rawH] = String(config.size || '').split('x');
+        const widthCm = Number(rawW);
+        const heightCm = Number(rawH);
+        if (Number.isNaN(widthCm) || Number.isNaN(heightCm) || widthCm <= 0 || heightCm <= 0) {
+            return null;
+        }
+        return { widthCm, heightCm };
+    }, [config.size]);
+
+    const getPixelRatioForDpi = React.useCallback((
+        dpi: ExportDpi,
+        isSpread: boolean,
+        fallbackPixelRatio: number
+    ) => {
+        const sizeCm = parseAlbumSizeCm();
+        if (!sizeCm) return fallbackPixelRatio;
+
+        const pageWidthPxAtDpi = (sizeCm.widthCm / CM_PER_INCH) * dpi;
+        const targetWidthPx = isSpread ? pageWidthPxAtDpi * 2 : pageWidthPxAtDpi;
+        const baseWidthPx = isSpread ? BASE_SPREAD_WIDTH_PX : BASE_SINGLE_WIDTH_PX;
+        const rawRatio = targetWidthPx / baseWidthPx;
+
+        if (!Number.isFinite(rawRatio) || rawRatio <= 0) {
+            return fallbackPixelRatio;
+        }
+
+        return Math.max(MIN_PIXEL_RATIO, Math.min(MAX_PIXEL_RATIO, rawRatio));
+    }, [parseAlbumSizeCm]);
 
     const requestDuplicateExportConfirmation = () => {
         return new Promise<boolean>((resolve) => {
@@ -64,11 +114,15 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
     };
 
     useImperativeHandle(ref, () => ({
-        exportAlbum: async (pageRange?: 'cover' | 'singles' | { from: number; to: number }) => {
+        exportAlbum: async (
+            pageRange?: 'cover' | 'singles' | { from: number; to: number },
+            options?: ExportRenderOptions
+        ) => {
             try {
                 setIsRendering(true);
                 // Wait for React to render the pages
                 await new Promise(r => setTimeout(r, 500));
+                const targetDpi = options?.dpi ?? DEFAULT_IMAGES_DPI;
                 // Check for duplicates if enabled
                 if (settings.exportWarnDuplicates) {
                     const seenPhotoIds = new Set<string>();
@@ -129,9 +183,10 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                     onExportProgress?.(i + 1, total);
 
                     // Capture
+                    const pixelRatio = getPixelRatioForDpi(targetDpi, isSpread, 4);
                     const blob = await toBlob(element, {
                         quality: 0.95,
-                        pixelRatio: 4, // 4x resolution to compensate for smaller base size (500px -> 2000px)
+                        pixelRatio,
                         skipAutoScale: true, // We want to capture exactly what is rendered
                         fontEmbedCSS: '', // Disable font embedding to avoid CORS issues
                         cacheBust: false, // Disable cache bust to see if it fixes duplication
@@ -158,10 +213,11 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                 setIsRendering(false);
             }
         },
-        exportPage: async (pageId: string) => {
+        exportPage: async (pageId: string, options?: ExportRenderOptions) => {
             try {
                 setIsRendering(true);
                 await new Promise(r => setTimeout(r, 500));
+                const targetDpi = options?.dpi ?? DEFAULT_SINGLE_PAGE_DPI;
                 if (!containerRef.current) return;
 
                 const exportContainer = containerRef.current;
@@ -180,9 +236,10 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                 const isSpread = pageElement.dataset.isSpread === 'true';
                 const isCover = pageElement.dataset.isCover === 'true';
 
+                const pixelRatio = getPixelRatioForDpi(targetDpi, isSpread, 4);
                 const blob = await toBlob(pageElement, {
                     quality: 0.95,
-                    pixelRatio: 4,
+                    pixelRatio,
                     skipAutoScale: true,
                     fontEmbedCSS: '',
                     cacheBust: false,
@@ -203,10 +260,14 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                 setIsRendering(false);
             }
         },
-        exportToPdf: async (pageRange?: 'cover' | 'singles' | { from: number; to: number }) => {
+        exportToPdf: async (
+            pageRange?: 'cover' | 'singles' | { from: number; to: number },
+            options?: ExportRenderOptions
+        ) => {
             try {
                 setIsRendering(true);
                 await new Promise(r => setTimeout(r, 1000));
+                const targetDpi = options?.dpi ?? DEFAULT_PDF_DPI;
                 onExportStart?.();
 
                 const exportContainer = containerRef.current;
@@ -246,11 +307,13 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
 
                 for (let i = 0; i < total; i++) {
                     const element = pageElements[i];
+                    const isSpread = element.dataset.isSpread === 'true';
                     onExportProgress?.(i + 1, total);
 
+                    const pixelRatio = getPixelRatioForDpi(targetDpi, isSpread, 2);
                     const blob = await toBlob(element, {
                         quality: 0.95,
-                        pixelRatio: 2, // 2x is enough for PDF usually, keeping it optimized
+                        pixelRatio,
                         skipAutoScale: true,
                         fontEmbedCSS: '',
                         cacheBust: false,

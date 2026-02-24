@@ -15,10 +15,12 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import type { ExportDpi } from '../shared/album-exporter';
 
 export interface ExportOptions {
     format: 'images' | 'pdf';
     pageRange: 'all' | 'cover' | 'singles' | { from: number; to: number };
+    dpi: ExportDpi;
 }
 
 interface ExportDialogProps {
@@ -39,6 +41,7 @@ export function ExportDialog({
     exportProgress,
 }: ExportDialogProps) {
     const [format, setFormat] = useState<'images' | 'pdf'>('pdf');
+    const [dpi, setDpi] = useState<ExportDpi>(300);
     const [rangeMode, setRangeMode] = useState<'all' | 'cover' | 'singles' | 'range'>('all');
     const [fromPage, setFromPage] = useState(1);
     const [toPage, setToPage] = useState(totalPages);
@@ -52,6 +55,7 @@ export function ExportDialog({
     const handleConfirm = () => {
         const options: ExportOptions = {
             format,
+            dpi,
             pageRange:
                 rangeMode === 'all' || rangeMode === 'cover' || rangeMode === 'singles'
                     ? rangeMode
@@ -158,6 +162,36 @@ export function ExportDialog({
                                 </div>
                             </button>
                         </div>
+                    </div>
+
+                    {/* Resolution selection */}
+                    <div className="space-y-2">
+                        <Label className="text-sm font-semibold">Resolution</Label>
+                        <div className="grid grid-cols-3 gap-2">
+                            {[
+                                { value: 150 as ExportDpi, label: '150 DPI', hint: 'Fast' },
+                                { value: 200 as ExportDpi, label: '200 DPI', hint: 'Balanced' },
+                                { value: 300 as ExportDpi, label: '300 DPI', hint: 'Print' },
+                            ].map((option) => (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    onClick={() => setDpi(option.value)}
+                                    className={cn(
+                                        'rounded-md border px-3 py-2 text-left transition-all',
+                                        dpi === option.value
+                                            ? 'border-primary bg-primary/5'
+                                            : 'border-border hover:border-muted-foreground/40'
+                                    )}
+                                >
+                                    <div className="text-sm font-medium">{option.label}</div>
+                                    <div className="text-[11px] text-muted-foreground">{option.hint}</div>
+                                </button>
+                            ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Applied to PNG export, PDF export, and page download quality.
+                        </p>
                     </div>
 
                     {/* Page range */}
