@@ -4,6 +4,7 @@ import React, { useState, useCallback, useMemo, useRef, useEffect, useLayoutEffe
 import { useVirtualizer } from '@tanstack/react-virtual'; // NEW
 import {
     Loader2,
+    Lock,
     Sparkles,
     Wand2,
     AlertTriangle,
@@ -60,6 +61,7 @@ interface PhotoGalleryCardProps {
     generateDummyPhotos: () => void;
     handleGenerateAlbum: () => void;
     handleAutoFillAlbum: () => void;
+    handleLockFilledPages: () => void;
     handleClearGallery: () => void;
     handleResetAlbum: () => void;
     handleSortPhotos: () => void;
@@ -475,6 +477,7 @@ const PhotoGalleryCardComponent = ({
     generateDummyPhotos,
     handleGenerateAlbum,
     handleAutoFillAlbum,
+    handleLockFilledPages,
     handleClearGallery,
     handleResetAlbum,
     handleSortPhotos,
@@ -767,6 +770,19 @@ const PhotoGalleryCardComponent = ({
                                         <TooltipContent>Fill Empty Slots (Keep Layout)</TooltipContent>
                                     </Tooltip>
                                 )}
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            onClick={handleLockFilledPages}
+                                        >
+                                            <Lock className="h-3 w-3" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Lock Pages With Photos</TooltipContent>
+                                </Tooltip>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <Button

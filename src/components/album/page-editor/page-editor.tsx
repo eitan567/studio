@@ -1151,6 +1151,67 @@ export function PageEditor({ albumId }: PageEditorProps) {
 
   const hasLockedPages = useMemo(() => albumPages.some(page => !!page.isLocked), [albumPages]);
 
+  const handleLockPagesWithPhotos = useCallback(() => {
+    if (albumPages.length === 0) {
+      toast({
+        title: 'No pages to lock',
+        description: 'The album has no pages yet.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    let eligibleCount = 0;
+    let newlyLockedCount = 0;
+    let alreadyLockedCount = 0;
+
+    const nextPages = albumPages.map((page) => {
+      const hasAtLeastOnePhoto = page.photos.some((photo) => {
+        const source = (photo.remoteUrl || photo.src || '').trim();
+        return source.length > 0;
+      });
+
+      if (!hasAtLeastOnePhoto) return page;
+
+      eligibleCount += 1;
+
+      if (page.isLocked) {
+        alreadyLockedCount += 1;
+        return page;
+      }
+
+      newlyLockedCount += 1;
+      return { ...page, isLocked: true };
+    });
+
+    if (eligibleCount === 0) {
+      toast({
+        title: 'No filled pages found',
+        description: 'Only pages with at least one photo can be locked.',
+      });
+      return;
+    }
+
+    if (newlyLockedCount > 0) {
+      setAlbumPages(nextPages);
+    }
+
+    if (newlyLockedCount === 0) {
+      toast({
+        title: 'Nothing to lock',
+        description: `All ${eligibleCount} page(s) with photos are already locked.`,
+      });
+      return;
+    }
+
+    toast({
+      title: 'Pages locked',
+      description: alreadyLockedCount > 0
+        ? `${newlyLockedCount} page(s) locked. ${alreadyLockedCount} were already locked.`
+        : `${newlyLockedCount} page(s) locked successfully.`,
+    });
+  }, [albumPages, toast]);
+
   const handleExportBackup = useCallback(() => {
     if (albumPages.length === 0) {
       toast({
@@ -1807,6 +1868,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
                 generateDummyPhotos={generateDummyPhotos}
                 handleGenerateAlbum={handleGenerateAlbum}
                 handleAutoFillAlbum={handleAutoFillAlbum}
+                handleLockFilledPages={handleLockPagesWithPhotos}
                 handleClearGallery={handleClearGallery}
                 handleResetAlbum={handleResetAlbum}
                 handleSortPhotos={handleSortPhotos}
