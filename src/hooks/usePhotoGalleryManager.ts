@@ -6,6 +6,7 @@ import { usePhotoUpload } from '@/hooks/usePhotoUpload';
 import { logger } from '@/lib/logger';
 import placeholderImagesData from '@/lib/placeholder-images.json';
 import exifr from 'exifr';
+import { extractSupabaseStoragePath } from '@/lib/supabase-media-normalizer';
 
 const placeholderImages = placeholderImagesData.placeholderImages;
 
@@ -544,17 +545,9 @@ export function usePhotoGalleryManager({
 
         // 2. Background Deletion
         try {
-            const getStoragePath = (url: string) => {
-                try {
-                    const parts = url.split('/photos/');
-                    if (parts.length > 1) return decodeURIComponent(parts[1]);
-                    return null;
-                } catch (e) { return null; }
-            };
-
             const photosToDelete = photosToDeleteSnapshot.map(p => ({
                 id: p.id,
-                storage_path: getStoragePath(p.remoteUrl || p.src)
+                storage_path: p.storagePath || extractSupabaseStoragePath(p.remoteUrl || p.src)
             })).filter(p => p.storage_path);
 
             if (photosToDelete.length > 0) {
@@ -585,17 +578,9 @@ export function usePhotoGalleryManager({
         }
 
         try {
-            const getStoragePath = (url: string) => {
-                try {
-                    const parts = url.split('/photos/');
-                    if (parts.length > 1) return decodeURIComponent(parts[1]);
-                    return null;
-                } catch (e) { return null; }
-            };
-
             const photosToDelete = allPhotos.filter(p => ids.includes(p.id)).map(p => ({
                 id: p.id,
-                storage_path: getStoragePath(p.remoteUrl || p.src)
+                storage_path: p.storagePath || extractSupabaseStoragePath(p.remoteUrl || p.src)
             })).filter(p => p.storage_path);
 
             if (photosToDelete.length > 0) {

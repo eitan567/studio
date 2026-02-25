@@ -226,6 +226,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
     handleRemovePhotosFromAlbum,
     replacePhotoId
   } = useAlbumPageEditor({
+    albumPages,
     setAlbumPages,
     allPhotos,
     allowDuplicates,

@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { logger } from '@/lib/logger'
+import {
+    normalizeAlbumMediaUrls,
+    normalizeAlbumPageMediaUrls,
+    normalizeSupabaseStorageUrl
+} from '@/lib/supabase-media-normalizer'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!
@@ -63,6 +68,7 @@ export async function GET(request: NextRequest) {
             const { pages: _pages, photos: _photos, ...rest } = album
             return {
                 ...rest,
+                thumbnail_url: normalizeSupabaseStorageUrl(rest.thumbnail_url as string | null | undefined),
                 pages_count: pagesCount,
                 photos_count: photosCount,
                 total_slots: totalSlots,
@@ -98,8 +104,8 @@ export async function POST(request: NextRequest) {
                 user_id: user.id,
                 name: name || 'Untitled Album',
                 config: config || {},
-                pages: pages || [],
-                thumbnail_url: thumbnail_url || null,
+                pages: Array.isArray(pages) ? pages.map((page: any) => normalizeAlbumPageMediaUrls(page)) : [],
+                thumbnail_url: normalizeSupabaseStorageUrl(thumbnail_url || null),
             })
             .select()
             .single()
@@ -111,7 +117,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to create album' }, { status: 500 })
         }
 
-        return NextResponse.json({ album }, { status: 201 })
+        return NextResponse.json({ album: normalizeAlbumMediaUrls(album) }, { status: 201 })
     } catch (error) {
         logger.error('Albums POST error:', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import type { Photo } from '@/lib/types'
 import exifr from 'exifr'
 import { useSettings } from '@/hooks/use-settings'
+import { extractSupabaseStoragePath, normalizeSupabaseStorageUrl } from '@/lib/supabase-media-normalizer'
 
 interface UploadProgress {
     loaded: number
@@ -92,16 +93,25 @@ export function usePhotoUpload() {
                     data.message.toLowerCase().includes('ignored'))
 
             // Convert to Photo type
+            const normalizedUrl = normalizeSupabaseStorageUrl(data.url) || data.url
+            const storagePath =
+                data.photo?.storage_path ||
+                data.photo?.storagePath ||
+                extractSupabaseStoragePath(normalizedUrl) ||
+                undefined
+
             const photo: Photo = {
                 id: data.photo?.id || crypto.randomUUID(),
-                src: data.url,
+                src: normalizedUrl,
                 alt: file.name,
                 width: dimensions.width,
                 height: dimensions.height,
                 captureDate: captureDate, // Use extracted date
+                remoteUrl: normalizedUrl,
+                storagePath,
             }
 
-            return { success: true, photo, url: data.url, ignoredDuplicate }
+            return { success: true, photo, url: normalizedUrl, ignoredDuplicate }
         } catch (err: any) {
             const errorMessage = err instanceof Error ? err.message : 'Upload failed'
             // Don't set global error state if skipped, but do return it

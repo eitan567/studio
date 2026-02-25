@@ -1,5 +1,6 @@
 
 import { createClient } from './supabase';
+import { normalizeSupabaseStorageUrl } from './supabase-media-normalizer';
 
 const supabase = createClient();
 
@@ -73,15 +74,22 @@ export default function supabaseLoader({ src, width, quality }: { src: string; w
 
     // CASE 2: Supabase Storage URL
     if (src.includes('/storage/v1/object/public/')) {
-        const isLocal = src.includes('127.0.0.1') || src.includes('localhost');
+        const normalizedSrc = normalizeSupabaseStorageUrl(src) || src;
+        const isLocal = normalizedSrc.includes('127.0.0.1') || normalizedSrc.includes('localhost');
 
         // Local: Return original with dummy param to satisfy Next.js loader warning
         if (isLocal) {
-            return `${src}?w=${width}`;
+            try {
+                const localUrl = new URL(normalizedSrc);
+                localUrl.searchParams.set('w', width.toString());
+                return localUrl.toString();
+            } catch (e) {
+                return `${normalizedSrc}?w=${width}`;
+            }
         }
 
         // Remote: Replace /object/public/ with /render/image/public/ to enable transformations
-        const transformSrc = src.replace(/\/storage\/v1\/object\/public\//, '/storage/v1/render/image/public/');
+        const transformSrc = normalizedSrc.replace(/\/storage\/v1\/object\/public\//, '/storage/v1/render/image/public/');
 
         try {
             const url = new URL(transformSrc);
@@ -91,7 +99,7 @@ export default function supabaseLoader({ src, width, quality }: { src: string; w
             url.searchParams.set('resize', 'contain');
             return url.toString();
         } catch (e) {
-            return src;
+            return normalizedSrc;
         }
     }
 

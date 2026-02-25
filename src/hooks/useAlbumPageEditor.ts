@@ -4,9 +4,11 @@ import { useToast } from '@/hooks/use-toast';
 import { AlbumPage, Photo, PhotoPanAndZoom } from '@/lib/types';
 import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
 import { parseLayoutId } from '@/lib/layout-id-utils';
+import { extractSupabaseStoragePath } from '@/lib/supabase-media-normalizer';
 
 
 interface UseAlbumPageEditorProps {
+    albumPages: AlbumPage[];
     setAlbumPages: React.Dispatch<React.SetStateAction<AlbumPage[]>>;
     allPhotos: Photo[];
     allowDuplicates: boolean;
@@ -14,6 +16,7 @@ interface UseAlbumPageEditorProps {
 }
 
 export function useAlbumPageEditor({
+    albumPages,
     setAlbumPages,
     allPhotos,
     allowDuplicates,
@@ -26,22 +29,33 @@ export function useAlbumPageEditor({
     const allPhotosRef = useRef(allPhotos);
     const allowDuplicatesRef = useRef(allowDuplicates);
     const usedPhotoIdsRef = useRef(usedPhotoIds);
+    const albumPagesRef = useRef(albumPages);
 
     useEffect(() => {
         allPhotosRef.current = allPhotos;
         allowDuplicatesRef.current = allowDuplicates;
         usedPhotoIdsRef.current = usedPhotoIds;
-    }, [allPhotos, allowDuplicates, usedPhotoIds]);
+        albumPagesRef.current = albumPages;
+    }, [allPhotos, allowDuplicates, usedPhotoIds, albumPages]);
+
+    const isPageLocked = useCallback((pageId: string) => {
+        return albumPagesRef.current.some(page => page.id === pageId && !!page.isLocked);
+    }, []);
 
     const deletePage = useCallback((pageId: string) => {
+        if (isPageLocked(pageId)) return;
+
         setAlbumPages(prev => prev.filter(p => p.id !== pageId));
         toast({
             title: "Page Deleted",
             variant: "destructive"
         });
-    }, [setAlbumPages, toast]);
+    }, [isPageLocked, setAlbumPages, toast]);
 
     const addSpreadPage = useCallback((afterIndex: number) => {
+        const pageAfter = albumPagesRef.current[afterIndex];
+        if (pageAfter?.isLocked) return;
+
         const createEmptyPhoto = () => ({
             id: uuidv4(),
             src: '',
@@ -73,6 +87,8 @@ export function useAlbumPageEditor({
     }, [setAlbumPages, toast]);
 
     const updatePageLayout = useCallback((pageId: string, newLayoutId: string) => {
+        if (isPageLocked(pageId)) return;
+
         setAlbumPages(prevPages => {
             return prevPages.map(page => {
                 if (page.id !== pageId) return page;
@@ -122,9 +138,11 @@ export function useAlbumPageEditor({
                 };
             });
         });
-    }, [setAlbumPages, findTemplate]);
+    }, [isPageLocked, setAlbumPages, findTemplate]);
 
     const handleRemovePhoto = useCallback((pageId: string, photoId: string) => {
+        if (isPageLocked(pageId)) return;
+
         setAlbumPages(prevPages => {
             return prevPages.map(page => {
                 if (page.id !== pageId) return page;
@@ -154,9 +172,11 @@ export function useAlbumPageEditor({
             title: "Photo Removed",
             description: "The photo has been removed from the frame."
         });
-    }, [setAlbumPages, toast]);
+    }, [isPageLocked, setAlbumPages, toast]);
 
     const handleUpdateCoverLayout = useCallback((pageId: string, side: 'front' | 'back' | 'full', newLayout: string) => {
+        if (isPageLocked(pageId)) return;
+
         setAlbumPages(prevPages => {
             return prevPages.map(page => {
                 if (page.id !== pageId || !page.isCover) return page;
@@ -258,9 +278,11 @@ export function useAlbumPageEditor({
                 };
             });
         });
-    }, [setAlbumPages, findCoverTemplate, defaultCoverTemplate]);
+    }, [isPageLocked, setAlbumPages, findCoverTemplate, defaultCoverTemplate]);
 
     const handleUpdateSpreadLayout = useCallback((pageId: string, side: 'left' | 'right', newLayout: string) => {
+        if (isPageLocked(pageId)) return;
+
         setAlbumPages(prevPages => {
             return prevPages.map(page => {
                 if (page.id !== pageId || page.isCover) return page;
@@ -345,9 +367,11 @@ export function useAlbumPageEditor({
                 };
             });
         });
-    }, [setAlbumPages, defaultGridTemplate, findTemplate]);
+    }, [isPageLocked, setAlbumPages, defaultGridTemplate, findTemplate]);
 
     const handleUpdateCoverType = useCallback((pageId: string, newType: 'split' | 'full') => {
+        if (isPageLocked(pageId)) return;
+
         setAlbumPages(prevPages => {
             return prevPages.map(page => {
                 if (page.id !== pageId || !page.isCover) return page;
@@ -395,16 +419,20 @@ export function useAlbumPageEditor({
                 };
             });
         });
-    }, [setAlbumPages, findCoverTemplate, defaultCoverTemplate]);
+    }, [isPageLocked, setAlbumPages, findCoverTemplate, defaultCoverTemplate]);
 
     const handleUpdateSpineText = useCallback((pageId: string, text: string) => {
+        if (isPageLocked(pageId)) return;
+
         setAlbumPages(prevPages => prevPages.map(page => {
             if (page.id !== pageId) return page;
             return { ...page, spineText: text };
         }));
-    }, [setAlbumPages]);
+    }, [isPageLocked, setAlbumPages]);
 
     const handleUpdateSpineSettings = useCallback((pageId: string, settings: { width?: number; color?: string; opacity?: number; textColor?: string; fontSize?: number; fontFamily?: string }) => {
+        if (isPageLocked(pageId)) return;
+
         setAlbumPages(prevPages => prevPages.map(page => {
             if (page.id !== pageId) return page;
             return {
@@ -417,9 +445,11 @@ export function useAlbumPageEditor({
                 spineFontFamily: settings.fontFamily ?? page.spineFontFamily
             };
         }));
-    }, [setAlbumPages]);
+    }, [isPageLocked, setAlbumPages]);
 
     const handleUpdateTitleSettings = useCallback((pageId: string, settings: { text?: string; color?: string; fontSize?: number; fontFamily?: string; position?: { x: number; y: number } }) => {
+        if (isPageLocked(pageId)) return;
+
         setAlbumPages(prevPages => prevPages.map(page => {
             if (page.id !== pageId) return page;
             return {
@@ -431,15 +461,39 @@ export function useAlbumPageEditor({
                 titlePosition: settings.position ?? page.titlePosition
             };
         }));
-    }, [setAlbumPages]);
+    }, [isPageLocked, setAlbumPages]);
+
+    const togglePageLock = useCallback((pageId: string) => {
+        let nextLockedState: boolean | null = null;
+
+        setAlbumPages(prevPages => prevPages.map(page => {
+            if (page.id !== pageId) return page;
+            const nextLocked = !page.isLocked;
+            nextLockedState = nextLocked;
+            return { ...page, isLocked: nextLocked };
+        }));
+
+        if (nextLockedState === null) return;
+
+        toast({
+            title: nextLockedState ? "Page Locked" : "Page Unlocked",
+            description: nextLockedState
+                ? "Editing is disabled for this page."
+                : "Editing has been re-enabled for this page."
+        });
+    }, [setAlbumPages, toast]);
 
     const handleUpdatePage = useCallback((updatedPage: AlbumPage) => {
+        if (isPageLocked(updatedPage.id)) return;
+
         setAlbumPages(prevPages => prevPages.map(page =>
             page.id === updatedPage.id ? updatedPage : page
         ));
-    }, [setAlbumPages]);
+    }, [isPageLocked, setAlbumPages]);
 
     const updatePhotoPanAndZoom = useCallback((pageId: string, photoId: string, panAndZoom: PhotoPanAndZoom) => {
+        if (isPageLocked(pageId)) return;
+
         setAlbumPages(pages => pages.map(page => {
             if (page.id !== pageId) return page;
             return {
@@ -450,9 +504,12 @@ export function useAlbumPageEditor({
                 })
             };
         }));
-    }, [setAlbumPages]);
+    }, [isPageLocked, setAlbumPages]);
 
     const handleDropPhoto = useCallback((pageId: string, targetPhotoId: string, droppedPhotoId: string, sourceInfo?: { pageId: string; photoId: string }) => {
+        if (isPageLocked(pageId)) return;
+        if (sourceInfo && isPageLocked(sourceInfo.pageId)) return;
+
         // Handle Multi-Photo Drop (Dynamic Justified Layout)
         if (targetPhotoId === '__REPLACE_ALL__') {
             try {
@@ -663,11 +720,13 @@ export function useAlbumPageEditor({
                 if (isNaN(index)) return page;
 
                 const newPhotos = [...page.photos];
+                const droppedSource = droppedPhoto.remoteUrl || droppedPhoto.src;
                 const newPhotoObj = {
                     ...droppedPhoto,
                     id: uuidv4(),
                     originalId: droppedPhoto.id,
-                    remoteUrl: droppedPhoto.remoteUrl,
+                    remoteUrl: droppedSource,
+                    storagePath: droppedPhoto.storagePath || extractSupabaseStoragePath(droppedSource) || undefined,
                     panAndZoom: { scale: 1, x: 50, y: 50 },
                     width: droppedPhoto.width || 800,
                     height: droppedPhoto.height || 600
@@ -695,11 +754,13 @@ export function useAlbumPageEditor({
                 ...page,
                 photos: page.photos.map(p => {
                     if (p.id === targetPhotoId) {
+                        const droppedSource = droppedPhoto.remoteUrl || droppedPhoto.src;
                         return {
                             ...droppedPhoto,
                             id: targetPhotoId,
                             originalId: droppedPhoto.id,
-                            remoteUrl: droppedPhoto.remoteUrl,
+                            remoteUrl: droppedSource,
+                            storagePath: droppedPhoto.storagePath || extractSupabaseStoragePath(droppedSource) || undefined,
                             panAndZoom: { scale: 1, x: 50, y: 50 },
                             width: droppedPhoto.width || 800,
                             height: droppedPhoto.height || 600
@@ -709,11 +770,13 @@ export function useAlbumPageEditor({
                 })
             };
         }));
-    }, [setAlbumPages, toast]);
+    }, [isPageLocked, setAlbumPages, toast]);
 
     const handleRemovePhotosFromAlbum = useCallback((photoIds: string[]) => {
         setAlbumPages(prevPages => {
             return prevPages.map(page => {
+                if (page.isLocked) return page;
+
                 // Check if page has any of the photos to be removed
                 const hasPhotoToRemove = page.photos.some(p => photoIds.includes(p.originalId || p.id));
 
@@ -761,6 +824,7 @@ export function useAlbumPageEditor({
 
                             // Update Source Data
                             remoteUrl: newPhoto.remoteUrl || newPhoto.src,
+                            storagePath: newPhoto.storagePath || extractSupabaseStoragePath(newPhoto.remoteUrl || newPhoto.src) || p.storagePath,
                             width: newPhoto.width || p.width,
                             height: newPhoto.height || p.height,
 
@@ -779,6 +843,8 @@ export function useAlbumPageEditor({
     }, [setAlbumPages]);
 
     const replacePhotoInSlot = useCallback((pageId: string, slotPhotoId: string, galleryPhoto: Photo) => {
+        if (isPageLocked(pageId)) return;
+
         setAlbumPages(prevPages => {
             return prevPages.map(page => {
                 if (page.id !== pageId) return page;
@@ -791,6 +857,7 @@ export function useAlbumPageEditor({
                         id: slotPhotoId,
                         originalId: galleryPhoto.id,
                         remoteUrl: galleryPhoto.remoteUrl || galleryPhoto.src,
+                        storagePath: galleryPhoto.storagePath || extractSupabaseStoragePath(galleryPhoto.remoteUrl || galleryPhoto.src) || slotPhoto.storagePath,
                         panAndZoom: { scale: 1, x: 50, y: 50 },
                         width: galleryPhoto.width || slotPhoto.width || 800,
                         height: galleryPhoto.height || slotPhoto.height || 600,
@@ -803,7 +870,7 @@ export function useAlbumPageEditor({
                 };
             });
         });
-    }, [setAlbumPages]);
+    }, [isPageLocked, setAlbumPages]);
 
     return {
         deletePage,
@@ -816,6 +883,7 @@ export function useAlbumPageEditor({
         handleUpdateSpineText,
         handleUpdateSpineSettings,
         handleUpdateTitleSettings,
+        togglePageLock,
         handleUpdatePage,
         updatePhotoPanAndZoom,
         handleDropPhoto,

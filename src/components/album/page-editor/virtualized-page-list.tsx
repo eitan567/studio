@@ -49,6 +49,7 @@ interface VirtualizedPageListProps {
     onEnhanceWithAi?: (pageId: string) => void;
     onEnhancePhotoWithAi?: (pageId: string, photoId: string, photo: Photo) => void;
     onUndo?: (pageId: string) => void;
+    onToggleLock?: (pageId: string) => void;
 
     customTemplates: any[];
     defaultViewMode: 'single' | 'spread';
@@ -316,13 +317,14 @@ interface ItemData {
     onOpenEditor?: (pageId: string) => void;
     onEnhanceWithAi?: (pageId: string) => void;
     onUndo?: (pageId: string) => void;
+    onToggleLock?: (pageId: string) => void;
     // Pass all other props that Row needs
     [key: string]: any;
 }
 
 // Item Renderer outside of component to maintain identity
 const Row = memo(({ index, style, ariaAttributes, ...data }: any) => {
-    const { pages, config, pageInfo, onOpenEditor, onEnhanceWithAi, onEnhancePhotoWithAi, onUndo, pageMaxWidth, ...rest } = data;
+    const { pages, config, pageInfo, onOpenEditor, onEnhanceWithAi, onEnhancePhotoWithAi, onUndo, onToggleLock, pageMaxWidth, ...rest } = data;
     const page = pages?.[index];
     if (!page) return null;
 
@@ -358,6 +360,7 @@ const Row = memo(({ index, style, ariaAttributes, ...data }: any) => {
                     onEnhanceWithAi={onEnhanceWithAi}
                     onEnhancePhotoWithAi={onEnhancePhotoWithAi}
                     onUndo={onUndo}
+                    onToggleLock={onToggleLock}
                     priority={isPriority}
                     {...(rest as any)}
                 />
@@ -373,6 +376,7 @@ export const VirtualizedPageList = memo(forwardRef(({
     onEnhanceWithAi,
     onEnhancePhotoWithAi,
     onUndo,
+    onToggleLock,
     pageMaxWidth,
     ...props
 }: VirtualizedPageListProps, ref) => {
@@ -417,9 +421,10 @@ export const VirtualizedPageList = memo(forwardRef(({
         onEnhanceWithAi,
         onEnhancePhotoWithAi,
         onUndo,
+        onToggleLock,
         pageMaxWidth,
         ...props
-    }), [pages, config, pageInfo, onOpenEditor, onEnhanceWithAi, onEnhancePhotoWithAi, onUndo, pageMaxWidth, props]);
+    }), [pages, config, pageInfo, onOpenEditor, onEnhanceWithAi, onEnhancePhotoWithAi, onUndo, onToggleLock, pageMaxWidth, props]);
 
     // Manual Centered Scrolling Logic
     const scrollToPageCentered = useCallback((index: number) => {

@@ -80,6 +80,7 @@ import { AlbumConfigCard } from './sidebar/config-card';
 import { PhotoGalleryCard } from './sidebar/gallery-card';
 import { AlbumEditorToolbar } from './toolbar';
 import { VirtualizedPageList } from './virtualized-page-list';
+import { extractSupabaseStoragePath, normalizePhotoMediaUrls } from '@/lib/supabase-media-normalizer';
 
 // Parse layout ID helper removed (now in useAlbumPageEditor or used via import if needed)
 
@@ -143,16 +144,59 @@ export function PageEditor({ albumId }: PageEditorProps) {
   // Track initialization to prevent re-hydrating deleted photos
   const photosInitialized = useRef(false);
 
-  // Initialize local photos from saved photos on load (ONCE)
-  useEffect(() => {
-    if (!photosInitialized.current && savedPhotos && savedPhotos.length > 0) {
-      setLocalPhotos(savedPhotos);
-      photosInitialized.current = true;
-    } else if (!photosInitialized.current && savedPhotos && savedPhotos.length === 0 && !isAlbumLoading) {
-      // If loading finished and no photos, mark initialized so we don't overwrite later
-      photosInitialized.current = true;
+  const mergeGalleryPhotosWithPages = useCallback((galleryPhotos: Photo[], pages: AlbumPage[]): Photo[] => {
+    const merged: Photo[] = [];
+    const seenIds = new Set<string>();
+    const seenSrc = new Set<string>();
+
+    for (const photo of galleryPhotos || []) {
+      const normalizedPhoto = normalizePhotoMediaUrls(photo);
+      const effectiveSrc = (normalizedPhoto.remoteUrl || normalizedPhoto.src || '').trim();
+      if (!effectiveSrc) continue;
+      merged.push({
+        ...normalizedPhoto,
+        storagePath: normalizedPhoto.storagePath || extractSupabaseStoragePath(effectiveSrc) || undefined,
+      });
+      if (normalizedPhoto.id) seenIds.add(normalizedPhoto.id);
+      seenSrc.add(effectiveSrc);
     }
-  }, [savedPhotos, isAlbumLoading]);
+
+    for (const page of pages || []) {
+      for (const slotPhoto of page.photos || []) {
+        const effectiveSrc = (slotPhoto.remoteUrl || slotPhoto.src || '').trim();
+        if (!effectiveSrc) continue;
+
+        const preferredId = (slotPhoto.originalId || slotPhoto.id || '').trim();
+        const hasKnownId = preferredId ? seenIds.has(preferredId) : false;
+        if (hasKnownId || seenSrc.has(effectiveSrc)) continue;
+
+        const recoveredId = preferredId || crypto.randomUUID();
+        merged.push({
+          id: recoveredId,
+          src: effectiveSrc,
+          remoteUrl: effectiveSrc,
+          storagePath: slotPhoto.storagePath || extractSupabaseStoragePath(effectiveSrc) || undefined,
+          alt: slotPhoto.alt || 'Recovered Photo',
+          width: slotPhoto.width,
+          height: slotPhoto.height,
+          captureDate: slotPhoto.captureDate,
+        });
+        seenIds.add(recoveredId);
+        seenSrc.add(effectiveSrc);
+      }
+    }
+
+    return merged;
+  }, []);
+
+  // Initialize local photos from saved photos/pages on load (ONCE)
+  useEffect(() => {
+    if (photosInitialized.current || isAlbumLoading) return;
+
+    const hydratedPhotos = mergeGalleryPhotosWithPages(savedPhotos || [], savedPages || []);
+    setLocalPhotos(hydratedPhotos);
+    photosInitialized.current = true;
+  }, [savedPhotos, savedPages, isAlbumLoading, mergeGalleryPhotosWithPages]);
 
   // Expose local photos for UI
   const allPhotos = localPhotos;
@@ -249,8 +293,10 @@ export function PageEditor({ albumId }: PageEditorProps) {
     handleDropPhoto,
     handleRemovePhotosFromAlbum,
     replacePhotoId,
-    replacePhotoInSlot
+    replacePhotoInSlot,
+    togglePageLock
   } = useAlbumPageEditor({
+    albumPages,
     setAlbumPages,
     allPhotos,
     allowDuplicates,
@@ -264,6 +310,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
   const handleOpenEditor = useCallback((pageId: string) => {
     const page = albumPages.find(p => p.id === pageId);
     if (!page) return;
+    if (page.isLocked) return;
 
     setEditingPageId(pageId);
     setIsCoverEditorOpen(true);
@@ -313,6 +360,16 @@ export function PageEditor({ albumId }: PageEditorProps) {
   }, [allPhotos, mimeToExtension]);
 
   const handleOpenPhotoEnhancer = useCallback((pageId: string, photoId: string, photo: Photo) => {
+    const page = albumPages.find(p => p.id === pageId);
+    if (page?.isLocked) {
+      toast({
+        title: 'Page is locked',
+        description: 'Unlock this page before editing photos.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const sourceImageUrl = resolveEnhanceSourceUrl(photo);
     if (!sourceImageUrl) {
       toast({
@@ -330,7 +387,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
       sourceImageUrl,
     });
     setIsEnhancerOpen(true);
-  }, [resolveEnhanceSourceUrl, toast]);
+  }, [albumPages, resolveEnhanceSourceUrl, toast]);
 
   const handleEnhancerOpenChange = useCallback((nextOpen: boolean) => {
     setIsEnhancerOpen(nextOpen);
@@ -498,6 +555,28 @@ export function PageEditor({ albumId }: PageEditorProps) {
   const [isCustomLayoutEditorOpen, setIsCustomLayoutEditorOpen] = useState(false);
   const [isCoverEditorOpen, setIsCoverEditorOpen] = useState(false);
   const [editingPageId, setEditingPageId] = useState<string | null>(null);
+
+  const handleTogglePageLock = useCallback((pageId: string) => {
+    const targetPage = albumPages.find(page => page.id === pageId);
+    if (!targetPage) return;
+
+    const willLock = !targetPage.isLocked;
+    if (willLock && editingPageId === pageId) {
+      setIsCoverEditorOpen(false);
+      setEditingPageId(null);
+    }
+
+    togglePageLock(pageId);
+  }, [albumPages, editingPageId, togglePageLock]);
+
+  useEffect(() => {
+    if (!isCoverEditorOpen || !editingPageId) return;
+    const editedPage = albumPages.find(page => page.id === editingPageId);
+    if (!editedPage || editedPage.isLocked) {
+      setIsCoverEditorOpen(false);
+      setEditingPageId(null);
+    }
+  }, [albumPages, editingPageId, isCoverEditorOpen]);
 
   const [customTemplates, setCustomTemplates] = useState<AdvancedTemplate[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -919,6 +998,8 @@ export function PageEditor({ albumId }: PageEditorProps) {
     cornerRadius,
   }), [watchedSize, photoGap, pageMargin, backgroundColor, backgroundImage, cornerRadius]);
 
+  const hasLockedPages = useMemo(() => albumPages.some(page => !!page.isLocked), [albumPages]);
+
 
   // Page Manipulation Hook (Moved up)
 
@@ -926,6 +1007,15 @@ export function PageEditor({ albumId }: PageEditorProps) {
   // Process uploaded photo files (from folder or individual selection)
   // Generate album from existing photos (sorted by capture date)
   const handleGenerateAlbum = useCallback(() => {
+    if (hasLockedPages) {
+      toast({
+        title: 'Locked pages detected',
+        description: 'Unlock pages before regenerating the album.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     if (allPhotos.length === 0) {
       toast({
         title: 'No photos',
@@ -963,9 +1053,18 @@ export function PageEditor({ albumId }: PageEditorProps) {
       title: 'Album Generated',
       description: `Album created with ${sortedPhotos.length} photos sorted by date.`,
     });
-  }, [allPhotos, generateInitialPages, toast]);
+  }, [allPhotos, generateInitialPages, hasLockedPages, toast]);
 
   const handleAutoFillAlbum = useCallback(() => {
+    if (hasLockedPages) {
+      toast({
+        title: 'Locked pages detected',
+        description: 'Unlock pages before auto-filling the album.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     if (allPhotos.length === 0) {
       toast({
         title: 'No photos',
@@ -1003,15 +1102,24 @@ export function PageEditor({ albumId }: PageEditorProps) {
       title: 'Album Filled',
       description: `Album pages filled with ${sortedPhotos.length} photos from gallery.`,
     });
-  }, [allPhotos, albumPages, autoFillAlbum, toast]);
+  }, [allPhotos, albumPages, autoFillAlbum, hasLockedPages, toast]);
 
   const handleResetAlbum = useCallback(() => {
+    if (hasLockedPages) {
+      toast({
+        title: 'Locked pages detected',
+        description: 'Unlock pages before resetting the album.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     generateEmptyAlbum();
     toast({
       title: 'Album Reset',
       description: 'Album has been reset to empty state.',
     });
-  }, [generateEmptyAlbum, toast]);
+  }, [generateEmptyAlbum, hasLockedPages, toast]);
 
   const handleDownloadPage = useCallback(async (pageId: string, options?: ExportRenderOptions) => {
     const dpi = options?.dpi ?? 300;
@@ -1217,6 +1325,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
                 onEnhanceWithAi={handleEnhanceWithAi}
                 onEnhancePhotoWithAi={handleOpenPhotoEnhancer}
                 onUndo={handleUndo}
+                onToggleLock={handleTogglePageLock}
                 customTemplates={customTemplates}
                 defaultViewMode={settings.defaultEditorViewMode as "single" | "spread"}
                 visibleTemplateCategories={settings.visibleTemplateCategories}

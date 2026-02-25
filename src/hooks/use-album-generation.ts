@@ -5,6 +5,7 @@ import { logger } from '@/lib/logger';
 import { getPhotoCount, useTemplates } from '@/hooks/useTemplates';
 import { useToast } from '@/hooks/use-toast';
 import { UserSettings } from '@/hooks/use-settings';
+import { extractSupabaseStoragePath } from '@/lib/supabase-media-normalizer';
 
 interface UseAlbumGenerationProps {
     setAlbumPages: (pages: AlbumPage[]) => void;
@@ -309,7 +310,14 @@ export function useAlbumGeneration({
                 if (photos.length > 0) {
                     const randomIndex = Math.floor(Math.random() * photos.length);
                     const randomPhoto = photos[randomIndex];
-                    coverPhotos.push({ ...randomPhoto, id: uuidv4(), originalId: randomPhoto.id, remoteUrl: randomPhoto.remoteUrl, panAndZoom: defaultPanAndZoom });
+                    coverPhotos.push({
+                        ...randomPhoto,
+                        id: uuidv4(),
+                        originalId: randomPhoto.id,
+                        remoteUrl: randomPhoto.remoteUrl || randomPhoto.src,
+                        storagePath: randomPhoto.storagePath || extractSupabaseStoragePath(randomPhoto.remoteUrl || randomPhoto.src) || undefined,
+                        panAndZoom: defaultPanAndZoom
+                    });
                 } else {
                     coverPhotos.push({
                         id: uuidv4(),
@@ -330,7 +338,14 @@ export function useAlbumGeneration({
                 if (photos.length > 0) {
                     const randomIndex = Math.floor(Math.random() * photos.length);
                     const randomPhoto = photos[randomIndex];
-                    coverPhotos.push({ ...randomPhoto, id: uuidv4(), originalId: randomPhoto.id, remoteUrl: randomPhoto.remoteUrl, panAndZoom: defaultPanAndZoom });
+                    coverPhotos.push({
+                        ...randomPhoto,
+                        id: uuidv4(),
+                        originalId: randomPhoto.id,
+                        remoteUrl: randomPhoto.remoteUrl || randomPhoto.src,
+                        storagePath: randomPhoto.storagePath || extractSupabaseStoragePath(randomPhoto.remoteUrl || randomPhoto.src) || undefined,
+                        panAndZoom: defaultPanAndZoom
+                    });
                 } else {
                     coverPhotos.push({
                         id: uuidv4(),
@@ -371,7 +386,8 @@ export function useAlbumGeneration({
                 ...p,
                 id: uuidv4(),
                 originalId: p.id,
-                remoteUrl: p.remoteUrl,
+                remoteUrl: p.remoteUrl || p.src,
+                storagePath: p.storagePath || extractSupabaseStoragePath(p.remoteUrl || p.src) || undefined,
                 panAndZoom: defaultPanAndZoom
             }));
             while (mappedFirstPagePhotos.length < firstSingleSlots) {
@@ -418,7 +434,14 @@ export function useAlbumGeneration({
                 for (let i = 0; i < currentTotalNeeded; i++) {
                     if (photosPool.length > 0) {
                         const p = photosPool.shift()!;
-                        pagePhotos.push({ ...p, id: uuidv4(), originalId: p.id, remoteUrl: p.remoteUrl, panAndZoom: defaultPanAndZoom });
+                        pagePhotos.push({
+                            ...p,
+                            id: uuidv4(),
+                            originalId: p.id,
+                            remoteUrl: p.remoteUrl || p.src,
+                            storagePath: p.storagePath || extractSupabaseStoragePath(p.remoteUrl || p.src) || undefined,
+                            panAndZoom: defaultPanAndZoom
+                        });
                     } else {
                         pagePhotos.push({ id: uuidv4(), src: '', alt: 'Drop photo here', width: 600, height: 400, panAndZoom: defaultPanAndZoom });
                     }
@@ -445,7 +468,14 @@ export function useAlbumGeneration({
                 for (let i = 0; i < requiredCount; i++) {
                     if (photosPool.length > 0) {
                         const p = photosPool.shift()!;
-                        pagePhotos.push({ ...p, id: uuidv4(), originalId: p.id, remoteUrl: p.remoteUrl, panAndZoom: defaultPanAndZoom });
+                        pagePhotos.push({
+                            ...p,
+                            id: uuidv4(),
+                            originalId: p.id,
+                            remoteUrl: p.remoteUrl || p.src,
+                            storagePath: p.storagePath || extractSupabaseStoragePath(p.remoteUrl || p.src) || undefined,
+                            panAndZoom: defaultPanAndZoom
+                        });
                     } else {
                         pagePhotos.push({
                             id: uuidv4(),
@@ -474,7 +504,8 @@ export function useAlbumGeneration({
                 ...p,
                 id: uuidv4(),
                 originalId: p.id,
-                remoteUrl: p.remoteUrl,
+                remoteUrl: p.remoteUrl || p.src,
+                storagePath: p.storagePath || extractSupabaseStoragePath(p.remoteUrl || p.src) || undefined,
                 panAndZoom: defaultPanAndZoom
             }));
             while (mappedLastPagePhotos.length < lastSingleSlots) {
@@ -662,7 +693,9 @@ export function useAlbumGeneration({
                         ...photo,
                         id: uuidv4(), // New ID for the slot to ensure uniqueness
                         originalId: nextPhoto.id,
-                        src: nextPhoto.src,
+                        src: nextPhoto.remoteUrl || nextPhoto.src,
+                        remoteUrl: nextPhoto.remoteUrl || nextPhoto.src,
+                        storagePath: nextPhoto.storagePath || extractSupabaseStoragePath(nextPhoto.remoteUrl || nextPhoto.src) || undefined,
                         alt: nextPhoto.alt,
                         width: nextPhoto.width,
                         height: nextPhoto.height,

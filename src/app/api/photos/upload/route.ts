@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { normalizePhotoMediaUrls, normalizeSupabaseStorageUrl } from '@/lib/supabase-media-normalizer'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!
@@ -63,11 +64,12 @@ export async function POST(request: NextRequest) {
 
         if (existingPhoto) {
             if (duplicateAction === 'ignore') {
+                const normalizedExistingPhoto = normalizePhotoMediaUrls(existingPhoto)
                 // Return existing photo early
                 return NextResponse.json({
                     success: true,
-                    photo: existingPhoto,
-                    url: existingPhoto.url,
+                    photo: normalizedExistingPhoto,
+                    url: normalizedExistingPhoto.url,
                     message: 'Upload ignored (duplicate)'
                 })
             }
@@ -108,7 +110,7 @@ export async function POST(request: NextRequest) {
             .from('photos')
             .getPublicUrl(storagePath)
 
-        let publicUrl = urlData.publicUrl
+        let publicUrl = normalizeSupabaseStorageUrl(urlData.publicUrl) || urlData.publicUrl
 
         let photoData = null;
         let dbError = null;
@@ -118,6 +120,7 @@ export async function POST(request: NextRequest) {
             const { data: updateData, error: updateError } = await supabase
                 .from('photos')
                 .update({
+                    url: publicUrl,
                     capture_date: captureDate ? new Date(captureDate).toISOString() : null,
                     updated_at: new Date().toISOString()
                 })
@@ -201,14 +204,17 @@ export async function POST(request: NextRequest) {
                     }
                 }
 
-                photoData = keeper
-                publicUrl = keeper.url
+                const normalizedKeeper = normalizePhotoMediaUrls(keeper)
+                photoData = normalizedKeeper
+                publicUrl = normalizedKeeper.url || publicUrl
             }
         }
 
+        const normalizedPhotoData = photoData ? normalizePhotoMediaUrls(photoData) : photoData
+
         return NextResponse.json({
             success: true,
-            photo: photoData,
+            photo: normalizedPhotoData,
             url: publicUrl,
         })
     } catch (error) {

@@ -16,6 +16,7 @@ export type Photo = {
   error?: string; // Upload failed state
   originalId?: string; // Reference to original gallery photo ID
   remoteUrl?: string; // Server URL (if src is a local blob for optimistic UI)
+  storagePath?: string; // Stable Supabase storage key (user_id/file.ext)
 };
 
 export type AlbumConfig = {
@@ -67,6 +68,7 @@ export type AlbumPage = {
   photos: Photo[];
   layout: string | number; // e.g., '1', '2', '4', '6' or numeric 1..14
   isCover?: boolean;
+  isLocked?: boolean;
   backgroundImage?: string; // Override background image for this specific page
   coverLayouts?: {
     front: string | number;

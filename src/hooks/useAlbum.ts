@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import type { AlbumConfig, AlbumPage, Album } from '@/lib/types'
 import { logger } from '@/lib/logger'
+import { extractSupabaseStoragePath, normalizePhotoMediaUrls } from '@/lib/supabase-media-normalizer'
 
 
 interface UseAlbumOptions {
@@ -160,7 +161,9 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
         if (dataToSave.photos) {
             dataToSave.photos = dataToSave.photos.map(p => ({
                 ...p,
+                ...normalizePhotoMediaUrls(p),
                 src: p.remoteUrl || p.src,
+                storagePath: p.storagePath || extractSupabaseStoragePath(p.remoteUrl || p.src) || undefined,
             }));
         }
 
@@ -170,7 +173,9 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
                 ...page,
                 photos: page.photos.map(p => ({
                     ...p,
-                    src: p.remoteUrl || p.src
+                    ...normalizePhotoMediaUrls(p),
+                    src: p.remoteUrl || p.src,
+                    storagePath: p.storagePath || extractSupabaseStoragePath(p.remoteUrl || p.src) || undefined,
                 })),
             }));
         }

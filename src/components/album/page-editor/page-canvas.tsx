@@ -5,7 +5,7 @@ import Image from 'next/image';
 import {
     Trash2, LayoutTemplate, Download, Wand2, Undo, Pencil, BookOpen,
     RotateCw, Plus, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown,
-    CornerDownRight, CornerDownLeft, ChevronUp, ChevronDown, Settings2
+    CornerDownRight, CornerDownLeft, ChevronUp, ChevronDown, Settings2, Lock, LockOpen
 } from 'lucide-react';
 
 import type { AlbumPage, AlbumConfig, Photo, PhotoPanAndZoom } from '@/lib/types';
@@ -255,7 +255,7 @@ const SpineColorPicker = ({ value, onChange, disableAlpha = false }: { value?: s
 
 const PageToolbar = ({
     page, pageNumber, displayLabel, canDelete = true, onDeletePage, onUpdateLayout, onUpdateSpreadLayout, onUpdateCoverLayout, onUpdateCoverType, onUpdateSpineText, onUpdateSpineSettings, onUpdateTitleSettings, onDownloadPage, onUpdatePage, toast, viewMode, onToggleViewMode, visibleTemplateCategories, allowedTemplateIds,
-    onCycleLayout, onEnhanceWithAi, onUndo, onOpenEditor, config
+    onCycleLayout, onEnhanceWithAi, onUndo, onOpenEditor, onToggleLock, config
 }: any) => {
     const { gridTemplates, coverTemplates, advancedTemplates, findTemplate, defaultGridTemplate, defaultCoverTemplate } = useTemplates();
 
@@ -565,6 +565,13 @@ const PageToolbar = ({
     const isCoverOrSpread = page.isCover || page.type === 'spread';
     const isSplit = page.isCover ? (page.coverType === 'split' || !page.coverType) : (page.spreadMode === 'split');
     const isFull = !isSplit;
+    const isLocked = !!page.isLocked;
+
+    useEffect(() => {
+        if (isLocked && showSpineSettings) {
+            setShowSpineSettings(false);
+        }
+    }, [isLocked, showSpineSettings]);
     const isTemplateSelected = useCallback((layoutId: string | number | null | undefined, templateId: string | number) => {
         const { baseId } = parseLayoutId(layoutId || '');
         return String(baseId) === String(templateId);
@@ -584,8 +591,10 @@ const PageToolbar = ({
                         size="sm"
                         className={cn(
                             "h-6 w-6 p-0 text-[10px] font-bold transition-all",
-                            isActive ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                            isActive ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                            isLocked && "opacity-45 cursor-not-allowed"
                         )}
+                        disabled={isLocked}
                         onClick={() => onCycleLayout?.(count)}
                     >
                         {count}
@@ -597,9 +606,22 @@ const PageToolbar = ({
 
     const renderCommonActions = () => (
         <>
-            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEnhanceWithAi?.(page.id)}><Wand2 className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>AI Enhance</TooltipContent></Tooltip>
-            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onUndo?.(page.id)}><Undo className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Undo</TooltipContent></Tooltip>
-            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onOpenEditor?.(page.id)}><Pencil className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>{page.isCover ? "Cover Editor" : "Page Editor"}</TooltipContent></Tooltip>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn("h-8 w-8", isLocked && "text-primary")}
+                        onClick={() => onToggleLock?.(page.id)}
+                    >
+                        {isLocked ? <Lock className="h-4 w-4" /> : <LockOpen className="h-4 w-4" />}
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>{isLocked ? "Unlock Page" : "Lock Page"}</TooltipContent>
+            </Tooltip>
+            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEnhanceWithAi?.(page.id)} disabled={isLocked}><Wand2 className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>AI Enhance</TooltipContent></Tooltip>
+            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onUndo?.(page.id)} disabled={isLocked}><Undo className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Undo</TooltipContent></Tooltip>
+            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onOpenEditor?.(page.id)} disabled={isLocked}><Pencil className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>{page.isCover ? "Cover Editor" : "Page Editor"}</TooltipContent></Tooltip>
             <div className="h-4 w-px bg-border mx-1" />
         </>
     );
@@ -649,6 +671,7 @@ const PageToolbar = ({
                                         variant={isFull ? "secondary" : "ghost"}
                                         size="icon"
                                         className={cn("h-8 w-8", isFull && "bg-primary/10 text-primary hover:bg-primary/20")}
+                                        disabled={isLocked}
                                         onClick={() => {
                                             const newMode = isFull ? 'split' : 'full';
                                             if (page.isCover) onUpdateCoverType?.(page.id, newMode);
@@ -670,7 +693,7 @@ const PageToolbar = ({
                             {isSplit ? (
                                 <>
                                     <DropdownMenu>
-                                        <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">{page.isCover ? "Back" : "Page 1"}</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>{page.isCover ? "Back Cover Layout" : "Page 1 Layout"}</TooltipContent></Tooltip>
+                                        <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2" disabled={isLocked}><LayoutTemplate className="h-4 w-4" /><span className="text-xs">{page.isCover ? "Back" : "Page 1"}</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>{page.isCover ? "Back Cover Layout" : "Page 1 Layout"}</TooltipContent></Tooltip>
                                         {renderTemplateDropdownContent(
                                             page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates],
                                             'single',
@@ -686,7 +709,7 @@ const PageToolbar = ({
                                             singleAspectRatio
                                         )}
                                     </DropdownMenu>
-                                    <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative h-8 w-8" onClick={() => {
+                                    <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative h-8 w-8" disabled={isLocked} onClick={() => {
                                         const currentLayoutId = page.isCover ? page.coverLayouts?.back : page.spreadLayouts?.left;
                                         const { baseId, rotation } = parseLayoutId(currentLayoutId || defaultGridTemplate?.id || '');
                                         const newRotation = getNextRotation(rotation);
@@ -696,7 +719,7 @@ const PageToolbar = ({
                                     }}><RotateCw className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Rotate Layout</TooltipContent></Tooltip>
                                     {/* Smart Layout Toggle (Left/Back) */}
                                     {(String(parseLayoutId(page.isCover ? page.coverLayouts?.back || defaultCoverTemplate?.id || '' : page.spreadLayouts?.left || defaultGridTemplate?.id || '').baseId).startsWith('dynamic-justified')) && (
-                                        <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative h-8 w-8" onClick={() => {
+                                        <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative h-8 w-8" disabled={isLocked} onClick={() => {
                                             const currentLayoutId = page.isCover ? page.coverLayouts?.back : page.spreadLayouts?.left;
                                             const { baseId, rotation } = parseLayoutId(currentLayoutId || defaultGridTemplate?.id || '');
                                             const nextBaseId = baseId === 'dynamic-justified' ? 'dynamic-justified-smart' : 'dynamic-justified';
@@ -720,7 +743,7 @@ const PageToolbar = ({
                                     )}
                                     <div className="h-4 w-px bg-border mx-1" />
                                     <DropdownMenu>
-                                        <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">{page.isCover ? "Front" : "Page 2"}</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>{page.isCover ? "Front Cover Layout" : "Page 2 Layout"}</TooltipContent></Tooltip>
+                                        <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2" disabled={isLocked}><LayoutTemplate className="h-4 w-4" /><span className="text-xs">{page.isCover ? "Front" : "Page 2"}</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>{page.isCover ? "Front Cover Layout" : "Page 2 Layout"}</TooltipContent></Tooltip>
                                         {renderTemplateDropdownContent(
                                             page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates],
                                             'single',
@@ -736,7 +759,7 @@ const PageToolbar = ({
                                             singleAspectRatio
                                         )}
                                     </DropdownMenu>
-                                    <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative h-8 w-8" onClick={() => {
+                                    <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative h-8 w-8" disabled={isLocked} onClick={() => {
                                         const currentLayoutId = page.isCover ? page.coverLayouts?.front : page.spreadLayouts?.right;
                                         const { baseId, rotation } = parseLayoutId(currentLayoutId || defaultGridTemplate?.id || '');
                                         const newRotation = getNextRotation(rotation);
@@ -746,7 +769,7 @@ const PageToolbar = ({
                                     }}><RotateCw className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Rotate Layout</TooltipContent></Tooltip>
                                     {/* Smart Layout Toggle (Right/Front) */}
                                     {(String(parseLayoutId(page.isCover ? page.coverLayouts?.front || defaultCoverTemplate?.id || '' : page.spreadLayouts?.right || defaultGridTemplate?.id || '').baseId).startsWith('dynamic-justified')) && (
-                                        <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative h-8 w-8" onClick={() => {
+                                        <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative h-8 w-8" disabled={isLocked} onClick={() => {
                                             const currentLayoutId = page.isCover ? page.coverLayouts?.front : page.spreadLayouts?.right;
                                             const { baseId, rotation } = parseLayoutId(currentLayoutId || defaultGridTemplate?.id || '');
                                             const nextBaseId = baseId === 'dynamic-justified' ? 'dynamic-justified-smart' : 'dynamic-justified';
@@ -760,7 +783,7 @@ const PageToolbar = ({
                             ) : (
                                 <>
                                     <DropdownMenu>
-                                        <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2"><LayoutTemplate className="h-4 w-4" /><span className="text-xs">Layout</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>Spread Layout</TooltipContent></Tooltip>
+                                        <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2" disabled={isLocked}><LayoutTemplate className="h-4 w-4" /><span className="text-xs">Layout</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>Spread Layout</TooltipContent></Tooltip>
                                         {renderTemplateDropdownContent(
                                             page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates],
                                             'spread',
@@ -776,7 +799,7 @@ const PageToolbar = ({
                                     </DropdownMenu>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="relative" onClick={() => {
+                                            <Button variant="ghost" size="icon" className="relative" disabled={isLocked} onClick={() => {
                                                 const { baseId, rotation } = parseLayoutId(page.layout || defaultGridTemplate?.id || '');
                                                 const newRotation = getNextRotation(rotation);
                                                 const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
@@ -788,7 +811,7 @@ const PageToolbar = ({
                                     </Tooltip>
                                     {/* Smart Layout Toggle (Full) */}
                                     {(String(parseLayoutId(page.layout || defaultGridTemplate?.id || '').baseId).startsWith('dynamic-justified')) && (
-                                        <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative" onClick={() => {
+                                        <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative" disabled={isLocked} onClick={() => {
                                             const { baseId, rotation } = parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '');
                                             const nextBaseId = baseId === 'dynamic-justified' ? 'dynamic-justified-smart' : 'dynamic-justified';
                                             const newLayout = rotation === 0 ? nextBaseId : `${nextBaseId}_r${rotation}`;
@@ -806,18 +829,18 @@ const PageToolbar = ({
                         {
                             page.isCover && (
                                 <Popover>
-                                    <PopoverTrigger asChild><Button variant="ghost" size="icon" className={cn(showSpineSettings && "text-primary bg-primary/10")} onClick={() => setShowSpineSettings(!showSpineSettings)}><Settings2 className="h-4 w-4" /></Button></PopoverTrigger>
+                                    <PopoverTrigger asChild><Button variant="ghost" size="icon" className={cn(showSpineSettings && "text-primary bg-primary/10")} onClick={() => setShowSpineSettings(!showSpineSettings)} disabled={isLocked}><Settings2 className="h-4 w-4" /></Button></PopoverTrigger>
                                     <PopoverContent align="end" className="w-[380px] p-0 border-none shadow-none bg-transparent">
                                         <div className="bg-background/95 backdrop-blur-sm p-4 rounded-xl border shadow-xl animate-in fade-in zoom-in-95 duration-200">
                                             <div className="flex items-center gap-2 mb-4"><div className="w-1.5 h-4 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]" /><h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground/80">Spine Structure</h4></div>
                                             <div className="space-y-4">
                                                 <div className="grid grid-cols-2 gap-6">
-                                                    <div className="space-y-2"><div className="flex justify-between items-center px-0.5"><Label className="text-[10px] font-semibold uppercase text-muted-foreground/70">Width</Label><span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-foreground">{page.spineWidth ?? 40}px</span></div><Slider value={[page.spineWidth ?? 40]} min={0} max={100} step={1} onValueChange={(val) => onUpdateSpineSettings?.(page.id, { width: val[0] })} className="py-2" /></div>
-                                                    <div className="space-y-2"><div className="flex justify-between items-center px-0.5"><Label className="text-[10px] font-semibold uppercase text-muted-foreground/70">Opacity</Label><span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-foreground">{Math.round((page.spineOpacity ?? 1) * 100)}%</span></div><Slider value={[page.spineOpacity ?? 1]} min={0} max={1} step={0.01} onValueChange={(val) => onUpdateSpineSettings?.(page.id, { opacity: val[0] })} className="py-2" /></div>
+                                                    <div className="space-y-2"><div className="flex justify-between items-center px-0.5"><Label className="text-[10px] font-semibold uppercase text-muted-foreground/70">Width</Label><span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-foreground">{page.spineWidth ?? 40}px</span></div><Slider value={[page.spineWidth ?? 40]} min={0} max={100} step={1} onValueChange={(val) => onUpdateSpineSettings?.(page.id, { width: val[0] })} className="py-2" disabled={isLocked} /></div>
+                                                    <div className="space-y-2"><div className="flex justify-between items-center px-0.5"><Label className="text-[10px] font-semibold uppercase text-muted-foreground/70">Opacity</Label><span className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded text-foreground">{Math.round((page.spineOpacity ?? 1) * 100)}%</span></div><Slider value={[page.spineOpacity ?? 1]} min={0} max={1} step={0.01} onValueChange={(val) => onUpdateSpineSettings?.(page.id, { opacity: val[0] })} className="py-2" disabled={isLocked} /></div>
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-6 pt-2 border-t border-border/40">
                                                     <div className="space-y-2"><Label className="text-[10px] font-semibold uppercase text-muted-foreground/70 px-0.5">Background</Label><div className="flex items-center gap-3 bg-muted/30 p-1.5 rounded-lg border border-transparent hover:border-border transition-colors"><SpineColorPicker value={page.spineColor || '#ffffff'} onChange={(color) => onUpdateSpineSettings?.(page.id, { color })} /><span className="text-[10px] font-mono text-foreground font-medium uppercase tracking-tighter">{page.spineColor || '#FFFFFF'}</span></div></div>
-                                                    <div className="space-y-2"><Label className="text-[10px] font-semibold uppercase text-muted-foreground/70 px-0.5">Spine Text</Label><Input value={page.spineText || ''} onChange={(e) => onUpdateSpineText?.(page.id, e.target.value)} placeholder="My Album..." className="h-8 text-xs px-3 bg-muted/30 border-transparent focus-visible:bg-background transition-all" /></div>
+                                                    <div className="space-y-2"><Label className="text-[10px] font-semibold uppercase text-muted-foreground/70 px-0.5">Spine Text</Label><Input value={page.spineText || ''} onChange={(e) => onUpdateSpineText?.(page.id, e.target.value)} placeholder="My Album..." className="h-8 text-xs px-3 bg-muted/30 border-transparent focus-visible:bg-background transition-all" disabled={isLocked} /></div>
                                                 </div>
                                             </div>
                                         </div>
@@ -826,7 +849,7 @@ const PageToolbar = ({
                             )
                         }
                         {renderDownloadMenu(`Download ${page.isCover ? "Cover" : "Spread"}`)}
-                        {!page.isCover && <><div className="h-4 w-px bg-border mx-2" /><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className={cn("text-destructive hover:bg-destructive/10 hover:text-destructive", !canDelete && "opacity-50 cursor-not-allowed")} onClick={() => canDelete && onDeletePage(page.id)} disabled={!canDelete}><Trash2 className="h-5 w-5" /></Button></TooltipTrigger><TooltipContent>Delete Spread</TooltipContent></Tooltip></>}
+                        {!page.isCover && <><div className="h-4 w-px bg-border mx-2" /><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className={cn("text-destructive hover:bg-destructive/10 hover:text-destructive", (!canDelete || isLocked) && "opacity-50 cursor-not-allowed")} onClick={() => canDelete && onDeletePage(page.id)} disabled={!canDelete || isLocked}><Trash2 className="h-5 w-5" /></Button></TooltipTrigger><TooltipContent>Delete Spread</TooltipContent></Tooltip></>}
 
                         </div >
                     </TooltipProvider >
@@ -849,7 +872,7 @@ const PageToolbar = ({
 
                     <div className="flex items-center gap-1">
                         <DropdownMenu>
-                            <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><LayoutTemplate className="h-5 w-5" /></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>Page Layout</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" disabled={isLocked}><LayoutTemplate className="h-5 w-5" /></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>Page Layout</TooltipContent></Tooltip>
                             {renderTemplateDropdownContent(
                                 [...filteredGridTemplates, ...filteredAdvancedTemplates],
                                 'single',
@@ -862,7 +885,7 @@ const PageToolbar = ({
                                 singleAspectRatio
                             )}
                         </DropdownMenu>
-                        <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative" onClick={() => {
+                        <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative" disabled={isLocked} onClick={() => {
                             const { baseId, rotation } = parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '');
                             const newRotation = getNextRotation(rotation);
                             const newLayout = newRotation === 0 ? baseId : `${baseId}_r${newRotation}`;
@@ -870,7 +893,7 @@ const PageToolbar = ({
                         }}><RotateCw className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Rotate Layout</TooltipContent></Tooltip>
                         {/* Smart Layout Toggle (Single Page) */}
                         {(String(parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '').baseId).startsWith('dynamic-justified')) && (
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative" onClick={() => {
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative" disabled={isLocked} onClick={() => {
                                 const { baseId, rotation } = parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '');
                                 const nextBaseId = baseId === 'dynamic-justified' ? 'dynamic-justified-smart' : 'dynamic-justified';
                                 const newLayout = rotation === 0 ? nextBaseId : `${nextBaseId}_r${rotation}`;
@@ -878,11 +901,11 @@ const PageToolbar = ({
                             }}><Wand2 className={cn("h-4 w-4", parseLayoutId(page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '').baseId === 'dynamic-justified-smart' && "text-primary fill-primary/20")} /></Button></TooltipTrigger><TooltipContent>Toggle Smart Fill</TooltipContent></Tooltip>
                         )}
                         {page.isCover && (
-                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className={cn(showSpineSettings && "text-primary bg-primary/10")} onClick={() => setShowSpineSettings(!showSpineSettings)}><Settings2 className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Show Title Settings</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className={cn(showSpineSettings && "text-primary bg-primary/10")} onClick={() => setShowSpineSettings(!showSpineSettings)} disabled={isLocked}><Settings2 className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Show Title Settings</TooltipContent></Tooltip>
                         )}
                         {renderDownloadMenu('Download Page')}
                         <div className="mx-1 h-6 w-px bg-border" />
-                        <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className={cn("text-destructive hover:bg-destructive/10 hover:text-destructive", !canDelete && "opacity-50 cursor-not-allowed")} onClick={() => canDelete && onDeletePage(page.id)} disabled={!canDelete}><Trash2 className="h-5 w-5" /></Button></TooltipTrigger><TooltipContent>{canDelete ? "Delete Page" : "Cannot delete first/last page"}</TooltipContent></Tooltip>
+                        <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className={cn("text-destructive hover:bg-destructive/10 hover:text-destructive", (!canDelete || isLocked) && "opacity-50 cursor-not-allowed")} onClick={() => canDelete && onDeletePage(page.id)} disabled={!canDelete || isLocked}><Trash2 className="h-5 w-5" /></Button></TooltipTrigger><TooltipContent>{canDelete ? "Delete Page" : "Cannot delete first/last page"}</TooltipContent></Tooltip>
                     </div>
                     {
                         showSpineSettings && (
@@ -890,10 +913,10 @@ const PageToolbar = ({
                                 <div className="space-y-3 p-3 bg-muted/30 rounded-md border border-border/50 max-w-lg mx-auto">
                                     <div className="flex items-center gap-2 mb-1"><div className="w-1.5 h-4 bg-orange-500 rounded-full" /><h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Title Properties</h4></div>
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-1.5 col-span-2"><Label className="text-[10px] font-medium uppercase text-muted-foreground">Display Title</Label><Input value={page.titleText || ''} onChange={(e) => onUpdateTitleSettings?.(page.id, { text: e.target.value })} placeholder="Page Title..." className="h-7 text-xs px-2" /></div>
-                                        <div className="space-y-1.5"><div className="flex justify-between items-center"><Label className="text-[10px] font-medium uppercase text-muted-foreground">Size</Label><span className="text-[10px] font-bold font-mono">{page.titleFontSize ?? 24}px</span></div><Slider value={[page.titleFontSize ?? 24]} min={8} max={120} step={1} onValueChange={(val) => onUpdateTitleSettings?.(page.id, { fontSize: val[0] })} /></div>
+                                        <div className="space-y-1.5 col-span-2"><Label className="text-[10px] font-medium uppercase text-muted-foreground">Display Title</Label><Input value={page.titleText || ''} onChange={(e) => onUpdateTitleSettings?.(page.id, { text: e.target.value })} placeholder="Page Title..." className="h-7 text-xs px-2" disabled={isLocked} /></div>
+                                        <div className="space-y-1.5"><div className="flex justify-between items-center"><Label className="text-[10px] font-medium uppercase text-muted-foreground">Size</Label><span className="text-[10px] font-bold font-mono">{page.titleFontSize ?? 24}px</span></div><Slider value={[page.titleFontSize ?? 24]} min={8} max={120} step={1} onValueChange={(val) => onUpdateTitleSettings?.(page.id, { fontSize: val[0] })} disabled={isLocked} /></div>
                                         <div className="space-y-1.5"><Label className="text-[10px] font-medium uppercase text-muted-foreground">Color</Label><div className="flex items-center gap-2"><SpineColorPicker value={page.titleColor || '#000000'} onChange={(color) => onUpdateTitleSettings?.(page.id, { color })} disableAlpha={true} /><span className="text-[10px] text-muted-foreground font-mono truncate">{page.titleColor || '#000000'}</span></div></div>
-                                        <div className="space-y-1.5 col-span-2"><Label className="text-[10px] font-medium uppercase text-muted-foreground">Font Family</Label><div className="flex flex-wrap gap-1">{AVAILABLE_FONTS.slice(0, 8).map(font => (<Button key={font} variant={page.titleFontFamily === font ? "default" : "outline"} size="sm" className="h-6 px-2 text-[10px]" onClick={() => onUpdateTitleSettings?.(page.id, { fontFamily: font })}>{font}</Button>))}</div></div>
+                                        <div className="space-y-1.5 col-span-2"><Label className="text-[10px] font-medium uppercase text-muted-foreground">Font Family</Label><div className="flex flex-wrap gap-1">{AVAILABLE_FONTS.slice(0, 8).map(font => (<Button key={font} variant={page.titleFontFamily === font ? "default" : "outline"} size="sm" className="h-6 px-2 text-[10px]" onClick={() => onUpdateTitleSettings?.(page.id, { fontFamily: font })} disabled={isLocked}>{font}</Button>))}</div></div>
                                     </div>
                                 </div>
                             </div>
@@ -1033,6 +1056,7 @@ interface PageCanvasProps {
     onEnhanceWithAi?: (pageId: string) => void;
     onEnhancePhotoWithAi?: (pageId: string, photoId: string, photo: Photo) => void;
     onUndo?: (pageId: string) => void;
+    onToggleLock?: (pageId: string) => void;
     customTemplates?: any[];
     defaultViewMode?: 'single' | 'spread';
     visibleTemplateCategories?: string[];
@@ -1063,6 +1087,7 @@ export const PageCanvas = React.memo(({
     onEnhanceWithAi,
     onEnhancePhotoWithAi,
     onUndo,
+    onToggleLock,
     allPhotos,
     customTemplates = [],
     defaultViewMode = 'spread',
@@ -1207,8 +1232,15 @@ export const PageCanvas = React.memo(({
                     onEnhanceWithAi={onEnhanceWithAi}
                     onUndo={onUndo}
                     onOpenEditor={onOpenEditor}
+                    onToggleLock={onToggleLock}
                 />
             </div>
+            {page.isLocked && (
+                <div className="pointer-events-none absolute right-10 top-14 z-20 inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-background/90 px-2.5 py-1 text-[11px] font-semibold text-foreground/80 shadow-sm backdrop-blur-sm">
+                    <Lock className="h-3.5 w-3.5" />
+                    Locked
+                </div>
+            )}
 
             <div className={cn("relative", page.type === 'single' && 'w-1/2 mx-auto')}>
                 <AspectRatio
@@ -1250,12 +1282,37 @@ export const PageCanvas = React.memo(({
                         </CardContent>
                     </Card>
                 </AspectRatio>
+                {page.isLocked && (
+                    <div
+                        className="absolute inset-0 z-50 cursor-not-allowed"
+                        onPointerDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        }}
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        }}
+                        onContextMenu={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        }}
+                        onDragOver={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        }}
+                        onDrop={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        }}
+                    />
+                )}
             </div>
 
             {
                 onAddSpread && !page.isCover && (
                     <div className="flex justify-center py-2">
-                        <Button variant="outline" size="sm" className="opacity-40 hover:opacity-100 transition-opacity" onClick={() => onAddSpread(pageIndex)}>
+                        <Button variant="outline" size="sm" className="opacity-40 hover:opacity-100 transition-opacity" onClick={() => onAddSpread(pageIndex)} disabled={!!page.isLocked}>
                             <Plus className="h-4 w-4 mr-1" /> Add Spread
                         </Button>
                     </div>
