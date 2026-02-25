@@ -8,6 +8,7 @@ import {
     BookOpen,
     Layout,
     Download,
+    Upload,
     Share2,
     Check,
     X,
@@ -29,6 +30,9 @@ interface AlbumEditorToolbarProps {
     onBack: () => void;
     onOpenBookView: () => void;
     onOpenCustomLayout: () => void;
+    onExportBackup: () => void;
+    onImportBackup: () => void;
+    isImportingBackup?: boolean;
     onExport: () => void;
     isExporting: boolean;
     onShare: () => void;
@@ -41,6 +45,9 @@ export function AlbumEditorToolbar({
     onBack,
     onOpenBookView,
     onOpenCustomLayout,
+    onExportBackup,
+    onImportBackup,
+    isImportingBackup = false,
     onExport,
     isExporting,
     onShare,
@@ -175,6 +182,15 @@ export function AlbumEditorToolbar({
                 <Button variant="outline" className="gap-2 bg-background" onClick={onOpenBookView}>
                     <BookOpen className="h-4 w-4" />
                     <span className="hidden sm:inline">Book View</span>
+                </Button>
+                <div className="h-4 w-px bg-border mx-1" />
+                <Button variant="ghost" size="sm" className="gap-2" onClick={onExportBackup}>
+                    <Download className="h-4 w-4" />
+                    <span className="hidden sm:inline">Backup</span>
+                </Button>
+                <Button variant="ghost" size="sm" className="gap-2" onClick={onImportBackup} disabled={isImportingBackup}>
+                    {isImportingBackup ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    <span className="hidden sm:inline">{isImportingBackup ? 'Restoring...' : 'Restore'}</span>
                 </Button>
                 <div className="h-4 w-px bg-border mx-1" />
                 <Button variant="ghost" size="sm" className="gap-2" onClick={onExport} disabled={isExporting}>

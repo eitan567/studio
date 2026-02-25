@@ -81,6 +81,13 @@ import { PhotoGalleryCard } from './sidebar/gallery-card';
 import { AlbumEditorToolbar } from './toolbar';
 import { VirtualizedPageList } from './virtualized-page-list';
 import { extractSupabaseStoragePath, normalizePhotoMediaUrls } from '@/lib/supabase-media-normalizer';
+import {
+  buildAlbumBackupPayload,
+  describeBackupPhotoRef,
+  getMissingBackupPhotoRefs,
+  hydratePagesFromBackup,
+  parseAlbumBackupPayload,
+} from '@/lib/album-backup';
 
 // Parse layout ID helper removed (now in useAlbumPageEditor or used via import if needed)
 
@@ -916,9 +923,11 @@ export function PageEditor({ albumId }: PageEditorProps) {
 
   // Export State
   const [isExporting, setIsExporting] = useState(false);
+  const [isImportingBackup, setIsImportingBackup] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [exportProgress, setExportProgress] = useState<{ current: number; total: number; label?: string } | null>(null);
   const exporterRef = useRef<AlbumExporterRef>(null);
+  const backupImportInputRef = useRef<HTMLInputElement>(null);
 
   const handleExportConfirm = (options: ExportOptions) => {
     setExportDialogOpen(false);
@@ -1120,6 +1129,165 @@ export function PageEditor({ albumId }: PageEditorProps) {
 
   const hasLockedPages = useMemo(() => albumPages.some(page => !!page.isLocked), [albumPages]);
 
+  const handleExportBackup = useCallback(() => {
+    if (albumPages.length === 0) {
+      toast({
+        title: 'No pages to back up',
+        description: 'Generate or load album pages before creating a backup.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const payload = buildAlbumBackupPayload({
+      albumId,
+      albumName,
+      config,
+      pages: albumPages,
+    });
+
+    const safeName = (albumName || 'album')
+      .trim()
+      .replace(/[^a-zA-Z0-9-_]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .toLowerCase() || 'album';
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    const backupBlob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json;charset=utf-8',
+    });
+
+    const objectUrl = URL.createObjectURL(backupBlob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = `${safeName}-album-backup-${dateStamp}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(objectUrl);
+
+    toast({
+      title: 'Backup downloaded',
+      description: `Saved ${payload.requiredPhotos.length} required photo reference(s) with album layout.`,
+    });
+  }, [albumId, albumName, config, albumPages, toast]);
+
+  const handleRequestImportBackup = useCallback(() => {
+    if (allPhotos.length === 0) {
+      toast({
+        title: 'Upload photos first',
+        description: 'Restore requires gallery photos to be uploaded before importing backup JSON.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    backupImportInputRef.current?.click();
+  }, [allPhotos.length, toast]);
+
+  const applyImportedBackupConfig = useCallback((importedConfig: Partial<AlbumConfig>) => {
+    if (!importedConfig || typeof importedConfig !== 'object') return;
+
+    if (importedConfig.size === '20x20' || importedConfig.size === '25x25' || importedConfig.size === '30x30') {
+      form.setValue('size', importedConfig.size);
+    }
+    if (typeof importedConfig.photoGap === 'number') {
+      setPhotoGap(importedConfig.photoGap);
+    }
+    if (typeof importedConfig.pageMargin === 'number') {
+      setPageMargin(importedConfig.pageMargin);
+    }
+    if (typeof importedConfig.cornerRadius === 'number') {
+      setCornerRadius(importedConfig.cornerRadius);
+    }
+    if (typeof importedConfig.backgroundColor === 'string' && importedConfig.backgroundColor.trim()) {
+      setBackgroundColor(importedConfig.backgroundColor);
+    }
+    setBackgroundImage(typeof importedConfig.backgroundImage === 'string' && importedConfig.backgroundImage.trim()
+      ? importedConfig.backgroundImage
+      : undefined);
+    if (typeof importedConfig.multiSelectMode === 'boolean') {
+      setMultiSelectModeLocal(importedConfig.multiSelectMode);
+    }
+  }, [form]);
+
+  const handleImportBackupFile = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    event.target.value = '';
+    if (!selectedFile) return;
+
+    setIsImportingBackup(true);
+
+    try {
+      const rawText = await selectedFile.text();
+
+      let parsedJson: unknown;
+      try {
+        parsedJson = JSON.parse(rawText);
+      } catch {
+        throw new Error('Backup file is not valid JSON.');
+      }
+
+      const backupPayload = parseAlbumBackupPayload(parsedJson);
+      const requiredRefs = backupPayload.requiredPhotos || [];
+      const missingRefs = getMissingBackupPhotoRefs(requiredRefs, allPhotos);
+
+      if (missingRefs.length > 0) {
+        const preview = missingRefs
+          .slice(0, 10)
+          .map((ref, index) => `${index + 1}. ${describeBackupPhotoRef(ref)}`)
+          .join('\n');
+        const moreCount = missingRefs.length > 10 ? `\n...and ${missingRefs.length - 10} more.` : '';
+
+        const continueWithoutAllPhotos = window.confirm(
+          `Backup requires ${requiredRefs.length} gallery photo(s), but ${missingRefs.length} are missing.\n\n` +
+          `Missing photos:\n${preview}${moreCount}\n\n` +
+          'Continue import and leave missing slots empty?'
+        );
+
+        if (!continueWithoutAllPhotos) {
+          toast({
+            title: 'Restore canceled',
+            description: 'Import canceled until all required photos are in the gallery.',
+          });
+          return;
+        }
+      }
+
+      const hydrated = hydratePagesFromBackup(backupPayload.album.pages, allPhotos, {
+        clearMissingPhotos: true,
+      });
+
+      applyImportedBackupConfig(backupPayload.album.config || {});
+      setAlbumPages(hydrated.pages);
+
+      const importedName = backupPayload.album.name?.trim();
+      if (importedName && importedName !== albumName) {
+        updateName(importedName);
+      }
+
+      if (hydrated.missingRefs.length > 0) {
+        toast({
+          title: 'Backup restored with missing photos',
+          description: `${hydrated.missingRefs.length} slot reference(s) were missing and left empty.`,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Backup restored',
+          description: `Loaded ${hydrated.resolvedCount} photo slot(s) from backup.`,
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to import backup file.';
+      toast({
+        title: 'Backup restore failed',
+        description: message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsImportingBackup(false);
+    }
+  }, [albumName, allPhotos, applyImportedBackupConfig, toast, updateName]);
+
 
   // Page Manipulation Hook (Moved up)
 
@@ -1271,9 +1439,19 @@ export function PageEditor({ albumId }: PageEditorProps) {
           }}
           onOpenBookView={() => setIsBookViewOpen(true)}
           onOpenCustomLayout={() => setIsCustomLayoutEditorOpen(true)}
+          onExportBackup={handleExportBackup}
+          onImportBackup={handleRequestImportBackup}
+          isImportingBackup={isImportingBackup}
           onExport={() => setExportDialogOpen(true)}
           isExporting={isExporting}
           onShare={() => toast({ title: "Sharing Album..." })}
+        />
+        <input
+          ref={backupImportInputRef}
+          type="file"
+          accept=".json,application/json"
+          className="hidden"
+          onChange={handleImportBackupFile}
         />
 
         <AlbumExporter
