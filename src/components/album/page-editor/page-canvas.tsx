@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import {
-    Trash2, LayoutTemplate, Download, Wand2, Undo, Pencil, BookOpen,
+    Trash2, LayoutTemplate, Download, Wand2, Undo, Redo2, Pencil, BookOpen,
     RotateCw, Plus, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown,
     CornerDownRight, CornerDownLeft, ChevronUp, ChevronDown, Settings2, Lock, LockOpen
 } from 'lucide-react';
@@ -255,7 +255,7 @@ const SpineColorPicker = ({ value, onChange, disableAlpha = false }: { value?: s
 
 const PageToolbar = ({
     page, pageNumber, displayLabel, canDelete = true, onDeletePage, onUpdateLayout, onUpdateSpreadLayout, onUpdateCoverLayout, onUpdateCoverType, onUpdateSpineText, onUpdateSpineSettings, onUpdateTitleSettings, onDownloadPage, onUpdatePage, toast, viewMode, onToggleViewMode, visibleTemplateCategories, allowedTemplateIds,
-    onCycleLayout, onEnhanceWithAi, onUndo, onOpenEditor, onToggleLock, config
+    onCycleLayout, onEnhanceWithAi, onUndo, onRedo, onOpenEditor, onToggleLock, config
 }: any) => {
     const { gridTemplates, coverTemplates, advancedTemplates, findTemplate, defaultGridTemplate, defaultCoverTemplate } = useTemplates();
 
@@ -621,6 +621,7 @@ const PageToolbar = ({
             </Tooltip>
             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEnhanceWithAi?.(page.id)} disabled={isLocked}><Wand2 className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>AI Enhance</TooltipContent></Tooltip>
             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onUndo?.(page.id)} disabled={isLocked}><Undo className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Undo</TooltipContent></Tooltip>
+            <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onRedo?.(page.id)} disabled={isLocked}><Redo2 className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Redo</TooltipContent></Tooltip>
             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onOpenEditor?.(page.id)} disabled={isLocked}><Pencil className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>{page.isCover ? "Cover Editor" : "Page Editor"}</TooltipContent></Tooltip>
             <div className="h-4 w-px bg-border mx-1" />
         </>
@@ -1056,6 +1057,7 @@ interface PageCanvasProps {
     onEnhanceWithAi?: (pageId: string) => void;
     onEnhancePhotoWithAi?: (pageId: string, photoId: string, photo: Photo) => void;
     onUndo?: (pageId: string) => void;
+    onRedo?: (pageId: string) => void;
     onToggleLock?: (pageId: string) => void;
     customTemplates?: any[];
     defaultViewMode?: 'single' | 'spread';
@@ -1087,6 +1089,7 @@ export const PageCanvas = React.memo(({
     onEnhanceWithAi,
     onEnhancePhotoWithAi,
     onUndo,
+    onRedo,
     onToggleLock,
     allPhotos,
     customTemplates = [],
@@ -1231,6 +1234,7 @@ export const PageCanvas = React.memo(({
                     onCycleLayout={cycleLayoutByPhotoCount}
                     onEnhanceWithAi={onEnhanceWithAi}
                     onUndo={onUndo}
+                    onRedo={onRedo}
                     onOpenEditor={onOpenEditor}
                     onToggleLock={onToggleLock}
                 />

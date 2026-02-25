@@ -230,6 +230,25 @@ export function PageEditor({ albumId }: PageEditorProps) {
 
   // State for pages - Defined early for use in updateThumbnail callback
   const [albumPages, setAlbumPages] = useState<AlbumPage[]>([]);
+  const undoStackRef = useRef<AlbumPage[][]>([]);
+  const redoStackRef = useRef<AlbumPage[][]>([]);
+  const skipNextHistoryRecordRef = useRef(false);
+  const lastHistorySignatureRef = useRef('');
+  const MAX_HISTORY_ENTRIES = 120;
+
+  const clonePagesSnapshot = useCallback((pages: AlbumPage[]): AlbumPage[] => {
+    if (typeof structuredClone === 'function') {
+      return structuredClone(pages);
+    }
+    return JSON.parse(JSON.stringify(pages));
+  }, []);
+
+  useEffect(() => {
+    undoStackRef.current = [];
+    redoStackRef.current = [];
+    skipNextHistoryRecordRef.current = false;
+    lastHistorySignatureRef.current = '';
+  }, [albumId]);
 
   // Ref for the virtualized list to trigger scrolling
   const virtualListRef = useRef<{
@@ -441,12 +460,86 @@ export function PageEditor({ albumId }: PageEditorProps) {
     });
   }, [toast]);
 
-  const handleUndo = useCallback((pageId: string) => {
+  const handleUndo = useCallback((_pageId?: string) => {
+    if (undoStackRef.current.length <= 1) {
+      toast({
+        title: 'Nothing to undo',
+        description: 'No previous page edits were found.',
+      });
+      return;
+    }
+
+    const currentSnapshot = undoStackRef.current.pop();
+    const previousSnapshot = undoStackRef.current[undoStackRef.current.length - 1];
+    if (!currentSnapshot || !previousSnapshot) return;
+
+    redoStackRef.current.push(clonePagesSnapshot(currentSnapshot));
+    skipNextHistoryRecordRef.current = true;
+    lastHistorySignatureRef.current = JSON.stringify(previousSnapshot);
+    setAlbumPages(clonePagesSnapshot(previousSnapshot));
+
     toast({
-      title: "Undo",
-      description: "Reverting last change...",
+      title: 'Undo complete',
+      description: 'Reverted the last page change.',
     });
-  }, [toast]);
+  }, [clonePagesSnapshot, toast]);
+
+  const handleRedo = useCallback((_pageId?: string) => {
+    if (redoStackRef.current.length === 0) {
+      toast({
+        title: 'Nothing to redo',
+        description: 'No reverted changes are available.',
+      });
+      return;
+    }
+
+    const nextSnapshot = redoStackRef.current.pop();
+    if (!nextSnapshot) return;
+
+    undoStackRef.current.push(clonePagesSnapshot(nextSnapshot));
+    if (undoStackRef.current.length > MAX_HISTORY_ENTRIES) {
+      undoStackRef.current.shift();
+    }
+
+    skipNextHistoryRecordRef.current = true;
+    lastHistorySignatureRef.current = JSON.stringify(nextSnapshot);
+    setAlbumPages(clonePagesSnapshot(nextSnapshot));
+
+    toast({
+      title: 'Redo complete',
+      description: 'Re-applied the last reverted change.',
+    });
+  }, [clonePagesSnapshot, toast]);
+
+  useEffect(() => {
+    const handleHistoryShortcuts = (event: KeyboardEvent) => {
+      const isMetaOrCtrl = event.metaKey || event.ctrlKey;
+      if (!isMetaOrCtrl) return;
+
+      const activeElement = document.activeElement as HTMLElement | null;
+      if (activeElement) {
+        const tagName = activeElement.tagName;
+        if (tagName === 'INPUT' || tagName === 'TEXTAREA' || activeElement.isContentEditable) {
+          return;
+        }
+      }
+
+      const key = event.key.toLowerCase();
+      if (key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        handleUndo();
+        return;
+      }
+
+      if (key === 'y' || (key === 'z' && event.shiftKey)) {
+        event.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener('keydown', handleHistoryShortcuts);
+    return () => window.removeEventListener('keydown', handleHistoryShortcuts);
+  }, [handleRedo, handleUndo]);
   // Photo Gallery Manager Hook
   const {
     isLoadingPhotos,
@@ -580,6 +673,33 @@ export function PageEditor({ albumId }: PageEditorProps) {
 
   const [customTemplates, setCustomTemplates] = useState<AdvancedTemplate[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
+
+  useEffect(() => {
+    if (!isInitialized || isAlbumLoading) return;
+
+    const signature = JSON.stringify(albumPages);
+    if (skipNextHistoryRecordRef.current) {
+      skipNextHistoryRecordRef.current = false;
+      lastHistorySignatureRef.current = signature;
+      return;
+    }
+
+    if (signature === lastHistorySignatureRef.current) return;
+
+    if (undoStackRef.current.length === 0) {
+      undoStackRef.current = [clonePagesSnapshot(albumPages)];
+      redoStackRef.current = [];
+      lastHistorySignatureRef.current = signature;
+      return;
+    }
+
+    undoStackRef.current.push(clonePagesSnapshot(albumPages));
+    if (undoStackRef.current.length > MAX_HISTORY_ENTRIES) {
+      undoStackRef.current.shift();
+    }
+    redoStackRef.current = [];
+    lastHistorySignatureRef.current = signature;
+  }, [albumPages, clonePagesSnapshot, isAlbumLoading, isInitialized]);
 
   // Load custom templates from localStorage on mount
   useEffect(() => {
@@ -1325,6 +1445,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
                 onEnhanceWithAi={handleEnhanceWithAi}
                 onEnhancePhotoWithAi={handleOpenPhotoEnhancer}
                 onUndo={handleUndo}
+                onRedo={handleRedo}
                 onToggleLock={handleTogglePageLock}
                 customTemplates={customTemplates}
                 defaultViewMode={settings.defaultEditorViewMode as "single" | "spread"}
