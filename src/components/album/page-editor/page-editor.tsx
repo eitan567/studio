@@ -2,6 +2,8 @@
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
+  AlertTriangle,
+  ImageOff,
   Loader2,
   Trash2,
   Upload,
@@ -39,6 +41,17 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Select,
   SelectContent,
@@ -88,6 +101,7 @@ import {
   hydratePagesFromBackup,
   parseAlbumBackupPayload,
 } from '@/lib/album-backup';
+import type { AlbumBackupPayload, AlbumBackupPhotoRef } from '@/lib/album-backup';
 
 // Parse layout ID helper removed (now in useAlbumPageEditor or used via import if needed)
 
@@ -106,6 +120,12 @@ type EnhanceTarget = {
   photoId: string;
   photo: Photo;
   sourceImageUrl: string;
+};
+
+type PendingBackupImport = {
+  backupPayload: AlbumBackupPayload;
+  missingRefs: AlbumBackupPhotoRef[];
+  requiredCount: number;
 };
 
 export function PageEditor({ albumId }: PageEditorProps) {
@@ -924,6 +944,8 @@ export function PageEditor({ albumId }: PageEditorProps) {
   // Export State
   const [isExporting, setIsExporting] = useState(false);
   const [isImportingBackup, setIsImportingBackup] = useState(false);
+  const [isMissingPhotosDialogOpen, setIsMissingPhotosDialogOpen] = useState(false);
+  const [pendingBackupImport, setPendingBackupImport] = useState<PendingBackupImport | null>(null);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [exportProgress, setExportProgress] = useState<{ current: number; total: number; label?: string } | null>(null);
   const exporterRef = useRef<AlbumExporterRef>(null);
@@ -1209,6 +1231,58 @@ export function PageEditor({ albumId }: PageEditorProps) {
     }
   }, [form]);
 
+  const applyImportedBackupPayload = useCallback((backupPayload: AlbumBackupPayload) => {
+    const hydrated = hydratePagesFromBackup(backupPayload.album.pages, allPhotos, {
+      clearMissingPhotos: true,
+    });
+
+    applyImportedBackupConfig(backupPayload.album.config || {});
+    setAlbumPages(hydrated.pages);
+
+    const importedName = backupPayload.album.name?.trim();
+    if (importedName && importedName !== albumName) {
+      updateName(importedName);
+    }
+
+    if (hydrated.missingRefs.length > 0) {
+      toast({
+        title: 'Backup restored with missing photos',
+        description: `${hydrated.missingRefs.length} slot reference(s) were missing and left empty.`,
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Backup restored',
+        description: `Loaded ${hydrated.resolvedCount} photo slot(s) from backup.`,
+      });
+    }
+  }, [albumName, allPhotos, applyImportedBackupConfig, toast, updateName]);
+
+  const handleConfirmImportWithMissing = useCallback(() => {
+    const pendingImport = pendingBackupImport;
+    if (!pendingImport) return;
+
+    setPendingBackupImport(null);
+    setIsMissingPhotosDialogOpen(false);
+    applyImportedBackupPayload(pendingImport.backupPayload);
+  }, [applyImportedBackupPayload, pendingBackupImport]);
+
+  const handleCancelImportWithMissing = useCallback(() => {
+    setPendingBackupImport(null);
+    setIsMissingPhotosDialogOpen(false);
+    toast({
+      title: 'Restore canceled',
+      description: 'Import canceled until all required photos are in the gallery.',
+    });
+  }, [toast]);
+
+  const handleMissingDialogOpenChange = useCallback((open: boolean) => {
+    setIsMissingPhotosDialogOpen(open);
+    if (!open) {
+      setPendingBackupImport(null);
+    }
+  }, []);
+
   const handleImportBackupFile = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     event.target.value = '';
@@ -1231,51 +1305,21 @@ export function PageEditor({ albumId }: PageEditorProps) {
       const missingRefs = getMissingBackupPhotoRefs(requiredRefs, allPhotos);
 
       if (missingRefs.length > 0) {
-        const preview = missingRefs
-          .slice(0, 10)
-          .map((ref, index) => `${index + 1}. ${describeBackupPhotoRef(ref)}`)
-          .join('\n');
-        const moreCount = missingRefs.length > 10 ? `\n...and ${missingRefs.length - 10} more.` : '';
-
-        const continueWithoutAllPhotos = window.confirm(
-          `Backup requires ${requiredRefs.length} gallery photo(s), but ${missingRefs.length} are missing.\n\n` +
-          `Missing photos:\n${preview}${moreCount}\n\n` +
-          'Continue import and leave missing slots empty?'
-        );
-
-        if (!continueWithoutAllPhotos) {
-          toast({
-            title: 'Restore canceled',
-            description: 'Import canceled until all required photos are in the gallery.',
-          });
-          return;
-        }
-      }
-
-      const hydrated = hydratePagesFromBackup(backupPayload.album.pages, allPhotos, {
-        clearMissingPhotos: true,
-      });
-
-      applyImportedBackupConfig(backupPayload.album.config || {});
-      setAlbumPages(hydrated.pages);
-
-      const importedName = backupPayload.album.name?.trim();
-      if (importedName && importedName !== albumName) {
-        updateName(importedName);
-      }
-
-      if (hydrated.missingRefs.length > 0) {
+        setPendingBackupImport({
+          backupPayload,
+          missingRefs,
+          requiredCount: requiredRefs.length,
+        });
+        setIsMissingPhotosDialogOpen(true);
         toast({
-          title: 'Backup restored with missing photos',
-          description: `${hydrated.missingRefs.length} slot reference(s) were missing and left empty.`,
+          title: 'Missing photos detected',
+          description: `${missingRefs.length} required photo(s) are missing from your gallery.`,
           variant: 'destructive',
         });
-      } else {
-        toast({
-          title: 'Backup restored',
-          description: `Loaded ${hydrated.resolvedCount} photo slot(s) from backup.`,
-        });
+        return;
       }
+
+      applyImportedBackupPayload(backupPayload);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to import backup file.';
       toast({
@@ -1286,7 +1330,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
     } finally {
       setIsImportingBackup(false);
     }
-  }, [albumName, allPhotos, applyImportedBackupConfig, toast, updateName]);
+  }, [allPhotos, applyImportedBackupPayload, toast]);
 
 
   // Page Manipulation Hook (Moved up)
@@ -1453,6 +1497,60 @@ export function PageEditor({ albumId }: PageEditorProps) {
           className="hidden"
           onChange={handleImportBackupFile}
         />
+        <AlertDialog open={isMissingPhotosDialogOpen} onOpenChange={handleMissingDialogOpenChange}>
+          <AlertDialogContent className="sm:max-w-2xl border border-destructive/30 bg-background/95 backdrop-blur-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2 text-left justify-start">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+                <span>Missing Photos In Gallery</span>
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                <div className="space-y-3 text-left">
+                  <p>
+                    The backup file requires <strong>{pendingBackupImport?.requiredCount ?? 0}</strong> photo(s).
+                    Missing right now: <strong>{pendingBackupImport?.missingRefs.length ?? 0}</strong>.
+                  </p>
+                  <div className="flex flex-wrap gap-2 justify-start">
+                    <Badge variant="secondary" className="gap-1">
+                      <ImageOff className="h-3.5 w-3.5" />
+                      Missing: {pendingBackupImport?.missingRefs.length ?? 0}
+                    </Badge>
+                    <Badge variant="outline">
+                      Required: {pendingBackupImport?.requiredCount ?? 0}
+                    </Badge>
+                  </div>
+                  <p className="text-muted-foreground">
+                    If you continue, the album will load and missing photo slots will stay empty.
+                  </p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {pendingBackupImport && (
+              <ScrollArea className="max-h-64 rounded-md border bg-muted/30 p-3">
+                <ul className="space-y-1 text-sm text-left">
+                  {pendingBackupImport.missingRefs.slice(0, 200).map((ref, index) => (
+                    <li key={`${ref.key}-${index}`}>
+                      {index + 1}. {describeBackupPhotoRef(ref)}
+                    </li>
+                  ))}
+                </ul>
+                {pendingBackupImport.missingRefs.length > 200 && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    ...and {pendingBackupImport.missingRefs.length - 200} more.
+                  </p>
+                )}
+              </ScrollArea>
+            )}
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={handleCancelImportWithMissing}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmImportWithMissing} className="bg-primary text-primary-foreground hover:bg-primary/90">
+                Continue Import
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <AlbumExporter
           ref={exporterRef}
