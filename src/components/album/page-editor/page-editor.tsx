@@ -1248,40 +1248,36 @@ export function PageEditor({ albumId }: PageEditorProps) {
 
   const hasLockedPages = useMemo(() => albumPages.some(page => !!page.isLocked), [albumPages]);
 
-  const handleLockPagesWithPhotos = useCallback(() => {
+  const lockEligiblePageIds = useMemo(() => {
+    return albumPages
+      .filter((page) =>
+        page.photos.some((photo) => {
+          const source = (photo.remoteUrl || photo.src || '').trim();
+          return source.length > 0;
+        })
+      )
+      .map((page) => page.id);
+  }, [albumPages]);
+
+  const areAllLockEligiblePagesLocked = useMemo(() => {
+    if (lockEligiblePageIds.length === 0) return false;
+    const eligibleSet = new Set(lockEligiblePageIds);
+    return albumPages
+      .filter((page) => eligibleSet.has(page.id))
+      .every((page) => !!page.isLocked);
+  }, [albumPages, lockEligiblePageIds]);
+
+  const handleToggleLockPagesWithPhotos = useCallback(() => {
     if (albumPages.length === 0) {
       toast({
-        title: 'No pages to lock',
+        title: 'No pages found',
         description: 'The album has no pages yet.',
         variant: 'destructive',
       });
       return;
     }
 
-    let eligibleCount = 0;
-    let newlyLockedCount = 0;
-    let alreadyLockedCount = 0;
-
-    const nextPages = albumPages.map((page) => {
-      const hasAtLeastOnePhoto = page.photos.some((photo) => {
-        const source = (photo.remoteUrl || photo.src || '').trim();
-        return source.length > 0;
-      });
-
-      if (!hasAtLeastOnePhoto) return page;
-
-      eligibleCount += 1;
-
-      if (page.isLocked) {
-        alreadyLockedCount += 1;
-        return page;
-      }
-
-      newlyLockedCount += 1;
-      return { ...page, isLocked: true };
-    });
-
-    if (eligibleCount === 0) {
+    if (lockEligiblePageIds.length === 0) {
       toast({
         title: 'No filled pages found',
         description: 'Only pages with at least one photo can be locked.',
@@ -1289,25 +1285,36 @@ export function PageEditor({ albumId }: PageEditorProps) {
       return;
     }
 
-    if (newlyLockedCount > 0) {
-      setAlbumPages(nextPages);
-    }
+    const eligibleSet = new Set(lockEligiblePageIds);
+    const shouldLock = !areAllLockEligiblePagesLocked;
+    let changedCount = 0;
 
-    if (newlyLockedCount === 0) {
+    const nextPages = albumPages.map((page) => {
+      if (!eligibleSet.has(page.id)) return page;
+      const currentLocked = !!page.isLocked;
+      if (currentLocked === shouldLock) return page;
+      changedCount += 1;
+      return { ...page, isLocked: shouldLock };
+    });
+
+    if (changedCount === 0) {
       toast({
-        title: 'Nothing to lock',
-        description: `All ${eligibleCount} page(s) with photos are already locked.`,
+        title: shouldLock ? 'Nothing to lock' : 'Nothing to unlock',
+        description: shouldLock
+          ? `All ${lockEligiblePageIds.length} page(s) with photos are already locked.`
+          : `All ${lockEligiblePageIds.length} eligible page(s) are already unlocked.`,
       });
       return;
     }
 
+    setAlbumPages(nextPages);
     toast({
-      title: 'Pages locked',
-      description: alreadyLockedCount > 0
-        ? `${newlyLockedCount} page(s) locked. ${alreadyLockedCount} were already locked.`
-        : `${newlyLockedCount} page(s) locked successfully.`,
+      title: shouldLock ? 'Pages locked' : 'Pages unlocked',
+      description: shouldLock
+        ? `${changedCount} page(s) with photos were locked.`
+        : `${changedCount} page(s) with photos were unlocked.`,
     });
-  }, [albumPages, toast]);
+  }, [albumPages, areAllLockEligiblePagesLocked, lockEligiblePageIds, toast]);
 
   const handleExportBackup = useCallback(() => {
     if (albumPages.length === 0) {
@@ -1968,7 +1975,8 @@ export function PageEditor({ albumId }: PageEditorProps) {
                 generateDummyPhotos={generateDummyPhotos}
                 handleGenerateAlbum={handleGenerateAlbum}
                 handleAutoFillAlbum={handleAutoFillAlbum}
-                handleLockFilledPages={handleLockPagesWithPhotos}
+                handleLockFilledPages={handleToggleLockPagesWithPhotos}
+                areLockEligiblePagesLocked={areAllLockEligiblePagesLocked}
                 handleClearGallery={handleClearGallery}
                 handleResetAlbum={handleResetAlbum}
                 handleSortPhotos={handleSortPhotos}

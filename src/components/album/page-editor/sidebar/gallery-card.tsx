@@ -5,6 +5,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'; // NEW
 import {
     Loader2,
     Lock,
+    LockOpen,
     Sparkles,
     Wand2,
     AlertTriangle,
@@ -62,6 +63,7 @@ interface PhotoGalleryCardProps {
     handleGenerateAlbum: () => void;
     handleAutoFillAlbum: () => void;
     handleLockFilledPages: () => void;
+    areLockEligiblePagesLocked?: boolean;
     handleClearGallery: () => void;
     handleResetAlbum: () => void;
     handleSortPhotos: () => void;
@@ -478,6 +480,7 @@ const PhotoGalleryCardComponent = ({
     handleGenerateAlbum,
     handleAutoFillAlbum,
     handleLockFilledPages,
+    areLockEligiblePagesLocked = false,
     handleClearGallery,
     handleResetAlbum,
     handleSortPhotos,
@@ -778,10 +781,16 @@ const PhotoGalleryCardComponent = ({
                                             className="h-7 w-7"
                                             onClick={handleLockFilledPages}
                                         >
-                                            <Lock className="h-3 w-3" />
+                                            {areLockEligiblePagesLocked ? (
+                                                <LockOpen className="h-3 w-3" />
+                                            ) : (
+                                                <Lock className="h-3 w-3" />
+                                            )}
                                         </Button>
                                     </TooltipTrigger>
-                                    <TooltipContent>Lock Pages With Photos</TooltipContent>
+                                    <TooltipContent>
+                                        {areLockEligiblePagesLocked ? 'Unlock Pages With Photos' : 'Lock Pages With Photos'}
+                                    </TooltipContent>
                                 </Tooltip>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
