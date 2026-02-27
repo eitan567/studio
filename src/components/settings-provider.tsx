@@ -47,6 +47,7 @@ export interface UserSettings {
 
     // --- [CATEGORY: Session/General] (Applied ONLY on next app load) ---
     defaultEditorViewMode: 'full' | 'split';
+    albumSaveMode: 'auto' | 'manual';
     themePreference: 'light' | 'dark' | 'system';
     exportWarnDuplicates: boolean;
     visibleTemplateCategories: string[];
@@ -74,6 +75,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
     autoFillSmartMatching: true,
 
     defaultEditorViewMode: 'full',
+    albumSaveMode: 'auto',
     exportWarnDuplicates: true,
     visibleTemplateCategories: ['grid', 'advanced', 'cover'],
 

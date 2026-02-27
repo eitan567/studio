@@ -132,6 +132,7 @@ type PendingBackupImport = {
 export function PageEditor({ albumId }: PageEditorProps) {
   const { settings, liveSettings, isLoaded: isSettingsLoaded } = useSettings();
   const { defaultCoverTemplate, defaultGridTemplate, findTemplate, findCoverTemplate } = useTemplates();
+  const isManualSaveMode = settings.albumSaveMode === 'manual';
   // Album persistence hook
   const {
     album,
@@ -155,7 +156,9 @@ export function PageEditor({ albumId }: PageEditorProps) {
     updatePhotos: savePhotos,
     saveNow,
     setIsUploading,
-  } = useAlbum(albumId);
+  } = useAlbum(albumId, {
+    autoSave: !isManualSaveMode,
+  });
 
 
 
@@ -1127,6 +1130,21 @@ export function PageEditor({ albumId }: PageEditorProps) {
     updateName(newTitle);
   };
 
+  const handleManualSaveNow = useCallback(async () => {
+    if (!hasUnsavedChanges) {
+      toast({
+        title: 'No changes to save',
+      });
+      return;
+    }
+
+    await saveNow();
+    toast({
+      title: 'Album saved',
+      description: 'All pending changes were saved.',
+    });
+  }, [hasUnsavedChanges, saveNow, toast]);
+
 
   const form = useForm<ConfigFormData>({
     resolver: zodResolver(configSchema),
@@ -1626,6 +1644,9 @@ export function PageEditor({ albumId }: PageEditorProps) {
           onExportBackup={handleExportBackup}
           onImportBackup={handleRequestImportBackup}
           isImportingBackup={isImportingBackup}
+          showManualSaveButton={isManualSaveMode}
+          onSaveNow={handleManualSaveNow}
+          disableManualSaveButton={isSaving || isLoadingPhotos || !hasUnsavedChanges}
           onExport={() => setExportDialogOpen(true)}
           isExporting={isExporting}
           onShare={() => toast({ title: "Sharing Album..." })}

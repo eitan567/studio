@@ -5,6 +5,7 @@ import {
     ChevronLeft,
     Loader2,
     Cloud,
+    Save,
     BookOpen,
     Layout,
     Download,
@@ -33,6 +34,9 @@ interface AlbumEditorToolbarProps {
     onExportBackup: () => void;
     onImportBackup: () => void;
     isImportingBackup?: boolean;
+    showManualSaveButton?: boolean;
+    onSaveNow?: () => void;
+    disableManualSaveButton?: boolean;
     onExport: () => void;
     isExporting: boolean;
     onShare: () => void;
@@ -48,6 +52,9 @@ export function AlbumEditorToolbar({
     onExportBackup,
     onImportBackup,
     isImportingBackup = false,
+    showManualSaveButton = false,
+    onSaveNow,
+    disableManualSaveButton = false,
     onExport,
     isExporting,
     onShare,
@@ -193,6 +200,21 @@ export function AlbumEditorToolbar({
                     <span className="hidden sm:inline">{isImportingBackup ? 'Restoring...' : 'Restore'}</span>
                 </Button>
                 <div className="h-4 w-px bg-border mx-1" />
+                {showManualSaveButton && (
+                    <>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="gap-2"
+                            onClick={onSaveNow}
+                            disabled={disableManualSaveButton}
+                        >
+                            <Save className="h-4 w-4" />
+                            <span className="hidden sm:inline">Save</span>
+                        </Button>
+                        <div className="h-4 w-px bg-border mx-1" />
+                    </>
+                )}
                 <Button variant="ghost" size="sm" className="gap-2" onClick={onExport} disabled={isExporting}>
                     {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                     <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export'}</span>

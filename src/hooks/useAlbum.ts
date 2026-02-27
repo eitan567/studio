@@ -230,10 +230,14 @@ export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) 
     // Queue an auto-save
     const queueSave = useCallback((data: { pages?: AlbumPage[]; config?: AlbumConfig; name?: string; thumbnail_url?: string; photos?: any[] }) => {
         // use refs
-        if (!autoSaveRef.current || !albumRef.current) return
+        if (!albumRef.current) return
 
+        // Always track pending changes so manual save mode can persist them later.
         setHasUnsavedChanges(true)
         pendingDataRef.current = { ...pendingDataRef.current, ...data }
+
+        // In manual mode we only mark pending changes and wait for explicit save.
+        if (!autoSaveRef.current) return
 
         // Clear existing timeout
         if (saveTimeoutRef.current) {

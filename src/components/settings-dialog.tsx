@@ -505,6 +505,28 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                         {/* Appearance Section Removed per user request */}
 
                                         <div className="space-y-4">
+                                            <h3 className="text-lg font-medium">Album Saving</h3>
+                                            <div className="space-y-2">
+                                                <Label>Save Mode</Label>
+                                                <Select
+                                                    value={localSettings.albumSaveMode}
+                                                    onValueChange={(val: 'auto' | 'manual') => handleUpdateLocal({ albumSaveMode: val })}
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select save mode" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="auto">Auto Save (current behavior)</SelectItem>
+                                                        <SelectItem value="manual">Manual Save (button)</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Auto saves in the background after edits. Manual mode keeps changes unsaved until you click Save.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4">
                                             <h3 className="text-lg font-medium">Gallery Safety</h3>
                                             <div className="space-y-3">
                                                 <div className="flex items-center justify-between rounded-md border p-3">
