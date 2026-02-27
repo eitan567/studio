@@ -180,14 +180,16 @@ export const ADVANCED_TEMPLATES = getTemplatesSync();
 export function getPhotoCount(template: AdvancedTemplate | null | undefined): number {
     if (!template) return 1;
 
-    // Explicit photoCount property
-    if ('photoCount' in template && typeof template.photoCount === 'number') {
-        return template.photoCount;
+    // Regions are the source of truth for frame slots when available.
+    if ('regions' in template && Array.isArray(template.regions)) {
+        if (template.regions.length > 0) {
+            return template.regions.length;
+        }
     }
 
-    // Count visible regions
-    if ('regions' in template && Array.isArray(template.regions)) {
-        return template.regions.length;
+    // Fallback to persisted photoCount for legacy templates without regions.
+    if ('photoCount' in template && typeof template.photoCount === 'number' && template.photoCount > 0) {
+        return template.photoCount;
     }
 
     return 1;

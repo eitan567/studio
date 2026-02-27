@@ -1157,35 +1157,43 @@ export const PageCanvas = React.memo(({
         return `Page ${pageIndex + 1}`;
     }, [page, pageIndex, externalDisplayLabel]);
 
-    const resolveRequiredPhotoCount = useCallback((baseId: string | number, template?: AdvancedTemplate) => {
-        if (template) {
-            return getPhotoCount(template);
-        }
-
-        const normalizedId = String(baseId || '');
-        if (normalizedId.startsWith('dynamic-justified')) {
-            // Dynamic justified layouts adapt to current slot count.
-            return Math.max(1, page.photos?.length || 0);
-        }
-
-        // Fallback for unknown/legacy template IDs: infer from current page slot allocation.
-        return Math.max(1, page.photos?.length || 0);
-    }, [page.photos]);
-
     const resolveTemplateName = useCallback((
         layoutId: string | number | null | undefined,
         fallbackId: string | number | undefined,
         preferCoverTemplate = false
     ) => {
         const { baseId } = parseLayoutId(layoutId || fallbackId || '');
-        const template = preferCoverTemplate
-            ? (findCoverTemplate(baseId) || findTemplate(baseId))
-            : (findTemplate(baseId) || findCoverTemplate(baseId));
-        const name = template?.name || String(baseId || 'Template');
-        const requiredPhotoCount = resolveRequiredPhotoCount(baseId, template);
+        const normalizedId = String(baseId || '');
+        const templatePool = preferCoverTemplate
+            ? [...coverTemplates, ...advancedTemplates]
+            : [...gridTemplates, ...advancedTemplates];
+
+        const matchedTemplate = templatePool.find((t) => String(t.id) === normalizedId)
+            || (preferCoverTemplate
+                ? (findCoverTemplate(baseId) || findTemplate(baseId))
+                : (findTemplate(baseId) || findCoverTemplate(baseId)));
+
+        // Match PageLayout fallback behavior when layout ID is missing from source.
+        const fallbackTemplate = templatePool[0] || (preferCoverTemplate ? defaultCoverTemplate : defaultGridTemplate);
+        const resolvedTemplate = matchedTemplate || fallbackTemplate;
+
+        const requiredPhotoCount = normalizedId.startsWith('dynamic-justified')
+            ? Math.max(1, page.photos?.length || 0)
+            : Math.max(1, resolvedTemplate ? getPhotoCount(resolvedTemplate) : (page.photos?.length || 0));
+
+        const name = matchedTemplate?.name || resolvedTemplate?.name || String(baseId || 'Template');
         const requiredLabel = `Required: ${requiredPhotoCount} photo${requiredPhotoCount === 1 ? '' : 's'}`;
         return `${name} (ID: ${String(baseId)}) • ${requiredLabel}`;
-    }, [findCoverTemplate, findTemplate, resolveRequiredPhotoCount]);
+    }, [
+        advancedTemplates,
+        coverTemplates,
+        defaultCoverTemplate,
+        defaultGridTemplate,
+        findCoverTemplate,
+        findTemplate,
+        gridTemplates,
+        page.photos
+    ]);
 
     const currentTemplateName = useMemo(() => {
         const defaultGridId = defaultGridTemplate?.id;
