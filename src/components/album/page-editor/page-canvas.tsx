@@ -946,6 +946,7 @@ const ScaledCoverPreview = React.memo(({
     priority = false, // Add priority here
     chronologicalIndex,
     templateName,
+    isLocked = false,
 }: {
     page: AlbumPage;
     config: AlbumConfig;
@@ -961,6 +962,7 @@ const ScaledCoverPreview = React.memo(({
     priority?: boolean;
     chronologicalIndex?: Record<string, number>;
     templateName?: string;
+    isLocked?: boolean;
 }) => {
     const wrapperRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
@@ -1017,13 +1019,23 @@ const ScaledCoverPreview = React.memo(({
                         {page.titleText && <DraggableTitle text={page.titleText} color={page.titleColor} fontSize={page.titleFontSize} fontFamily={page.titleFontFamily} position={page.titlePosition} containerId={`front-cover-container-${page.id}`} onUpdatePosition={(x, y) => onUpdateTitleSettings?.(page.id, { position: { x, y } })} />}
                     </div>
                 </div>
-                {templateName && (
+                {(isLocked || templateName) && (
                     <div className="pointer-events-none absolute left-0 -bottom-6 z-[70]">
-                        <div
-                            className="inline-flex items-center rounded-full border border-border/60 bg-background/82 px-2 py-0.5 text-[9px] font-medium text-foreground/90 shadow-sm backdrop-blur-sm whitespace-nowrap"
-                            title={templateName}
-                        >
-                            {templateName}
+                        <div className="inline-flex items-center gap-1.5">
+                            {templateName && (
+                                <div
+                                    className="inline-flex items-center rounded-full border border-border/60 bg-background/82 px-2 py-0.5 text-[9px] font-medium text-foreground/90 shadow-sm backdrop-blur-sm whitespace-nowrap"
+                                    title={templateName}
+                                >
+                                    {templateName}
+                                </div>
+                            )}
+                            {isLocked && (
+                                <div className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/85 px-2 py-0.5 text-[9px] font-semibold text-foreground/90 shadow-sm backdrop-blur-sm whitespace-nowrap">
+                                    <Lock className="h-2.5 w-2.5" />
+                                    Locked
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -1101,7 +1113,7 @@ export const PageCanvas = React.memo(({
     priority = false, // Default to false
     chronologicalIndex,
 }: PageCanvasProps & { previousPagePhotos?: Photo[]; displayLabel?: string }) => {
-    const { gridTemplates, coverTemplates, advancedTemplates, findTemplate, defaultGridTemplate, defaultCoverTemplate } = useTemplates();
+    const { gridTemplates, coverTemplates, advancedTemplates, findTemplate, findCoverTemplate, defaultGridTemplate, defaultCoverTemplate } = useTemplates();
     const { previewPhotoGap, previewPageMargin, previewCornerRadius } = useAlbumEditor();
     const { toast } = useToast();
     const [isInteracting, setIsInteracting] = useState(false);
@@ -1156,19 +1168,24 @@ export const PageCanvas = React.memo(({
             return Math.max(1, page.photos?.length || 0);
         }
 
-        return null;
+        // Fallback for unknown/legacy template IDs: infer from current page slot allocation.
+        return Math.max(1, page.photos?.length || 0);
     }, [page.photos]);
 
-    const resolveTemplateName = useCallback((layoutId: string | number | null | undefined, fallbackId: string | number | undefined) => {
+    const resolveTemplateName = useCallback((
+        layoutId: string | number | null | undefined,
+        fallbackId: string | number | undefined,
+        preferCoverTemplate = false
+    ) => {
         const { baseId } = parseLayoutId(layoutId || fallbackId || '');
-        const template = findTemplate(baseId);
+        const template = preferCoverTemplate
+            ? (findCoverTemplate(baseId) || findTemplate(baseId))
+            : (findTemplate(baseId) || findCoverTemplate(baseId));
         const name = template?.name || String(baseId || 'Template');
         const requiredPhotoCount = resolveRequiredPhotoCount(baseId, template);
-        const requiredLabel = requiredPhotoCount === null
-            ? 'Required: ? photos'
-            : `Required: ${requiredPhotoCount} photo${requiredPhotoCount === 1 ? '' : 's'}`;
+        const requiredLabel = `Required: ${requiredPhotoCount} photo${requiredPhotoCount === 1 ? '' : 's'}`;
         return `${name} (ID: ${String(baseId)}) • ${requiredLabel}`;
-    }, [findTemplate, resolveRequiredPhotoCount]);
+    }, [findCoverTemplate, findTemplate, resolveRequiredPhotoCount]);
 
     const currentTemplateName = useMemo(() => {
         const defaultGridId = defaultGridTemplate?.id;
@@ -1177,11 +1194,11 @@ export const PageCanvas = React.memo(({
         if (page.isCover) {
             const isCoverSplit = page.coverType === 'split' || !page.coverType;
             if (isCoverSplit) {
-                const backName = resolveTemplateName(page.coverLayouts?.back, defaultCoverId);
-                const frontName = resolveTemplateName(page.coverLayouts?.front, defaultCoverId);
+                const backName = resolveTemplateName(page.coverLayouts?.back, defaultCoverId, true);
+                const frontName = resolveTemplateName(page.coverLayouts?.front, defaultCoverId, true);
                 return `Back: ${backName} | Front: ${frontName}`;
             }
-            return resolveTemplateName(page.layout, defaultCoverId);
+            return resolveTemplateName(page.layout, defaultCoverId, true);
         }
 
         if (page.type === 'spread') {
@@ -1257,13 +1274,6 @@ export const PageCanvas = React.memo(({
                     onToggleLock={onToggleLock}
                 />
             </div>
-            {page.isLocked && (
-                <div className="pointer-events-none absolute right-10 top-14 z-20 inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-background/90 px-2.5 py-1 text-[11px] font-semibold text-foreground/80 shadow-sm backdrop-blur-sm">
-                    <Lock className="h-3.5 w-3.5" />
-                    Locked
-                </div>
-            )}
-
             <div className={cn("relative", page.type === 'single' && 'w-1/2 mx-auto')}>
                 <AspectRatio
                     ratio={(
@@ -1300,6 +1310,7 @@ export const PageCanvas = React.memo(({
                                 priority={priority}
                                 chronologicalIndex={chronologicalIndex}
                                 templateName={currentTemplateName}
+                                isLocked={!!page.isLocked}
                             />
                         </CardContent>
                     </Card>
