@@ -488,6 +488,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                                             page={page}
                                                             photoGap={page.photoGap ?? config.photoGap}
                                                             backgroundColor={exportPageBackground}
+                                                            backgroundImage={page.backgroundImage || config.backgroundImage}
                                                             cornerRadius={exportCornerRadius}
                                                             overridePhotos={leftPhotos}
                                                             overrideLayout={leftLayoutId}
@@ -502,6 +503,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                                             page={page}
                                                             photoGap={page.photoGap ?? config.photoGap}
                                                             backgroundColor={exportPageBackground}
+                                                            backgroundImage={page.backgroundImage || config.backgroundImage}
                                                             cornerRadius={exportCornerRadius}
                                                             overridePhotos={rightPhotos}
                                                             overrideLayout={rightLayoutId}
@@ -522,6 +524,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                                     page={page}
                                                     photoGap={page.photoGap ?? config.photoGap}
                                                     backgroundColor={exportPageBackground}
+                                                    backgroundImage={page.backgroundImage || config.backgroundImage}
                                                     cornerRadius={exportCornerRadius}
                                                     onUpdatePhotoPanAndZoom={() => { }}
                                                     onInteractionChange={() => { }}
@@ -536,6 +539,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                         page={page}
                                         photoGap={page.photoGap ?? config.photoGap}
                                         backgroundColor={exportPageBackground}
+                                        backgroundImage={page.backgroundImage || config.backgroundImage}
                                         cornerRadius={exportCornerRadius}
                                         onUpdatePhotoPanAndZoom={() => { }}
                                         onInteractionChange={() => { }}

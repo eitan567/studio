@@ -27,6 +27,7 @@ export interface PageLayoutProps {
     onEnhancePhotoWithAi?: (pageId: string, photoId: string, photo: Photo) => void;
     cornerRadius?: number;
     backgroundColor?: string;
+    backgroundImage?: string;
     allPhotos?: Photo[];
     previousPagePhotos?: Photo[];
     priority?: boolean;
@@ -50,6 +51,7 @@ const PageLayoutComponent = ({
     onEnhancePhotoWithAi,
     cornerRadius = 0,
     backgroundColor: configBackgroundColor,
+    backgroundImage: configBackgroundImage,
     allPhotos = [],
     previousPagePhotos = [],
     priority = false,
@@ -183,6 +185,10 @@ const PageLayoutComponent = ({
     // Ensure gap is formatted correctly
     const gapValueNum = typeof photoGap === 'number' ? photoGap : parseInt(String(photoGap || 0), 10) || 0;
     const templateImageRotationMode = template?._imageRotationMode || 'follow-frame';
+    const hasBackgroundImage = Boolean(page.backgroundImage || configBackgroundImage);
+    const effectiveGapColor = hasBackgroundImage
+        ? 'transparent'
+        : (page.backgroundColor || configBackgroundColor || 'transparent');
 
     // Sort regions by zIndex
     const sortedRegions = template?.regions ? [...template.regions].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)) : [];
@@ -209,6 +215,7 @@ const PageLayoutComponent = ({
                         photo={photo}
                         photoGap={gapValueNum}
                         backgroundColor={page.backgroundColor || configBackgroundColor || 'transparent'}
+                        gapColor={effectiveGapColor}
                         containerWidth={W}
                         containerHeight={H}
                         onUpdatePanAndZoom={(panAndZoom: PhotoPanAndZoom) => {
@@ -274,6 +281,7 @@ export const PageLayout = React.memo(PageLayoutComponent, (prev, next) => {
     // Custom Equality Check
     if (prev.photoGap !== next.photoGap) return false;
     if (prev.cornerRadius !== next.cornerRadius) return false;
+    if (prev.backgroundImage !== next.backgroundImage) return false;
     if (prev.overrideLayout !== next.overrideLayout) return false;
     if (prev.page.layout !== next.page.layout) return false;
     if (prev.page.id !== next.page.id) return false;

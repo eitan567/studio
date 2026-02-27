@@ -173,6 +173,7 @@ export const ShapeRegion = ({
     photo,
     photoGap,
     backgroundColor,
+    gapColor,
     containerWidth,
     containerHeight,
     onUpdatePanAndZoom,
@@ -196,6 +197,7 @@ export const ShapeRegion = ({
     photo?: Photo;
     photoGap: number;
     backgroundColor: string;
+    gapColor?: string;
     containerWidth: number;
     containerHeight: number;
     onUpdatePanAndZoom?: (panAndZoom: any) => void;
@@ -229,6 +231,7 @@ export const ShapeRegion = ({
 
     const photoGapNum = typeof photoGap === 'string' ? parseFloat(photoGap) : photoGap;
     const cornerRadiusNum = Number(cornerRadius) || 0;
+    const gapPaintColor = gapColor ?? backgroundColor;
     // contentInset is HALF the gap (shared between slots)
     const baseInset = photoGapNum / 2;
 
@@ -282,11 +285,16 @@ export const ShapeRegion = ({
     const isAtRight = (region.bounds.x + region.bounds.width) >= 100 - boundaryEpsilonX || hasPolygonBoundaryEdge('right');
     const isAtBottom = (region.bounds.y + region.bounds.height) >= 100 - boundaryEpsilonY || hasPolygonBoundaryEdge('bottom');
 
+    // For polygon regions, legacy behavior used painted strokes (no physical inset).
+    // When gap color is transparent we must keep physical spacing, otherwise the gap disappears visually.
+    const usePhysicalInsetForPolygon = isPolygonRegion && gapPaintColor === 'transparent' && photoGapNum > 0;
+    const keepLegacyPolygonStrokeGap = isPolygonRegion && !usePhysicalInsetForPolygon;
+
     // Directional insets: 0 if at boundary, baseInset if internal
-    const insetL = isPolygonRegion ? 0 : (isAtLeft ? 0 : baseInset);
-    const insetT = isPolygonRegion ? 0 : (isAtTop ? 0 : baseInset);
-    const insetR = isPolygonRegion ? 0 : (isAtRight ? 0 : baseInset);
-    const insetB = isPolygonRegion ? 0 : (isAtBottom ? 0 : baseInset);
+    const insetL = keepLegacyPolygonStrokeGap ? 0 : (isAtLeft ? 0 : baseInset);
+    const insetT = keepLegacyPolygonStrokeGap ? 0 : (isAtTop ? 0 : baseInset);
+    const insetR = keepLegacyPolygonStrokeGap ? 0 : (isAtRight ? 0 : baseInset);
+    const insetB = keepLegacyPolygonStrokeGap ? 0 : (isAtBottom ? 0 : baseInset);
     const shouldForceGapStroke = forceGapStroke && photoGapNum > 0;
 
     const maskId = `mask-outside-${safeRegionId}-${safeInstanceId}`;
@@ -396,6 +404,7 @@ export const ShapeRegion = ({
     // INTERNAL STROKES: Only needed for non-rect complex shapes to fill the 'gap' area
     const renderInternalStrokes = () => {
         if (photoGapNum <= 0 || region.shape !== 'polygon') return null;
+        if (usePhysicalInsetForPolygon) return null;
 
         let p = polygonPoints || [];
         if (p.length < 2) return null;
@@ -428,7 +437,7 @@ export const ShapeRegion = ({
                         y1={`${relP1Y}%`}
                         x2={`${relP2X}%`}
                         y2={`${relP2Y}%`}
-                        stroke={backgroundColor}
+                        stroke={gapPaintColor}
                         strokeWidth={photoGapNum}
                         vectorEffect="non-scaling-stroke"
                         strokeLinecap="round"
@@ -718,12 +727,12 @@ export const ShapeRegion = ({
                     )}
                     style={{
                         borderRadius: `${cornerRadiusNum}px`,
-                        backgroundColor: photoGapNum > 0 ? backgroundColor : 'transparent',
-                        borderTop: shouldForceGapStroke && !isAtTop ? `${photoGapNum}px solid ${backgroundColor}` : undefined,
-                        borderRight: shouldForceGapStroke && !isAtRight ? `${photoGapNum}px solid ${backgroundColor}` : undefined,
-                        borderBottom: shouldForceGapStroke && !isAtBottom ? `${photoGapNum}px solid ${backgroundColor}` : undefined,
-                        borderLeft: shouldForceGapStroke && !isAtLeft ? `${photoGapNum}px solid ${backgroundColor}` : undefined,
-                        ['--tw-ring-offset-color' as any]: backgroundColor,
+                        backgroundColor: photoGapNum > 0 ? gapPaintColor : 'transparent',
+                        borderTop: shouldForceGapStroke && !isAtTop ? `${photoGapNum}px solid ${gapPaintColor}` : undefined,
+                        borderRight: shouldForceGapStroke && !isAtRight ? `${photoGapNum}px solid ${gapPaintColor}` : undefined,
+                        borderBottom: shouldForceGapStroke && !isAtBottom ? `${photoGapNum}px solid ${gapPaintColor}` : undefined,
+                        borderLeft: shouldForceGapStroke && !isAtLeft ? `${photoGapNum}px solid ${gapPaintColor}` : undefined,
+                        ['--tw-ring-offset-color' as any]: gapPaintColor,
                     }}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
@@ -754,7 +763,7 @@ export const ShapeRegion = ({
                     (!photo || !photo.src) && "cursor-pointer"
                 )}
                 style={{
-                    backgroundColor: photoGapNum > 0 ? backgroundColor : 'transparent',
+                    backgroundColor: photoGapNum > 0 ? gapPaintColor : 'transparent',
                     clipPath: clipPathStyle,
                     WebkitClipPath: clipPathStyle,
                 }}
@@ -790,7 +799,7 @@ export const ShapeRegion = ({
                             rx="50"
                             ry="50"
                             fill="none"
-                            stroke={backgroundColor}
+                            stroke={gapPaintColor}
                             strokeWidth={photoGapNum}
                             vectorEffect="non-scaling-stroke"
                         />
@@ -800,7 +809,7 @@ export const ShapeRegion = ({
                             d={region.path}
                             transform={`scale(${100 / vw}, ${100 / vh}) translate(${-vx}, ${-vy})`}
                             fill="none"
-                            stroke={backgroundColor}
+                            stroke={gapPaintColor}
                             strokeWidth={photoGapNum}
                             vectorEffect="non-scaling-stroke"
                         />
@@ -856,7 +865,7 @@ export const ShapeRegion = ({
                             />
                             <ellipse
                                 cx="50" cy="50" rx="50" ry="50"
-                                fill="none" stroke={backgroundColor} strokeWidth="4"
+                                fill="none" stroke={gapPaintColor} strokeWidth="4"
                                 strokeLinejoin="round" vectorEffect="non-scaling-stroke"
                             />
                         </>
@@ -871,7 +880,7 @@ export const ShapeRegion = ({
                             <path
                                 d={region.path}
                                 transform={pathTransform}
-                                fill="none" stroke={backgroundColor} strokeWidth="4"
+                                fill="none" stroke={gapPaintColor} strokeWidth="4"
                                 strokeLinejoin="round" vectorEffect="non-scaling-stroke"
                             />
                         </>
@@ -884,7 +893,7 @@ export const ShapeRegion = ({
                             />
                             <polygon
                                 points={svgPoints}
-                                fill="none" stroke={backgroundColor} strokeWidth="4"
+                                fill="none" stroke={gapPaintColor} strokeWidth="4"
                                 strokeLinejoin="round" vectorEffect="non-scaling-stroke"
                             />
                         </>
