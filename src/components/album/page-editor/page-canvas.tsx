@@ -1145,12 +1145,30 @@ export const PageCanvas = React.memo(({
         return `Page ${pageIndex + 1}`;
     }, [page, pageIndex, externalDisplayLabel]);
 
+    const resolveRequiredPhotoCount = useCallback((baseId: string | number, template?: AdvancedTemplate) => {
+        if (template) {
+            return getPhotoCount(template);
+        }
+
+        const normalizedId = String(baseId || '');
+        if (normalizedId.startsWith('dynamic-justified')) {
+            // Dynamic justified layouts adapt to current slot count.
+            return Math.max(1, page.photos?.length || 0);
+        }
+
+        return null;
+    }, [page.photos]);
+
     const resolveTemplateName = useCallback((layoutId: string | number | null | undefined, fallbackId: string | number | undefined) => {
         const { baseId } = parseLayoutId(layoutId || fallbackId || '');
         const template = findTemplate(baseId);
         const name = template?.name || String(baseId || 'Template');
-        return `${name} (ID: ${String(baseId)})`;
-    }, [findTemplate]);
+        const requiredPhotoCount = resolveRequiredPhotoCount(baseId, template);
+        const requiredLabel = requiredPhotoCount === null
+            ? 'Required: ? photos'
+            : `Required: ${requiredPhotoCount} photo${requiredPhotoCount === 1 ? '' : 's'}`;
+        return `${name} (ID: ${String(baseId)}) • ${requiredLabel}`;
+    }, [findTemplate, resolveRequiredPhotoCount]);
 
     const currentTemplateName = useMemo(() => {
         const defaultGridId = defaultGridTemplate?.id;

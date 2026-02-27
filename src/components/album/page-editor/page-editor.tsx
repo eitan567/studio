@@ -65,7 +65,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LAYOUT_TEMPLATES, COVER_TEMPLATES, ADVANCED_TEMPLATES, useTemplates } from '@/hooks/useTemplates';
+import { LAYOUT_TEMPLATES, COVER_TEMPLATES, ADVANCED_TEMPLATES, getPhotoCount, useTemplates } from '@/hooks/useTemplates';
 import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -94,6 +94,7 @@ import { PhotoGalleryCard } from './sidebar/gallery-card';
 import { AlbumEditorToolbar } from './toolbar';
 import { VirtualizedPageList } from './virtualized-page-list';
 import { extractSupabaseStoragePath, normalizePhotoMediaUrls } from '@/lib/supabase-media-normalizer';
+import { parseLayoutId } from '@/lib/layout-id-utils';
 import {
   buildAlbumBackupPayload,
   describeBackupPhotoRef,
@@ -130,7 +131,7 @@ type PendingBackupImport = {
 
 export function PageEditor({ albumId }: PageEditorProps) {
   const { settings, liveSettings, isLoaded: isSettingsLoaded } = useSettings();
-  const { defaultCoverTemplate } = useTemplates();
+  const { defaultCoverTemplate, defaultGridTemplate, findTemplate, findCoverTemplate } = useTemplates();
   // Album persistence hook
   const {
     album,
@@ -639,12 +640,90 @@ export function PageEditor({ albumId }: PageEditorProps) {
 
 
 
-  // Calculate empty slots in album (photos with empty src)
-  const emptySlots = useMemo(() => {
-    return albumPages.reduce((total, page) => {
-      return total + page.photos.filter(p => !p.src || p.src === '').length;
+  const getRequiredPhotoSlotsForPage = useCallback((page: AlbumPage): number => {
+    const resolveTemplateCount = (
+      layoutId: string | number | null | undefined,
+      fallbackId: string | number | undefined,
+      isCoverLayout: boolean
+    ) => {
+      const { baseId } = parseLayoutId(layoutId || fallbackId || '');
+      const normalizedBaseId = String(baseId || '');
+
+      if (normalizedBaseId.startsWith('dynamic-justified')) {
+        // Dynamic layouts are data-driven and may use all currently available slots.
+        return page.photos.length;
+      }
+
+      const template = isCoverLayout
+        ? (findCoverTemplate(baseId) || defaultCoverTemplate)
+        : (findTemplate(baseId) || defaultGridTemplate);
+
+      return template ? getPhotoCount(template) : 0;
+    };
+
+    if (page.isCover) {
+      const isSplitCover = page.coverType === 'split' || !page.coverType;
+      if (!isSplitCover) {
+        const count = resolveTemplateCount(page.layout, defaultCoverTemplate?.id, true);
+        return count > 0 ? count : page.photos.length;
+      }
+
+      const backLayout = page.coverLayouts?.back || defaultCoverTemplate?.id || '';
+      const frontLayout = page.coverLayouts?.front || defaultCoverTemplate?.id || '';
+      const backBaseId = String(parseLayoutId(backLayout).baseId || '');
+      const frontBaseId = String(parseLayoutId(frontLayout).baseId || '');
+
+      // Cover with dynamic on either side behaves as full dynamic spread.
+      if (backBaseId.startsWith('dynamic-justified') || frontBaseId.startsWith('dynamic-justified')) {
+        return page.photos.length;
+      }
+
+      return resolveTemplateCount(backLayout, defaultCoverTemplate?.id, true)
+        + resolveTemplateCount(frontLayout, defaultCoverTemplate?.id, true);
+    }
+
+    if (page.type === 'spread') {
+      if (page.spreadMode !== 'split') {
+        const count = resolveTemplateCount(page.layout, defaultGridTemplate?.id, false);
+        return count > 0 ? count : page.photos.length;
+      }
+
+      const leftLayout = page.spreadLayouts?.left || defaultGridTemplate?.id || '';
+      const rightLayout = page.spreadLayouts?.right || defaultGridTemplate?.id || '';
+      const leftBaseId = String(parseLayoutId(leftLayout).baseId || '');
+      const rightBaseId = String(parseLayoutId(rightLayout).baseId || '');
+
+      // Spread with dynamic on either side behaves as full dynamic spread.
+      if (leftBaseId.startsWith('dynamic-justified') || rightBaseId.startsWith('dynamic-justified')) {
+        return page.photos.length;
+      }
+
+      return resolveTemplateCount(leftLayout, defaultGridTemplate?.id, false)
+        + resolveTemplateCount(rightLayout, defaultGridTemplate?.id, false);
+    }
+
+    const singleCount = resolveTemplateCount(page.layout, defaultGridTemplate?.id, false);
+    return singleCount > 0 ? singleCount : page.photos.length;
+  }, [defaultCoverTemplate, defaultGridTemplate, findCoverTemplate, findTemplate]);
+
+  const getMissingPhotoSlotsForPage = useCallback((page: AlbumPage): number => {
+    const requiredSlots = Math.max(0, getRequiredPhotoSlotsForPage(page));
+    if (requiredSlots === 0) return 0;
+
+    const consideredSlots = page.photos.slice(0, requiredSlots);
+    const filledCount = consideredSlots.reduce((count, photo) => {
+      const source = (photo.remoteUrl || photo.src || '').trim();
+      return source.length > 0 ? count + 1 : count;
     }, 0);
-  }, [albumPages]);
+
+    // If consideredSlots is shorter than requiredSlots, those are also missing.
+    return Math.max(0, requiredSlots - filledCount);
+  }, [getRequiredPhotoSlotsForPage]);
+
+  // Calculate empty slots in album based on active template requirements per page.
+  const emptySlots = useMemo(() => {
+    return albumPages.reduce((total, page) => total + getMissingPhotoSlotsForPage(page), 0);
+  }, [albumPages, getMissingPhotoSlotsForPage]);
 
   // Calculate specific pages that have empty slots
   const pagesWithEmptySlots = useMemo(() => {
@@ -663,11 +742,11 @@ export function PageEditor({ albumId }: PageEditorProps) {
           counter += 1;
         }
 
-        const hasEmpty = page.photos.some(p => !p.src || p.src === '');
+        const hasEmpty = getMissingPhotoSlotsForPage(page) > 0;
         return { index, label, hasEmpty };
       })
       .filter(p => p.hasEmpty);
-  }, [albumPages]);
+  }, [albumPages, getMissingPhotoSlotsForPage]);
 
   const [isLoading, setIsLoading] = useState(false);
 

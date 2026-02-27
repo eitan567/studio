@@ -165,7 +165,7 @@ export function AlbumConfigCard({
                                         setLocalPhotoGap(v);
                                         setPhotoGap(v);
                                     }}
-                                    className="w-16 h-7 text-xs text-center"
+                                    className="w-14 h-7 text-xs text-center"
                                 />
                             </div>
                             <Slider
@@ -197,7 +197,7 @@ export function AlbumConfigCard({
                                         setLocalPageMargin(v);
                                         setPageMargin(v);
                                     }}
-                                    className="w-16 h-7 text-xs text-center"
+                                    className="w-14 h-7 text-xs text-center"
                                 />
                             </div>
                             <Slider
@@ -229,7 +229,7 @@ export function AlbumConfigCard({
                                         setLocalCornerRadius(v);
                                         setCornerRadius(v);
                                     }}
-                                    className="w-16 h-7 text-xs text-center"
+                                    className="w-14 h-7 text-xs text-center"
                                 />
                             </div>
                             <Slider
