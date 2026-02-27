@@ -946,6 +946,7 @@ const ScaledCoverPreview = React.memo(({
     priority = false, // Add priority here
     chronologicalIndex,
     templateName,
+    requiredLabel,
     isLocked = false,
 }: {
     page: AlbumPage;
@@ -962,6 +963,7 @@ const ScaledCoverPreview = React.memo(({
     priority?: boolean;
     chronologicalIndex?: Record<string, number>;
     templateName?: string;
+    requiredLabel?: string;
     isLocked?: boolean;
 }) => {
     const wrapperRef = useRef<HTMLDivElement>(null);
@@ -1019,7 +1021,7 @@ const ScaledCoverPreview = React.memo(({
                         {page.titleText && <DraggableTitle text={page.titleText} color={page.titleColor} fontSize={page.titleFontSize} fontFamily={page.titleFontFamily} position={page.titlePosition} containerId={`front-cover-container-${page.id}`} onUpdatePosition={(x, y) => onUpdateTitleSettings?.(page.id, { position: { x, y } })} />}
                     </div>
                 </div>
-                {(isLocked || templateName) && (
+                {(isLocked || templateName || requiredLabel) && (
                     <div className="pointer-events-none absolute left-0 -bottom-6 z-[70]">
                         <div className="inline-flex items-center gap-1.5">
                             {templateName && (
@@ -1028,6 +1030,11 @@ const ScaledCoverPreview = React.memo(({
                                     title={templateName}
                                 >
                                     {templateName}
+                                </div>
+                            )}
+                            {requiredLabel && (
+                                <div className="inline-flex items-center rounded-full border border-border/60 bg-background/82 px-2 py-0.5 text-[9px] font-medium text-foreground/90 shadow-sm backdrop-blur-sm whitespace-nowrap">
+                                    {requiredLabel}
                                 </div>
                             )}
                             {isLocked && (
@@ -1157,6 +1164,40 @@ export const PageCanvas = React.memo(({
         return `Page ${pageIndex + 1}`;
     }, [page, pageIndex, externalDisplayLabel]);
 
+    const resolveLayoutRequiredPhotoCount = useCallback((
+        layoutId: string | number | null | undefined,
+        fallbackId: string | number | undefined,
+        preferCoverTemplate = false
+    ) => {
+        const { baseId } = parseLayoutId(layoutId || fallbackId || '');
+        const normalizedId = String(baseId || '');
+        const templatePool = preferCoverTemplate
+            ? [...coverTemplates, ...advancedTemplates]
+            : [...gridTemplates, ...advancedTemplates];
+
+        const matchedTemplate = templatePool.find((t) => String(t.id) === normalizedId)
+            || (preferCoverTemplate
+                ? (findCoverTemplate(baseId) || findTemplate(baseId))
+                : (findTemplate(baseId) || findCoverTemplate(baseId)));
+
+        const fallbackTemplate = templatePool[0] || (preferCoverTemplate ? defaultCoverTemplate : defaultGridTemplate);
+        const resolvedTemplate = matchedTemplate || fallbackTemplate;
+
+        if (normalizedId.startsWith('dynamic-justified')) {
+            return Math.max(1, page.photos?.length || 0);
+        }
+
+        return Math.max(1, resolvedTemplate ? getPhotoCount(resolvedTemplate) : (page.photos?.length || 0));
+    }, [
+        advancedTemplates,
+        coverTemplates,
+        defaultCoverTemplate,
+        defaultGridTemplate,
+        findCoverTemplate,
+        findTemplate,
+        gridTemplates
+    ]);
+
     const resolveTemplateName = useCallback((
         layoutId: string | number | null | undefined,
         fallbackId: string | number | undefined,
@@ -1177,13 +1218,8 @@ export const PageCanvas = React.memo(({
         const fallbackTemplate = templatePool[0] || (preferCoverTemplate ? defaultCoverTemplate : defaultGridTemplate);
         const resolvedTemplate = matchedTemplate || fallbackTemplate;
 
-        const requiredPhotoCount = normalizedId.startsWith('dynamic-justified')
-            ? Math.max(1, page.photos?.length || 0)
-            : Math.max(1, resolvedTemplate ? getPhotoCount(resolvedTemplate) : (page.photos?.length || 0));
-
         const name = matchedTemplate?.name || resolvedTemplate?.name || String(baseId || 'Template');
-        const requiredLabel = `Required: ${requiredPhotoCount} photo${requiredPhotoCount === 1 ? '' : 's'}`;
-        return `${name} (ID: ${String(baseId)}) • ${requiredLabel}`;
+        return `${name} (ID: ${String(baseId)})`;
     }, [
         advancedTemplates,
         coverTemplates,
@@ -1191,9 +1227,49 @@ export const PageCanvas = React.memo(({
         defaultGridTemplate,
         findCoverTemplate,
         findTemplate,
-        gridTemplates,
-        page.photos
+        gridTemplates
     ]);
+
+    const currentRequiredCount = useMemo(() => {
+        const defaultGridId = defaultGridTemplate?.id;
+        const defaultCoverId = defaultCoverTemplate?.id;
+
+        if (page.isCover) {
+            const isCoverSplit = page.coverType === 'split' || !page.coverType;
+            if (isCoverSplit) {
+                return resolveLayoutRequiredPhotoCount(page.coverLayouts?.back, defaultCoverId, true)
+                    + resolveLayoutRequiredPhotoCount(page.coverLayouts?.front, defaultCoverId, true);
+            }
+            return resolveLayoutRequiredPhotoCount(page.layout, defaultCoverId, true);
+        }
+
+        if (page.type === 'spread') {
+            if (page.spreadMode === 'split') {
+                return resolveLayoutRequiredPhotoCount(page.spreadLayouts?.left, defaultGridId, false)
+                    + resolveLayoutRequiredPhotoCount(page.spreadLayouts?.right, defaultGridId, false);
+            }
+            return resolveLayoutRequiredPhotoCount(page.layout, defaultGridId, false);
+        }
+
+        return resolveLayoutRequiredPhotoCount(page.layout, defaultGridId, false);
+    }, [
+        defaultCoverTemplate?.id,
+        defaultGridTemplate?.id,
+        page.coverLayouts?.back,
+        page.coverLayouts?.front,
+        page.coverType,
+        page.isCover,
+        page.layout,
+        page.spreadLayouts?.left,
+        page.spreadLayouts?.right,
+        page.spreadMode,
+        page.type,
+        resolveLayoutRequiredPhotoCount
+    ]);
+
+    const currentRequiredLabel = useMemo(() => {
+        return `Required: ${currentRequiredCount} photo${currentRequiredCount === 1 ? '' : 's'}`;
+    }, [currentRequiredCount]);
 
     const currentTemplateName = useMemo(() => {
         const defaultGridId = defaultGridTemplate?.id;
@@ -1318,6 +1394,7 @@ export const PageCanvas = React.memo(({
                                 priority={priority}
                                 chronologicalIndex={chronologicalIndex}
                                 templateName={currentTemplateName}
+                                requiredLabel={currentRequiredLabel}
                                 isLocked={!!page.isLocked}
                             />
                         </CardContent>
