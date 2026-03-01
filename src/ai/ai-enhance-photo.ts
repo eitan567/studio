@@ -15,6 +15,10 @@ const AIEnhancePhotoInputSchema = z.object({
     .string()
     .optional()
     .describe('Additional user instructions'),
+  manualMode: z
+    .boolean()
+    .optional()
+    .describe('When true, only user custom prompt is used'),
 });
 
 export type AIEnhancePhotoInput = z.infer<typeof AIEnhancePhotoInputSchema>;
@@ -42,16 +46,30 @@ const aiEnhancePhotoFlow = ai.defineFlow(
     outputSchema: AIEnhancePhotoOutputSchema,
   },
   async (input) => {
-    const instructions = [
-      'Enhance this photo for a premium photo album print.',
-      'Keep the same composition and aspect ratio.',
-      'Do not add text, logos, watermark, frames, or new objects.',
-      'Improve sharpness, lighting balance, color fidelity, and natural detail.',
-      input.presetPrompt?.trim(),
-      input.customPrompt?.trim(),
-    ]
-      .filter(Boolean)
-      .join('\n');
+    const userPrompt = input.customPrompt?.trim();
+    const manualMode = input.manualMode === true;
+
+    if (manualMode && !userPrompt) {
+      return {
+        success: false,
+        imageUrl: '',
+        appliedPrompt: '',
+        error: 'Manual mode requires a custom prompt',
+      };
+    }
+
+    const instructions = manualMode
+      ? (userPrompt || '')
+      : [
+          'Enhance this photo for a premium photo album print.',
+          'Keep the same composition and aspect ratio.',
+          'Do not add text, logos, watermark, frames, or new objects.',
+          'Improve sharpness, lighting balance, color fidelity, and natural detail.',
+          input.presetPrompt?.trim(),
+          userPrompt,
+        ]
+          .filter(Boolean)
+          .join('\n');
 
     const prompt = [
       { text: 'You are a professional photo enhancement engine.' },

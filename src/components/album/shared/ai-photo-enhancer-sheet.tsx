@@ -30,6 +30,7 @@ type Preset = {
   label: string;
   description: string;
   prompt: string;
+  manualOnly?: boolean;
 };
 
 const PRESETS: Preset[] = [
@@ -62,6 +63,13 @@ const PRESETS: Preset[] = [
     label: 'Vibrant Colors',
     description: 'Richer color without over-saturation.',
     prompt: 'Enhance color depth and local contrast with restrained, print-friendly vibrancy.',
+  },
+  {
+    id: 'manual',
+    label: 'Manual',
+    description: 'Use only your custom prompt.',
+    prompt: '',
+    manualOnly: true,
   },
 ];
 
@@ -101,6 +109,8 @@ export function AiPhotoEnhancerSheet({
     [selectedPresetId]
   );
   const customPromptPreview = customPrompt.trim();
+  const isManualMode = selectedPreset.manualOnly === true;
+  const canEnhance = !!sourceImageUrl && !isEnhancing && (!isManualMode || !!customPromptPreview);
 
   const handleEnhance = useCallback(async () => {
     if (!sourceImageUrl) return;
@@ -109,8 +119,9 @@ export function AiPhotoEnhancerSheet({
     try {
       const result = await aiEnhancePhoto({
         imageUrl: sourceImageUrl,
-        presetPrompt: selectedPreset?.prompt,
+        presetPrompt: selectedPreset?.prompt || undefined,
         customPrompt: customPrompt.trim() || undefined,
+        manualMode: isManualMode,
       });
 
       if (!result.success || !result.imageUrl) {
@@ -129,7 +140,7 @@ export function AiPhotoEnhancerSheet({
     } finally {
       setIsEnhancing(false);
     }
-  }, [customPrompt, selectedPreset, sourceImageUrl, toast]);
+  }, [customPrompt, isManualMode, selectedPreset, sourceImageUrl, toast]);
 
   const handleApprove = useCallback(async () => {
     if (!resultImageUrl) return;
@@ -181,7 +192,7 @@ export function AiPhotoEnhancerSheet({
                   Enhance With AI
                 </SheetTitle>
                 <SheetDescription className="mt-2 max-w-[680px] text-sm leading-relaxed text-muted-foreground">
-                  Pick a preset and optional prompt, then generate an enhanced image.
+                  Pick a preset and optional prompt, then generate an enhanced image. In Manual mode, only your custom prompt is applied.
                 </SheetDescription>
               </SheetHeader>
             </div>
@@ -233,6 +244,11 @@ export function AiPhotoEnhancerSheet({
                     className="mt-2 min-h-0 flex-1 resize-none rounded-lg bg-background/65 ring-1 ring-border/50"
                     disabled={isEnhancing}
                   />
+                  {isManualMode && !customPromptPreview && (
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Manual mode requires a custom prompt.
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-3 flex shrink-0 items-center justify-between gap-4 rounded-lg bg-background/55 px-3 py-2.5 ring-1 ring-border/45">
@@ -242,7 +258,7 @@ export function AiPhotoEnhancerSheet({
                   <Button
                     type="button"
                     onClick={handleEnhance}
-                    disabled={!sourceImageUrl || isEnhancing}
+                    disabled={!canEnhance}
                     className="h-10 min-w-[150px] text-base"
                   >
                     {isEnhancing ? (
