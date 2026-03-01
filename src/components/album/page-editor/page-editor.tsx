@@ -330,6 +330,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
   const {
     deletePage,
     addSpreadPage,
+    movePage,
     updatePageLayout,
     handleRemovePhoto,
     handleUpdateCoverLayout,
@@ -1937,6 +1938,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
                 pageMaxWidth={effectivePageMaxWidth}
                 onDeletePage={deletePage}
                 onAddSpread={addSpreadPage}
+                onMovePage={movePage}
                 onUpdateLayout={updatePageLayout}
                 onUpdatePhotoPanAndZoom={updatePhotoPanAndZoom}
                 onDropPhoto={handleDropPhoto}

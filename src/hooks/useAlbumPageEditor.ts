@@ -53,9 +53,6 @@ export function useAlbumPageEditor({
     }, [isPageLocked, setAlbumPages, toast]);
 
     const addSpreadPage = useCallback((afterIndex: number) => {
-        const pageAfter = albumPagesRef.current[afterIndex];
-        if (pageAfter?.isLocked) return;
-
         const createEmptyPhoto = () => ({
             id: uuidv4(),
             src: '',
@@ -85,6 +82,28 @@ export function useAlbumPageEditor({
             description: "A new double-page spread has been added."
         });
     }, [setAlbumPages, toast]);
+
+    const movePage = useCallback((pageId: string, direction: 'up' | 'down') => {
+        const isMovablePage = (page?: AlbumPage) => !!page && !page.isCover && page.type !== 'single';
+
+        setAlbumPages(prevPages => {
+            const currentIndex = prevPages.findIndex(page => page.id === pageId);
+            if (currentIndex === -1) return prevPages;
+
+            const currentPage = prevPages[currentIndex];
+            if (!isMovablePage(currentPage)) return prevPages;
+
+            const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+            if (targetIndex < 0 || targetIndex >= prevPages.length) return prevPages;
+
+            const targetPage = prevPages[targetIndex];
+            if (!isMovablePage(targetPage)) return prevPages;
+
+            const nextPages = [...prevPages];
+            [nextPages[currentIndex], nextPages[targetIndex]] = [nextPages[targetIndex], nextPages[currentIndex]];
+            return nextPages;
+        });
+    }, [setAlbumPages]);
 
     const updatePageLayout = useCallback((pageId: string, newLayoutId: string) => {
         if (isPageLocked(pageId)) return;
@@ -875,6 +894,7 @@ export function useAlbumPageEditor({
     return {
         deletePage,
         addSpreadPage,
+        movePage,
         updatePageLayout,
         handleRemovePhoto,
         handleUpdateCoverLayout,

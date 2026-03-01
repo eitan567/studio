@@ -255,7 +255,7 @@ const SpineColorPicker = ({ value, onChange, disableAlpha = false }: { value?: s
 
 const PageToolbar = ({
     page, pageNumber, displayLabel, canDelete = true, onDeletePage, onUpdateLayout, onUpdateSpreadLayout, onUpdateCoverLayout, onUpdateCoverType, onUpdateSpineText, onUpdateSpineSettings, onUpdateTitleSettings, onDownloadPage, onUpdatePage, toast, viewMode, onToggleViewMode, visibleTemplateCategories, allowedTemplateIds,
-    onCycleLayout, onEnhanceWithAi, onUndo, onRedo, onOpenEditor, onToggleLock, config
+    onCycleLayout, onEnhanceWithAi, onUndo, onRedo, onOpenEditor, onToggleLock, onMovePage, canMoveUp, canMoveDown, config
 }: any) => {
     const { gridTemplates, coverTemplates, advancedTemplates, findTemplate, defaultGridTemplate, defaultCoverTemplate } = useTemplates();
 
@@ -619,6 +619,38 @@ const PageToolbar = ({
                 </TooltipTrigger>
                 <TooltipContent>{isLocked ? "Unlock Page" : "Lock Page"}</TooltipContent>
             </Tooltip>
+            {!page.isCover && (
+                <>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className={cn("h-8 w-8", !canMoveUp && "opacity-45 cursor-not-allowed")}
+                                onClick={() => onMovePage?.(page.id, 'up')}
+                                disabled={!canMoveUp}
+                            >
+                                <ArrowUp className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Move Page Up</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className={cn("h-8 w-8", !canMoveDown && "opacity-45 cursor-not-allowed")}
+                                onClick={() => onMovePage?.(page.id, 'down')}
+                                disabled={!canMoveDown}
+                            >
+                                <ArrowDown className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Move Page Down</TooltipContent>
+                    </Tooltip>
+                </>
+            )}
             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEnhanceWithAi?.(page.id)} disabled={isLocked}><Wand2 className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>AI Enhance</TooltipContent></Tooltip>
             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onUndo?.(page.id)} disabled={isLocked}><Undo className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Undo</TooltipContent></Tooltip>
             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onRedo?.(page.id)} disabled={isLocked}><Redo2 className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Redo</TooltipContent></Tooltip>
@@ -1078,6 +1110,9 @@ interface PageCanvasProps {
     onUndo?: (pageId: string) => void;
     onRedo?: (pageId: string) => void;
     onToggleLock?: (pageId: string) => void;
+    onMovePage?: (pageId: string, direction: 'up' | 'down') => void;
+    canMoveUp?: boolean;
+    canMoveDown?: boolean;
     customTemplates?: any[];
     defaultViewMode?: 'single' | 'spread';
     visibleTemplateCategories?: string[];
@@ -1110,6 +1145,9 @@ export const PageCanvas = React.memo(({
     onUndo,
     onRedo,
     onToggleLock,
+    onMovePage,
+    canMoveUp = false,
+    canMoveDown = false,
     allPhotos,
     customTemplates = [],
     defaultViewMode = 'spread',
@@ -1356,6 +1394,9 @@ export const PageCanvas = React.memo(({
                     onRedo={onRedo}
                     onOpenEditor={onOpenEditor}
                     onToggleLock={onToggleLock}
+                    onMovePage={onMovePage}
+                    canMoveUp={canMoveUp}
+                    canMoveDown={canMoveDown}
                 />
             </div>
             <div className={cn("relative", page.type === 'single' && 'w-1/2 mx-auto')}>
@@ -1430,7 +1471,7 @@ export const PageCanvas = React.memo(({
             {
                 onAddSpread && !page.isCover && (
                     <div className="flex justify-center py-2">
-                        <Button variant="outline" size="sm" className="opacity-40 hover:opacity-100 transition-opacity" onClick={() => onAddSpread(pageIndex)} disabled={!!page.isLocked}>
+                        <Button variant="outline" size="sm" className="opacity-40 hover:opacity-100 transition-opacity" onClick={() => onAddSpread(pageIndex)}>
                             <Plus className="h-4 w-4 mr-1" /> Add Spread
                         </Button>
                     </div>

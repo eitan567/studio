@@ -33,6 +33,7 @@ interface VirtualizedPageListProps {
     onUpdatePage: (updatedPage: AlbumPage) => void;
     onDeletePage: (pageId: string) => void;
     onAddSpread: (afterIndex: number) => void;
+    onMovePage: (pageId: string, direction: 'up' | 'down') => void;
     onUpdateLayout: (pageId: string, layoutId: string) => void;
     onUpdatePhotoPanAndZoom: (pageId: string, photoId: string, panAndZoom: any) => void;
     onDropPhoto: (pageId: string, targetPhotoId: string, droppedPhotoId: string, sourceInfo?: { pageId: string; photoId: string }) => void;
@@ -320,18 +321,22 @@ interface ItemData {
     onUndo?: (pageId: string) => void;
     onRedo?: (pageId: string) => void;
     onToggleLock?: (pageId: string) => void;
+    onMovePage?: (pageId: string, direction: 'up' | 'down') => void;
     // Pass all other props that Row needs
     [key: string]: any;
 }
 
 // Item Renderer outside of component to maintain identity
 const Row = memo(({ index, style, ariaAttributes, ...data }: any) => {
-    const { pages, config, pageInfo, onOpenEditor, onEnhanceWithAi, onEnhancePhotoWithAi, onUndo, onRedo, onToggleLock, pageMaxWidth, ...rest } = data;
+    const { pages, config, pageInfo, onOpenEditor, onEnhanceWithAi, onEnhancePhotoWithAi, onUndo, onRedo, onToggleLock, onMovePage, pageMaxWidth, ...rest } = data;
     const page = pages?.[index];
     if (!page) return null;
 
     // Calculate previousPagePhotos for suggestion fan
     const previousPagePhotos = index > 0 ? (pages[index - 1]?.photos || []) : [];
+    const isMovablePage = (candidate?: AlbumPage) => !!candidate && !candidate.isCover && candidate.type !== 'single';
+    const canMoveUp = index > 0 && isMovablePage(page) && isMovablePage(pages[index - 1]);
+    const canMoveDown = index < pages.length - 1 && isMovablePage(page) && isMovablePage(pages[index + 1]);
 
     // Only eager load the first page (index 0) and the second (index 1) which is usually partial or cover
     // index < 2 covers: 0 (Cover/First Page), 1 (Back Cover/Second Page)
@@ -364,6 +369,9 @@ const Row = memo(({ index, style, ariaAttributes, ...data }: any) => {
                     onUndo={onUndo}
                     onRedo={onRedo}
                     onToggleLock={onToggleLock}
+                    onMovePage={onMovePage}
+                    canMoveUp={canMoveUp}
+                    canMoveDown={canMoveDown}
                     priority={isPriority}
                     {...(rest as any)}
                 />
@@ -381,6 +389,7 @@ export const VirtualizedPageList = memo(forwardRef(({
     onUndo,
     onRedo,
     onToggleLock,
+    onMovePage,
     pageMaxWidth,
     ...props
 }: VirtualizedPageListProps, ref) => {
@@ -427,9 +436,10 @@ export const VirtualizedPageList = memo(forwardRef(({
         onUndo,
         onRedo,
         onToggleLock,
+        onMovePage,
         pageMaxWidth,
         ...props
-    }), [pages, config, pageInfo, onOpenEditor, onEnhanceWithAi, onEnhancePhotoWithAi, onUndo, onRedo, onToggleLock, pageMaxWidth, props]);
+    }), [pages, config, pageInfo, onOpenEditor, onEnhanceWithAi, onEnhancePhotoWithAi, onUndo, onRedo, onToggleLock, onMovePage, pageMaxWidth, props]);
 
     // Manual Centered Scrolling Logic
     const scrollToPageCentered = useCallback((index: number) => {
