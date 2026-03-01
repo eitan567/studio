@@ -1027,6 +1027,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
   const [isExporting, setIsExporting] = useState(false);
   const [isImportingBackup, setIsImportingBackup] = useState(false);
   const [isMissingPhotosDialogOpen, setIsMissingPhotosDialogOpen] = useState(false);
+  const [isLeaveManualUnsavedDialogOpen, setIsLeaveManualUnsavedDialogOpen] = useState(false);
   const [pendingBackupImport, setPendingBackupImport] = useState<PendingBackupImport | null>(null);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [exportProgress, setExportProgress] = useState<{ current: number; total: number; label?: string } | null>(null);
@@ -1144,6 +1145,43 @@ export function PageEditor({ albumId }: PageEditorProps) {
       description: 'All pending changes were saved.',
     });
   }, [hasUnsavedChanges, saveNow, toast]);
+
+  const saveAndLeaveAlbum = useCallback(async () => {
+    // Keep legacy behavior for flows that explicitly save before leaving.
+    if (!albumThumbnailUrl && savedPhotos && savedPhotos.length > 0) {
+      const firstValidPhoto = savedPhotos.find(p => p.src && p.src.length > 0);
+      if (firstValidPhoto) {
+        updateThumbnail(firstValidPhoto.src);
+      }
+    }
+
+    await saveNow();
+    router.push('/dashboard');
+  }, [albumThumbnailUrl, savedPhotos, saveNow, router, updateThumbnail]);
+
+  const handleBack = useCallback(async () => {
+    if (isManualSaveMode) {
+      if (hasUnsavedChanges) {
+        setIsLeaveManualUnsavedDialogOpen(true);
+        return;
+      }
+
+      router.push('/dashboard');
+      return;
+    }
+
+    await saveAndLeaveAlbum();
+  }, [hasUnsavedChanges, isManualSaveMode, router, saveAndLeaveAlbum]);
+
+  const handleLeaveWithoutSaving = useCallback(() => {
+    setIsLeaveManualUnsavedDialogOpen(false);
+    router.push('/dashboard');
+  }, [router]);
+
+  const handleSaveAndLeaveFromDialog = useCallback(async () => {
+    setIsLeaveManualUnsavedDialogOpen(false);
+    await saveAndLeaveAlbum();
+  }, [saveAndLeaveAlbum]);
 
 
   const form = useForm<ConfigFormData>({
@@ -1635,16 +1673,8 @@ export function PageEditor({ albumId }: PageEditorProps) {
           albumName={albumName}
           onUpdateName={handleSaveTitle}
           saveStatus={isLoadingPhotos ? 'uploading' : isSaving ? 'saving' : hasUnsavedChanges ? 'unsaved' : 'saved'}
-          onBack={async () => {
-            // Check if we need to set thumbnail before saving
-            if (!albumThumbnailUrl && savedPhotos && savedPhotos.length > 0) {
-              const firstValidPhoto = savedPhotos.find(p => p.src && p.src.length > 0);
-              if (firstValidPhoto) {
-                updateThumbnail(firstValidPhoto.src);
-              }
-            }
-            await saveNow();
-            router.push('/dashboard');
+          onBack={() => {
+            void handleBack();
           }}
           onOpenBookView={() => setIsBookViewOpen(true)}
           onOpenCustomLayout={() => setIsCustomLayoutEditorOpen(true)}
@@ -1665,6 +1695,40 @@ export function PageEditor({ albumId }: PageEditorProps) {
           className="hidden"
           onChange={handleImportBackupFile}
         />
+        <AlertDialog
+          open={isLeaveManualUnsavedDialogOpen}
+          onOpenChange={setIsLeaveManualUnsavedDialogOpen}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Unsaved changes</AlertDialogTitle>
+              <AlertDialogDescription>
+                You have unsaved changes. Continue without saving, or save and continue?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isSaving}>Stay</AlertDialogCancel>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleLeaveWithoutSaving}
+                disabled={isSaving}
+              >
+                Continue without saving
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  void handleSaveAndLeaveFromDialog();
+                }}
+                disabled={isSaving || isLoadingPhotos}
+              >
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Save and continue
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         <AlertDialog open={isMissingPhotosDialogOpen} onOpenChange={handleMissingDialogOpenChange}>
           <AlertDialogContent className="sm:max-w-2xl border border-destructive/30 bg-background/95 backdrop-blur-md">
             <AlertDialogHeader>
