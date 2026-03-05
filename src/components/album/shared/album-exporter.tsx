@@ -500,6 +500,12 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                     const exportCornerRadius = (typeof page.cornerRadius === 'number' && page.cornerRadius > 0)
                         ? page.cornerRadius
                         : (config.cornerRadius ?? 0);
+                    const exportDynamicPhotoGapSource = config.photoGap ?? page.photoGap ?? 0;
+                    const exportDynamicFrameGapRaw = Number(exportDynamicPhotoGapSource);
+                    const exportDynamicFrameGap = Number.isFinite(exportDynamicFrameGapRaw)
+                        ? Math.max(0, exportDynamicFrameGapRaw)
+                        : 0;
+                    const exportDynamicFrameGapColor = '#ffffff';
                     const marginMm = isCover
                         ? renderOptionsForCapture.coverWhiteMarginMm
                         : renderOptionsForCapture.whiteMarginMm;
@@ -688,7 +694,13 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                             );
                                         })}
                                         {page.coverImages?.map(imageItem => (
-                                            <StaticCoverImage key={imageItem.id} item={imageItem} />
+                                            <StaticCoverImage
+                                                key={imageItem.id}
+                                                item={imageItem}
+                                                frameGap={exportDynamicFrameGap}
+                                                frameGapColor={exportDynamicFrameGapColor}
+                                                containerAspectRatio={pageWidth / pageHeight}
+                                            />
                                         ))}
                                     </>
                                 )}
