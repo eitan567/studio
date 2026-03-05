@@ -1038,10 +1038,15 @@ export function PageEditor({ albumId }: PageEditorProps) {
   const handleExportConfirm = (options: ExportOptions) => {
     setExportDialogOpen(false);
     const range = options.pageRange === 'all' ? undefined : options.pageRange;
+    const exportRenderOptions: ExportRenderOptions = {
+      dpi: options.dpi,
+      whiteMarginMm: options.whiteMarginMm,
+      coverWhiteMarginMm: options.coverWhiteMarginMm,
+    };
     if (options.format === 'pdf') {
-      exporterRef.current?.exportToPdf(range, { dpi: options.dpi });
+      exporterRef.current?.exportToPdf(range, exportRenderOptions);
     } else {
-      exporterRef.current?.exportAlbum(range, { dpi: options.dpi });
+      exporterRef.current?.exportAlbum(range, exportRenderOptions);
     }
   };
 

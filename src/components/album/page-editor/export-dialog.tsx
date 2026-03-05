@@ -21,6 +21,8 @@ export interface ExportOptions {
     format: 'images' | 'pdf';
     pageRange: 'all' | 'cover' | 'singles' | { from: number; to: number };
     dpi: ExportDpi;
+    whiteMarginMm: number;
+    coverWhiteMarginMm: number;
 }
 
 interface ExportDialogProps {
@@ -45,6 +47,9 @@ export function ExportDialog({
     const [rangeMode, setRangeMode] = useState<'all' | 'cover' | 'singles' | 'range'>('all');
     const [fromPage, setFromPage] = useState(1);
     const [toPage, setToPage] = useState(totalPages);
+    const [whiteMarginMm, setWhiteMarginMm] = useState(0);
+    const [coverWhiteMarginMm, setCoverWhiteMarginMm] = useState(0);
+    const [isCoverMarginCustom, setIsCoverMarginCustom] = useState(false);
 
     const progressPct = exportProgress
         ? Math.round((exportProgress.current / exportProgress.total) * 100)
@@ -52,10 +57,17 @@ export function ExportDialog({
 
     const isComplete = exportProgress && exportProgress.current >= exportProgress.total;
 
+    const clampMarginMm = (value: number) => {
+        if (!Number.isFinite(value)) return 0;
+        return Math.max(0, Math.min(50, value));
+    };
+
     const handleConfirm = () => {
         const options: ExportOptions = {
             format,
             dpi,
+            whiteMarginMm: clampMarginMm(whiteMarginMm),
+            coverWhiteMarginMm: clampMarginMm(coverWhiteMarginMm),
             pageRange:
                 rangeMode === 'all' || rangeMode === 'cover' || rangeMode === 'singles'
                     ? rangeMode
@@ -191,6 +203,51 @@ export function ExportDialog({
                         </div>
                         <p className="text-xs text-muted-foreground">
                             Applied to PNG export, PDF export, and page download quality.
+                        </p>
+                    </div>
+
+                    {/* White margin settings */}
+                    <div className="space-y-3">
+                        <Label className="text-sm font-semibold">White margins (mm)</Label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs text-muted-foreground">Single + spread pages</Label>
+                                <Input
+                                    type="number"
+                                    min={0}
+                                    max={50}
+                                    step="0.1"
+                                    value={whiteMarginMm}
+                                    onChange={(e) => {
+                                        const parsed = Number(e.target.value);
+                                        const nextValue = Number.isFinite(parsed) ? parsed : 0;
+                                        setWhiteMarginMm(nextValue);
+                                        if (!isCoverMarginCustom) {
+                                            setCoverWhiteMarginMm(nextValue);
+                                        }
+                                    }}
+                                    className="h-9 text-sm"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs text-muted-foreground">Cover only</Label>
+                                <Input
+                                    type="number"
+                                    min={0}
+                                    max={50}
+                                    step="0.1"
+                                    value={coverWhiteMarginMm}
+                                    onChange={(e) => {
+                                        const parsed = Number(e.target.value);
+                                        setCoverWhiteMarginMm(Number.isFinite(parsed) ? parsed : 0);
+                                        setIsCoverMarginCustom(true);
+                                    }}
+                                    className="h-9 text-sm"
+                                />
+                            </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Adds white border around exported pages for print safety. 10 mm = 1 cm.
                         </p>
                     </div>
 
