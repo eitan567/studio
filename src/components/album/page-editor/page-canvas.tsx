@@ -671,61 +671,6 @@ const PageToolbar = ({
                     </Tooltip>
                 </>
             )}
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <Button
-                        variant={isDynamicMode ? "secondary" : "ghost"}
-                        size="sm"
-                        className={cn("h-8 gap-1 px-2", isDynamicMode && "text-primary")}
-                        onClick={() => onToggleDynamicMode?.()}
-                        disabled={isLocked || !!dynamicModeDisabledReason}
-                    >
-                        <Sparkles className="h-4 w-4" />
-                        <span className="text-[11px] font-semibold">Dynamic</span>
-                    </Button>
-                </TooltipTrigger>
-                <TooltipContent>{dynamicModeDisabledReason || (isDynamicMode ? "Exit Dynamic Mode" : "Enter Dynamic Mode")}</TooltipContent>
-            </Tooltip>
-            {isDynamicMode && selectedDynamicImage && (
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-2"
-                            onClick={() => onToggleSelectedDynamicImageRotationMode?.()}
-                        >
-                            <RotateCw className="h-4 w-4 mr-1" />
-                            <span className="text-[11px] font-semibold">
-                                {selectedDynamicImage.imageRotationMode === 'keep-horizontal'
-                                    ? 'Keep Horizontal'
-                                    : 'Follow Frame'}
-                            </span>
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        {selectedDynamicImage.imageRotationMode === 'keep-horizontal'
-                            ? 'Switch to Follow Frame'
-                            : 'Switch to Keep Horizontal'}
-                    </TooltipContent>
-                </Tooltip>
-            )}
-            {isDynamicMode && selectedDynamicImage && (
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-2 text-destructive hover:text-destructive"
-                            onClick={() => onDeleteSelectedDynamicImage?.()}
-                        >
-                            <Trash2 className="h-4 w-4 mr-1" />
-                            <span className="text-[11px] font-semibold">Delete Frame</span>
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Delete Selected Dynamic Frame</TooltipContent>
-                </Tooltip>
-            )}
             <div className="h-4 w-px bg-border mx-1" />
             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEnhanceWithAi?.(page.id)} disabled={isLocked}><Wand2 className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>AI Enhance</TooltipContent></Tooltip>
             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onUndo?.(page.id)} disabled={isLocked}><Undo className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Undo</TooltipContent></Tooltip>
@@ -1059,6 +1004,11 @@ const ScaledCoverPreview = React.memo(({
     requiredLabel,
     isLocked = false,
     dynamicMode = false,
+    dynamicModeDisabledReason,
+    selectedDynamicImage,
+    onToggleDynamicMode,
+    onToggleSelectedDynamicImageRotationMode,
+    onDeleteSelectedDynamicImage,
     activeDynamicImageIds = [],
     onSelectDynamicImage,
     disableFrameDrop = false,
@@ -1088,6 +1038,11 @@ const ScaledCoverPreview = React.memo(({
     requiredLabel?: string;
     isLocked?: boolean;
     dynamicMode?: boolean;
+    dynamicModeDisabledReason?: string | null;
+    selectedDynamicImage?: CoverImage | null;
+    onToggleDynamicMode?: () => void;
+    onToggleSelectedDynamicImageRotationMode?: () => void;
+    onDeleteSelectedDynamicImage?: () => void;
     activeDynamicImageIds?: string[];
     onSelectDynamicImage?: (id: string | string[] | null, isMulti?: boolean) => void;
     disableFrameDrop?: boolean;
@@ -1197,6 +1152,54 @@ const ScaledCoverPreview = React.memo(({
                         </div>
                     </div>
                 )}
+                <div className="absolute right-0 -bottom-6 z-[70] pointer-events-auto">
+                    <div className="inline-flex items-center rounded-full border border-border/60 bg-background/82 px-2 py-0.5 text-[9px] font-medium text-foreground/90 shadow-sm backdrop-blur-sm whitespace-nowrap">
+                        <button
+                            type="button"
+                            onClick={onToggleDynamicMode}
+                            disabled={isLocked || !!dynamicModeDisabledReason}
+                            title={dynamicModeDisabledReason || (dynamicMode ? 'Exit Dynamic Mode' : 'Enter Dynamic Mode')}
+                            className={cn(
+                                "inline-flex items-center gap-1 rounded-sm px-0.5 whitespace-nowrap transition-colors hover:bg-background/80",
+                                dynamicMode && "text-primary",
+                                (isLocked || !!dynamicModeDisabledReason) && "opacity-50 cursor-not-allowed"
+                            )}
+                        >
+                            <Sparkles className="h-2.5 w-2.5" />
+                            Dynamic
+                        </button>
+                        {dynamicMode && selectedDynamicImage && (
+                            <>
+                                <span className="mx-1 h-3 w-px bg-border/60" />
+                                <button
+                                    type="button"
+                                    onClick={onToggleSelectedDynamicImageRotationMode}
+                                    title={selectedDynamicImage.imageRotationMode === 'keep-horizontal'
+                                        ? 'Switch to Follow Frame'
+                                        : 'Switch to Keep Horizontal'}
+                                    className="inline-flex items-center gap-1 rounded-sm px-0.5 whitespace-nowrap transition-colors hover:bg-background/80"
+                                >
+                                    <RotateCw className="h-2.5 w-2.5" />
+                                    {selectedDynamicImage.imageRotationMode === 'keep-horizontal'
+                                        ? 'Keep Horizontal'
+                                        : 'Follow Frame'}
+                                </button>
+                                <span className="mx-1 h-3 w-px bg-border/60" />
+                            </>
+                        )}
+                        {dynamicMode && selectedDynamicImage && (
+                            <button
+                                type="button"
+                                onClick={onDeleteSelectedDynamicImage}
+                                title="Delete Selected Dynamic Frame"
+                                className="inline-flex items-center gap-1 rounded-sm px-0.5 text-destructive whitespace-nowrap transition-colors hover:bg-destructive/10"
+                            >
+                                <Trash2 className="h-2.5 w-2.5" />
+                                Delete Frame
+                            </button>
+                        )}
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -1900,6 +1903,11 @@ export const PageCanvas = React.memo(({
                                 requiredLabel={currentRequiredLabel}
                                 isLocked={!!page.isLocked}
                                 dynamicMode={isDynamicMode}
+                                dynamicModeDisabledReason={dynamicModeUnsupportedReason}
+                                selectedDynamicImage={selectedDynamicImage}
+                                onToggleDynamicMode={handleToggleDynamicMode}
+                                onToggleSelectedDynamicImageRotationMode={handleToggleSelectedDynamicImageRotationMode}
+                                onDeleteSelectedDynamicImage={handleDeleteSelectedDynamicImage}
                                 activeDynamicImageIds={activeDynamicImageIds}
                                 onSelectDynamicImage={handleSelectDynamicImage}
                                 disableFrameDrop={isDynamicMode}
