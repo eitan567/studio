@@ -50,6 +50,9 @@ export interface LayoutRegion {
     // Optional "ground" orientation used for image placement logic.
     // Unlike `rotation`, this does not imply visual frame transform.
     imageGroundRotation?: number;
+    // Optional per-region image orientation mode.
+    // When set, it overrides template-level _imageRotationMode for this region.
+    imageRotationMode?: TemplateImageRotationMode;
     // Marks a background-like frame region. Background regions always keep image horizontal.
     isBackground?: boolean;
 

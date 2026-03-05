@@ -132,6 +132,9 @@ export function useAlbumPageEditor({
                 if (page.id !== pageId) return page;
 
                 const { baseId } = parseLayoutId(newLayoutId);
+                const { baseId: currentBaseId } = parseLayoutId(page.layout || defaultGridTemplate?.id || '');
+                const didBaseTemplateChange = String(currentBaseId) !== String(baseId);
+                const shouldClearDynamicFrames = !page.isCover && didBaseTemplateChange && (page.coverImages?.length ?? 0) > 0;
                 console.log('[updatePageLayout] Called with:', { pageId, newLayoutId, baseId, currentPhotosLength: page.photos?.length });
 
                 // Dynamic layouts generate their template based on photos
@@ -140,6 +143,7 @@ export function useAlbumPageEditor({
                     return {
                         ...page,
                         layout: newLayoutId,
+                        coverImages: shouldClearDynamicFrames ? [] : page.coverImages,
                         // CRITICAL: Also update spreadLayouts so album-cover.tsx sees the new layout
                         spreadLayouts: {
                             left: newLayoutId,
@@ -172,11 +176,12 @@ export function useAlbumPageEditor({
                 return {
                     ...page,
                     layout: newLayoutId,
-                    photos: currentPhotos
+                    photos: currentPhotos,
+                    coverImages: shouldClearDynamicFrames ? [] : page.coverImages
                 };
             });
         });
-    }, [findGridTemplateWithCustom, isPageLocked, setAlbumPages]);
+    }, [defaultGridTemplate, findGridTemplateWithCustom, isPageLocked, setAlbumPages]);
 
     const handleRemovePhoto = useCallback((pageId: string, photoId: string) => {
         if (isPageLocked(pageId)) return;
@@ -331,13 +336,19 @@ export function useAlbumPageEditor({
                 const leftLayout = side === 'left' ? newLayout : currentLeftLayout;
                 const rightLayout = side === 'right' ? newLayout : currentRightLayout;
 
+                const { baseId: oldLeftBaseId } = parseLayoutId(currentLeftLayout);
+                const { baseId: oldRightBaseId } = parseLayoutId(currentRightLayout);
                 const { baseId: leftBaseId } = parseLayoutId(leftLayout);
                 const { baseId: rightBaseId } = parseLayoutId(rightLayout);
+                const didBaseTemplateChange = String(oldLeftBaseId) !== String(leftBaseId)
+                    || String(oldRightBaseId) !== String(rightBaseId);
+                const shouldClearDynamicFrames = didBaseTemplateChange && (page.coverImages?.length ?? 0) > 0;
 
                 // CRITICAL: Dynamic layouts should preserve all photos - don't do any truncation!
                 if (String(leftBaseId).startsWith('dynamic-justified') || String(rightBaseId).startsWith('dynamic-justified')) {
                     return {
                         ...page,
+                        coverImages: shouldClearDynamicFrames ? [] : page.coverImages,
                         spreadLayouts: {
                             left: leftLayout,
                             right: rightLayout
@@ -352,7 +363,6 @@ export function useAlbumPageEditor({
                 const leftTemplate = findGridTemplateWithCustom(leftBaseId) || defaultGridTemplate || fallbackTemplate;
                 const rightTemplate = findGridTemplateWithCustom(rightBaseId) || defaultGridTemplate || fallbackTemplate;
 
-                const { baseId: oldLeftBaseId } = parseLayoutId(currentLeftLayout);
                 const oldLeftTemplate = findGridTemplateWithCustom(oldLeftBaseId) || defaultGridTemplate || fallbackTemplate;
                 const oldLeftCount = getPhotoCount(oldLeftTemplate);
 
@@ -398,6 +408,7 @@ export function useAlbumPageEditor({
                 return {
                     ...page,
                     photos: currentPhotos,
+                    coverImages: shouldClearDynamicFrames ? [] : page.coverImages,
                     spreadLayouts: {
                         left: leftLayout,
                         right: rightLayout

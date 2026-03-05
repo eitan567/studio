@@ -1574,12 +1574,16 @@ export const PageCanvas = React.memo(({
             const height = Math.max(2, Math.min(100, imageHeight));
             const x = Math.max(0, Math.min(100 - width, image.x - (width / 2)));
             const y = Math.max(0, Math.min(100 - height, image.y - (height / 2)));
+            const imageRotationMode = image.imageRotationMode === 'keep-horizontal'
+                ? 'keep-horizontal'
+                : 'follow-frame';
 
             return {
                 id: `dynamic-${image.id}`,
                 shape: 'rect',
                 bounds: { x, y, width, height },
                 rotation: image.rotation || 0,
+                imageRotationMode,
                 zIndex: (image.zIndex ?? maxBaseZ + index + 1),
                 label: `Dynamic Frame ${index + 1}`
             };

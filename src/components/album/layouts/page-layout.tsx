@@ -206,9 +206,13 @@ const PageLayoutComponent = ({
             {W > 0 && H > 0 && sortedRegions.map((region, index) => {
                 const photo = photos[index];
                 const actualIndex = index + photoIndexOffset;
-                const regionImageMode = isLikelyBackgroundRegion(region, sortedRegions)
-                    ? 'keep-horizontal'
-                    : templateImageRotationMode;
+                const regionExplicitMode = region.imageRotationMode === 'keep-horizontal' || region.imageRotationMode === 'follow-frame'
+                    ? region.imageRotationMode
+                    : null;
+                const regionImageMode = regionExplicitMode
+                    || (isLikelyBackgroundRegion(region, sortedRegions)
+                        ? 'keep-horizontal'
+                        : templateImageRotationMode);
 
                 return (
                     <ShapeRegion
