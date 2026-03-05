@@ -5,10 +5,10 @@ import Image from 'next/image';
 import {
     Trash2, LayoutTemplate, Download, Wand2, Undo, Redo2, Pencil, BookOpen,
     RotateCw, Plus, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown,
-    CornerDownRight, CornerDownLeft, ChevronUp, ChevronDown, Settings2, Lock, LockOpen
+    CornerDownRight, CornerDownLeft, ChevronUp, ChevronDown, Settings2, Lock, LockOpen, Sparkles
 } from 'lucide-react';
 
-import type { AlbumPage, AlbumConfig, Photo, PhotoPanAndZoom } from '@/lib/types';
+import type { AlbumPage, AlbumConfig, CoverImage, Photo, PhotoPanAndZoom } from '@/lib/types';
 import type { ExportDpi, ExportRenderOptions } from '@/components/album/shared/album-exporter';
 import { logger } from '@/lib/logger';
 import { Card, CardContent } from '@/components/ui/card';
@@ -28,6 +28,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { rotateGridTemplate, rotateAdvancedTemplate, getNextRotation, RotationAngle } from '@/lib/template-rotation';
 import { parseLayoutId } from '@/lib/layout-id-utils';
 import { useSettings } from '@/hooks/use-settings';
@@ -35,6 +36,7 @@ import { useAlbumEditor } from '../album-editor/context';
 import { useToast } from '@/hooks/use-toast';
 import { AlbumCover } from '../book-view/album-cover';
 import { TemplatePreview } from '@/components/album/shared/template-preview';
+import { LayoutRegion } from '@/lib/advanced-layout-types';
 // Import CoverEditorOverlay if needed, or pass onOpenCoverEditor prop to handle it in parent
 // Assuming parent handles opening the overlay since it's a modal over everything
 
@@ -255,7 +257,14 @@ const SpineColorPicker = ({ value, onChange, disableAlpha = false }: { value?: s
 
 const PageToolbar = ({
     page, pageNumber, displayLabel, canDelete = true, onDeletePage, onUpdateLayout, onUpdateSpreadLayout, onUpdateCoverLayout, onUpdateCoverType, onUpdateSpineText, onUpdateSpineSettings, onUpdateTitleSettings, onDownloadPage, onUpdatePage, toast, viewMode, onToggleViewMode, visibleTemplateCategories, allowedTemplateIds,
-    onCycleLayout, onEnhanceWithAi, onUndo, onRedo, onOpenEditor, onToggleLock, onMovePage, canMoveUp, canMoveDown, config
+    onCycleLayout, onEnhanceWithAi, onUndo, onRedo, onOpenEditor, onToggleLock, onMovePage, canMoveUp, canMoveDown, config,
+    customTemplates = [],
+    isDynamicMode = false,
+    onToggleDynamicMode,
+    dynamicModeDisabledReason,
+    selectedDynamicImage,
+    onDeleteSelectedDynamicImage,
+    onToggleSelectedDynamicImageRotationMode
 }: any) => {
     const { gridTemplates, coverTemplates, advancedTemplates, findTemplate, defaultGridTemplate, defaultCoverTemplate } = useTemplates();
 
@@ -292,6 +301,17 @@ const PageToolbar = ({
     const filteredGridTemplates = filterTemplates(gridTemplates, 'grid');
     const filteredCoverTemplates = filterTemplates(coverTemplates, 'cover');
     const filteredAdvancedTemplates = filterTemplates(advancedTemplates, 'advanced');
+    const mergeTemplatesById = (...templateLists: AdvancedTemplate[][]) => {
+        const map = new Map<string, AdvancedTemplate>();
+        templateLists.forEach((templates) => {
+            templates.forEach((template) => {
+                map.set(String(template.id), template);
+            });
+        });
+        return Array.from(map.values());
+    };
+    const nonCoverTemplatesWithCustom = mergeTemplatesById(filteredGridTemplates, filteredAdvancedTemplates, customTemplates);
+    const coverTemplatesWithCustom = mergeTemplatesById(filteredCoverTemplates, filteredAdvancedTemplates, customTemplates);
     const [latestSavedTemplateIds, setLatestSavedTemplateIds] = useState<string[]>([]);
     const [templateHoverPreview, setTemplateHoverPreview] = useState<TemplateHoverPreviewState | null>(null);
     const hoverPreviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -651,6 +671,62 @@ const PageToolbar = ({
                     </Tooltip>
                 </>
             )}
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button
+                        variant={isDynamicMode ? "secondary" : "ghost"}
+                        size="sm"
+                        className={cn("h-8 gap-1 px-2", isDynamicMode && "text-primary")}
+                        onClick={() => onToggleDynamicMode?.()}
+                        disabled={isLocked || !!dynamicModeDisabledReason}
+                    >
+                        <Sparkles className="h-4 w-4" />
+                        <span className="text-[11px] font-semibold">Dynamic</span>
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>{dynamicModeDisabledReason || (isDynamicMode ? "Exit Dynamic Mode" : "Enter Dynamic Mode")}</TooltipContent>
+            </Tooltip>
+            {isDynamicMode && selectedDynamicImage && (
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2"
+                            onClick={() => onToggleSelectedDynamicImageRotationMode?.()}
+                        >
+                            <RotateCw className="h-4 w-4 mr-1" />
+                            <span className="text-[11px] font-semibold">
+                                {selectedDynamicImage.imageRotationMode === 'keep-horizontal'
+                                    ? 'Keep Horizontal'
+                                    : 'Follow Frame'}
+                            </span>
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        {selectedDynamicImage.imageRotationMode === 'keep-horizontal'
+                            ? 'Switch to Follow Frame'
+                            : 'Switch to Keep Horizontal'}
+                    </TooltipContent>
+                </Tooltip>
+            )}
+            {isDynamicMode && selectedDynamicImage && (
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2 text-destructive hover:text-destructive"
+                            onClick={() => onDeleteSelectedDynamicImage?.()}
+                        >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            <span className="text-[11px] font-semibold">Delete Frame</span>
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Delete Selected Dynamic Frame</TooltipContent>
+                </Tooltip>
+            )}
+            <div className="h-4 w-px bg-border mx-1" />
             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEnhanceWithAi?.(page.id)} disabled={isLocked}><Wand2 className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>AI Enhance</TooltipContent></Tooltip>
             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onUndo?.(page.id)} disabled={isLocked}><Undo className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Undo</TooltipContent></Tooltip>
             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onRedo?.(page.id)} disabled={isLocked}><Redo2 className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>Redo</TooltipContent></Tooltip>
@@ -728,7 +804,7 @@ const PageToolbar = ({
                                         <DropdownMenu>
                                             <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2" disabled={isLocked}><LayoutTemplate className="h-4 w-4" /><span className="text-xs">{page.isCover ? "Back" : "Page 1"}</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>{page.isCover ? "Back Cover Layout" : "Page 1 Layout"}</TooltipContent></Tooltip>
                                             {renderTemplateDropdownContent(
-                                                page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates],
+                                                page.isCover ? coverTemplatesWithCustom : nonCoverTemplatesWithCustom,
                                                 'single',
                                                 page.isCover
                                                     ? (page.coverLayouts?.back || defaultCoverTemplate?.id || '')
@@ -778,7 +854,7 @@ const PageToolbar = ({
                                         <DropdownMenu>
                                             <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2" disabled={isLocked}><LayoutTemplate className="h-4 w-4" /><span className="text-xs">{page.isCover ? "Front" : "Page 2"}</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>{page.isCover ? "Front Cover Layout" : "Page 2 Layout"}</TooltipContent></Tooltip>
                                             {renderTemplateDropdownContent(
-                                                page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates],
+                                                page.isCover ? coverTemplatesWithCustom : nonCoverTemplatesWithCustom,
                                                 'single',
                                                 page.isCover
                                                     ? (page.coverLayouts?.front || defaultCoverTemplate?.id || '')
@@ -818,7 +894,7 @@ const PageToolbar = ({
                                         <DropdownMenu>
                                             <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="gap-1 px-2" disabled={isLocked}><LayoutTemplate className="h-4 w-4" /><span className="text-xs">Layout</span></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>Spread Layout</TooltipContent></Tooltip>
                                             {renderTemplateDropdownContent(
-                                                page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates],
+                                                page.isCover ? coverTemplatesWithCustom : nonCoverTemplatesWithCustom,
                                                 'spread',
                                                 page.layout || defaultGridTemplate?.id || '',
                                                 (templateId) => {
@@ -907,7 +983,7 @@ const PageToolbar = ({
                             <DropdownMenu>
                                 <Tooltip><TooltipTrigger asChild><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" disabled={isLocked}><LayoutTemplate className="h-5 w-5" /></Button></DropdownMenuTrigger></TooltipTrigger><TooltipContent>Page Layout</TooltipContent></Tooltip>
                                 {renderTemplateDropdownContent(
-                                    [...filteredGridTemplates, ...filteredAdvancedTemplates],
+                                    nonCoverTemplatesWithCustom,
                                     'single',
                                     page.layout || (page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id) || '',
                                     (templateId) => {
@@ -966,8 +1042,10 @@ const PageToolbar = ({
 const ScaledCoverPreview = React.memo(({
     page,
     config,
+    onUpdatePage,
     onUpdateTitleSettings,
     onDropPhoto,
+    onDynamicDropPhoto,
     onUpdatePhotoPanAndZoom,
     onInteractionChange,
     onRemovePhoto,
@@ -980,11 +1058,23 @@ const ScaledCoverPreview = React.memo(({
     templateName,
     requiredLabel,
     isLocked = false,
+    dynamicMode = false,
+    activeDynamicImageIds = [],
+    onSelectDynamicImage,
+    disableFrameDrop = false,
+    extraTemplates = [],
+    lockOverlayImageAspectRatio = false,
 }: {
     page: AlbumPage;
     config: AlbumConfig;
+    onUpdatePage?: (page: AlbumPage) => void;
     onUpdateTitleSettings?: any;
     onDropPhoto?: any;
+    onDynamicDropPhoto?: (
+        pageId: string,
+        droppedPhotoId: string,
+        payload: { x: number; y: number; containerAspectRatio: number }
+    ) => void;
     onUpdatePhotoPanAndZoom?: any;
     onInteractionChange?: (isInteracting: boolean) => void;
     onRemovePhoto?: any;
@@ -997,6 +1087,12 @@ const ScaledCoverPreview = React.memo(({
     templateName?: string;
     requiredLabel?: string;
     isLocked?: boolean;
+    dynamicMode?: boolean;
+    activeDynamicImageIds?: string[];
+    onSelectDynamicImage?: (id: string | string[] | null, isMulti?: boolean) => void;
+    disableFrameDrop?: boolean;
+    extraTemplates?: AdvancedTemplate[];
+    lockOverlayImageAspectRatio?: boolean;
 }) => {
     const wrapperRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
@@ -1046,7 +1142,30 @@ const ScaledCoverPreview = React.memo(({
                 <div className="absolute z-0 bg-background border-x border-transparent shadow-md" style={{ width: '98%', height: '94.5%', top: '50.4%', left: '50%', transform: 'translate(-50%, -50%)' }} />
                 <div className="relative w-[97%] h-[95%] shadow-lg z-10 overflow-hidden bg-background">
                     <div className="absolute inset-0 z-50">
-                        <AlbumCover page={page} config={config} mode="editor" activeView={activeView} onUpdateTitleSettings={onUpdateTitleSettings} onDropPhoto={onDropPhoto} onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom} onInteractionChange={onInteractionChange} onRemovePhoto={onRemovePhoto} onEnhancePhotoWithAi={onEnhancePhotoWithAi} allPhotos={allPhotos} previousPagePhotos={previousPagePhotos} priority={priority} chronologicalIndex={chronologicalIndex} />
+                        <AlbumCover
+                            page={page}
+                            config={config}
+                            mode="editor"
+                            activeView={activeView}
+                            onUpdateTitleSettings={onUpdateTitleSettings}
+                            onUpdatePage={onUpdatePage}
+                            onDropPhoto={onDropPhoto}
+                            onDynamicDropPhoto={onDynamicDropPhoto}
+                            onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
+                            onInteractionChange={onInteractionChange}
+                            onRemovePhoto={onRemovePhoto}
+                            onEnhancePhotoWithAi={onEnhancePhotoWithAi}
+                            allPhotos={allPhotos}
+                            previousPagePhotos={previousPagePhotos}
+                            priority={priority}
+                            chronologicalIndex={chronologicalIndex}
+                            activeImageIds={dynamicMode ? activeDynamicImageIds : []}
+                            onSelectImage={dynamicMode ? onSelectDynamicImage : undefined}
+                            dynamicMode={dynamicMode}
+                            disableFrameDrop={disableFrameDrop}
+                            extraTemplates={extraTemplates}
+                            lockOverlayImageAspectRatio={lockOverlayImageAspectRatio}
+                        />
                         {!page.isCover && page.type === 'spread' && <SpineEffectOverlay />}
                     </div>
                     <div className="absolute inset-0 z-60 pointer-events-none">
@@ -1113,7 +1232,8 @@ interface PageCanvasProps {
     onMovePage?: (pageId: string, direction: 'up' | 'down') => void;
     canMoveUp?: boolean;
     canMoveDown?: boolean;
-    customTemplates?: any[];
+    customTemplates?: AdvancedTemplate[];
+    onCreateCustomTemplate?: (template: AdvancedTemplate) => void;
     defaultViewMode?: 'single' | 'spread';
     visibleTemplateCategories?: string[];
     allowedTemplateIds?: string[];
@@ -1150,6 +1270,7 @@ export const PageCanvas = React.memo(({
     canMoveDown = false,
     allPhotos,
     customTemplates = [],
+    onCreateCustomTemplate,
     defaultViewMode = 'spread',
     visibleTemplateCategories,
     allowedTemplateIds,
@@ -1173,8 +1294,344 @@ export const PageCanvas = React.memo(({
     const filteredCoverTemplates = filterTemplates(coverTemplates, 'cover');
     const filteredAdvancedTemplates = filterTemplates(advancedTemplates, 'advanced');
 
+    const mergeTemplatesById = useCallback((...templateLists: AdvancedTemplate[][]) => {
+        const map = new Map<string, AdvancedTemplate>();
+        templateLists.forEach((templates) => {
+            templates.forEach((template) => {
+                map.set(String(template.id), template);
+            });
+        });
+        return Array.from(map.values());
+    }, []);
+
+    const nonCoverTemplatesWithCustom = useMemo(() => {
+        return mergeTemplatesById(filteredGridTemplates, filteredAdvancedTemplates, customTemplates);
+    }, [customTemplates, filteredAdvancedTemplates, filteredGridTemplates, mergeTemplatesById]);
+
+    const coverTemplatesWithCustom = useMemo(() => {
+        return mergeTemplatesById(filteredCoverTemplates, filteredAdvancedTemplates, customTemplates);
+    }, [customTemplates, filteredAdvancedTemplates, filteredCoverTemplates, mergeTemplatesById]);
+    const isPageLocked = !!page.isLocked;
+
+    const [isDynamicMode, setIsDynamicMode] = useState(false);
+    const [isDynamicExitDialogOpen, setIsDynamicExitDialogOpen] = useState(false);
+    const [dynamicTemplateName, setDynamicTemplateName] = useState('');
+    const [activeDynamicImageIds, setActiveDynamicImageIds] = useState<string[]>([]);
+    const dynamicTemplateLabelSeed = externalDisplayLabel || (page.isCover ? 'Cover' : `Page ${pageIndex + 1}`);
+
+    const dynamicModeUnsupportedReason = useMemo(() => {
+        if (!onUpdatePage) return 'Dynamic mode requires editable page state.';
+        if (page.isCover) return 'Dynamic mode is available on non-cover pages.';
+        if (page.type === 'spread' && page.spreadMode === 'split') {
+            return 'Switch this spread to Full mode before using Dynamic mode.';
+        }
+        return null;
+    }, [onUpdatePage, page.isCover, page.spreadMode, page.type]);
+
+    useEffect(() => {
+        setIsDynamicMode(false);
+        setIsDynamicExitDialogOpen(false);
+        setDynamicTemplateName('');
+        setActiveDynamicImageIds([]);
+    }, [page.id]);
+
+    useEffect(() => {
+        if (!isDynamicMode) return;
+        if (!dynamicModeUnsupportedReason) return;
+        setIsDynamicMode(false);
+        setIsDynamicExitDialogOpen(false);
+    }, [dynamicModeUnsupportedReason, isDynamicMode]);
+
+    useEffect(() => {
+        const validIds = new Set((page.coverImages || []).map((image) => image.id));
+        setActiveDynamicImageIds((prev) => prev.filter((id) => validIds.has(id)));
+    }, [page.coverImages]);
+
+    const selectedDynamicImage = useMemo(() => {
+        if (!page.coverImages || activeDynamicImageIds.length === 0) return null;
+        return page.coverImages.find((image) => image.id === activeDynamicImageIds[0]) || null;
+    }, [activeDynamicImageIds, page.coverImages]);
+
+    const findTemplateIncludingCustom = useCallback((templateId: string | number | null | undefined) => {
+        if (templateId == null) return undefined;
+        const { baseId } = parseLayoutId(templateId);
+        return customTemplates.find((template) => String(template.id) === String(baseId))
+            || findTemplate(baseId)
+            || findCoverTemplate(baseId);
+    }, [customTemplates, findCoverTemplate, findTemplate]);
+
+    const updateDynamicImages = useCallback((updater: (images: CoverImage[]) => CoverImage[]) => {
+        if (!onUpdatePage) return;
+        const currentImages = page.coverImages || [];
+        const nextImages = updater(currentImages);
+        onUpdatePage({
+            ...page,
+            coverImages: nextImages
+        });
+    }, [onUpdatePage, page]);
+
+    const handleSelectDynamicImage = useCallback((target: string | string[] | null, isMulti?: boolean) => {
+        const targetIds = Array.isArray(target) ? target : (target ? [target] : []);
+        if (targetIds.length === 0) {
+            if (!isMulti) setActiveDynamicImageIds([]);
+            return;
+        }
+
+        if (isMulti) {
+            setActiveDynamicImageIds((prev) => {
+                const next = [...prev];
+                targetIds.forEach((id) => {
+                    const idx = next.indexOf(id);
+                    if (idx >= 0) {
+                        next.splice(idx, 1);
+                    } else {
+                        next.push(id);
+                    }
+                });
+                return next;
+            });
+            return;
+        }
+
+        setActiveDynamicImageIds(targetIds);
+    }, []);
+
+    const resolveDroppedPhotoAspectRatio = useCallback(async (photo: Photo, sourceUrl: string) => {
+        if (photo.width && photo.height && photo.width > 0 && photo.height > 0) {
+            return photo.width / photo.height;
+        }
+
+        if (typeof window === 'undefined') {
+            return 1;
+        }
+
+        const measured = await new Promise<number>((resolve) => {
+            const probe = new window.Image();
+            probe.onload = () => {
+                if (probe.naturalWidth > 0 && probe.naturalHeight > 0) {
+                    resolve(probe.naturalWidth / probe.naturalHeight);
+                    return;
+                }
+                resolve(1);
+            };
+            probe.onerror = () => resolve(1);
+            probe.src = sourceUrl;
+        });
+
+        return measured > 0 ? measured : 1;
+    }, []);
+
+    const handleAddDynamicImageFromDrop = useCallback(async (
+        droppedPhotoId: string,
+        payload: { x: number; y: number; containerAspectRatio: number }
+    ) => {
+        const droppedPhoto = allPhotos.find((photo) => photo.id === droppedPhotoId);
+        if (!droppedPhoto) return;
+        if (!onUpdatePage) return;
+
+        const sourceUrl = droppedPhoto.remoteUrl || droppedPhoto.src;
+        if (!sourceUrl) return;
+
+        const safeAspectRatio = await resolveDroppedPhotoAspectRatio(droppedPhoto, sourceUrl);
+        const containerAspectRatio = payload.containerAspectRatio > 0 ? payload.containerAspectRatio : 1;
+        const computeHeightFromWidth = (frameWidth: number) => {
+            return frameWidth * (containerAspectRatio / safeAspectRatio);
+        };
+
+        let width = 24;
+        let height = computeHeightFromWidth(width);
+
+        if (height > 38) {
+            height = 38;
+            width = height * (safeAspectRatio / containerAspectRatio);
+        }
+        if (width > 48) {
+            width = 48;
+            height = computeHeightFromWidth(width);
+        }
+        if (width < 8) {
+            width = 8;
+            height = computeHeightFromWidth(width);
+        }
+        if (height < 8) {
+            height = 8;
+            width = height * (safeAspectRatio / containerAspectRatio);
+        }
+
+        const currentImages = page.coverImages || [];
+        const highestZ = currentImages.reduce((max, item) => Math.max(max, item.zIndex || 40), 40);
+        const newImage: CoverImage = {
+            id: crypto.randomUUID(),
+            url: sourceUrl,
+            x: Math.max(0, Math.min(100, payload.x)),
+            y: Math.max(0, Math.min(100, payload.y)),
+            width,
+            height,
+            aspectRatio: safeAspectRatio,
+            panAndZoom: { scale: 1, x: 50, y: 50 },
+            rotation: 0,
+            opacity: 1,
+            zIndex: highestZ + 1,
+            imageRotationMode: 'follow-frame'
+        };
+
+        onUpdatePage({
+            ...page,
+            coverImages: [...currentImages, newImage]
+        });
+        setActiveDynamicImageIds([newImage.id]);
+    }, [allPhotos, onUpdatePage, page, resolveDroppedPhotoAspectRatio]);
+
+    const handleDeleteSelectedDynamicImage = useCallback(() => {
+        const selectedId = activeDynamicImageIds[0];
+        if (!selectedId) return;
+        updateDynamicImages((images) => images.filter((image) => image.id !== selectedId));
+        setActiveDynamicImageIds([]);
+    }, [activeDynamicImageIds, updateDynamicImages]);
+
+    const handleToggleSelectedDynamicImageRotationMode = useCallback(() => {
+        const selectedId = activeDynamicImageIds[0];
+        if (!selectedId) return;
+        updateDynamicImages((images) => images.map((image) => {
+            if (image.id !== selectedId) return image;
+            const currentMode = image.imageRotationMode === 'keep-horizontal' ? 'keep-horizontal' : 'follow-frame';
+            return {
+                ...image,
+                imageRotationMode: currentMode === 'keep-horizontal' ? 'follow-frame' : 'keep-horizontal'
+            };
+        }));
+    }, [activeDynamicImageIds, updateDynamicImages]);
+
+    const handleToggleDynamicMode = useCallback(() => {
+        if (isPageLocked || dynamicModeUnsupportedReason) return;
+        if (isDynamicMode) {
+            setIsDynamicExitDialogOpen(true);
+            return;
+        }
+        setIsDynamicMode(true);
+        if (!dynamicTemplateName.trim()) {
+            setDynamicTemplateName(`${dynamicTemplateLabelSeed} Dynamic Template`);
+        }
+    }, [dynamicModeUnsupportedReason, dynamicTemplateLabelSeed, dynamicTemplateName, isDynamicMode, isPageLocked]);
+
+    const handleContinueWithoutDynamicTemplate = useCallback(() => {
+        setIsDynamicExitDialogOpen(false);
+        setIsDynamicMode(false);
+        setActiveDynamicImageIds([]);
+    }, []);
+
+    const handleCancelDynamicExit = useCallback(() => {
+        setIsDynamicExitDialogOpen(false);
+    }, []);
+
+    const handleSaveDynamicTemplate = useCallback(() => {
+        if (!onCreateCustomTemplate) {
+            toast({
+                title: 'Template save is unavailable',
+                description: 'No custom template handler is configured.',
+                variant: 'destructive'
+            });
+            return;
+        }
+
+        const templateName = dynamicTemplateName.trim();
+        if (!templateName) {
+            toast({
+                title: 'Template name is required',
+                description: 'Please enter a name before saving.',
+                variant: 'destructive'
+            });
+            return;
+        }
+
+        const defaultLayoutId = page.isCover ? defaultCoverTemplate?.id : defaultGridTemplate?.id;
+        const currentLayoutId = page.layout || defaultLayoutId || '';
+        const baseTemplate = findTemplateIncludingCustom(currentLayoutId);
+        if (!baseTemplate) {
+            toast({
+                title: 'Cannot save dynamic template',
+                description: 'The base template was not found.',
+                variant: 'destructive'
+            });
+            return;
+        }
+
+        const cloneRegion = (region: LayoutRegion): LayoutRegion => ({
+            ...region,
+            bounds: { ...region.bounds },
+            radius: region.radius ? { ...region.radius } : undefined,
+            points: region.points?.map((point) => [point[0], point[1]] as [number, number])
+        });
+
+        const baseRegions = (baseTemplate.regions || []).map(cloneRegion);
+        const maxBaseZ = baseRegions.reduce((max, region, idx) => Math.max(max, region.zIndex ?? idx), 0);
+        const dynamicRegions: LayoutRegion[] = (page.coverImages || []).map((image, index) => {
+            const imageHeight = image.height ?? (image.width / Math.max(image.aspectRatio || 1, 0.01));
+            const width = Math.max(2, Math.min(100, image.width));
+            const height = Math.max(2, Math.min(100, imageHeight));
+            const x = Math.max(0, Math.min(100 - width, image.x - (width / 2)));
+            const y = Math.max(0, Math.min(100 - height, image.y - (height / 2)));
+
+            return {
+                id: `dynamic-${image.id}`,
+                shape: 'rect',
+                bounds: { x, y, width, height },
+                rotation: image.rotation || 0,
+                zIndex: (image.zIndex ?? maxBaseZ + index + 1),
+                label: `Dynamic Frame ${index + 1}`
+            };
+        });
+
+        const allRegions = [...baseRegions, ...dynamicRegions];
+        if (allRegions.length === 0) {
+            toast({
+                title: 'Nothing to save',
+                description: 'No regions were found for this result.',
+                variant: 'destructive'
+            });
+            return;
+        }
+
+        const templateId = `dynamic-custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const type: AdvancedTemplate['type'] = page.type === 'spread' ? 'spread' : 'single';
+
+        const newTemplate: AdvancedTemplate = {
+            ...baseTemplate,
+            id: templateId,
+            name: templateName,
+            category: 'custom',
+            type,
+            isCustom: true,
+            createdBy: null,
+            photoCount: allRegions.length,
+            regions: allRegions
+        };
+
+        onCreateCustomTemplate(newTemplate);
+        toast({
+            title: 'Dynamic template saved',
+            description: `"${templateName}" is now available in the template picker.`
+        });
+
+        setIsDynamicExitDialogOpen(false);
+        setIsDynamicMode(false);
+        setActiveDynamicImageIds([]);
+        setDynamicTemplateName('');
+    }, [
+        defaultCoverTemplate?.id,
+        defaultGridTemplate?.id,
+        dynamicTemplateName,
+        findTemplateIncludingCustom,
+        onCreateCustomTemplate,
+        page.coverImages,
+        page.isCover,
+        page.layout,
+        page.type,
+        toast
+    ]);
+
     const cycleLayoutByPhotoCount = useCallback((targetPhotoCount: number) => {
-        const templatesWithCount = (page.isCover ? filteredCoverTemplates : [...filteredGridTemplates, ...filteredAdvancedTemplates])
+        const templatesWithCount = (page.isCover ? coverTemplatesWithCustom : nonCoverTemplatesWithCustom)
             .filter(t => getPhotoCount(t) === targetPhotoCount);
 
         if (templatesWithCount.length === 0) return;
@@ -1189,7 +1646,7 @@ export const PageCanvas = React.memo(({
 
         if (page.isCover) onUpdateCoverLayout?.(page.id, 'full', String(finalId));
         else onUpdateLayout(page.id, String(finalId));
-    }, [page, filteredCoverTemplates, filteredAdvancedTemplates, filteredGridTemplates, onUpdateCoverLayout, onUpdateLayout]);
+    }, [coverTemplatesWithCustom, nonCoverTemplatesWithCustom, page, onUpdateCoverLayout, onUpdateLayout]);
 
     // Calculate info for label
     const displayLabel = useMemo(() => {
@@ -1210,13 +1667,11 @@ export const PageCanvas = React.memo(({
         const { baseId } = parseLayoutId(layoutId || fallbackId || '');
         const normalizedId = String(baseId || '');
         const templatePool = preferCoverTemplate
-            ? [...coverTemplates, ...advancedTemplates]
-            : [...gridTemplates, ...advancedTemplates];
+            ? coverTemplatesWithCustom
+            : nonCoverTemplatesWithCustom;
 
         const matchedTemplate = templatePool.find((t) => String(t.id) === normalizedId)
-            || (preferCoverTemplate
-                ? (findCoverTemplate(baseId) || findTemplate(baseId))
-                : (findTemplate(baseId) || findCoverTemplate(baseId)));
+            || findTemplateIncludingCustom(baseId);
 
         const fallbackTemplate = templatePool[0] || (preferCoverTemplate ? defaultCoverTemplate : defaultGridTemplate);
         const resolvedTemplate = matchedTemplate || fallbackTemplate;
@@ -1227,13 +1682,11 @@ export const PageCanvas = React.memo(({
 
         return Math.max(1, resolvedTemplate ? getPhotoCount(resolvedTemplate) : (page.photos?.length || 0));
     }, [
-        advancedTemplates,
-        coverTemplates,
+        coverTemplatesWithCustom,
         defaultCoverTemplate,
         defaultGridTemplate,
-        findCoverTemplate,
-        findTemplate,
-        gridTemplates
+        findTemplateIncludingCustom,
+        nonCoverTemplatesWithCustom
     ]);
 
     const resolveTemplateName = useCallback((
@@ -1244,13 +1697,11 @@ export const PageCanvas = React.memo(({
         const { baseId } = parseLayoutId(layoutId || fallbackId || '');
         const normalizedId = String(baseId || '');
         const templatePool = preferCoverTemplate
-            ? [...coverTemplates, ...advancedTemplates]
-            : [...gridTemplates, ...advancedTemplates];
+            ? coverTemplatesWithCustom
+            : nonCoverTemplatesWithCustom;
 
         const matchedTemplate = templatePool.find((t) => String(t.id) === normalizedId)
-            || (preferCoverTemplate
-                ? (findCoverTemplate(baseId) || findTemplate(baseId))
-                : (findTemplate(baseId) || findCoverTemplate(baseId)));
+            || findTemplateIncludingCustom(baseId);
 
         // Match PageLayout fallback behavior when layout ID is missing from source.
         const fallbackTemplate = templatePool[0] || (preferCoverTemplate ? defaultCoverTemplate : defaultGridTemplate);
@@ -1259,13 +1710,11 @@ export const PageCanvas = React.memo(({
         const name = matchedTemplate?.name || resolvedTemplate?.name || String(baseId || 'Template');
         return `${name} (ID: ${String(baseId)})`;
     }, [
-        advancedTemplates,
-        coverTemplates,
+        coverTemplatesWithCustom,
         defaultCoverTemplate,
         defaultGridTemplate,
-        findCoverTemplate,
-        findTemplate,
-        gridTemplates
+        findTemplateIncludingCustom,
+        nonCoverTemplatesWithCustom
     ]);
 
     const currentRequiredCount = useMemo(() => {
@@ -1397,6 +1846,14 @@ export const PageCanvas = React.memo(({
                     onMovePage={onMovePage}
                     canMoveUp={canMoveUp}
                     canMoveDown={canMoveDown}
+                    customTemplates={customTemplates}
+                    isDynamicMode={isDynamicMode}
+                    onToggleDynamicMode={handleToggleDynamicMode}
+                    dynamicModeDisabledReason={dynamicModeUnsupportedReason}
+                    selectedDynamicImage={selectedDynamicImage}
+                    onDeleteSelectedDynamicImage={handleDeleteSelectedDynamicImage}
+                    onToggleSelectedDynamicImageRotationMode={handleToggleSelectedDynamicImageRotationMode}
+                    config={config}
                 />
             </div>
             <div className={cn("relative", page.type === 'single' && 'w-1/2 mx-auto')}>
@@ -1423,8 +1880,13 @@ export const PageCanvas = React.memo(({
                             <ScaledCoverPreview
                                 page={page}
                                 config={effectiveConfig}
+                                onUpdatePage={onUpdatePage}
                                 onUpdateTitleSettings={onUpdateTitleSettings}
                                 onDropPhoto={onDropPhoto}
+                                onDynamicDropPhoto={(_pageId, droppedPhotoId, payload) => {
+                                    if (!isDynamicMode) return;
+                                    void handleAddDynamicImageFromDrop(droppedPhotoId, payload);
+                                }}
                                 onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
                                 onInteractionChange={setIsInteracting}
                                 onRemovePhoto={onRemovePhoto}
@@ -1437,6 +1899,12 @@ export const PageCanvas = React.memo(({
                                 templateName={currentTemplateName}
                                 requiredLabel={currentRequiredLabel}
                                 isLocked={!!page.isLocked}
+                                dynamicMode={isDynamicMode}
+                                activeDynamicImageIds={activeDynamicImageIds}
+                                onSelectDynamicImage={handleSelectDynamicImage}
+                                disableFrameDrop={isDynamicMode}
+                                extraTemplates={customTemplates}
+                                lockOverlayImageAspectRatio={isDynamicMode}
                             />
                         </CardContent>
                     </Card>
@@ -1467,6 +1935,43 @@ export const PageCanvas = React.memo(({
                     />
                 )}
             </div>
+            <Dialog
+                open={isDynamicExitDialogOpen}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        handleCancelDynamicExit();
+                    }
+                }}
+            >
+                <DialogContent className="w-[min(94vw,620px)] max-w-[620px]">
+                    <DialogHeader>
+                        <DialogTitle>Save Dynamic Result as Template?</DialogTitle>
+                        <DialogDescription>
+                            Name a new template from this page result, or continue without creating one.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-2">
+                        <Label htmlFor={`dynamic-template-name-${page.id}`}>Template Name</Label>
+                        <Input
+                            id={`dynamic-template-name-${page.id}`}
+                            value={dynamicTemplateName}
+                            onChange={(e) => setDynamicTemplateName(e.target.value)}
+                            placeholder="Dynamic Template"
+                        />
+                    </div>
+                    <DialogFooter className="mt-3 grid w-full grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3 sm:space-x-0">
+                        <Button className="w-full whitespace-nowrap" onClick={handleSaveDynamicTemplate}>
+                            Save As Template
+                        </Button>
+                        <Button className="w-full whitespace-nowrap" variant="secondary" onClick={handleContinueWithoutDynamicTemplate}>
+                            Continue Without Save
+                        </Button>
+                        <Button className="w-full whitespace-nowrap" variant="outline" onClick={handleCancelDynamicExit}>
+                            Back To Dynamic
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {
                 onAddSpread && !page.isCover && (

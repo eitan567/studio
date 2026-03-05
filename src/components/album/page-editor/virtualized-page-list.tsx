@@ -3,6 +3,7 @@
 import React, { memo, CSSProperties, useEffect, useRef, useCallback, useState, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { List } from 'react-window';
 import { AlbumPage, AlbumConfig, Photo } from '@/lib/types';
+import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { logger } from '@/lib/logger';
 import { PageCanvas } from '@/components/album/page-editor/page-canvas';
 import type { ExportRenderOptions } from '@/components/album/shared/album-exporter';
@@ -53,7 +54,8 @@ interface VirtualizedPageListProps {
     onRedo?: (pageId: string) => void;
     onToggleLock?: (pageId: string) => void;
 
-    customTemplates: any[];
+    customTemplates: AdvancedTemplate[];
+    onCreateCustomTemplate?: (template: AdvancedTemplate) => void;
     defaultViewMode: 'single' | 'spread';
     visibleTemplateCategories: string[];
     allowedTemplateIds: string[];

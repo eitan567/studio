@@ -33,6 +33,7 @@ export interface PageLayoutProps {
     priority?: boolean;
     chronologicalIndex?: Record<string, number>;
     aspectRatio?: number;
+    disableFrameDrop?: boolean;
 }
 
 const PageLayoutComponent = ({
@@ -56,7 +57,8 @@ const PageLayoutComponent = ({
     previousPagePhotos = [],
     priority = false,
     chronologicalIndex,
-    aspectRatio
+    aspectRatio,
+    disableFrameDrop = false
 }: PageLayoutProps) => {
     const { templates } = useTemplates();
     const effectiveTemplateSource = templateSource || templates;
@@ -224,7 +226,7 @@ const PageLayoutComponent = ({
                             }
                         }}
                         onInteractionChange={onInteractionChange}
-                        onDrop={(e) => {
+                        onDrop={disableFrameDrop ? undefined : (e) => {
                             setDragOverPhotoId(null);
                             const albumPhotoId = e.dataTransfer.getData('albumPhotoId');
                             const sourcePageId = e.dataTransfer.getData('sourcePageId');
@@ -247,8 +249,12 @@ const PageLayoutComponent = ({
                                 }
                             }
                         }}
-                        onDragOver={() => setDragOverPhotoId(photo?.id || `__empty_${actualIndex}`)}
-                        onDragLeave={() => setDragOverPhotoId(null)}
+                        onDragOver={disableFrameDrop ? undefined : () => {
+                            setDragOverPhotoId(photo?.id || `__empty_${actualIndex}`);
+                        }}
+                        onDragLeave={disableFrameDrop ? undefined : () => {
+                            setDragOverPhotoId(null);
+                        }}
                         isDragOver={dragOverPhotoId === (photo?.id || `__empty_${actualIndex}`)}
                         onRemovePhoto={(photoId) => onRemovePhoto?.(page.id, photoId)}
                         onReplace={(e, anchor) => handleEmptySlotClick(e, actualIndex, anchor)}
@@ -291,6 +297,7 @@ export const PageLayout = React.memo(PageLayoutComponent, (prev, next) => {
     if (prev.allPhotos !== next.allPhotos) return false;
     if (prev.previousPagePhotos !== next.previousPagePhotos) return false;
     if (prev.chronologicalIndex !== next.chronologicalIndex) return false;
+    if (prev.disableFrameDrop !== next.disableFrameDrop) return false;
 
     const prevPhotos = prev.overridePhotos || prev.page.photos;
     const nextPhotos = next.overridePhotos || next.page.photos;

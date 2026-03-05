@@ -60,6 +60,7 @@ export interface CoverImage {
   rotation: number;
   opacity: number;
   zIndex?: number;
+  imageRotationMode?: 'follow-frame' | 'keep-horizontal';
 }
 
 export type AlbumPage = {

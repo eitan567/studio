@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { AlbumPage, CoverText, CoverImage, AlbumConfig, Photo, PhotoPanAndZoom } from '@/lib/types';
+import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { cn } from '@/lib/utils';
 import { logger } from '@/lib/logger';
 import { PageLayout } from '../layouts/page-layout';
@@ -27,6 +28,11 @@ export interface AlbumCoverProps {
     onInteractionChange?: (isInteracting: boolean) => void;
     onRemovePhoto?: (pageId: string, photoId: string) => void;
     onEnhancePhotoWithAi?: (pageId: string, photoId: string, photo: Photo) => void;
+    onDynamicDropPhoto?: (
+        pageId: string,
+        droppedPhotoId: string,
+        payload: { x: number; y: number; containerAspectRatio: number }
+    ) => void;
 
     // Image Object Handlers
     activeImageIds?: string[];
@@ -41,6 +47,10 @@ export interface AlbumCoverProps {
     previousPagePhotos?: Photo[];
     priority?: boolean;
     chronologicalIndex?: Record<string, number>;
+    extraTemplates?: AdvancedTemplate[];
+    disableFrameDrop?: boolean;
+    dynamicMode?: boolean;
+    lockOverlayImageAspectRatio?: boolean;
 }
 
 // --- Internal Helper Components ---
@@ -267,6 +277,8 @@ export const StaticCoverText = ({
 
 import { PhotoRenderer } from '../layouts/photo-renderer';
 
+type ResizeDirection = 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw';
+
 // Draggable Image for Editor
 const DraggableCoverImage = ({
     item,
@@ -274,37 +286,72 @@ const DraggableCoverImage = ({
     onSelect,
     onUpdatePosition,
     onUpdateSize,
+    onUpdateRotation,
     onDragEnd,
     containerRef,
-    onUpdatePanAndZoom
+    onUpdatePanAndZoom,
+    lockAspectRatio = false,
+    frameGap = 0,
+    frameGapColor = '#ffffff',
+    containerAspectRatio = 1
 }: {
     item: CoverImage;
     isSelected: boolean;
     onSelect: (e: React.MouseEvent) => void;
     onUpdatePosition: (x: number, y: number) => void;
     onUpdateSize: (width: number, height: number | undefined) => void;
+    onUpdateRotation?: (rotation: number) => void;
     onDragEnd?: () => void;
     containerRef: React.RefObject<HTMLDivElement | null>;
     onUpdatePanAndZoom?: (panAndZoom: PhotoPanAndZoom) => void;
+    lockAspectRatio?: boolean;
+    frameGap?: number;
+    frameGapColor?: string;
+    containerAspectRatio?: number;
 }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [isResizing, setIsResizing] = useState(false);
+    const [isRotating, setIsRotating] = useState(false);
     const [isCropMode, setIsCropMode] = useState(false); // New Crop Mode state
 
     const hasMovedRef = useRef(false);
+    const dragOffsetRef = useRef({ x: 0, y: 0 });
     const containerRectRef = useRef<DOMRect | null>(null);
     const startResizeRef = useRef<{
         startWidth: number,
         startHeight: number,
-        centerX: number,
-        centerY: number,
         startX: number,
         startY: number,
-        direction: 'se' | 's' | 'e'
+        direction: ResizeDirection,
+        freeResize: boolean
+    } | null>(null);
+    const rotateRef = useRef<{
+        centerX: number;
+        centerY: number;
+        startPointerAngle: number;
+        startRotation: number;
     } | null>(null);
 
     // Initial HEIGHT is derived if missing
     const currentHeight = item.height ?? (item.width / item.aspectRatio);
+    const normalizedRotation = ((item.rotation ?? 0) % 360 + 360) % 360;
+    const imageRotationMode = item.imageRotationMode === 'keep-horizontal' ? 'keep-horizontal' : 'follow-frame';
+    const frameRotationDeg = normalizedRotation;
+    const targetPhotoWorldRotationDeg = imageRotationMode === 'keep-horizontal' ? 0 : frameRotationDeg;
+    const photoExtraRotationDeg = targetPhotoWorldRotationDeg - frameRotationDeg;
+    const shouldAdjustPhotoRotation = Math.abs(photoExtraRotationDeg) > 0.0001;
+    const frameAspectRatio = Math.max(
+        0.01,
+        ((item.width * Math.max(0.01, containerAspectRatio)) / Math.max(0.01, currentHeight))
+    );
+    const rotationRad = Math.abs(photoExtraRotationDeg) * (Math.PI / 180);
+    const sinAbs = Math.abs(Math.sin(rotationRad));
+    const cosAbs = Math.abs(Math.cos(rotationRad));
+    const photoRotationCoverScale = Math.max(
+        1,
+        cosAbs + (sinAbs / frameAspectRatio),
+        cosAbs + (sinAbs * frameAspectRatio)
+    );
 
     const handleMouseDown = (e: React.MouseEvent) => {
         if (e.button !== 0) return;
@@ -313,7 +360,16 @@ const DraggableCoverImage = ({
         e.stopPropagation();
 
         if (containerRef.current) {
-            containerRectRef.current = containerRef.current.getBoundingClientRect();
+            const rect = containerRef.current.getBoundingClientRect();
+            containerRectRef.current = rect;
+            const centerX = rect.left + ((item.x / 100) * rect.width);
+            const centerY = rect.top + ((item.y / 100) * rect.height);
+            dragOffsetRef.current = {
+                x: e.clientX - centerX,
+                y: e.clientY - centerY
+            };
+        } else {
+            dragOffsetRef.current = { x: 0, y: 0 };
         }
 
         if (!isSelected || e.ctrlKey || e.metaKey) {
@@ -324,7 +380,7 @@ const DraggableCoverImage = ({
         setIsDragging(true);
     };
 
-    const handleResizeStart = (e: React.MouseEvent, direction: 'se' | 's' | 'e') => {
+    const handleResizeStart = (e: React.MouseEvent, direction: ResizeDirection) => {
         e.stopPropagation();
         e.preventDefault();
 
@@ -336,12 +392,30 @@ const DraggableCoverImage = ({
         startResizeRef.current = {
             startWidth: item.width,
             startHeight: currentHeight,
-            centerX: rect.left + (item.x / 100) * rect.width,
-            centerY: rect.top + (item.y / 100) * rect.height,
             startX: e.clientX,
             startY: e.clientY,
-            direction
+            direction,
+            freeResize: e.shiftKey
         };
+    };
+
+    const handleRotateStart = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (!containerRef.current) return;
+
+        const rect = containerRef.current.getBoundingClientRect();
+        const centerX = rect.left + ((item.x / 100) * rect.width);
+        const centerY = rect.top + ((item.y / 100) * rect.height);
+        const startPointerAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * 180 / Math.PI;
+        rotateRef.current = {
+            centerX,
+            centerY,
+            startPointerAngle,
+            startRotation: normalizedRotation
+        };
+        hasMovedRef.current = false;
+        setIsRotating(true);
     };
 
     const handleClick = (e: React.MouseEvent) => {
@@ -367,20 +441,33 @@ const DraggableCoverImage = ({
     }, [isSelected]);
 
     useEffect(() => {
-        if (!isDragging && !isResizing) return;
+        if (!isDragging && !isResizing && !isRotating) return;
 
         const handleMouseMove = (e: MouseEvent) => {
+            if (isRotating && rotateRef.current) {
+                const currentPointerAngle = Math.atan2(
+                    e.clientY - rotateRef.current.centerY,
+                    e.clientX - rotateRef.current.centerX
+                ) * 180 / Math.PI;
+                const rawDelta = currentPointerAngle - rotateRef.current.startPointerAngle;
+                const delta = ((rawDelta + 540) % 360) - 180;
+                const nextRotation = ((rotateRef.current.startRotation + delta) % 360 + 360) % 360;
+                onUpdateRotation?.(nextRotation);
+                hasMovedRef.current = true;
+                return;
+            }
+
             if (!containerRectRef.current) return;
             const rect = containerRectRef.current;
             hasMovedRef.current = true;
 
             if (isDragging) {
-                // Calculate percentage position
-                let x = ((e.clientX - rect.left) / rect.width) * 100;
-                let y = ((e.clientY - rect.top) / rect.height) * 100;
+                // Preserve the pickup point inside the frame (no center snapping on drag).
+                let x = ((e.clientX - rect.left - dragOffsetRef.current.x) / rect.width) * 100;
+                let y = ((e.clientY - rect.top - dragOffsetRef.current.y) / rect.height) * 100;
                 onUpdatePosition(x, y);
             } else if (isResizing && startResizeRef.current) {
-                const { startX, startY, startWidth, startHeight, direction } = startResizeRef.current;
+                const { startX, startY, startWidth, startHeight, direction, freeResize } = startResizeRef.current;
 
                 // Delta in pixels
                 const dx = e.clientX - startX;
@@ -390,35 +477,45 @@ const DraggableCoverImage = ({
                 const dWidth = (dx / rect.width) * 100;
                 const dHeight = (dy / rect.height) * 100;
 
-                // Logic depends on handles.
-                // Note: The item is centered (translate -50%). 
-                // Resizing usually expects corner pin or center scale?
-                // Currently DraggableCoverImage sets center at x/y.
-                // If we resize width, we extend both sides if centered?
-                // implementation in previous code: `scale = currentDist / startDist`. (Center Scaling)
-                // Let's stick to Center Scaling for simplicity consistent with previous implementation OR
-                // implement side-based. previous was center-based. 
-
-                // Let's interpret dx/dy as "change in radius" approx?
-                // Actually, standard resize handles (SE) usually mean "drag this corner".
-                // If the origin is CENTER, then dragging corner increases size * 2 (symmetric)?
-                // Or does it move center?
-
-                // Current transform: translate(-50%, -50%). Origin IS Center.
-                // So dragging Corner SE away from Center increases Width and Height.
-
                 let newWidth = startWidth;
                 let newHeight = startHeight;
+                const affectsWidth = direction.includes('e') || direction.includes('w');
+                const affectsHeight = direction.includes('n') || direction.includes('s');
+                const signedWidthDelta = direction.includes('w') ? -(dWidth * 2) : (dWidth * 2);
+                const signedHeightDelta = direction.includes('n') ? -(dHeight * 2) : (dHeight * 2);
+                const isEdgeHandle = direction === 'n' || direction === 's' || direction === 'e' || direction === 'w';
+                const shouldLockAspect = lockAspectRatio && !freeResize && !isEdgeHandle;
 
-                // Simple scaling factor based on X movement for Width, Y for Height
-                // Since it's symmetric (center origin):
-                // If we drag Right (+dx), Width increases by (dx * 2) / totalWidth percent
+                if (shouldLockAspect) {
+                    const aspectRatio = item.aspectRatio > 0 ? item.aspectRatio : 1;
+                    const containerAspectRatio = rect.width > 0 && rect.height > 0
+                        ? (rect.width / rect.height)
+                        : 1;
+                    const widthFromX = startWidth + signedWidthDelta;
+                    const heightFromY = startHeight + signedHeightDelta;
+                    const widthFromY = heightFromY * (aspectRatio / containerAspectRatio);
 
-                if (direction === 'e' || direction === 'se') {
-                    newWidth = Math.max(2, startWidth + (dWidth * 2));
-                }
-                if (direction === 's' || direction === 'se') {
-                    newHeight = Math.max(2, startHeight + (dHeight * 2));
+                    let nextWidth = startWidth;
+                    if (affectsWidth && affectsHeight) {
+                        nextWidth = Math.abs(widthFromX - startWidth) > Math.abs(widthFromY - startWidth)
+                            ? widthFromX
+                            : widthFromY;
+                    } else if (affectsWidth) {
+                        nextWidth = widthFromX;
+                    } else if (affectsHeight) {
+                        nextWidth = widthFromY;
+                    }
+
+                    const minWidthFromHeightFloor = 2 * (aspectRatio / containerAspectRatio);
+                    newWidth = Math.max(2, minWidthFromHeightFloor, nextWidth);
+                    newHeight = Math.max(2, newWidth * (containerAspectRatio / aspectRatio));
+                } else {
+                    if (affectsWidth) {
+                        newWidth = Math.max(2, startWidth + signedWidthDelta);
+                    }
+                    if (affectsHeight) {
+                        newHeight = Math.max(2, startHeight + signedHeightDelta);
+                    }
                 }
 
                 onUpdateSize(newWidth, newHeight);
@@ -426,13 +523,16 @@ const DraggableCoverImage = ({
         };
 
         const handleMouseUp = () => {
-            if ((isDragging || isResizing) && onDragEnd && hasMovedRef.current) {
+            if ((isDragging || isResizing || isRotating) && onDragEnd && hasMovedRef.current) {
                 onDragEnd();
             }
             setIsDragging(false);
             setIsResizing(false);
+            setIsRotating(false);
             containerRectRef.current = null;
+            dragOffsetRef.current = { x: 0, y: 0 };
             startResizeRef.current = null;
+            rotateRef.current = null;
         };
 
         window.addEventListener('mousemove', handleMouseMove);
@@ -441,7 +541,7 @@ const DraggableCoverImage = ({
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [isDragging, isResizing, onUpdatePosition, onUpdateSize, onDragEnd]);
+    }, [isDragging, isResizing, isRotating, onUpdatePosition, onUpdateRotation, onUpdateSize, onDragEnd]);
 
     // Construct "Photo" object for PhotoRenderer
     const photoObject: Photo = {
@@ -469,27 +569,59 @@ const DraggableCoverImage = ({
                 top: `${item.y}%`,
                 width: `${item.width}%`,
                 height: `${currentHeight}%`,
-                transform: `translate(-50%, -50%) rotate(${item.rotation}deg)`,
+                transform: `translate(-50%, -50%) rotate(${normalizedRotation}deg)`,
                 opacity: item.opacity,
-                zIndex: item.zIndex
+                zIndex: item.zIndex,
+                boxSizing: 'border-box'
             }}
             onMouseDown={handleMouseDown}
             onClick={handleClick}
             onDoubleClick={handleDoubleClick}
         >
-            <div className="w-full h-full relative overflow-hidden pointer-events-none">
+            <div
+                className="w-full h-full relative overflow-hidden pointer-events-none"
+                style={frameGap > 0 ? {
+                    backgroundColor: frameGapColor
+                } : undefined}
+            >
                 {/* 
                     Wrapper div for Renderer. 
                     If Crop Mode -> enable pointer events on Renderer.
                     Else -> disable so we can drag the container.
                  */}
-                <div className={cn("w-full h-full", isCropMode ? "pointer-events-auto" : "pointer-events-none")}>
-                    <PhotoRenderer
-                        photo={photoObject}
-                        onUpdate={(panAndZoom) => onUpdatePanAndZoom?.(panAndZoom)}
-                        useSimpleImage={!isCropMode && !isSelected} // Optimization?
-                        onInteractionChange={() => { }}
-                    />
+                <div
+                    className={cn("absolute", isCropMode ? "pointer-events-auto" : "pointer-events-none")}
+                    style={{
+                        left: frameGap > 0 ? `${frameGap}px` : 0,
+                        top: frameGap > 0 ? `${frameGap}px` : 0,
+                        right: frameGap > 0 ? `${frameGap}px` : 0,
+                        bottom: frameGap > 0 ? `${frameGap}px` : 0
+                    }}
+                >
+                    {shouldAdjustPhotoRotation ? (
+                        <div
+                            className="absolute inset-0"
+                            style={{
+                                transform: `rotate(${photoExtraRotationDeg}deg) scale(${photoRotationCoverScale})`,
+                                transformOrigin: '50% 50%'
+                            }}
+                        >
+                            <PhotoRenderer
+                                photo={photoObject}
+                                onUpdate={(panAndZoom) => onUpdatePanAndZoom?.(panAndZoom)}
+                                useSimpleImage={!isCropMode && !isSelected} // Optimization?
+                                fitRotationDeg={photoExtraRotationDeg}
+                                onInteractionChange={() => { }}
+                            />
+                        </div>
+                    ) : (
+                        <PhotoRenderer
+                            photo={photoObject}
+                            onUpdate={(panAndZoom) => onUpdatePanAndZoom?.(panAndZoom)}
+                            useSimpleImage={!isCropMode && !isSelected} // Optimization?
+                            onInteractionChange={() => { }}
+                        />
+                    )}
                 </div>
             </div>
 
@@ -498,24 +630,81 @@ const DraggableCoverImage = ({
             */}
             {isSelected && !isCropMode && (
                 <>
-                    {/* Corner SE */}
+                    {/* Resize handles (Canva-like: corners + edges) */}
                     <div
-                        className="absolute -bottom-1 -right-1 w-3 h-3 bg-white border border-primary rounded-full cursor-se-resize z-50 hover:bg-primary hover:scale-125 transition-transform"
+                        className="absolute -top-1 -left-1 h-3 w-3 rounded-full border border-primary bg-white cursor-nwse-resize z-50 hover:bg-primary hover:scale-125 transition-transform"
+                        onMouseDown={(e) => handleResizeStart(e, 'nw')}
+                    />
+                    <div
+                        className="absolute -top-1 -right-1 h-3 w-3 rounded-full border border-primary bg-white cursor-nesw-resize z-50 hover:bg-primary hover:scale-125 transition-transform"
+                        onMouseDown={(e) => handleResizeStart(e, 'ne')}
+                    />
+                    <div
+                        className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full border border-primary bg-white cursor-nwse-resize z-50 hover:bg-primary hover:scale-125 transition-transform"
                         onMouseDown={(e) => handleResizeStart(e, 'se')}
                     />
-                    {/* Right Edge */}
                     <div
-                        className="absolute top-1/2 -right-1 w-1.5 h-4 -mt-2 bg-white border border-primary rounded-full cursor-e-resize z-50 hover:bg-primary transition-colors"
-                        onMouseDown={(e) => handleResizeStart(e, 'e')}
-                    />
-                    {/* Bottom Edge */}
-                    <div
-                        className="absolute -bottom-1 left-1/2 w-4 h-1.5 -ml-2 bg-white border border-primary rounded-full cursor-s-resize z-50 hover:bg-primary transition-colors"
-                        onMouseDown={(e) => handleResizeStart(e, 's')}
+                        className="absolute -bottom-1 -left-1 h-3 w-3 rounded-full border border-primary bg-white cursor-nesw-resize z-50 hover:bg-primary hover:scale-125 transition-transform"
+                        onMouseDown={(e) => handleResizeStart(e, 'sw')}
                     />
 
+                    <div
+                        className="absolute -top-1 left-1/2 -ml-2 h-1.5 w-4 rounded-full border border-primary bg-white cursor-n-resize z-50 hover:bg-primary transition-colors"
+                        onMouseDown={(e) => handleResizeStart(e, 'n')}
+                    />
+                    <div
+                        className="absolute -bottom-1 left-1/2 -ml-2 h-1.5 w-4 rounded-full border border-primary bg-white cursor-s-resize z-50 hover:bg-primary transition-colors"
+                        onMouseDown={(e) => handleResizeStart(e, 's')}
+                    />
+                    <div
+                        className="absolute top-1/2 -left-1 -mt-2 h-4 w-1.5 rounded-full border border-primary bg-white cursor-w-resize z-50 hover:bg-primary transition-colors"
+                        onMouseDown={(e) => handleResizeStart(e, 'w')}
+                    />
+                    <div
+                        className="absolute top-1/2 -right-1 -mt-2 h-4 w-1.5 rounded-full border border-primary bg-white cursor-e-resize z-50 hover:bg-primary transition-colors"
+                        onMouseDown={(e) => handleResizeStart(e, 'e')}
+                    />
+
+                    {/* 4 corner rotate handles with connector lines */}
+                    {[
+                        { key: 'tl', anchorX: '0%', anchorY: '0%', offsetX: -20, offsetY: -20 },
+                        { key: 'tr', anchorX: '100%', anchorY: '0%', offsetX: 20, offsetY: -20 },
+                        { key: 'br', anchorX: '100%', anchorY: '100%', offsetX: 20, offsetY: 20 },
+                        { key: 'bl', anchorX: '0%', anchorY: '100%', offsetX: -20, offsetY: 20 }
+                    ].map((handle) => {
+                        const lineLength = Math.max(10, Math.hypot(handle.offsetX, handle.offsetY));
+                        const lineAngle = Math.atan2(handle.offsetY, handle.offsetX) * (180 / Math.PI);
+                        return (
+                            <div
+                                key={handle.key}
+                                className="absolute pointer-events-none"
+                                style={{ left: handle.anchorX, top: handle.anchorY }}
+                            >
+                                <div
+                                    className="absolute left-0 top-0 h-[1.5px] bg-pink-500/90"
+                                    style={{
+                                        width: `${lineLength}px`,
+                                        transformOrigin: '0 50%',
+                                        transform: `rotate(${lineAngle}deg)`
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    className="absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-pink-500 shadow-sm cursor-crosshair pointer-events-auto"
+                                    style={{ left: `${handle.offsetX}px`, top: `${handle.offsetY}px` }}
+                                    onMouseDown={handleRotateStart}
+                                    aria-label="Rotate frame"
+                                />
+                            </div>
+                        );
+                    })}
+
+                    <div className="absolute -top-16 left-1/2 -translate-x-1/2 text-[9px] text-white/70 opacity-0 group-hover/item:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                        Hold Shift + corner to free-resize
+                    </div>
+
                     {/* Double Click Hint */}
-                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/75 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover/item:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                    <div className="absolute -top-14 left-1/2 -translate-x-1/2 bg-black/75 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover/item:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                         Double-click to Crop
                     </div>
                 </>
@@ -531,9 +720,41 @@ const DraggableCoverImage = ({
 };
 
 // Static Image for Preview
-export const StaticCoverImage = ({ item }: { item: CoverImage }) => {
+export const StaticCoverImage = ({
+    item,
+    frameGap = 0,
+    frameGapColor = '#ffffff',
+    interactive = false,
+    onUpdatePanAndZoom,
+    containerAspectRatio = 1
+}: {
+    item: CoverImage;
+    frameGap?: number;
+    frameGapColor?: string;
+    interactive?: boolean;
+    onUpdatePanAndZoom?: (panAndZoom: PhotoPanAndZoom) => void;
+    containerAspectRatio?: number;
+}) => {
     // If height is missing, use aspect ratio
     const heightPercent = item.height ?? (item.width / item.aspectRatio);
+    const normalizedRotation = ((item.rotation ?? 0) % 360 + 360) % 360;
+    const imageRotationMode = item.imageRotationMode === 'keep-horizontal' ? 'keep-horizontal' : 'follow-frame';
+    const frameRotationDeg = normalizedRotation;
+    const targetPhotoWorldRotationDeg = imageRotationMode === 'keep-horizontal' ? 0 : frameRotationDeg;
+    const photoExtraRotationDeg = targetPhotoWorldRotationDeg - frameRotationDeg;
+    const shouldAdjustPhotoRotation = Math.abs(photoExtraRotationDeg) > 0.0001;
+    const frameAspectRatio = Math.max(
+        0.01,
+        ((item.width * Math.max(0.01, containerAspectRatio)) / Math.max(0.01, heightPercent))
+    );
+    const rotationRad = Math.abs(photoExtraRotationDeg) * (Math.PI / 180);
+    const sinAbs = Math.abs(Math.sin(rotationRad));
+    const cosAbs = Math.abs(Math.cos(rotationRad));
+    const photoRotationCoverScale = Math.max(
+        1,
+        cosAbs + (sinAbs / frameAspectRatio),
+        cosAbs + (sinAbs * frameAspectRatio)
+    );
 
     const photoObject: Photo = {
         id: item.id,
@@ -546,26 +767,63 @@ export const StaticCoverImage = ({ item }: { item: CoverImage }) => {
 
     return (
         <div
-            className="absolute select-none pointer-events-none overflow-hidden"
+            className={cn(
+                "absolute select-none overflow-hidden",
+                interactive ? "pointer-events-auto" : "pointer-events-none"
+            )}
             style={{
                 left: `${item.x}%`,
                 top: `${item.y}%`,
                 width: `${item.width}%`,
                 height: `${heightPercent}%`,
-                transform: `translate(-50%, -50%) rotate(${item.rotation}deg)`,
+                transform: `translate(-50%, -50%) rotate(${normalizedRotation}deg)`,
                 opacity: item.opacity,
-                zIndex: item.zIndex || 40
+                zIndex: item.zIndex || 40,
+                boxSizing: 'border-box'
             }}
         >
-            <PhotoRenderer
-                photo={photoObject}
-                onUpdate={() => { }}
-                useSimpleImage={true}
-            />
+            <div
+                className="w-full h-full relative overflow-hidden"
+                style={frameGap > 0 ? {
+                    backgroundColor: frameGapColor
+                } : undefined}
+            >
+                <div
+                    className="absolute"
+                    style={{
+                        left: frameGap > 0 ? `${frameGap}px` : 0,
+                        top: frameGap > 0 ? `${frameGap}px` : 0,
+                        right: frameGap > 0 ? `${frameGap}px` : 0,
+                        bottom: frameGap > 0 ? `${frameGap}px` : 0
+                    }}
+                >
+                    {shouldAdjustPhotoRotation ? (
+                        <div
+                            className="absolute inset-0"
+                            style={{
+                                transform: `rotate(${photoExtraRotationDeg}deg) scale(${photoRotationCoverScale})`,
+                                transformOrigin: '50% 50%'
+                            }}
+                        >
+                            <PhotoRenderer
+                                photo={photoObject}
+                                onUpdate={(panAndZoom) => onUpdatePanAndZoom?.(panAndZoom)}
+                                useSimpleImage={!interactive}
+                                fitRotationDeg={photoExtraRotationDeg}
+                            />
+                        </div>
+                    ) : (
+                        <PhotoRenderer
+                            photo={photoObject}
+                            onUpdate={(panAndZoom) => onUpdatePanAndZoom?.(panAndZoom)}
+                            useSimpleImage={!interactive}
+                        />
+                    )}
+                </div>
+            </div>
         </div>
     );
 };
-
 
 // --- Main Component ---
 
@@ -585,12 +843,17 @@ export const AlbumCover = ({
     onInteractionChange,
     onRemovePhoto,
     onEnhancePhotoWithAi,
+    onDynamicDropPhoto,
     // onUpdateTitleSettings
     useSimpleImage,
     allPhotos = [],
     previousPagePhotos = [],
     priority = false, // Default to false
     chronologicalIndex,
+    extraTemplates = [],
+    disableFrameDrop = false,
+    dynamicMode = false,
+    lockOverlayImageAspectRatio = false,
 }: AlbumCoverProps) => {
     const {
         gridTemplates,
@@ -768,7 +1031,17 @@ export const AlbumCover = ({
     const { baseId: backBaseId } = parseLayoutId(backLayoutId);
     const { baseId: frontBaseId } = parseLayoutId(frontLayoutId);
 
-    const templateSource = page.isCover ? [...coverTemplates, ...advancedTemplates] : [...gridTemplates, ...advancedTemplates];
+    const mergeTemplateLists = (primary: AdvancedTemplate[], extras: AdvancedTemplate[]) => {
+        const map = new Map<string, AdvancedTemplate>();
+        [...primary, ...extras].forEach((template) => {
+            map.set(String(template.id), template);
+        });
+        return Array.from(map.values());
+    };
+
+    const coverTemplateSource = mergeTemplateLists([...coverTemplates, ...advancedTemplates], extraTemplates);
+    const pageTemplateSource = mergeTemplateLists([...gridTemplates, ...advancedTemplates], extraTemplates);
+    const templateSource = page.isCover ? coverTemplateSource : pageTemplateSource;
 
     // Dynamic layouts on cover MUST always be full spread
     // This allows robust handling even if coverType update lags slightly
@@ -817,6 +1090,13 @@ export const AlbumCover = ({
         onUpdatePage?.({ ...page, coverImages: newImages });
     };
 
+    const updateCoverImageRotation = (imgId: string, rotation: number) => {
+        const newImages = page.coverImages?.map((img) => (
+            img.id === imgId ? { ...img, rotation } : img
+        )) || [];
+        onUpdatePage?.({ ...page, coverImages: newImages });
+    };
+
     // Derived Styles
     const pageMargin = page.pageMargin ?? config?.pageMargin ?? 0;
     const normalizedPageMargin = Number(pageMargin);
@@ -824,6 +1104,11 @@ export const AlbumCover = ({
     const pageMarginStyle = safePageMargin > 0 ? { padding: `${safePageMargin}px` } : undefined;
     // Assuming config.photoGap is number. If string, parse it.
     const photoGap = page.photoGap ?? config?.photoGap ?? 0;
+    // Dynamic image overlays follow the system-level PHOTO GAP first.
+    const dynamicPhotoGapSource = config?.photoGap ?? page.photoGap ?? photoGap ?? 0;
+    const normalizedPhotoGap = Number(dynamicPhotoGapSource);
+    const dynamicFrameGap = Number.isFinite(normalizedPhotoGap) ? Math.max(0, normalizedPhotoGap) : 0;
+    const dynamicFrameGapColor = '#ffffff';
     const configCornerRadiusRaw = Number(config?.cornerRadius);
     const configCornerRadius = Number.isFinite(configCornerRadiusRaw) ? Math.max(0, configCornerRadiusRaw) : 0;
     const pageCornerRadiusRaw = Number(page.cornerRadius);
@@ -862,6 +1147,7 @@ export const AlbumCover = ({
     const measuredRootRatio = (containerSize.width > 0 && containerSize.height > 0)
         ? (containerSize.width / containerSize.height)
         : null;
+    const overlayContainerAspectRatio = measuredRootRatio ?? fullLayoutRatio;
 
     const measuredFullSpreadRatio = measuredRootRatio
         ? (isFull ? measuredRootRatio : measuredRootRatio * 2)
@@ -1005,7 +1291,7 @@ export const AlbumCover = ({
                             photoGap={photoGap}
                             overridePhotos={page.photos}
                             overrideLayout={String(page.layout || (page.isCover ? defaultCoverTemplate.id : defaultGridTemplate.id))}
-                            templateSource={page.isCover ? [...coverTemplates, ...advancedTemplates] as any : [...gridTemplates, ...advancedTemplates] as any}
+                            templateSource={templateSource as any}
                             onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
                             onInteractionChange={onInteractionChange || (() => { })}
                             onDropPhoto={onDropPhoto || (() => { })}
@@ -1021,6 +1307,7 @@ export const AlbumCover = ({
                             priority={priority}
                             chronologicalIndex={chronologicalIndex}
                             aspectRatio={measuredFullSpreadRatio}
+                            disableFrameDrop={disableFrameDrop}
                         />,
                         measuredFullSpreadRatio,
                         'absolute inset-0 z-0'
@@ -1050,7 +1337,7 @@ export const AlbumCover = ({
                                 overridePhotos={backPhotos}
                                 // Use Left Layout for regular pages, Back Layout for covers
                                 overrideLayout={String(page.isCover ? backLayoutId : (page.spreadLayouts?.left || defaultGridTemplate.id))}
-                                templateSource={page.isCover ? [...coverTemplates, ...advancedTemplates] as any : [...gridTemplates, ...advancedTemplates] as any}
+                                templateSource={templateSource as any}
                                 onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
                                 onInteractionChange={onInteractionChange || (() => { })}
                                 onDropPhoto={onDropPhoto || (() => { })}
@@ -1066,6 +1353,7 @@ export const AlbumCover = ({
                                 priority={priority}
                                 chronologicalIndex={chronologicalIndex}
                                 aspectRatio={measuredSinglePageRatio}
+                                disableFrameDrop={disableFrameDrop}
                             />,
                             measuredSinglePageRatio
                         )}
@@ -1118,7 +1406,7 @@ export const AlbumCover = ({
                                 overridePhotos={frontPhotos}
                                 // Use Right Layout for regular pages, Front Layout for covers
                                 overrideLayout={String(page.isCover ? frontLayoutId : (page.spreadLayouts?.right || defaultGridTemplate.id))}
-                                templateSource={page.isCover ? [...coverTemplates, ...advancedTemplates] as any : [...gridTemplates, ...advancedTemplates] as any}
+                                templateSource={templateSource as any}
                                 onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom || (() => { })}
                                 onInteractionChange={onInteractionChange || (() => { })}
                                 onDropPhoto={onDropPhoto || (() => { })}
@@ -1134,6 +1422,7 @@ export const AlbumCover = ({
                                 priority={priority}
                                 chronologicalIndex={chronologicalIndex}
                                 aspectRatio={measuredSinglePageRatio}
+                                disableFrameDrop={disableFrameDrop}
                             />,
                             measuredSinglePageRatio
                         )}
@@ -1314,19 +1603,71 @@ export const AlbumCover = ({
 
                             handleUpdateImageSize(imgItem.id, globalWidth, globalHeight);
                         }}
+                        onUpdateRotation={(rotation) => updateCoverImageRotation(imgItem.id, rotation)}
                         onUpdatePanAndZoom={(mz) => updateCoverImagePanAndZoom(imgItem.id, mz)}
                         onDragEnd={handleDragEnd}
                         containerRef={containerRef}
+                        lockAspectRatio={lockOverlayImageAspectRatio}
+                        frameGap={dynamicFrameGap}
+                        frameGapColor={dynamicFrameGapColor}
+                        containerAspectRatio={overlayContainerAspectRatio}
                     />
                 );
             } else {
+                const allowPanAsTemplateFrame = mode === 'editor' && !dynamicMode;
                 return (
                     <StaticCoverImage
                         key={imgItem.id}
                         item={{ ...imgItem, x: localX, y: localY, width: localWidth }}
+                        frameGap={dynamicFrameGap}
+                        frameGapColor={dynamicFrameGapColor}
+                        interactive={allowPanAsTemplateFrame}
+                        onUpdatePanAndZoom={allowPanAsTemplateFrame ? (mz) => updateCoverImagePanAndZoom(imgItem.id, mz) : undefined}
+                        containerAspectRatio={overlayContainerAspectRatio}
                     />
                 );
             }
+        });
+    };
+
+    const handleDynamicCanvasDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        if (!dynamicMode) return;
+        if (!onDynamicDropPhoto) return;
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = 'copy';
+    };
+
+    const handleDynamicCanvasDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        if (!dynamicMode) return;
+        if (!onDynamicDropPhoto) return;
+        if (!containerRef.current) return;
+
+        const droppedPhotoId = e.dataTransfer.getData('photoId');
+        if (!droppedPhotoId) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const rect = containerRef.current.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return;
+
+        let x = ((e.clientX - rect.left) / rect.width) * 100;
+        let y = ((e.clientY - rect.top) / rect.height) * 100;
+        x = Math.max(0, Math.min(100, x));
+        y = Math.max(0, Math.min(100, y));
+
+        if (isFront) {
+            const frontRange = 100 - frontStartPercent;
+            x = frontStartPercent + ((x / 100) * frontRange);
+        } else if (isBack) {
+            x = (x / 100) * backEndPercent;
+        }
+
+        onDynamicDropPhoto(page.id, droppedPhotoId, {
+            x,
+            y,
+            containerAspectRatio: rect.width > 0 && rect.height > 0 ? (rect.width / rect.height) : 1
         });
     };
 
@@ -1334,6 +1675,8 @@ export const AlbumCover = ({
         <div
             className="w-full h-full flex items-center justify-center overflow-hidden bg-transparent"
             onClick={handleCanvasClick}
+            onDragOver={handleDynamicCanvasDragOver}
+            onDrop={handleDynamicCanvasDrop}
         >
             <div
                 ref={containerRef}

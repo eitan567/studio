@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
 import { AlbumPage, Photo, PhotoPanAndZoom } from '@/lib/types';
 import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
+import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { parseLayoutId } from '@/lib/layout-id-utils';
 import { extractSupabaseStoragePath } from '@/lib/supabase-media-normalizer';
 
@@ -13,6 +14,7 @@ interface UseAlbumPageEditorProps {
     allPhotos: Photo[];
     allowDuplicates: boolean;
     usedPhotoIds: Set<string>;
+    customTemplates?: AdvancedTemplate[];
 }
 
 export function useAlbumPageEditor({
@@ -21,6 +23,7 @@ export function useAlbumPageEditor({
     allPhotos,
     allowDuplicates,
     usedPhotoIds,
+    customTemplates = [],
 }: UseAlbumPageEditorProps) {
     const { findTemplate, findCoverTemplate, defaultGridTemplate, defaultCoverTemplate } = useTemplates();
     const { toast } = useToast();
@@ -30,17 +33,33 @@ export function useAlbumPageEditor({
     const allowDuplicatesRef = useRef(allowDuplicates);
     const usedPhotoIdsRef = useRef(usedPhotoIds);
     const albumPagesRef = useRef(albumPages);
+    const customTemplatesRef = useRef(customTemplates);
 
     useEffect(() => {
         allPhotosRef.current = allPhotos;
         allowDuplicatesRef.current = allowDuplicates;
         usedPhotoIdsRef.current = usedPhotoIds;
         albumPagesRef.current = albumPages;
-    }, [allPhotos, allowDuplicates, usedPhotoIds, albumPages]);
+        customTemplatesRef.current = customTemplates;
+    }, [allPhotos, allowDuplicates, usedPhotoIds, albumPages, customTemplates]);
 
     const isPageLocked = useCallback((pageId: string) => {
         return albumPagesRef.current.some(page => page.id === pageId && !!page.isLocked);
     }, []);
+
+    const findCustomTemplate = useCallback((id: string | number | null | undefined) => {
+        if (id == null) return undefined;
+        const { baseId } = parseLayoutId(id);
+        return customTemplatesRef.current.find((template) => String(template.id) === String(baseId));
+    }, []);
+
+    const findGridTemplateWithCustom = useCallback((id: string | number | null | undefined) => {
+        return findTemplate(id) || findCustomTemplate(id);
+    }, [findCustomTemplate, findTemplate]);
+
+    const findCoverTemplateWithCustom = useCallback((id: string | number | null | undefined) => {
+        return findCoverTemplate(id) || findTemplate(id) || findCustomTemplate(id);
+    }, [findCoverTemplate, findCustomTemplate, findTemplate]);
 
     const deletePage = useCallback((pageId: string) => {
         if (isPageLocked(pageId)) return;
@@ -129,7 +148,7 @@ export function useAlbumPageEditor({
                     };
                 }
 
-                const newTemplate = findTemplate(baseId);
+                const newTemplate = findGridTemplateWithCustom(baseId);
                 if (!newTemplate) return page;
 
                 const newPhotoCount = getPhotoCount(newTemplate);
@@ -157,7 +176,7 @@ export function useAlbumPageEditor({
                 };
             });
         });
-    }, [isPageLocked, setAlbumPages, findTemplate]);
+    }, [findGridTemplateWithCustom, isPageLocked, setAlbumPages]);
 
     const handleRemovePhoto = useCallback((pageId: string, photoId: string) => {
         if (isPageLocked(pageId)) return;
@@ -215,7 +234,7 @@ export function useAlbumPageEditor({
 
                     const fallbackId = String(defaultCoverTemplate?.id || '');
                     const fallbackTemplate: any = { id: fallbackId, regions: [], category: 'cover', name: 'Fallback' };
-                    const template = findCoverTemplate(baseLayoutId) || defaultCoverTemplate || fallbackTemplate;
+                    const template = findCoverTemplateWithCustom(baseLayoutId) || defaultCoverTemplate || fallbackTemplate;
                     const requiredPhotos = getPhotoCount(template);
                     let currentPhotos = [...page.photos];
 
@@ -263,8 +282,8 @@ export function useAlbumPageEditor({
                 }
 
                 const fallbackTemplate: any = { id: defaultCoverTemplate?.id || '', regions: [], category: 'cover', name: 'Fallback' };
-                const frontTemplate = findCoverTemplate(frontBaseId) || defaultCoverTemplate || fallbackTemplate;
-                const backTemplate = findCoverTemplate(backBaseId) || defaultCoverTemplate || fallbackTemplate;
+                const frontTemplate = findCoverTemplateWithCustom(frontBaseId) || defaultCoverTemplate || fallbackTemplate;
+                const backTemplate = findCoverTemplateWithCustom(backBaseId) || defaultCoverTemplate || fallbackTemplate;
 
                 const requiredBackPhotos = getPhotoCount(backTemplate);
                 const requiredFrontPhotos = getPhotoCount(frontTemplate);
@@ -297,7 +316,7 @@ export function useAlbumPageEditor({
                 };
             });
         });
-    }, [isPageLocked, setAlbumPages, findCoverTemplate, defaultCoverTemplate]);
+    }, [defaultCoverTemplate, findCoverTemplateWithCustom, isPageLocked, setAlbumPages]);
 
     const handleUpdateSpreadLayout = useCallback((pageId: string, side: 'left' | 'right', newLayout: string) => {
         if (isPageLocked(pageId)) return;
@@ -330,11 +349,11 @@ export function useAlbumPageEditor({
                 // Fallback template to prevent crash if templates not loaded
                 const fallbackId = String(defaultGridTemplate?.id || '');
                 const fallbackTemplate: any = { id: fallbackId, regions: [], category: 'grid', name: 'Fallback' };
-                const leftTemplate = findTemplate(leftBaseId) || defaultGridTemplate || fallbackTemplate;
-                const rightTemplate = findTemplate(rightBaseId) || defaultGridTemplate || fallbackTemplate;
+                const leftTemplate = findGridTemplateWithCustom(leftBaseId) || defaultGridTemplate || fallbackTemplate;
+                const rightTemplate = findGridTemplateWithCustom(rightBaseId) || defaultGridTemplate || fallbackTemplate;
 
                 const { baseId: oldLeftBaseId } = parseLayoutId(currentLeftLayout);
-                const oldLeftTemplate = findTemplate(oldLeftBaseId) || defaultGridTemplate || fallbackTemplate;
+                const oldLeftTemplate = findGridTemplateWithCustom(oldLeftBaseId) || defaultGridTemplate || fallbackTemplate;
                 const oldLeftCount = getPhotoCount(oldLeftTemplate);
 
                 const newLeftCount = getPhotoCount(leftTemplate);
@@ -386,7 +405,7 @@ export function useAlbumPageEditor({
                 };
             });
         });
-    }, [isPageLocked, setAlbumPages, defaultGridTemplate, findTemplate]);
+    }, [defaultGridTemplate, findGridTemplateWithCustom, isPageLocked, setAlbumPages]);
 
     const handleUpdateCoverType = useCallback((pageId: string, newType: 'split' | 'full') => {
         if (isPageLocked(pageId)) return;
@@ -400,7 +419,7 @@ export function useAlbumPageEditor({
                 let requiredCount = 0;
                 if (newType === 'full') {
                     const { baseId } = parseLayoutId(page.layout || defaultCoverTemplate?.id);
-                    const template = findCoverTemplate(baseId) || defaultCoverTemplate;
+                    const template = findCoverTemplateWithCustom(baseId) || defaultCoverTemplate;
                     requiredCount = getPhotoCount(template);
                 } else {
                     const currentFrontLayout = page.coverLayouts?.front || defaultCoverTemplate?.id || '';
@@ -409,8 +428,8 @@ export function useAlbumPageEditor({
                     const { baseId: frontBaseId } = parseLayoutId(currentFrontLayout);
                     const { baseId: backBaseId } = parseLayoutId(currentBackLayout);
 
-                    const frontTemplate = findCoverTemplate(frontBaseId) || defaultCoverTemplate;
-                    const backTemplate = findCoverTemplate(backBaseId) || defaultCoverTemplate;
+                    const frontTemplate = findCoverTemplateWithCustom(frontBaseId) || defaultCoverTemplate;
+                    const backTemplate = findCoverTemplateWithCustom(backBaseId) || defaultCoverTemplate;
 
                     requiredCount = getPhotoCount(frontTemplate) + getPhotoCount(backTemplate);
                 }
@@ -438,7 +457,7 @@ export function useAlbumPageEditor({
                 };
             });
         });
-    }, [isPageLocked, setAlbumPages, findCoverTemplate, defaultCoverTemplate]);
+    }, [defaultCoverTemplate, findCoverTemplateWithCustom, isPageLocked, setAlbumPages]);
 
     const handleUpdateSpineText = useCallback((pageId: string, text: string) => {
         if (isPageLocked(pageId)) return;

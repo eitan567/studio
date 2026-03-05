@@ -289,6 +289,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
 
   // State dependencies needed for hooks below
   const [allowDuplicates, setAllowDuplicates] = useState(true);
+  const [customTemplates, setCustomTemplates] = useState<AdvancedTemplate[]>([]);
 
   // Computed dependencies
   const photoUsageDetails = useMemo(() => {
@@ -351,7 +352,8 @@ export function PageEditor({ albumId }: PageEditorProps) {
     setAlbumPages,
     allPhotos,
     allowDuplicates,
-    usedPhotoIds
+    usedPhotoIds,
+    customTemplates
   });
 
   const { toast } = useToast();
@@ -781,7 +783,6 @@ export function PageEditor({ albumId }: PageEditorProps) {
     }
   }, [albumPages, editingPageId, isCoverEditorOpen]);
 
-  const [customTemplates, setCustomTemplates] = useState<AdvancedTemplate[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
@@ -1963,6 +1964,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
                 onRedo={handleRedo}
                 onToggleLock={handleTogglePageLock}
                 customTemplates={customTemplates}
+                onCreateCustomTemplate={handleAddCustomTemplate}
                 defaultViewMode={settings.defaultEditorViewMode as "single" | "spread"}
                 visibleTemplateCategories={settings.visibleTemplateCategories}
                 allowedTemplateIds={settings.allowedTemplateIds || []}
