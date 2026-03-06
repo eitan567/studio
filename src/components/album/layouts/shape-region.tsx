@@ -459,6 +459,20 @@ export const ShapeRegion = ({
     const targetPhotoWorldRotationDeg = effectiveImageRotationMode === 'keep-horizontal' ? 0 : visualFrameRotationDeg;
     const photoExtraRotationDeg = targetPhotoWorldRotationDeg - frameRotationDeg;
     const shouldAdjustPhotoRotation = Math.abs(photoExtraRotationDeg) > 0.0001;
+    const frameAspectRatio = Math.max(
+        0.01,
+        adjustedRegionWidthPx / Math.max(1, adjustedRegionHeightPx)
+    );
+    const rotationRad = Math.abs(photoExtraRotationDeg) * (Math.PI / 180);
+    const sinAbs = Math.abs(Math.sin(rotationRad));
+    const cosAbs = Math.abs(Math.cos(rotationRad));
+    const keepHorizontalCoverScale = effectiveImageRotationMode === 'keep-horizontal'
+        ? Math.max(
+            1,
+            cosAbs + (sinAbs / frameAspectRatio),
+            cosAbs + (sinAbs * frameAspectRatio)
+        )
+        : 1;
 
     const renderContent = () => {
         if (!photo || !photo.src) {
@@ -506,7 +520,7 @@ export const ShapeRegion = ({
             <div
                 className="absolute inset-0"
                 style={{
-                    transform: `rotate(${photoExtraRotationDeg}deg)`,
+                    transform: `rotate(${photoExtraRotationDeg}deg) scale(${keepHorizontalCoverScale})`,
                     transformOrigin: '50% 50%'
                 }}
             >

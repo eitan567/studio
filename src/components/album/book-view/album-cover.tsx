@@ -590,7 +590,7 @@ const DraggableCoverImage = ({
                     Else -> disable so we can drag the container.
                  */}
                 <div
-                    className={cn("absolute", isCropMode ? "pointer-events-auto" : "pointer-events-none")}
+                    className={cn("absolute overflow-hidden", isCropMode ? "pointer-events-auto" : "pointer-events-none")}
                     style={{
                         left: frameGap > 0 ? `${frameGap}px` : 0,
                         top: frameGap > 0 ? `${frameGap}px` : 0,
@@ -789,7 +789,7 @@ export const StaticCoverImage = ({
                 } : undefined}
             >
                 <div
-                    className="absolute"
+                    className="absolute overflow-hidden"
                     style={{
                         left: frameGap > 0 ? `${frameGap}px` : 0,
                         top: frameGap > 0 ? `${frameGap}px` : 0,
