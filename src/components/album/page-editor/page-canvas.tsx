@@ -1007,6 +1007,7 @@ const ScaledCoverPreview = React.memo(({
     dynamicModeDisabledReason,
     selectedDynamicImage,
     onToggleDynamicMode,
+    onOpenDynamicTemplateDialog,
     onToggleSelectedDynamicImageRotationMode,
     onDeleteSelectedDynamicImage,
     activeDynamicImageIds = [],
@@ -1041,6 +1042,7 @@ const ScaledCoverPreview = React.memo(({
     dynamicModeDisabledReason?: string | null;
     selectedDynamicImage?: CoverImage | null;
     onToggleDynamicMode?: () => void;
+    onOpenDynamicTemplateDialog?: () => void;
     onToggleSelectedDynamicImageRotationMode?: () => void;
     onDeleteSelectedDynamicImage?: () => void;
     activeDynamicImageIds?: string[];
@@ -1168,6 +1170,20 @@ const ScaledCoverPreview = React.memo(({
                             <Sparkles className="h-2.5 w-2.5" />
                             Dynamic
                         </button>
+                        {dynamicMode && (
+                            <>
+                                <span className="mx-1 h-3 w-px bg-border/60" />
+                                <button
+                                    type="button"
+                                    onClick={onOpenDynamicTemplateDialog}
+                                    title="Save current dynamic result as template"
+                                    className="inline-flex items-center gap-1 rounded-sm px-0.5 whitespace-nowrap transition-colors hover:bg-background/80"
+                                >
+                                    <LayoutTemplate className="h-2.5 w-2.5" />
+                                    Save Template
+                                </button>
+                            </>
+                        )}
                         {dynamicMode && selectedDynamicImage && (
                             <>
                                 <span className="mx-1 h-3 w-px bg-border/60" />
@@ -1508,7 +1524,9 @@ export const PageCanvas = React.memo(({
     const handleToggleDynamicMode = useCallback(() => {
         if (isPageLocked || dynamicModeUnsupportedReason) return;
         if (isDynamicMode) {
-            setIsDynamicExitDialogOpen(true);
+            setIsDynamicMode(false);
+            setIsDynamicExitDialogOpen(false);
+            setActiveDynamicImageIds([]);
             return;
         }
         setIsDynamicMode(true);
@@ -1517,11 +1535,13 @@ export const PageCanvas = React.memo(({
         }
     }, [dynamicModeUnsupportedReason, dynamicTemplateLabelSeed, dynamicTemplateName, isDynamicMode, isPageLocked]);
 
-    const handleContinueWithoutDynamicTemplate = useCallback(() => {
-        setIsDynamicExitDialogOpen(false);
-        setIsDynamicMode(false);
-        setActiveDynamicImageIds([]);
-    }, []);
+    const handleOpenDynamicTemplateDialog = useCallback(() => {
+        if (!isDynamicMode) return;
+        if (!dynamicTemplateName.trim()) {
+            setDynamicTemplateName(`${dynamicTemplateLabelSeed} Dynamic Template`);
+        }
+        setIsDynamicExitDialogOpen(true);
+    }, [dynamicTemplateLabelSeed, dynamicTemplateName, isDynamicMode]);
 
     const handleCancelDynamicExit = useCallback(() => {
         setIsDynamicExitDialogOpen(false);
@@ -1621,9 +1641,6 @@ export const PageCanvas = React.memo(({
         });
 
         setIsDynamicExitDialogOpen(false);
-        setIsDynamicMode(false);
-        setActiveDynamicImageIds([]);
-        setDynamicTemplateName('');
     }, [
         defaultCoverTemplate?.id,
         defaultGridTemplate?.id,
@@ -1910,6 +1927,7 @@ export const PageCanvas = React.memo(({
                                 dynamicModeDisabledReason={dynamicModeUnsupportedReason}
                                 selectedDynamicImage={selectedDynamicImage}
                                 onToggleDynamicMode={handleToggleDynamicMode}
+                                onOpenDynamicTemplateDialog={handleOpenDynamicTemplateDialog}
                                 onToggleSelectedDynamicImageRotationMode={handleToggleSelectedDynamicImageRotationMode}
                                 onDeleteSelectedDynamicImage={handleDeleteSelectedDynamicImage}
                                 activeDynamicImageIds={activeDynamicImageIds}
@@ -1959,7 +1977,7 @@ export const PageCanvas = React.memo(({
                     <DialogHeader>
                         <DialogTitle>Save Dynamic Result as Template?</DialogTitle>
                         <DialogDescription>
-                            Name a new template from this page result, or continue without creating one.
+                            Name a new template from this page result.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-2">
@@ -1971,12 +1989,9 @@ export const PageCanvas = React.memo(({
                             placeholder="Dynamic Template"
                         />
                     </div>
-                    <DialogFooter className="mt-3 grid w-full grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3 sm:space-x-0">
+                    <DialogFooter className="mt-3 grid w-full grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 sm:space-x-0">
                         <Button className="w-full whitespace-nowrap" onClick={handleSaveDynamicTemplate}>
                             Save As Template
-                        </Button>
-                        <Button className="w-full whitespace-nowrap" variant="secondary" onClick={handleContinueWithoutDynamicTemplate}>
-                            Continue Without Save
                         </Button>
                         <Button className="w-full whitespace-nowrap" variant="outline" onClick={handleCancelDynamicExit}>
                             Back To Dynamic
