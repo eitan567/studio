@@ -762,6 +762,7 @@ export const StaticCoverImage = ({
     frameGapColor = '#ffffff',
     interactive = false,
     onUpdatePanAndZoom,
+    onReplaceByPhotoId,
     containerAspectRatio = 1
 }: {
     item: CoverImage;
@@ -769,6 +770,7 @@ export const StaticCoverImage = ({
     frameGapColor?: string;
     interactive?: boolean;
     onUpdatePanAndZoom?: (panAndZoom: PhotoPanAndZoom) => void;
+    onReplaceByPhotoId?: (photoId: string) => void;
     containerAspectRatio?: number;
 }) => {
     // If height is missing, use aspect ratio
@@ -805,6 +807,41 @@ export const StaticCoverImage = ({
         panAndZoom: item.panAndZoom
     };
 
+    const resolveDroppedPhotoId = (e: React.DragEvent<HTMLDivElement>) => {
+        const directId = e.dataTransfer.getData('photoId');
+        if (directId) return directId;
+
+        const selectedIds = e.dataTransfer.getData('selectedPhotoIds');
+        if (selectedIds) {
+            try {
+                const parsed = JSON.parse(selectedIds);
+                if (Array.isArray(parsed) && typeof parsed[0] === 'string' && parsed[0]) {
+                    return parsed[0];
+                }
+            } catch {
+                // Ignore malformed multi-select payload.
+            }
+        }
+
+        return '';
+    };
+
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        if (!interactive || !onReplaceByPhotoId) return;
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = 'copy';
+    };
+
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        if (!interactive || !onReplaceByPhotoId) return;
+        const droppedPhotoId = resolveDroppedPhotoId(e);
+        if (!droppedPhotoId) return;
+        e.preventDefault();
+        e.stopPropagation();
+        onReplaceByPhotoId(droppedPhotoId);
+    };
+
     return (
         <div
             className={cn(
@@ -821,6 +858,8 @@ export const StaticCoverImage = ({
                 zIndex: item.zIndex || 40,
                 boxSizing: 'border-box'
             }}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
         >
             {hasPathFrame && pathClipId && item.framePath && (
                 <svg
@@ -1154,6 +1193,33 @@ export const AlbumCover = ({
             img.id === imgId ? { ...img, rotation } : img
         )) || [];
         onUpdatePage?.({ ...page, coverImages: newImages });
+    };
+
+    const replaceCoverImageByGalleryPhoto = (imgId: string, droppedPhotoId: string) => {
+        if (!onUpdatePage || !page.coverImages) return;
+
+        const droppedPhoto = allPhotos.find((photo) => photo.id === droppedPhotoId);
+        if (!droppedPhoto) return;
+
+        const sourceUrl = droppedPhoto.remoteUrl || droppedPhoto.src;
+        if (!sourceUrl) return;
+
+        const resolvedAspectRatio = (droppedPhoto.width && droppedPhoto.height && droppedPhoto.width > 0 && droppedPhoto.height > 0)
+            ? (droppedPhoto.width / droppedPhoto.height)
+            : undefined;
+
+        const newImages = page.coverImages.map((img) => {
+            if (img.id !== imgId) return img;
+
+            return {
+                ...img,
+                url: sourceUrl,
+                aspectRatio: resolvedAspectRatio && resolvedAspectRatio > 0 ? resolvedAspectRatio : img.aspectRatio,
+                panAndZoom: { scale: 1, x: 50, y: 50 }
+            };
+        });
+
+        onUpdatePage({ ...page, coverImages: newImages });
     };
 
     // Derived Styles
@@ -1682,6 +1748,7 @@ export const AlbumCover = ({
                         frameGapColor={dynamicFrameGapColor}
                         interactive={allowPanAsTemplateFrame}
                         onUpdatePanAndZoom={allowPanAsTemplateFrame ? (mz) => updateCoverImagePanAndZoom(imgItem.id, mz) : undefined}
+                        onReplaceByPhotoId={allowPanAsTemplateFrame ? (droppedPhotoId) => replaceCoverImageByGalleryPhoto(imgItem.id, droppedPhotoId) : undefined}
                         containerAspectRatio={overlayContainerAspectRatio}
                     />
                 );
