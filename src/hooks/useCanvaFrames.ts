@@ -18,6 +18,42 @@ export interface CanvaFrame {
     updated_at: string;
 }
 
+let cachedPublicFrameTemplates: AdvancedTemplate[] | null = null;
+let pendingPublicFramesFetch: Promise<AdvancedTemplate[]> | null = null;
+
+async function loadPublicCanvaFrameTemplates(): Promise<AdvancedTemplate[]> {
+    if (cachedPublicFrameTemplates) {
+        return cachedPublicFrameTemplates;
+    }
+
+    if (pendingPublicFramesFetch) {
+        return pendingPublicFramesFetch;
+    }
+
+    pendingPublicFramesFetch = (async () => {
+        const supabase = createClient();
+        const { data, error: fetchError } = await supabase
+            .from('canva_frames')
+            .select('*')
+            .eq('is_public', true)
+            .order('name', { ascending: true });
+
+        if (fetchError) {
+            throw new Error(fetchError.message);
+        }
+
+        const templates = (data as CanvaFrame[]).map(frameToTemplate);
+        cachedPublicFrameTemplates = templates;
+        return templates;
+    })();
+
+    try {
+        return await pendingPublicFramesFetch;
+    } finally {
+        pendingPublicFramesFetch = null;
+    }
+}
+
 /**
  * Convert a database CanvaFrame to an AdvancedTemplate format
  * This allows frames from the DB to be used with the existing template system
@@ -66,36 +102,38 @@ function parseBoundsFromViewBox(viewBox: string): { x: number; y: number; width:
  */
 export function useCanvaFrames() {
     const [frames, setFrames] = useState<AdvancedTemplate[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(!cachedPublicFrameTemplates);
     const [error, setError] = useState<Error | null>(null);
 
     useEffect(() => {
+        if (cachedPublicFrameTemplates) {
+            setFrames(cachedPublicFrameTemplates);
+            setLoading(false);
+            return;
+        }
+
+        let cancelled = false;
+
         async function fetchFrames() {
             try {
-                const supabase = createClient();
-
-                const { data, error: fetchError } = await supabase
-                    .from('canva_frames')
-                    .select('*')
-                    .eq('is_public', true)
-                    .order('name', { ascending: true });
-
-                if (fetchError) {
-                    throw new Error(fetchError.message);
-                }
-
-                // Convert database frames to AdvancedTemplate format
-                const templates = (data as CanvaFrame[]).map(frameToTemplate);
+                const templates = await loadPublicCanvaFrameTemplates();
+                if (cancelled) return;
                 setFrames(templates);
             } catch (err) {
+                if (cancelled) return;
                 console.error('Error fetching canva frames:', err);
                 setError(err instanceof Error ? err : new Error('Failed to fetch frames'));
             } finally {
+                if (cancelled) return;
                 setLoading(false);
             }
         }
 
         fetchFrames();
+
+        return () => {
+            cancelled = true;
+        };
     }, []);
 
     return { frames, loading, error };

@@ -34,6 +34,7 @@ import { parseLayoutId } from '@/lib/layout-id-utils';
 import { useSettings } from '@/hooks/use-settings';
 import { useAlbumEditor } from '../album-editor/context';
 import { useToast } from '@/hooks/use-toast';
+import { useCanvaFrames } from '@/hooks/useCanvaFrames';
 import { AlbumCover } from '../book-view/album-cover';
 import { TemplatePreview } from '@/components/album/shared/template-preview';
 import { LayoutRegion } from '@/lib/advanced-layout-types';
@@ -1008,6 +1009,9 @@ const ScaledCoverPreview = React.memo(({
     selectedDynamicImage,
     onToggleDynamicMode,
     onOpenDynamicTemplateDialog,
+    canvaFrames = [],
+    canvaFramesLoading = false,
+    onApplyCanvaFrameToSelectedDynamicImage,
     onToggleSelectedDynamicImageRotationMode,
     onDeleteSelectedDynamicImage,
     activeDynamicImageIds = [],
@@ -1043,6 +1047,9 @@ const ScaledCoverPreview = React.memo(({
     selectedDynamicImage?: CoverImage | null;
     onToggleDynamicMode?: () => void;
     onOpenDynamicTemplateDialog?: () => void;
+    canvaFrames?: AdvancedTemplate[];
+    canvaFramesLoading?: boolean;
+    onApplyCanvaFrameToSelectedDynamicImage?: (frameTemplate: AdvancedTemplate | null) => void;
     onToggleSelectedDynamicImageRotationMode?: () => void;
     onDeleteSelectedDynamicImage?: () => void;
     activeDynamicImageIds?: string[];
@@ -1187,6 +1194,114 @@ const ScaledCoverPreview = React.memo(({
                         {dynamicMode && selectedDynamicImage && (
                             <>
                                 <span className="mx-1 h-3 w-px bg-border/60" />
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <button
+                                            type="button"
+                                            title="Choose frame shape"
+                                            className="inline-flex items-center gap-1 rounded-sm px-0.5 whitespace-nowrap transition-colors hover:bg-background/80"
+                                        >
+                                            <LayoutTemplate className="h-2.5 w-2.5" />
+                                            Frame
+                                        </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent side="top" align="end" className="w-[320px] p-2">
+                                        <div className="mb-2 text-[11px] font-semibold text-foreground/90">
+                                            Choose Canva Frame
+                                        </div>
+                                        <div className="max-h-[260px] overflow-y-auto pr-1">
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onApplyCanvaFrameToSelectedDynamicImage?.(null)}
+                                                    className={cn(
+                                                        "aspect-square rounded-md border-2 p-1 transition-all",
+                                                        selectedDynamicImage.frameShape !== 'path' && "border-primary bg-primary/5",
+                                                        selectedDynamicImage.frameShape === 'path' && "border-muted hover:border-primary/40 bg-muted/30"
+                                                    )}
+                                                >
+                                                    <div className="w-full h-full rounded-sm border border-border/60 bg-muted/40 flex items-center justify-center">
+                                                        <div className="h-[58%] w-[58%] border-2 border-foreground/70" />
+                                                    </div>
+                                                </button>
+                                                {canvaFramesLoading ? (
+                                                    <div className="col-span-2 rounded-md border border-border/60 p-2 text-[10px] text-muted-foreground">
+                                                        Loading Canva frames...
+                                                    </div>
+                                                ) : canvaFrames.map((frameTemplate) => (
+                                                    (() => {
+                                                        const firstRegion = frameTemplate.regions?.[0];
+                                                        const pathD = firstRegion?.path || '';
+                                                        const viewBox = firstRegion?.viewBox || '0 0 100 100';
+                                                        const safeId = String(frameTemplate.id).replace(/[^a-zA-Z0-9_-]/g, '-');
+                                                        const clipId = `dynamic-thumb-clip-${safeId}`;
+                                                        const vb = viewBox.split(' ').map(Number);
+                                                        const vbX = vb[0] || 0;
+                                                        const vbY = vb[1] || 0;
+                                                        const vbW = vb[2] || 100;
+                                                        const vbH = vb[3] || 100;
+
+                                                        return (
+                                                            <button
+                                                                key={`dynamic-frame-${frameTemplate.id}`}
+                                                                type="button"
+                                                                onClick={() => onApplyCanvaFrameToSelectedDynamicImage?.(frameTemplate)}
+                                                                className={cn(
+                                                                    "aspect-square rounded-md border-2 p-1 transition-all relative overflow-hidden",
+                                                                    selectedDynamicImage.frameShape === 'path' &&
+                                                                        selectedDynamicImage.frameTemplateId === String(frameTemplate.id)
+                                                                        ? "border-primary bg-primary/5"
+                                                                        : "border-muted hover:border-primary/40 bg-muted/30"
+                                                                )}
+                                                                title={frameTemplate.name}
+                                                            >
+                                                                <div className="w-full h-full relative overflow-hidden bg-muted rounded-sm">
+                                                                    <svg viewBox={viewBox} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+                                                                        <defs>
+                                                                            <clipPath id={clipId}>
+                                                                                <path d={pathD} />
+                                                                            </clipPath>
+                                                                            <linearGradient id={`thumbSky-${safeId}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                                                                <stop offset="0%" stopColor="#b8e4f9" />
+                                                                                <stop offset="100%" stopColor="#e8f6fc" />
+                                                                            </linearGradient>
+                                                                            <linearGradient id={`thumbHill1-${safeId}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                                                                <stop offset="0%" stopColor="#9cd67e" />
+                                                                                <stop offset="100%" stopColor="#7cc45a" />
+                                                                            </linearGradient>
+                                                                            <linearGradient id={`thumbHill2-${safeId}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                                                                <stop offset="0%" stopColor="#85c95c" />
+                                                                                <stop offset="100%" stopColor="#6ab344" />
+                                                                            </linearGradient>
+                                                                        </defs>
+                                                                        <g clipPath={`url(#${clipId})`}>
+                                                                            <rect x={vbX} y={vbY} width={vbW} height={vbH} fill={`url(#thumbSky-${safeId})`} />
+                                                                            <circle cx={vbX + vbW * 0.85} cy={vbY + vbH * 0.15} r={vbW * 0.08} fill="#fdf2a4" />
+                                                                            <g fill="white" opacity="0.8">
+                                                                                <circle cx={vbX + vbW * 0.2} cy={vbY + vbH * 0.2} r={vbW * 0.05} />
+                                                                                <circle cx={vbX + vbW * 0.25} cy={vbY + vbH * 0.22} r={vbW * 0.06} />
+                                                                                <circle cx={vbX + vbW * 0.3} cy={vbY + vbH * 0.2} r={vbW * 0.05} />
+                                                                            </g>
+                                                                            <path
+                                                                                d={`M ${vbX - vbW * 0.1} ${vbY + vbH} Q ${vbX + vbW * 0.5} ${vbY + vbH * 0.4} ${vbX + vbW * 1.1} ${vbY + vbH} Z`}
+                                                                                fill={`url(#thumbHill1-${safeId})`}
+                                                                            />
+                                                                            <path
+                                                                                d={`M ${vbX - vbW * 0.2} ${vbY + vbH} Q ${vbX + vbW * 0.3} ${vbY + vbH * 0.6} ${vbX + vbW * 0.8} ${vbY + vbH * 1.1} Z`}
+                                                                                fill={`url(#thumbHill2-${safeId})`}
+                                                                            />
+                                                                        </g>
+                                                                    </svg>
+                                                                </div>
+                                                            </button>
+                                                        );
+                                                    })()
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+                                <span className="mx-1 h-3 w-px bg-border/60" />
                                 <button
                                     type="button"
                                     onClick={onToggleSelectedDynamicImageRotationMode}
@@ -1200,8 +1315,10 @@ const ScaledCoverPreview = React.memo(({
                                         ? 'Keep Horizontal'
                                         : 'Follow Frame'}
                                 </button>
-                                <span className="mx-1 h-3 w-px bg-border/60" />
                             </>
+                        )}
+                        {dynamicMode && selectedDynamicImage && (
+                            <span className="mx-1 h-3 w-px bg-border/60" />
                         )}
                         {dynamicMode && selectedDynamicImage && (
                             <button
@@ -1299,6 +1416,7 @@ export const PageCanvas = React.memo(({
     chronologicalIndex,
 }: PageCanvasProps & { previousPagePhotos?: Photo[]; displayLabel?: string }) => {
     const { gridTemplates, coverTemplates, advancedTemplates, findTemplate, findCoverTemplate, defaultGridTemplate, defaultCoverTemplate } = useTemplates();
+    const { frames: canvaFrames, loading: canvaFramesLoading } = useCanvaFrames();
     const { previewPhotoGap, previewPageMargin, previewCornerRadius } = useAlbumEditor();
     const { toast } = useToast();
     const [isInteracting, setIsInteracting] = useState(false);
@@ -1491,7 +1609,8 @@ export const PageCanvas = React.memo(({
             rotation: 0,
             opacity: 1,
             zIndex: highestZ + 1,
-            imageRotationMode: 'follow-frame'
+            imageRotationMode: 'follow-frame',
+            frameShape: 'rect'
         };
 
         onUpdatePage({
@@ -1517,6 +1636,47 @@ export const PageCanvas = React.memo(({
             return {
                 ...image,
                 imageRotationMode: currentMode === 'keep-horizontal' ? 'follow-frame' : 'keep-horizontal'
+            };
+        }));
+    }, [activeDynamicImageIds, updateDynamicImages]);
+
+    const handleApplyCanvaFrameToSelectedDynamicImage = useCallback((frameTemplate: AdvancedTemplate | null) => {
+        const selectedId = activeDynamicImageIds[0];
+        if (!selectedId) return;
+
+        updateDynamicImages((images) => images.map((image) => {
+            if (image.id !== selectedId) return image;
+
+            if (!frameTemplate) {
+                return {
+                    ...image,
+                    frameShape: 'rect',
+                    framePath: undefined,
+                    frameViewBox: undefined,
+                    frameTemplateId: undefined,
+                    frameName: undefined
+                };
+            }
+
+            const frameRegion = frameTemplate.regions?.find((region) => region.shape === 'path' && !!region.path);
+            if (!frameRegion?.path) {
+                return {
+                    ...image,
+                    frameShape: 'rect',
+                    framePath: undefined,
+                    frameViewBox: undefined,
+                    frameTemplateId: undefined,
+                    frameName: undefined
+                };
+            }
+
+            return {
+                ...image,
+                frameShape: 'path',
+                framePath: frameRegion.path,
+                frameViewBox: frameRegion.viewBox || '0 0 100 100',
+                frameTemplateId: String(frameTemplate.id),
+                frameName: frameTemplate.name
             };
         }));
     }, [activeDynamicImageIds, updateDynamicImages]);
@@ -1597,6 +1757,21 @@ export const PageCanvas = React.memo(({
             const imageRotationMode = image.imageRotationMode === 'keep-horizontal'
                 ? 'keep-horizontal'
                 : 'follow-frame';
+            const hasCanvaPathFrame = image.frameShape === 'path' && typeof image.framePath === 'string' && image.framePath.trim().length > 0;
+
+            if (hasCanvaPathFrame) {
+                return {
+                    id: `dynamic-${image.id}`,
+                    shape: 'path',
+                    path: image.framePath,
+                    viewBox: image.frameViewBox || '0 0 100 100',
+                    bounds: { x, y, width, height },
+                    rotation: image.rotation || 0,
+                    imageRotationMode,
+                    zIndex: (image.zIndex ?? maxBaseZ + index + 1),
+                    label: image.frameName ? `Dynamic Frame: ${image.frameName}` : `Dynamic Frame ${index + 1}`
+                };
+            }
 
             return {
                 id: `dynamic-${image.id}`,
@@ -1928,6 +2103,9 @@ export const PageCanvas = React.memo(({
                                 selectedDynamicImage={selectedDynamicImage}
                                 onToggleDynamicMode={handleToggleDynamicMode}
                                 onOpenDynamicTemplateDialog={handleOpenDynamicTemplateDialog}
+                                canvaFrames={canvaFrames}
+                                canvaFramesLoading={canvaFramesLoading}
+                                onApplyCanvaFrameToSelectedDynamicImage={handleApplyCanvaFrameToSelectedDynamicImage}
                                 onToggleSelectedDynamicImageRotationMode={handleToggleSelectedDynamicImageRotationMode}
                                 onDeleteSelectedDynamicImage={handleDeleteSelectedDynamicImage}
                                 activeDynamicImageIds={activeDynamicImageIds}

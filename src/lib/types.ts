@@ -61,6 +61,11 @@ export interface CoverImage {
   opacity: number;
   zIndex?: number;
   imageRotationMode?: 'follow-frame' | 'keep-horizontal';
+  frameShape?: 'rect' | 'path';
+  framePath?: string;
+  frameViewBox?: string;
+  frameTemplateId?: string;
+  frameName?: string;
 }
 
 export type AlbumPage = {

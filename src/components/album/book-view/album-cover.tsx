@@ -279,6 +279,19 @@ import { PhotoRenderer } from '../layouts/photo-renderer';
 
 type ResizeDirection = 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw';
 
+const buildPathClipTransform = (viewBox?: string): string => {
+    const parts = (viewBox || '0 0 100 100').split(' ').map(Number);
+    const vx = Number.isFinite(parts[0]) ? parts[0] : 0;
+    const vy = Number.isFinite(parts[1]) ? parts[1] : 0;
+    const vw = Number.isFinite(parts[2]) && parts[2] > 0 ? parts[2] : 100;
+    const vh = Number.isFinite(parts[3]) && parts[3] > 0 ? parts[3] : 100;
+    return `scale(${1 / vw}, ${1 / vh}) translate(${-vx}, ${-vy})`;
+};
+
+const sanitizeClipId = (id: string): string => {
+    return id.replace(/[^a-zA-Z0-9_-]/g, '-');
+};
+
 // Draggable Image for Editor
 const DraggableCoverImage = ({
     item,
@@ -352,6 +365,10 @@ const DraggableCoverImage = ({
         cosAbs + (sinAbs / frameAspectRatio),
         cosAbs + (sinAbs * frameAspectRatio)
     );
+    const hasPathFrame = item.frameShape === 'path' && typeof item.framePath === 'string' && item.framePath.trim().length > 0;
+    const pathClipId = hasPathFrame ? `dynamic-path-${sanitizeClipId(item.id)}` : null;
+    const pathClipValue = hasPathFrame && pathClipId ? `url(#${pathClipId})` : undefined;
+    const pathClipTransform = hasPathFrame ? buildPathClipTransform(item.frameViewBox) : '';
 
     const handleMouseDown = (e: React.MouseEvent) => {
         if (e.button !== 0) return;
@@ -578,11 +595,28 @@ const DraggableCoverImage = ({
             onClick={handleClick}
             onDoubleClick={handleDoubleClick}
         >
+            {hasPathFrame && pathClipId && item.framePath && (
+                <svg
+                    width="0"
+                    height="0"
+                    className="absolute"
+                    style={{ position: 'absolute', width: 0, height: 0, pointerEvents: 'none' }}
+                    aria-hidden="true"
+                >
+                    <defs>
+                        <clipPath id={pathClipId} clipPathUnits="objectBoundingBox">
+                            <path d={item.framePath} transform={pathClipTransform} />
+                        </clipPath>
+                    </defs>
+                </svg>
+            )}
             <div
                 className="w-full h-full relative overflow-hidden pointer-events-none"
-                style={frameGap > 0 ? {
-                    backgroundColor: frameGapColor
-                } : undefined}
+                style={{
+                    ...(frameGap > 0 ? { backgroundColor: frameGapColor } : {}),
+                    clipPath: pathClipValue,
+                    WebkitClipPath: pathClipValue
+                }}
             >
                 {/* 
                     Wrapper div for Renderer. 
@@ -595,7 +629,9 @@ const DraggableCoverImage = ({
                         left: frameGap > 0 ? `${frameGap}px` : 0,
                         top: frameGap > 0 ? `${frameGap}px` : 0,
                         right: frameGap > 0 ? `${frameGap}px` : 0,
-                        bottom: frameGap > 0 ? `${frameGap}px` : 0
+                        bottom: frameGap > 0 ? `${frameGap}px` : 0,
+                        clipPath: pathClipValue,
+                        WebkitClipPath: pathClipValue
                     }}
                 >
                     {shouldAdjustPhotoRotation ? (
@@ -755,6 +791,10 @@ export const StaticCoverImage = ({
         cosAbs + (sinAbs / frameAspectRatio),
         cosAbs + (sinAbs * frameAspectRatio)
     );
+    const hasPathFrame = item.frameShape === 'path' && typeof item.framePath === 'string' && item.framePath.trim().length > 0;
+    const pathClipId = hasPathFrame ? `dynamic-path-${sanitizeClipId(item.id)}` : null;
+    const pathClipValue = hasPathFrame && pathClipId ? `url(#${pathClipId})` : undefined;
+    const pathClipTransform = hasPathFrame ? buildPathClipTransform(item.frameViewBox) : '';
 
     const photoObject: Photo = {
         id: item.id,
@@ -782,11 +822,28 @@ export const StaticCoverImage = ({
                 boxSizing: 'border-box'
             }}
         >
+            {hasPathFrame && pathClipId && item.framePath && (
+                <svg
+                    width="0"
+                    height="0"
+                    className="absolute"
+                    style={{ position: 'absolute', width: 0, height: 0, pointerEvents: 'none' }}
+                    aria-hidden="true"
+                >
+                    <defs>
+                        <clipPath id={pathClipId} clipPathUnits="objectBoundingBox">
+                            <path d={item.framePath} transform={pathClipTransform} />
+                        </clipPath>
+                    </defs>
+                </svg>
+            )}
             <div
                 className="w-full h-full relative overflow-hidden"
-                style={frameGap > 0 ? {
-                    backgroundColor: frameGapColor
-                } : undefined}
+                style={{
+                    ...(frameGap > 0 ? { backgroundColor: frameGapColor } : {}),
+                    clipPath: pathClipValue,
+                    WebkitClipPath: pathClipValue
+                }}
             >
                 <div
                     className="absolute overflow-hidden"
@@ -794,7 +851,9 @@ export const StaticCoverImage = ({
                         left: frameGap > 0 ? `${frameGap}px` : 0,
                         top: frameGap > 0 ? `${frameGap}px` : 0,
                         right: frameGap > 0 ? `${frameGap}px` : 0,
-                        bottom: frameGap > 0 ? `${frameGap}px` : 0
+                        bottom: frameGap > 0 ? `${frameGap}px` : 0,
+                        clipPath: pathClipValue,
+                        WebkitClipPath: pathClipValue
                     }}
                 >
                     {shouldAdjustPhotoRotation ? (
