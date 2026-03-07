@@ -5,7 +5,8 @@ import Image from 'next/image';
 import {
     Trash2, LayoutTemplate, Download, Wand2, Undo, Redo2, Pencil, BookOpen,
     RotateCw, Plus, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown,
-    CornerDownRight, CornerDownLeft, ChevronUp, ChevronDown, Settings2, Lock, LockOpen, Sparkles
+    CornerDownRight, CornerDownLeft, ChevronUp, ChevronDown, Settings2, Lock, LockOpen, Sparkles,
+    Maximize2, ArrowUpDown, AlignStartVertical, AlignEndVertical, AlignStartHorizontal, AlignEndHorizontal, AlignCenter
 } from 'lucide-react';
 
 import type { AlbumPage, AlbumConfig, CoverImage, Photo, PhotoPanAndZoom } from '@/lib/types';
@@ -1014,6 +1015,8 @@ const ScaledCoverPreview = React.memo(({
     onApplyCanvaFrameToSelectedDynamicImage,
     onToggleSelectedDynamicImageRotationMode,
     onDeleteSelectedDynamicImage,
+    onMatchSelectedDynamicFramesSize,
+    onAlignSelectedDynamicFrames,
     activeDynamicImageIds = [],
     onSelectDynamicImage,
     disableFrameDrop = false,
@@ -1052,6 +1055,8 @@ const ScaledCoverPreview = React.memo(({
     onApplyCanvaFrameToSelectedDynamicImage?: (frameTemplate: AdvancedTemplate | null) => void;
     onToggleSelectedDynamicImageRotationMode?: () => void;
     onDeleteSelectedDynamicImage?: () => void;
+    onMatchSelectedDynamicFramesSize?: (mode: 'both' | 'width' | 'height') => void;
+    onAlignSelectedDynamicFrames?: (mode: 'left' | 'right' | 'top' | 'bottom' | 'center') => void;
     activeDynamicImageIds?: string[];
     onSelectDynamicImage?: (id: string | string[] | null, isMulti?: boolean) => void;
     disableFrameDrop?: boolean;
@@ -1104,7 +1109,10 @@ const ScaledCoverPreview = React.memo(({
                     )}
                 </div>
                 <div className="absolute z-0 bg-background border-x border-transparent shadow-md" style={{ width: '98%', height: '94.5%', top: '50.4%', left: '50%', transform: 'translate(-50%, -50%)' }} />
-                <div className="relative w-[97%] h-[95%] shadow-lg z-10 overflow-hidden bg-background">
+                <div
+                    className="relative w-[97%] h-[95%] shadow-lg z-10 overflow-hidden bg-background"
+                    data-page-canvas-surface={page.id}
+                >
                     <div className="absolute inset-0 z-50">
                         <AlbumCover
                             page={page}
@@ -1317,6 +1325,80 @@ const ScaledCoverPreview = React.memo(({
                                 </button>
                             </>
                         )}
+                        {dynamicMode && selectedDynamicImage && activeDynamicImageIds.length > 1 && (
+                            <>
+                                <span className="mx-1 h-3 w-px bg-border/60" />
+                                <button
+                                    type="button"
+                                    onClick={() => onMatchSelectedDynamicFramesSize?.('both')}
+                                    title="Match width and height to lead frame"
+                                    className="inline-flex items-center justify-center rounded-sm p-0.5 transition-colors hover:bg-background/80"
+                                >
+                                    <Maximize2 className="h-2.5 w-2.5" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onMatchSelectedDynamicFramesSize?.('width')}
+                                    title="Match width to lead frame"
+                                    className="inline-flex items-center justify-center rounded-sm p-0.5 transition-colors hover:bg-background/80"
+                                >
+                                    <ArrowUpDown className="h-2.5 w-2.5 rotate-90" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onMatchSelectedDynamicFramesSize?.('height')}
+                                    title="Match height to lead frame"
+                                    className="inline-flex items-center justify-center rounded-sm p-0.5 transition-colors hover:bg-background/80"
+                                >
+                                    <ArrowUpDown className="h-2.5 w-2.5" />
+                                </button>
+                            </>
+                        )}
+                        {dynamicMode && selectedDynamicImage && (
+                            <>
+                                <span className="mx-1 h-3 w-px bg-border/60" />
+                                <button
+                                    type="button"
+                                    onClick={() => onAlignSelectedDynamicFrames?.('left')}
+                                    title="Align left"
+                                    className="inline-flex items-center justify-center rounded-sm p-0.5 transition-colors hover:bg-background/80"
+                                >
+                                    <AlignStartVertical className="h-2.5 w-2.5" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onAlignSelectedDynamicFrames?.('right')}
+                                    title="Align right"
+                                    className="inline-flex items-center justify-center rounded-sm p-0.5 transition-colors hover:bg-background/80"
+                                >
+                                    <AlignEndVertical className="h-2.5 w-2.5" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onAlignSelectedDynamicFrames?.('top')}
+                                    title="Align top"
+                                    className="inline-flex items-center justify-center rounded-sm p-0.5 transition-colors hover:bg-background/80"
+                                >
+                                    <AlignStartHorizontal className="h-2.5 w-2.5" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onAlignSelectedDynamicFrames?.('bottom')}
+                                    title="Align bottom"
+                                    className="inline-flex items-center justify-center rounded-sm p-0.5 transition-colors hover:bg-background/80"
+                                >
+                                    <AlignEndHorizontal className="h-2.5 w-2.5" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onAlignSelectedDynamicFrames?.('center')}
+                                    title="Align center"
+                                    className="inline-flex items-center justify-center rounded-sm p-0.5 transition-colors hover:bg-background/80"
+                                >
+                                    <AlignCenter className="h-2.5 w-2.5" />
+                                </button>
+                            </>
+                        )}
                         {dynamicMode && selectedDynamicImage && (
                             <span className="mx-1 h-3 w-px bg-border/60" />
                         )}
@@ -1507,6 +1589,40 @@ export const PageCanvas = React.memo(({
         });
     }, [onUpdatePage, page]);
 
+    const clampFrameSizeAndCenter = useCallback((image: CoverImage, targetWidth: number, targetHeight: number) => {
+        const width = Math.max(2, Math.min(100, targetWidth));
+        const height = Math.max(2, Math.min(100, targetHeight));
+        const halfW = width / 2;
+        const halfH = height / 2;
+        const x = Math.max(halfW, Math.min(100 - halfW, image.x));
+        const y = Math.max(halfH, Math.min(100 - halfH, image.y));
+        return { width, height, x, y };
+    }, []);
+
+    const getFrameGeometry = useCallback((image: CoverImage) => {
+        const width = Math.max(2, Math.min(100, image.width));
+        const height = Math.max(
+            2,
+            Math.min(100, image.height ?? (image.width / Math.max(image.aspectRatio || 1, 0.01)))
+        );
+        const halfW = width / 2;
+        const halfH = height / 2;
+        const left = image.x - halfW;
+        const right = image.x + halfW;
+        const top = image.y - halfH;
+        const bottom = image.y + halfH;
+        return { width, height, halfW, halfH, left, right, top, bottom };
+    }, []);
+
+    const clampFrameCenterToPage = useCallback((x: number, y: number, width: number, height: number) => {
+        const halfW = width / 2;
+        const halfH = height / 2;
+        return {
+            x: Math.max(halfW, Math.min(100 - halfW, x)),
+            y: Math.max(halfH, Math.min(100 - halfH, y))
+        };
+    }, []);
+
     const handleSelectDynamicImage = useCallback((target: string | string[] | null, isMulti?: boolean) => {
         const targetIds = Array.isArray(target) ? target : (target ? [target] : []);
         if (targetIds.length === 0) {
@@ -1530,7 +1646,13 @@ export const PageCanvas = React.memo(({
             return;
         }
 
-        setActiveDynamicImageIds(targetIds);
+        const clickedId = targetIds[0];
+        setActiveDynamicImageIds((prev) => {
+            if (targetIds.length === 1 && prev.length > 1 && prev.includes(clickedId)) {
+                return [clickedId, ...prev.filter((id) => id !== clickedId)];
+            }
+            return targetIds;
+        });
     }, []);
 
     const resolveDroppedPhotoAspectRatio = useCallback(async (photo: Photo, sourceUrl: string) => {
@@ -1680,6 +1802,223 @@ export const PageCanvas = React.memo(({
             };
         }));
     }, [activeDynamicImageIds, updateDynamicImages]);
+
+    const handleMatchSelectedDynamicFramesSize = useCallback((mode: 'both' | 'width' | 'height') => {
+        if (activeDynamicImageIds.length < 2) return;
+        const leadId = activeDynamicImageIds[0];
+        if (!leadId) return;
+
+        updateDynamicImages((images) => {
+            const leadImage = images.find((image) => image.id === leadId);
+            if (!leadImage) return images;
+
+            const leadWidth = Math.max(2, Math.min(100, leadImage.width));
+            const leadHeight = Math.max(
+                2,
+                Math.min(100, leadImage.height ?? (leadImage.width / Math.max(leadImage.aspectRatio || 1, 0.01)))
+            );
+            const selectedSet = new Set(activeDynamicImageIds);
+
+            return images.map((image) => {
+                if (!selectedSet.has(image.id) || image.id === leadId) return image;
+
+                const currentHeight = image.height ?? (image.width / Math.max(image.aspectRatio || 1, 0.01));
+                const targetWidth = mode === 'height' ? image.width : leadWidth;
+                const targetHeight = mode === 'width' ? currentHeight : leadHeight;
+                const clamped = clampFrameSizeAndCenter(image, targetWidth, targetHeight);
+
+                return {
+                    ...image,
+                    width: clamped.width,
+                    height: clamped.height,
+                    x: clamped.x,
+                    y: clamped.y
+                };
+            });
+        });
+    }, [activeDynamicImageIds, clampFrameSizeAndCenter, updateDynamicImages]);
+
+    const handleAlignSelectedDynamicFrames = useCallback((mode: 'left' | 'right' | 'top' | 'bottom' | 'center') => {
+        if (activeDynamicImageIds.length === 0) return;
+
+        updateDynamicImages((images) => {
+            const selectedSet = new Set(activeDynamicImageIds);
+            const selectedImages = images.filter((image) => selectedSet.has(image.id));
+            if (selectedImages.length === 0) return images;
+
+            if (selectedImages.length === 1) {
+                const selectedId = selectedImages[0].id;
+                return images.map((image) => {
+                    if (image.id !== selectedId) return image;
+                    const geometry = getFrameGeometry(image);
+                    let x = image.x;
+                    let y = image.y;
+                    switch (mode) {
+                        case 'left':
+                            x = geometry.halfW;
+                            break;
+                        case 'right':
+                            x = 100 - geometry.halfW;
+                            break;
+                        case 'top':
+                            y = geometry.halfH;
+                            break;
+                        case 'bottom':
+                            y = 100 - geometry.halfH;
+                            break;
+                        case 'center':
+                            x = 50;
+                            y = 50;
+                            break;
+                    }
+                    const clamped = clampFrameCenterToPage(x, y, geometry.width, geometry.height);
+                    return {
+                        ...image,
+                        x: clamped.x,
+                        y: clamped.y
+                    };
+                });
+            }
+
+            const leadId = activeDynamicImageIds[0];
+            const leadImage = leadId ? images.find((image) => image.id === leadId) : null;
+            if (!leadImage) return images;
+            const leadGeometry = getFrameGeometry(leadImage);
+
+            return images.map((image) => {
+                if (!selectedSet.has(image.id) || image.id === leadId) return image;
+
+                const geometry = getFrameGeometry(image);
+                let x = image.x;
+                let y = image.y;
+
+                switch (mode) {
+                    case 'left':
+                        x = leadGeometry.left + geometry.halfW;
+                        break;
+                    case 'right':
+                        x = leadGeometry.right - geometry.halfW;
+                        break;
+                    case 'top':
+                        y = leadGeometry.top + geometry.halfH;
+                        break;
+                    case 'bottom':
+                        y = leadGeometry.bottom - geometry.halfH;
+                        break;
+                    case 'center':
+                        x = leadImage.x;
+                        y = leadImage.y;
+                        break;
+                }
+
+                const clamped = clampFrameCenterToPage(x, y, geometry.width, geometry.height);
+                return {
+                    ...image,
+                    x: clamped.x,
+                    y: clamped.y
+                };
+            });
+        });
+    }, [activeDynamicImageIds, clampFrameCenterToPage, getFrameGeometry, updateDynamicImages]);
+
+    const handleMoveSelectedDynamicFrames = useCallback((deltaX: number, deltaY: number) => {
+        if (activeDynamicImageIds.length === 0) return;
+
+        updateDynamicImages((images) => {
+            const selectedSet = new Set(activeDynamicImageIds);
+            const selectedImages = images.filter((image) => selectedSet.has(image.id));
+            if (selectedImages.length === 0) return images;
+
+            const minAllowedDx = selectedImages.reduce((lowerBound, image) => {
+                const geometry = getFrameGeometry(image);
+                return Math.max(lowerBound, -geometry.left);
+            }, Number.NEGATIVE_INFINITY);
+            const maxAllowedDx = selectedImages.reduce((upperBound, image) => {
+                const geometry = getFrameGeometry(image);
+                return Math.min(upperBound, 100 - geometry.right);
+            }, Number.POSITIVE_INFINITY);
+            const minAllowedDy = selectedImages.reduce((lowerBound, image) => {
+                const geometry = getFrameGeometry(image);
+                return Math.max(lowerBound, -geometry.top);
+            }, Number.NEGATIVE_INFINITY);
+            const maxAllowedDy = selectedImages.reduce((upperBound, image) => {
+                const geometry = getFrameGeometry(image);
+                return Math.min(upperBound, 100 - geometry.bottom);
+            }, Number.POSITIVE_INFINITY);
+
+            const appliedDx = Number.isFinite(deltaX)
+                ? Math.min(maxAllowedDx, Math.max(minAllowedDx, deltaX))
+                : 0;
+            const appliedDy = Number.isFinite(deltaY)
+                ? Math.min(maxAllowedDy, Math.max(minAllowedDy, deltaY))
+                : 0;
+
+            if (Math.abs(appliedDx) < 0.0001 && Math.abs(appliedDy) < 0.0001) {
+                return images;
+            }
+
+            return images.map((image) => {
+                if (!selectedSet.has(image.id)) return image;
+                return {
+                    ...image,
+                    x: image.x + appliedDx,
+                    y: image.y + appliedDy
+                };
+            });
+        });
+    }, [activeDynamicImageIds, getFrameGeometry, updateDynamicImages]);
+
+    const resolveDynamicKeyboardNudgeStep = useCallback(() => {
+        if (typeof document === 'undefined') {
+            return { x: 0.1, y: 0.1 };
+        }
+
+        const surface = document.querySelector<HTMLElement>(`[data-page-canvas-surface="${page.id}"]`);
+        if (!surface) {
+            return { x: 0.1, y: 0.1 };
+        }
+
+        const rect = surface.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) {
+            return { x: 0.1, y: 0.1 };
+        }
+
+        return {
+            x: 100 / rect.width,
+            y: 100 / rect.height
+        };
+    }, [page.id]);
+
+    useEffect(() => {
+        if (!isDynamicMode) return;
+        if (isPageLocked) return;
+        if (activeDynamicImageIds.length === 0) return;
+
+        const handleDynamicArrowNudge = (event: KeyboardEvent) => {
+            if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+                return;
+            }
+
+            const activeElement = document.activeElement as HTMLElement | null;
+            if (activeElement) {
+                const tagName = activeElement.tagName;
+                if (tagName === 'INPUT' || tagName === 'TEXTAREA' || activeElement.isContentEditable) {
+                    return;
+                }
+            }
+
+            event.preventDefault();
+            const step = resolveDynamicKeyboardNudgeStep();
+
+            if (event.key === 'ArrowLeft') handleMoveSelectedDynamicFrames(-step.x, 0);
+            if (event.key === 'ArrowRight') handleMoveSelectedDynamicFrames(step.x, 0);
+            if (event.key === 'ArrowUp') handleMoveSelectedDynamicFrames(0, -step.y);
+            if (event.key === 'ArrowDown') handleMoveSelectedDynamicFrames(0, step.y);
+        };
+
+        window.addEventListener('keydown', handleDynamicArrowNudge);
+        return () => window.removeEventListener('keydown', handleDynamicArrowNudge);
+    }, [activeDynamicImageIds.length, handleMoveSelectedDynamicFrames, isDynamicMode, isPageLocked, resolveDynamicKeyboardNudgeStep]);
 
     const handleToggleDynamicMode = useCallback(() => {
         if (isPageLocked || dynamicModeUnsupportedReason) return;
@@ -2108,6 +2447,8 @@ export const PageCanvas = React.memo(({
                                 onApplyCanvaFrameToSelectedDynamicImage={handleApplyCanvaFrameToSelectedDynamicImage}
                                 onToggleSelectedDynamicImageRotationMode={handleToggleSelectedDynamicImageRotationMode}
                                 onDeleteSelectedDynamicImage={handleDeleteSelectedDynamicImage}
+                                onMatchSelectedDynamicFramesSize={handleMatchSelectedDynamicFramesSize}
+                                onAlignSelectedDynamicFrames={handleAlignSelectedDynamicFrames}
                                 activeDynamicImageIds={activeDynamicImageIds}
                                 onSelectDynamicImage={handleSelectDynamicImage}
                                 disableFrameDrop={isDynamicMode}

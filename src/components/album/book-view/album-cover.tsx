@@ -296,6 +296,7 @@ const sanitizeClipId = (id: string): string => {
 const DraggableCoverImage = ({
     item,
     isSelected,
+    isLead,
     onSelect,
     onUpdatePosition,
     onUpdateSize,
@@ -310,6 +311,7 @@ const DraggableCoverImage = ({
 }: {
     item: CoverImage;
     isSelected: boolean;
+    isLead?: boolean;
     onSelect: (e: React.MouseEvent) => void;
     onUpdatePosition: (x: number, y: number) => void;
     onUpdateSize: (width: number, height: number | undefined) => void;
@@ -369,6 +371,15 @@ const DraggableCoverImage = ({
     const pathClipId = hasPathFrame ? `dynamic-path-${sanitizeClipId(item.id)}` : null;
     const pathClipValue = hasPathFrame && pathClipId ? `url(#${pathClipId})` : undefined;
     const pathClipTransform = hasPathFrame ? buildPathClipTransform(item.frameViewBox) : '';
+    const isLeadSelection = !!isLead && isSelected;
+    const cornerHandleClass = isLeadSelection
+        ? "border-emerald-500 hover:bg-emerald-500"
+        : "border-primary hover:bg-primary";
+    const edgeHandleClass = isLeadSelection
+        ? "border-emerald-500 hover:bg-emerald-500"
+        : "border-primary hover:bg-primary";
+    const rotateAccentClass = isLeadSelection ? "bg-emerald-500/90" : "bg-pink-500/90";
+    const rotateButtonClass = isLeadSelection ? "bg-emerald-500" : "bg-pink-500";
 
     const handleMouseDown = (e: React.MouseEvent) => {
         if (e.button !== 0) return;
@@ -389,7 +400,7 @@ const DraggableCoverImage = ({
             dragOffsetRef.current = { x: 0, y: 0 };
         }
 
-        if (!isSelected || e.ctrlKey || e.metaKey) {
+        if (!isSelected || e.ctrlKey || e.metaKey || e.shiftKey) {
             onSelect(e);
         }
 
@@ -437,9 +448,8 @@ const DraggableCoverImage = ({
 
     const handleClick = (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (isSelected && !hasMovedRef.current && !e.ctrlKey && !e.metaKey) {
-            // onSelect(e); 
-            // Already selected. 
+        if (!hasMovedRef.current && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+            onSelect(e);
         }
     };
 
@@ -579,7 +589,9 @@ const DraggableCoverImage = ({
                 isSelected ? "z-50" : "z-40",
                 !isSelected && "hover:ring-2 hover:ring-primary/20",
                 isCropMode ? "cursor-default ring-2 ring-primary ring-offset-2" : "cursor-move",
-                isSelected && !isCropMode && "ring-2 ring-primary ring-dashed"
+                isSelected && !isCropMode && (isLeadSelection
+                    ? "ring-2 ring-emerald-500 ring-dashed"
+                    : "ring-2 ring-primary ring-dashed")
             )}
             style={{
                 left: `${item.x}%`,
@@ -595,6 +607,11 @@ const DraggableCoverImage = ({
             onClick={handleClick}
             onDoubleClick={handleDoubleClick}
         >
+            {isLeadSelection && (
+                <div className="absolute -top-5 left-0 rounded-sm border border-emerald-500/50 bg-emerald-500/15 px-1 py-[1px] text-[9px] font-semibold leading-none text-emerald-300 pointer-events-none">
+                    Lead
+                </div>
+            )}
             {hasPathFrame && pathClipId && item.framePath && (
                 <svg
                     width="0"
@@ -668,36 +685,36 @@ const DraggableCoverImage = ({
                 <>
                     {/* Resize handles (Canva-like: corners + edges) */}
                     <div
-                        className="absolute -top-1 -left-1 h-3 w-3 rounded-full border border-primary bg-white cursor-nwse-resize z-50 hover:bg-primary hover:scale-125 transition-transform"
+                        className={cn("absolute -top-1 -left-1 h-3 w-3 rounded-full border bg-white cursor-nwse-resize z-50 hover:scale-125 transition-transform", cornerHandleClass)}
                         onMouseDown={(e) => handleResizeStart(e, 'nw')}
                     />
                     <div
-                        className="absolute -top-1 -right-1 h-3 w-3 rounded-full border border-primary bg-white cursor-nesw-resize z-50 hover:bg-primary hover:scale-125 transition-transform"
+                        className={cn("absolute -top-1 -right-1 h-3 w-3 rounded-full border bg-white cursor-nesw-resize z-50 hover:scale-125 transition-transform", cornerHandleClass)}
                         onMouseDown={(e) => handleResizeStart(e, 'ne')}
                     />
                     <div
-                        className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full border border-primary bg-white cursor-nwse-resize z-50 hover:bg-primary hover:scale-125 transition-transform"
+                        className={cn("absolute -bottom-1 -right-1 h-3 w-3 rounded-full border bg-white cursor-nwse-resize z-50 hover:scale-125 transition-transform", cornerHandleClass)}
                         onMouseDown={(e) => handleResizeStart(e, 'se')}
                     />
                     <div
-                        className="absolute -bottom-1 -left-1 h-3 w-3 rounded-full border border-primary bg-white cursor-nesw-resize z-50 hover:bg-primary hover:scale-125 transition-transform"
+                        className={cn("absolute -bottom-1 -left-1 h-3 w-3 rounded-full border bg-white cursor-nesw-resize z-50 hover:scale-125 transition-transform", cornerHandleClass)}
                         onMouseDown={(e) => handleResizeStart(e, 'sw')}
                     />
 
                     <div
-                        className="absolute -top-1 left-1/2 -ml-2 h-1.5 w-4 rounded-full border border-primary bg-white cursor-n-resize z-50 hover:bg-primary transition-colors"
+                        className={cn("absolute -top-1 left-1/2 -ml-2 h-1.5 w-4 rounded-full border bg-white cursor-n-resize z-50 transition-colors", edgeHandleClass)}
                         onMouseDown={(e) => handleResizeStart(e, 'n')}
                     />
                     <div
-                        className="absolute -bottom-1 left-1/2 -ml-2 h-1.5 w-4 rounded-full border border-primary bg-white cursor-s-resize z-50 hover:bg-primary transition-colors"
+                        className={cn("absolute -bottom-1 left-1/2 -ml-2 h-1.5 w-4 rounded-full border bg-white cursor-s-resize z-50 transition-colors", edgeHandleClass)}
                         onMouseDown={(e) => handleResizeStart(e, 's')}
                     />
                     <div
-                        className="absolute top-1/2 -left-1 -mt-2 h-4 w-1.5 rounded-full border border-primary bg-white cursor-w-resize z-50 hover:bg-primary transition-colors"
+                        className={cn("absolute top-1/2 -left-1 -mt-2 h-4 w-1.5 rounded-full border bg-white cursor-w-resize z-50 transition-colors", edgeHandleClass)}
                         onMouseDown={(e) => handleResizeStart(e, 'w')}
                     />
                     <div
-                        className="absolute top-1/2 -right-1 -mt-2 h-4 w-1.5 rounded-full border border-primary bg-white cursor-e-resize z-50 hover:bg-primary transition-colors"
+                        className={cn("absolute top-1/2 -right-1 -mt-2 h-4 w-1.5 rounded-full border bg-white cursor-e-resize z-50 transition-colors", edgeHandleClass)}
                         onMouseDown={(e) => handleResizeStart(e, 'e')}
                     />
 
@@ -717,7 +734,7 @@ const DraggableCoverImage = ({
                                 style={{ left: handle.anchorX, top: handle.anchorY }}
                             >
                                 <div
-                                    className="absolute left-0 top-0 h-[1.5px] bg-pink-500/90"
+                                    className={cn("absolute left-0 top-0 h-[1.5px]", rotateAccentClass)}
                                     style={{
                                         width: `${lineLength}px`,
                                         transformOrigin: '0 50%',
@@ -726,7 +743,7 @@ const DraggableCoverImage = ({
                                 />
                                 <button
                                     type="button"
-                                    className="absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-pink-500 shadow-sm cursor-crosshair pointer-events-auto"
+                                    className={cn("absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white shadow-sm cursor-crosshair pointer-events-auto", rotateButtonClass)}
                                     style={{ left: `${handle.offsetX}px`, top: `${handle.offsetY}px` }}
                                     onMouseDown={handleRotateStart}
                                     aria-label="Rotate frame"
@@ -735,13 +752,8 @@ const DraggableCoverImage = ({
                         );
                     })}
 
-                    <div className="absolute -top-16 left-1/2 -translate-x-1/2 text-[9px] text-white/70 opacity-0 group-hover/item:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                        Hold Shift + corner to free-resize
-                    </div>
-
-                    {/* Double Click Hint */}
-                    <div className="absolute -top-14 left-1/2 -translate-x-1/2 bg-black/75 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover/item:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                        Double-click to Crop
+                    <div className="absolute -top-12 left-1/2 -translate-x-1/2 rounded bg-black/75 px-2 py-0.5 text-[8px] font-medium text-white/90 opacity-0 transition-opacity whitespace-nowrap pointer-events-none group-hover/item:opacity-100">
+                        Double-click to crop
                     </div>
                 </>
             )}
@@ -1681,6 +1693,7 @@ export const AlbumCover = ({
             if (!isVisible) return null;
 
             const isSelected = activeImageIds?.includes(imgItem.id) ?? false;
+            const isLead = (activeImageIds?.length ?? 0) > 1 && activeImageIds?.[0] === imgItem.id;
 
             if (mode === 'editor' && onSelectImage) {
                 return (
@@ -1688,8 +1701,9 @@ export const AlbumCover = ({
                         key={imgItem.id}
                         item={{ ...imgItem, x: localX, y: localY, width: localWidth }}
                         isSelected={isSelected}
+                        isLead={isLead}
                         onSelect={(e) => {
-                            onSelectImage([imgItem.id], e.ctrlKey || e.metaKey);
+                            onSelectImage([imgItem.id], e.ctrlKey || e.metaKey || e.shiftKey);
                         }}
                         onUpdatePosition={(x, y) => {
                             let globalX = x;
