@@ -335,6 +335,8 @@ const DraggableCoverImage = ({
     const startResizeRef = useRef<{
         startWidth: number,
         startHeight: number,
+        startCenterX: number,
+        startCenterY: number,
         startX: number,
         startY: number,
         direction: ResizeDirection,
@@ -420,6 +422,8 @@ const DraggableCoverImage = ({
         startResizeRef.current = {
             startWidth: item.width,
             startHeight: currentHeight,
+            startCenterX: item.x,
+            startCenterY: item.y,
             startX: e.clientX,
             startY: e.clientY,
             direction,
@@ -494,7 +498,16 @@ const DraggableCoverImage = ({
                 let y = ((e.clientY - rect.top - dragOffsetRef.current.y) / rect.height) * 100;
                 onUpdatePosition(x, y);
             } else if (isResizing && startResizeRef.current) {
-                const { startX, startY, startWidth, startHeight, direction, freeResize } = startResizeRef.current;
+                const {
+                    startX,
+                    startY,
+                    startWidth,
+                    startHeight,
+                    startCenterX,
+                    startCenterY,
+                    direction,
+                    freeResize
+                } = startResizeRef.current;
 
                 // Delta in pixels
                 const dx = e.clientX - startX;
@@ -504,47 +517,93 @@ const DraggableCoverImage = ({
                 const dWidth = (dx / rect.width) * 100;
                 const dHeight = (dy / rect.height) * 100;
 
-                let newWidth = startWidth;
-                let newHeight = startHeight;
+                const minSize = 2;
                 const affectsWidth = direction.includes('e') || direction.includes('w');
                 const affectsHeight = direction.includes('n') || direction.includes('s');
-                const signedWidthDelta = direction.includes('w') ? -(dWidth * 2) : (dWidth * 2);
-                const signedHeightDelta = direction.includes('n') ? -(dHeight * 2) : (dHeight * 2);
+                const movingLeft = direction.includes('w');
+                const movingRight = direction.includes('e');
+                const movingTop = direction.includes('n');
+                const movingBottom = direction.includes('s');
                 const isEdgeHandle = direction === 'n' || direction === 's' || direction === 'e' || direction === 'w';
                 const shouldLockAspect = lockAspectRatio && !freeResize && !isEdgeHandle;
 
+                const startLeft = startCenterX - (startWidth / 2);
+                const startRight = startCenterX + (startWidth / 2);
+                const startTop = startCenterY - (startHeight / 2);
+                const startBottom = startCenterY + (startHeight / 2);
+
+                let left = startLeft;
+                let right = startRight;
+                let top = startTop;
+                let bottom = startBottom;
+
                 if (shouldLockAspect) {
                     const aspectRatio = item.aspectRatio > 0 ? item.aspectRatio : 1;
-                    const containerAspectRatio = rect.width > 0 && rect.height > 0
+                    const localContainerAspectRatio = rect.width > 0 && rect.height > 0
                         ? (rect.width / rect.height)
                         : 1;
-                    const widthFromX = startWidth + signedWidthDelta;
-                    const heightFromY = startHeight + signedHeightDelta;
-                    const widthFromY = heightFromY * (aspectRatio / containerAspectRatio);
+                    const widthFromHeightFactor = aspectRatio / localContainerAspectRatio;
+                    const heightFromWidthFactor = localContainerAspectRatio / aspectRatio;
 
-                    let nextWidth = startWidth;
-                    if (affectsWidth && affectsHeight) {
-                        nextWidth = Math.abs(widthFromX - startWidth) > Math.abs(widthFromY - startWidth)
-                            ? widthFromX
-                            : widthFromY;
-                    } else if (affectsWidth) {
-                        nextWidth = widthFromX;
-                    } else if (affectsHeight) {
-                        nextWidth = widthFromY;
+                    const movedEdgeX = movingLeft ? (startLeft + dWidth) : (startRight + dWidth);
+                    const movedEdgeY = movingTop ? (startTop + dHeight) : (startBottom + dHeight);
+                    const anchorX = movingLeft ? startRight : startLeft;
+                    const anchorY = movingTop ? startBottom : startTop;
+
+                    const rawWidthFromX = movingLeft
+                        ? Math.max(minSize, anchorX - movedEdgeX)
+                        : Math.max(minSize, movedEdgeX - anchorX);
+                    const rawHeightFromY = movingTop
+                        ? Math.max(minSize, anchorY - movedEdgeY)
+                        : Math.max(minSize, movedEdgeY - anchorY);
+                    const rawWidthFromY = rawHeightFromY * widthFromHeightFactor;
+
+                    const targetWidthUnclamped = Math.abs(rawWidthFromX - startWidth) >= Math.abs(rawWidthFromY - startWidth)
+                        ? rawWidthFromX
+                        : rawWidthFromY;
+                    const minWidthFromHeightFloor = minSize * widthFromHeightFactor;
+                    const maxWidthByX = movingLeft ? anchorX : (100 - anchorX);
+                    const maxHeightByY = movingTop ? anchorY : (100 - anchorY);
+                    const maxWidthByY = maxHeightByY * widthFromHeightFactor;
+                    const maxAllowedWidth = Math.max(minSize, Math.min(maxWidthByX, maxWidthByY));
+                    const targetWidth = Math.max(minSize, minWidthFromHeightFloor, Math.min(maxAllowedWidth, targetWidthUnclamped));
+                    const targetHeight = Math.max(minSize, targetWidth * heightFromWidthFactor);
+
+                    if (movingLeft) {
+                        left = anchorX - targetWidth;
+                        right = anchorX;
+                    } else if (movingRight) {
+                        left = anchorX;
+                        right = anchorX + targetWidth;
                     }
-
-                    const minWidthFromHeightFloor = 2 * (aspectRatio / containerAspectRatio);
-                    newWidth = Math.max(2, minWidthFromHeightFloor, nextWidth);
-                    newHeight = Math.max(2, newWidth * (containerAspectRatio / aspectRatio));
+                    if (movingTop) {
+                        top = anchorY - targetHeight;
+                        bottom = anchorY;
+                    } else if (movingBottom) {
+                        top = anchorY;
+                        bottom = anchorY + targetHeight;
+                    }
                 } else {
-                    if (affectsWidth) {
-                        newWidth = Math.max(2, startWidth + signedWidthDelta);
+                    if (movingLeft) {
+                        left = Math.max(0, Math.min(startLeft + dWidth, startRight - minSize));
+                    } else if (movingRight) {
+                        right = Math.min(100, Math.max(startRight + dWidth, startLeft + minSize));
                     }
-                    if (affectsHeight) {
-                        newHeight = Math.max(2, startHeight + signedHeightDelta);
+                    if (movingTop) {
+                        top = Math.max(0, Math.min(startTop + dHeight, startBottom - minSize));
+                    } else if (movingBottom) {
+                        bottom = Math.min(100, Math.max(startBottom + dHeight, startTop + minSize));
                     }
                 }
 
+                const newWidth = Math.max(minSize, right - left);
+                const newHeight = Math.max(minSize, bottom - top);
+                const newX = left + (newWidth / 2);
+                const newY = top + (newHeight / 2);
+
+                if (affectsWidth || affectsHeight) {
+                    onUpdatePosition(newX, newY);
+                }
                 onUpdateSize(newWidth, newHeight);
             }
         };
@@ -568,7 +627,7 @@ const DraggableCoverImage = ({
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [isDragging, isResizing, isRotating, onUpdatePosition, onUpdateRotation, onUpdateSize, onDragEnd]);
+    }, [isDragging, isResizing, isRotating, lockAspectRatio, item.aspectRatio, onUpdatePosition, onUpdateRotation, onUpdateSize, onDragEnd]);
 
     // Construct "Photo" object for PhotoRenderer
     const photoObject: Photo = {
