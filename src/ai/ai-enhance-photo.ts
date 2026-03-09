@@ -2,6 +2,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
+import { vertexAI } from '@genkit-ai/google-genai';
 
 const AIEnhancePhotoInputSchema = z.object({
   imageUrl: z
@@ -83,7 +84,7 @@ const aiEnhancePhotoFlow = ai.defineFlow(
     ): Promise<{ url?: string; error?: string }> => {
       try {
         const response = await ai.generate({
-          model,
+          model: vertexAI.model(model),
           prompt,
           config: {
             temperature: 0.3,
@@ -108,10 +109,9 @@ const aiEnhancePhotoFlow = ai.defineFlow(
     };
 
     const modelCandidates = [
-      'googleai/nano-banana-pro-preview',
-      'googleai/gemini-2.5-flash-image',
-      'googleai/gemini-2.0-flash-exp-image-generation',
-      'googleai/imagen-4.0-fast-generate-001',
+      'gemini-2.5-flash-image',
+      'gemini-3.1-flash-image-preview',
+      'gemini-3-pro-image-preview',
     ];
 
     let lastError: string | undefined;

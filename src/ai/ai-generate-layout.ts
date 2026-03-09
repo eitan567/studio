@@ -10,6 +10,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { AdvancedTemplate, LayoutRegion, ShapeType, TemplateCategory } from '@/lib/advanced-layout-types';
 import { v4 as uuidv4 } from 'uuid';
+import { vertexAI } from '@genkit-ai/google-genai';
 
 const AIGenerateLayoutInputSchema = z.object({
     prompt: z
@@ -84,7 +85,7 @@ STRICT RULES:
 Return ONLY a valid JSON object with the layout definition.`;
 
             const response = await ai.generate({
-                model: 'googleai/gemini-2.5-flash',
+                model: vertexAI.model('gemini-2.5-flash'),
                 prompt: userPrompt,
                 system: systemPrompt,
                 config: {

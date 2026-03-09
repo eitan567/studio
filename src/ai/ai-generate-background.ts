@@ -8,6 +8,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
+import { vertexAI } from '@genkit-ai/google-genai';
 
 const AIGenerateBackgroundInputSchema = z.object({
     prompt: z
@@ -48,48 +49,61 @@ const aiGenerateBackgroundFlow = ai.defineFlow(
             const prompt = `Generate a beautiful album background image based on this description: ${input.prompt}${input.style ? `. Style: ${input.style}` : ''}. 
 The image should be suitable as a photo album page background - subtle, elegant, and not too busy so it doesn't compete with the photos.`;
 
-            const tryModel = async (model: string): Promise<string | null> => {
-                const response = await ai.generate({
-                    model,
-                    prompt,
-                    config: {
-                        temperature: 0.4,
-                    },
-                });
+            const tryModel = async (model: string): Promise<{ imageUrl?: string; error?: string }> => {
+                try {
+                    const response = await ai.generate({
+                        model: vertexAI.model(model),
+                        prompt,
+                        config: {
+                            temperature: 0.4,
+                        },
+                    });
 
-                if (response.media?.url) {
-                    return response.media.url;
+                    if (response.media?.url) {
+                        return { imageUrl: response.media.url };
+                    }
+
+                    const mediaPart = response.message?.content?.find((part: any) => part?.media?.url);
+                    if (mediaPart?.media?.url) {
+                        return { imageUrl: mediaPart.media.url };
+                    }
+
+                    return { error: 'No image returned by model' };
+                } catch (err) {
+                    return {
+                        error: err instanceof Error ? err.message : 'Model call failed',
+                    };
                 }
-
-                const mediaPart = response.message?.content?.find((part: any) => part?.media?.url);
-                if (mediaPart?.media?.url) {
-                    return mediaPart.media.url;
-                }
-
-                return null;
             };
 
             const modelCandidates = [
-                'googleai/nano-banana-pro-preview',
-                'googleai/gemini-2.5-flash-image',
-                'googleai/gemini-2.0-flash-exp-image-generation',
-                'googleai/imagen-4.0-fast-generate-001',
+                'imagen-4.0-fast-generate-001',
+                'imagen-4.0-generate-001',
+                'imagen-4.0-ultra-generate-001',
+                'imagen-3.0-generate-002',
+                'imagen-3.0-generate-001',
+                'imagen-3.0-fast-generate-001',
+                'gemini-2.5-flash-image',
+                'gemini-3.1-flash-image-preview',
+                'gemini-3-pro-image-preview',
             ];
 
+            let lastError: string | undefined;
             for (const candidate of modelCandidates) {
-                const imageUrl = await tryModel(candidate);
-                if (imageUrl) {
+                const result = await tryModel(candidate);
+                if (result.imageUrl) {
                     return {
-                        imageUrl,
+                        imageUrl: result.imageUrl,
                         success: true,
                     };
                 }
+                lastError = result.error || lastError;
             }
 
             return {
                 imageUrl: '',
                 success: false,
-                error: 'No image was generated. Try a different prompt.',
+                error: lastError || 'No image was generated. Try a different prompt.',
             };
         } catch (error) {
             return {
