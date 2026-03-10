@@ -926,7 +926,8 @@ export const StaticCoverImage = ({
                 height: `${heightPercent}%`,
                 transform: `translate(-50%, -50%) rotate(${normalizedRotation}deg)`,
                 opacity: item.opacity,
-                zIndex: item.zIndex || 40,
+                // Preserve explicit zIndex=0 (do not coerce to default 40).
+                zIndex: item.zIndex ?? 40,
                 boxSizing: 'border-box'
             }}
             onDragOver={handleDragOver}
