@@ -1,14 +1,14 @@
 
 import { createClient } from './supabase';
-import { normalizeSupabaseStorageUrl } from './supabase-media-normalizer';
+import { buildSupabaseStorageUrl, normalizeSupabaseStorageUrl } from './supabase-media-normalizer';
 
 const supabase = createClient();
 
 export type ImageSize = 'thumbnail' | 'preview' | 'full';
 
 export const ImageSizes: Record<ImageSize, { width: number; height: number; quality: number }> = {
-    thumbnail: { width: 300, height: 300, quality: 70 }, // Increased slightly for higher density screens
-    preview: { width: 800, height: 800, quality: 80 },
+    thumbnail: { width: 620, height: 620, quality: 90 },
+    preview: { width: 800, height: 800, quality: 90 },
     full: { width: 2000, height: 2000, quality: 90 },
 };
 
@@ -18,6 +18,27 @@ export interface TransformOptions {
     quality?: number;
     resize?: 'cover' | 'contain' | 'fill';
     format?: 'origin' | 'webp' | 'avif';
+}
+
+function isLocalSupabaseUrl(url: string): boolean {
+    return url.includes('127.0.0.1') || url.includes('localhost');
+}
+
+function buildLocalTransformUrl(src: string, options: TransformOptions = {}): string {
+    const params = new URLSearchParams();
+    params.set('src', src);
+
+    if (options.width) params.set('w', options.width.toString());
+    if (options.height) params.set('h', options.height.toString());
+    if (options.quality !== undefined) params.set('q', options.quality.toString());
+    if (options.resize) params.set('resize', options.resize);
+    if (options.format) params.set('format', options.format);
+
+    return `/api/image/transform?${params.toString()}`;
+}
+
+function shouldUseLocalTransformFallback(options: TransformOptions): boolean {
+    return typeof options.width === 'number' && typeof options.height === 'number';
 }
 
 /**
@@ -32,9 +53,13 @@ export function getOptimizedImageUrl(storagePath: string, options: TransformOpti
         process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('localhost');
 
     // Supabase Local Storage typically doesn't support the /render/image API out of the box
-    // unless configured with imgproxy. To avoid broken images locally, we skip transformations.
+    // unless configured with imgproxy. Use a local app route so local thumbnails are resized for real.
     if (isLocal) {
         const { data } = supabase.storage.from('photos').getPublicUrl(storagePath);
+        if (shouldUseLocalTransformFallback(options)) {
+            return buildLocalTransformUrl(data.publicUrl, options);
+        }
+
         return data.publicUrl;
     }
 
@@ -48,7 +73,7 @@ export function getOptimizedImageUrl(storagePath: string, options: TransformOpti
             transform: {
                 width: options.width,
                 height: options.height,
-                quality: options.quality || 80,
+                quality: options.quality ?? 80,
                 format: (options.format || 'webp') as any,
                 resize: options.resize || 'cover',
             },
@@ -57,58 +82,64 @@ export function getOptimizedImageUrl(storagePath: string, options: TransformOpti
     return data.publicUrl;
 }
 
-/**
- * Next.js Image Loader function
- * Compatible with next/image 'loader' prop
- */
-export default function supabaseLoader({ src, width, quality }: { src: string; width: number; quality?: number }) {
-    // If src is already a full URL, we might need to extract the path or just append params if it supports it.
-    // But typically for next/image with a custom loader, 'src' is the partial path provided to <Image src="..." />.
-    // However, in our app, we often pass full authenticated URLs or public URLs.
-    // We need to handle both cases or force usage of storage paths.
+export function buildSupabaseImageUrl(src: string, options: TransformOptions = {}): string {
+    if (!src) return '';
 
-    // CASE 1: src is a storage path (e.g. "user_id/filename.jpg")
     if (!src.startsWith('http')) {
-        return getOptimizedImageUrl(src, { width, quality, resize: 'contain' });
-    }
+        const isLocal = process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('127.0.0.1') ||
+            process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('localhost');
 
-    // CASE 2: Supabase Storage URL
-    if (src.includes('/storage/v1/object/public/')) {
-        const normalizedSrc = normalizeSupabaseStorageUrl(src) || src;
-        const isLocal = normalizedSrc.includes('127.0.0.1') || normalizedSrc.includes('localhost');
-
-        // Local: Return original with dummy param to satisfy Next.js loader warning
         if (isLocal) {
-            try {
-                const localUrl = new URL(normalizedSrc);
-                localUrl.searchParams.set('w', width.toString());
-                return localUrl.toString();
-            } catch (e) {
-                return `${normalizedSrc}?w=${width}`;
-            }
+            const publicUrl = buildSupabaseStorageUrl(src);
+            if (!publicUrl) return src;
+            return shouldUseLocalTransformFallback(options)
+                ? buildLocalTransformUrl(publicUrl, options)
+                : publicUrl;
         }
 
-        // Remote: Replace /object/public/ with /render/image/public/ to enable transformations
-        const transformSrc = normalizedSrc.replace(/\/storage\/v1\/object\/public\//, '/storage/v1/render/image/public/');
+        return getOptimizedImageUrl(src, options);
+    }
+
+    if (src.includes('/storage/v1/object/public/') || src.includes('/storage/v1/render/image/public/')) {
+        const normalizedSrc = normalizeSupabaseStorageUrl(src) || src;
+        const isLocal = isLocalSupabaseUrl(normalizedSrc);
+
+        if (isLocal) {
+            return shouldUseLocalTransformFallback(options)
+                ? buildLocalTransformUrl(normalizedSrc, options)
+                : normalizedSrc;
+        }
+
+        const transformSrc = normalizedSrc
+            .replace(/\/storage\/v1\/object\/public\//, '/storage/v1/render/image/public/');
 
         try {
             const url = new URL(transformSrc);
-            url.searchParams.set('width', width.toString());
-            url.searchParams.set('quality', (quality || 50).toString());
-            url.searchParams.set('format', 'webp');
-            url.searchParams.set('resize', 'contain');
+            if (options.width) url.searchParams.set('width', options.width.toString());
+            if (options.height) url.searchParams.set('height', options.height.toString());
+            url.searchParams.set('quality', (options.quality ?? 80).toString());
+            url.searchParams.set('format', options.format || 'webp');
+            url.searchParams.set('resize', options.resize || 'contain');
             return url.toString();
         } catch (e) {
             return normalizedSrc;
         }
     }
 
-    // CASE 3: External URL (Unsplash, Picsum, etc) - return with width param to satisfy Next.js loader warning
     try {
         const url = new URL(src);
-        url.searchParams.set('w', width.toString());
+        if (options.width) url.searchParams.set('w', options.width.toString());
+        if (options.height) url.searchParams.set('h', options.height.toString());
         return url.toString();
     } catch (e) {
         return src;
     }
+}
+
+/**
+ * Next.js Image Loader function
+ * Compatible with next/image 'loader' prop
+ */
+export default function supabaseLoader({ src, width, quality }: { src: string; width: number; quality?: number }) {
+    return buildSupabaseImageUrl(src, { width, quality, resize: 'contain' });
 }

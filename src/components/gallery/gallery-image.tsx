@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Image, { ImageProps } from 'next/image';
-import supabaseLoader, { getOptimizedImageUrl, ImageSize, ImageSizes } from '@/lib/supabase-image-loader';
+import { buildSupabaseImageUrl, ImageSize, ImageSizes } from '@/lib/supabase-image-loader';
 import { cn } from '@/lib/utils';
 import { AlertTriangle } from 'lucide-react';
 
@@ -27,17 +27,21 @@ export function GalleryImage({
 }: GalleryImageProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [hasError, setHasError] = useState(false);
+    const transformPreset = ImageSizes[size];
 
-    // If src is a storage path, we can pre-generate a low-res blur or just use the loader
-    // We'll use the loader implicitly by passing it to NextImage, or rely on src being a full URL if we pre-calculate.
-    // The 'supabaseLoader' handles both paths and full URLs.
+    const boundedLoader = useMemo(() => {
+        return ({ src: loaderSrc, width, quality }: { src: string; width: number; quality?: number }) => {
+            const boundedWidth = Math.min(width, transformPreset.width);
 
-    // For 'fill' layout generally used in galleries:
-    const isFill = props.fill !== false; // Default to fill if not specified otherwise, but standard NextImage defaults to false.
-    // Actually, let's stick to NextImage defaults. If user passes fill, they pass fill.
-
-    // Determine priority size for loader
-    // We can pass `loader={supabaseLoader}` to NextImage.
+            return buildSupabaseImageUrl(loaderSrc, {
+                width: boundedWidth,
+                height: transformPreset.height,
+                quality: quality ?? transformPreset.quality,
+                resize: 'contain',
+                format: 'webp',
+            });
+        };
+    }, [transformPreset.height, transformPreset.quality, transformPreset.width]);
 
     return (
         <div
@@ -54,7 +58,7 @@ export function GalleryImage({
                 <Image
                     src={src}
                     alt={alt}
-                    loader={supabaseLoader}
+                    loader={boundedLoader}
                     className={cn(
                         "transition-all duration-700 ease-in-out",
                         isLoading ? "opacity-0 scale-105 blur-md" : "opacity-100 scale-100 blur-0",
