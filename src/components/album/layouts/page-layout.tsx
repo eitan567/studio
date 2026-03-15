@@ -167,7 +167,7 @@ const PageLayoutComponent = ({
     };
 
     // Measure container for pixel-perfect positioning
-    React.useEffect(() => {
+    React.useLayoutEffect(() => {
         if (!containerRef.current) return;
 
         const measure = () => {
@@ -264,6 +264,7 @@ const PageLayoutComponent = ({
                         onReplace={(e, anchor) => handleEmptySlotClick(e, actualIndex, anchor)}
                         onEnhanceWithAi={onEnhancePhotoWithAi}
                         pageId={page.id}
+                        useSimpleImage={useSimpleImage}
                         cornerRadius={cornerRadius}
                         imageRotationMode={regionImageMode}
                         forceGapStroke={overlapWithLowerFlags[index]}

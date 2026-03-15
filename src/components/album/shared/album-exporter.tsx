@@ -3,6 +3,7 @@ import { toBlob } from 'html-to-image';
 import JSZip from 'jszip';
 import { jsPDF } from 'jspdf';
 import { saveAs } from 'file-saver';
+import { flushSync } from 'react-dom';
 import { AlbumPage, AlbumConfig } from '@/lib/types';
 import { PageLayout } from '../layouts/page-layout';
 import { AlbumCover, StaticCoverText, StaticCoverImage } from '../book-view/album-cover';
@@ -22,6 +23,7 @@ import {
 interface AlbumExporterProps {
     pages: AlbumPage[];
     config: AlbumConfig;
+    albumName?: string;
     onExportStart?: () => void;
     onExportProgress?: (current: number, total: number) => void;
     onExportComplete?: () => void;
@@ -74,6 +76,7 @@ export interface AlbumExporterRef {
 export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
     pages,
     config,
+    albumName,
     onExportStart,
     onExportProgress,
     onExportComplete,
@@ -98,6 +101,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
     const DEFAULT_IMAGES_DPI: ExportDpi = 300;
     const DEFAULT_SINGLE_PAGE_DPI: ExportDpi = 300;
     const DEFAULT_PDF_DPI: ExportDpi = 200;
+    const ASSET_WAIT_TIMEOUT_MS = 8000;
     const [activeRenderOptions, setActiveRenderOptions] = useState<NormalizedExportRenderOptions | null>(null);
 
     const createUniformWhiteMargins = React.useCallback((value: number): NormalizedWhiteMarginsMm => ({
@@ -106,6 +110,26 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
         bottom: value,
         left: value,
     }), []);
+
+    const sanitizeExportFileName = React.useCallback((value: string | undefined) => {
+        const fallbackName = 'album';
+        const normalized = String(value || fallbackName)
+            .trim()
+            .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '-')
+            .replace(/\s+/g, ' ')
+            .replace(/\.+$/g, '')
+            .trim();
+        return normalized || fallbackName;
+    }, []);
+
+    const getExportBaseName = React.useCallback(() => {
+        const dateStamp = new Date().toISOString().slice(0, 10);
+        return `${sanitizeExportFileName(albumName)}-album-export-${dateStamp}`;
+    }, [albumName, sanitizeExportFileName]);
+
+    const getExportImageFileName = React.useCallback((label: string) => {
+        return `${sanitizeExportFileName(albumName)}-${label}.png`;
+    }, [albumName, sanitizeExportFileName]);
 
     const parseAlbumSizeCm = React.useCallback(() => {
         const [rawW, rawH] = String(config.size || '').split('x');
@@ -197,6 +221,155 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
         left: getRenderWhiteMarginPx(marginsMm.left, dpi, isSpread, pixelRatioFallback),
     }), [getRenderWhiteMarginPx]);
 
+    const extractBackgroundImageUrls = React.useCallback((backgroundImageValue: string | undefined) => {
+        if (!backgroundImageValue || backgroundImageValue === 'none') return [];
+
+        const urls: string[] = [];
+        const pattern = /url\((['"]?)(.*?)\1\)/g;
+        let match: RegExpExecArray | null;
+
+        while ((match = pattern.exec(backgroundImageValue)) !== null) {
+            const url = match[2]?.trim();
+            if (url) {
+                urls.push(url);
+            }
+        }
+
+        return urls;
+    }, []);
+
+    const preloadImageUrl = React.useCallback((url: string) => {
+        return new Promise<void>((resolve) => {
+            const image = new Image();
+            let resolved = false;
+            const timeoutId = window.setTimeout(() => {
+                if (resolved) return;
+                resolved = true;
+                resolve();
+            }, ASSET_WAIT_TIMEOUT_MS);
+
+            const finish = () => {
+                if (resolved) return;
+                resolved = true;
+                window.clearTimeout(timeoutId);
+                resolve();
+            };
+
+            image.decoding = 'async';
+            image.onload = finish;
+            image.onerror = finish;
+            image.src = url;
+
+            if (image.complete) {
+                finish();
+            }
+        });
+    }, [ASSET_WAIT_TIMEOUT_MS]);
+
+    const waitForImageElement = React.useCallback((image: HTMLImageElement) => {
+        return new Promise<void>((resolve) => {
+            if (!image) {
+                resolve();
+                return;
+            }
+
+            try {
+                image.loading = 'eager';
+                (image as HTMLImageElement & { fetchPriority?: string }).fetchPriority = 'high';
+            } catch {
+                // Ignore browsers that do not allow overriding these hints.
+            }
+
+            if (image.complete) {
+                resolve();
+                return;
+            }
+
+            let resolved = false;
+            const timeoutId = window.setTimeout(() => {
+                if (resolved) return;
+                resolved = true;
+                resolve();
+            }, ASSET_WAIT_TIMEOUT_MS);
+
+            const finish = () => {
+                if (resolved) return;
+                resolved = true;
+                window.clearTimeout(timeoutId);
+                resolve();
+            };
+
+            image.addEventListener('load', finish, { once: true });
+            image.addEventListener('error', finish, { once: true });
+
+            if (typeof image.decode === 'function') {
+                image.decode().then(finish).catch(() => undefined);
+            }
+        });
+    }, [ASSET_WAIT_TIMEOUT_MS]);
+
+    const waitForElementAssets = React.useCallback(async (root: HTMLElement | null) => {
+        if (!root) return;
+
+        if (typeof document !== 'undefined' && 'fonts' in document) {
+            try {
+                await document.fonts.ready;
+            } catch {
+                // Ignore font readiness failures and continue export.
+            }
+        }
+
+        const htmlImages = Array.from(root.querySelectorAll<HTMLImageElement>('img'));
+        await Promise.allSettled(htmlImages.map(waitForImageElement));
+
+        const backgroundUrls = Array.from(new Set(
+            [root, ...Array.from(root.querySelectorAll<HTMLElement>('*'))]
+                .flatMap((element) => extractBackgroundImageUrls(element.style.backgroundImage))
+        ));
+        await Promise.allSettled(backgroundUrls.map((url) => preloadImageUrl(url)));
+        await Promise.resolve();
+    }, [extractBackgroundImageUrls, preloadImageUrl, waitForImageElement]);
+
+    const prepareRenderTree = React.useCallback(async (
+        renderOptions: NormalizedExportRenderOptions
+    ) => {
+        flushSync(() => {
+            setActiveRenderOptions(renderOptions);
+            setIsRendering(true);
+        });
+
+        if (!containerRef.current) {
+            return null;
+        }
+
+        await waitForElementAssets(containerRef.current);
+        return containerRef.current;
+    }, [waitForElementAssets]);
+
+    const filterPageElementsByRange = React.useCallback((
+        allPageElements: HTMLElement[],
+        pageRange?: 'cover' | 'singles' | { from: number; to: number }
+    ) => {
+        if (pageRange === 'cover') {
+            return allPageElements.filter((element) => element.dataset.isCover === 'true');
+        }
+
+        if (pageRange === 'singles') {
+            return allPageElements.filter((element) =>
+                element.dataset.isSpread !== 'true' && element.dataset.isCover !== 'true'
+            );
+        }
+
+        if (pageRange) {
+            return allPageElements.filter((_, index) => {
+                const pageNumber = index + 1;
+                return pageNumber >= pageRange.from && pageNumber <= pageRange.to;
+            });
+        }
+
+        return allPageElements;
+    }, []);
+
     const resetRenderState = React.useCallback(() => {
         setIsRendering(false);
         setActiveRenderOptions(null);
@@ -258,35 +431,25 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                     }
                 }
 
-                setActiveRenderOptions(renderOptions);
-                setIsRendering(true);
-                // Wait for React to render the pages with latest export options
-                await new Promise(r => setTimeout(r, 700));
+                flushSync(() => {
+                    onExportStart?.();
+                });
 
-                if (!containerRef.current) {
+                const exportContainer = await prepareRenderTree(renderOptions);
+                if (!exportContainer) {
                     console.error("Export container not found");
                     resetRenderState();
                     return;
                 }
-                onExportStart?.();
 
                 const zip = new JSZip();
-                const exportContainer = containerRef.current;
-
-                await new Promise(r => setTimeout(r, 1000));
 
                 const allPageElements = Array.from(exportContainer.children) as HTMLElement[];
-
-                // Filter by page range (1-indexed, inclusive) or cover
-                let pageElements = allPageElements;
-                if (pageRange === 'cover') {
-                    pageElements = allPageElements.filter(el => el.dataset.isCover === 'true');
-                } else if (pageRange === 'singles') {
-                    pageElements = allPageElements.filter(el => el.dataset.isSpread !== 'true' && el.dataset.isCover !== 'true');
-                } else if (pageRange) {
-                    pageElements = allPageElements.filter((_, i) => i + 1 >= pageRange.from && i + 1 <= pageRange.to);
-                }
+                const pageElements = filterPageElementsByRange(allPageElements, pageRange);
                 const total = pageElements.length;
+                if (total === 0) {
+                    throw new Error('No pages matched the selected export range.');
+                }
 
                 for (let i = 0; i < total; i++) {
                     const element = pageElements[i];
@@ -311,9 +474,9 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                     });
 
                     if (blob) {
-                        let filename = `page-${String(i + 1).padStart(3, '0')}.png`;
-                        if (isCover) filename = `cover.png`;
-                        else if (isSpread) filename = `spread-${String(i + 1).padStart(3, '0')}.png`;
+                        let filename = getExportImageFileName(`page-${String(i + 1).padStart(3, '0')}`);
+                        if (isCover) filename = getExportImageFileName('cover');
+                        else if (isSpread) filename = getExportImageFileName(`spread-${String(i + 1).padStart(3, '0')}`);
 
                         zip.file(filename, blob);
                     }
@@ -321,7 +484,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
 
                 // Generate ZIP
                 const content = await zip.generateAsync({ type: 'blob' });
-                saveAs(content, `album-export-${new Date().toISOString().split('T')[0]}.zip`);
+                saveAs(content, `${getExportBaseName()}.zip`);
 
                 onExportComplete?.();
                 resetRenderState();
@@ -338,16 +501,13 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                 SINGLE_PAGE_PIXEL_RATIO_FALLBACK
             );
             try {
-                setActiveRenderOptions(renderOptions);
-                setIsRendering(true);
-                await new Promise(r => setTimeout(r, 700));
-                if (!containerRef.current) {
+                const exportContainer = await prepareRenderTree(renderOptions);
+                if (!exportContainer) {
                     console.error("Export container not found");
                     resetRenderState();
                     return;
                 }
 
-                const exportContainer = containerRef.current;
                 const pageElement = Array.from(exportContainer.children).find(
                     (el) => (el as HTMLElement).dataset.pageId === pageId
                 ) as HTMLElement;
@@ -357,9 +517,6 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                     resetRenderState();
                     return;
                 }
-
-                // Brief wait to ensure stable rendering if needed
-                await new Promise(r => setTimeout(r, 500));
 
                 const isSpread = pageElement.dataset.isSpread === 'true';
                 const isCover = pageElement.dataset.isCover === 'true';
@@ -378,9 +535,9 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                 });
 
                 if (blob) {
-                    let filename = `page-${pageId.slice(0, 8)}.png`;
-                    if (isCover) filename = `cover.png`;
-                    else if (isSpread) filename = `spread-${pageId.slice(0, 8)}.png`;
+                    let filename = getExportImageFileName(`page-${pageId.slice(0, 8)}`);
+                    if (isCover) filename = getExportImageFileName('cover');
+                    else if (isSpread) filename = getExportImageFileName(`spread-${pageId.slice(0, 8)}`);
 
                     saveAs(blob, filename);
                 }
@@ -402,32 +559,23 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                 PDF_PIXEL_RATIO_FALLBACK
             );
             try {
-                setActiveRenderOptions(renderOptions);
-                setIsRendering(true);
-                await new Promise(r => setTimeout(r, 1000));
-                onExportStart?.();
+                flushSync(() => {
+                    onExportStart?.();
+                });
 
-                const exportContainer = containerRef.current;
+                const exportContainer = await prepareRenderTree(renderOptions);
                 if (!exportContainer) {
                     console.error("Export container not found");
                     resetRenderState();
                     return;
                 }
 
-                await new Promise(r => setTimeout(r, 1000));
-
                 const allPageElements = Array.from(exportContainer.children) as HTMLElement[];
-
-                // Filter by page range (1-indexed, inclusive) or cover
-                let pageElements = allPageElements;
-                if (pageRange === 'cover') {
-                    pageElements = allPageElements.filter(el => el.dataset.isCover === 'true');
-                } else if (pageRange === 'singles') {
-                    pageElements = allPageElements.filter(el => el.dataset.isSpread !== 'true' && el.dataset.isCover !== 'true');
-                } else if (pageRange) {
-                    pageElements = allPageElements.filter((_, i) => i + 1 >= pageRange.from && i + 1 <= pageRange.to);
-                }
+                const pageElements = filterPageElementsByRange(allPageElements, pageRange);
                 const total = pageElements.length;
+                if (total === 0) {
+                    throw new Error('No pages matched the selected export range.');
+                }
 
                 // Initialize PDF
                 // We'll determine orientation based on the first page, but typically albums are landscape-ish or square.
@@ -478,7 +626,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                     }
                 }
 
-                pdf.save(`album-export-${new Date().toISOString().split('T')[0]}.pdf`);
+                pdf.save(`${getExportBaseName()}.pdf`);
                 onExportComplete?.();
                 resetRenderState();
             } catch (err) {
@@ -596,6 +744,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                 width: `${pageWidth}px`,
                                 height: `${pageHeight}px`,
                                 backgroundColor: exportPageBackground,
+                                overflow: 'hidden',
                             }}>
                                 {/* Background Image Layer */}
                                 {(page.backgroundImage || config.backgroundImage) && (

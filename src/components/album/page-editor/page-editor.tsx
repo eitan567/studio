@@ -1796,6 +1796,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
           ref={exporterRef}
           pages={albumPages}
           config={config}
+          albumName={albumName}
           onExportStart={() => {
             setIsExporting(true);
             setExportProgress(null);
@@ -1804,12 +1805,9 @@ export function PageEditor({ albumId }: PageEditorProps) {
             setExportProgress({ current, total, label: `Exporting page ${current} of ${total}...` });
           }}
           onExportComplete={() => {
-            setExportProgress(prev => prev ? { ...prev, current: prev.total } : null);
-            setTimeout(() => {
-              setIsExporting(false);
-              setExportProgress(null);
-              toast({ title: "Export Complete", description: "Your download should start shortly." });
-            }, 1200);
+            setIsExporting(false);
+            setExportProgress(null);
+            toast({ title: "Export Complete", description: "Your download should start shortly." });
           }}
           onExportError={(err) => {
             setIsExporting(false);

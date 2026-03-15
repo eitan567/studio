@@ -38,7 +38,7 @@ function buildLocalTransformUrl(src: string, options: TransformOptions = {}): st
 }
 
 function shouldUseLocalTransformFallback(options: TransformOptions): boolean {
-    return typeof options.width === 'number' && typeof options.height === 'number';
+    return typeof options.width === 'number' || typeof options.height === 'number';
 }
 
 /**

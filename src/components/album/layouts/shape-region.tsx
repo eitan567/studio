@@ -187,6 +187,7 @@ export const ShapeRegion = ({
     onReplace,
     onEnhanceWithAi,
     pageId,
+    useSimpleImage = false,
     cornerRadius = 0,
     imageRotationMode = 'follow-frame',
     forceGapStroke = false,
@@ -211,6 +212,7 @@ export const ShapeRegion = ({
     onReplace?: (e: React.MouseEvent, anchorElement?: HTMLElement) => void;
     onEnhanceWithAi?: (pageId: string, photoId: string, photo: Photo) => void;
     pageId?: string;
+    useSimpleImage?: boolean;
     cornerRadius?: number;
     imageRotationMode?: TemplateImageRotationMode;
     forceGapStroke?: boolean;
@@ -500,6 +502,7 @@ export const ShapeRegion = ({
                 onReplace={undefined}
                 pageId={pageId}
                 photoId={photo.id}
+                useSimpleImage={useSimpleImage}
                 priority={priority}
                 preserveAspectRatio={region.preserveAspectRatio}
                 fitRotationDeg={shouldAdjustPhotoRotation ? photoExtraRotationDeg : 0}

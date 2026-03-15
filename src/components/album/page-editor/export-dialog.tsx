@@ -150,8 +150,8 @@ export function ExportDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
+            <DialogContent className="flex max-h-[92vh] w-[min(980px,calc(100vw-2rem))] max-w-none flex-col overflow-hidden p-0">
+                <DialogHeader className="border-b px-6 py-5 pr-12">
                     <DialogTitle className="flex items-center gap-2">
                         <Download className="h-5 w-5" />
                         Export Album
@@ -161,120 +161,210 @@ export function ExportDialog({
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-6 py-2">
-                    {/* Format selection */}
-                    <div className="space-y-2">
-                        <Label className="text-sm font-semibold">Format</Label>
-                        <div className="grid grid-cols-2 gap-3">
-                            <button
-                                type="button"
-                                onClick={() => setFormat('pdf')}
-                                className={cn(
-                                    'flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all text-left',
-                                    format === 'pdf'
-                                        ? 'border-primary bg-primary/5'
-                                        : 'border-border hover:border-muted-foreground/40'
-                                )}
-                            >
-                                <FileText className={cn('h-6 w-6', format === 'pdf' ? 'text-primary' : 'text-muted-foreground')} />
-                                <div>
-                                    <div className="font-medium text-sm">PDF</div>
-                                    <div className="text-xs text-muted-foreground">Single file, all pages</div>
-                                </div>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setFormat('images')}
-                                className={cn(
-                                    'flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all text-left',
-                                    format === 'images'
-                                        ? 'border-primary bg-primary/5'
-                                        : 'border-border hover:border-muted-foreground/40'
-                                )}
-                            >
-                                <FileImage className={cn('h-6 w-6', format === 'images' ? 'text-primary' : 'text-muted-foreground')} />
-                                <div>
-                                    <div className="font-medium text-sm">Images (ZIP)</div>
-                                    <div className="text-xs text-muted-foreground">High-res PNG files</div>
-                                </div>
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Resolution selection */}
-                    <div className="space-y-2">
-                        <Label className="text-sm font-semibold">Resolution</Label>
-                        <div className="grid grid-cols-3 gap-2">
-                            {[
-                                { value: 150 as ExportDpi, label: '150 DPI', hint: 'Fast' },
-                                { value: 200 as ExportDpi, label: '200 DPI', hint: 'Balanced' },
-                                { value: 300 as ExportDpi, label: '300 DPI', hint: 'Print' },
-                            ].map((option) => (
-                                <button
-                                    key={option.value}
-                                    type="button"
-                                    onClick={() => setDpi(option.value)}
-                                    className={cn(
-                                        'rounded-md border px-3 py-2 text-left transition-all',
-                                        dpi === option.value
-                                            ? 'border-primary bg-primary/5'
-                                            : 'border-border hover:border-muted-foreground/40'
-                                    )}
-                                >
-                                    <div className="text-sm font-medium">{option.label}</div>
-                                    <div className="text-[11px] text-muted-foreground">{option.hint}</div>
-                                </button>
-                            ))}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                            Applied to PNG export, PDF export, and page download quality.
-                        </p>
-                    </div>
-
-                    {/* White margin settings */}
-                    <div className="space-y-3">
-                        <Label className="text-sm font-semibold">White margins (mm)</Label>
-                        <div className="space-y-1.5">
-                            <Label className="text-xs text-muted-foreground">Single + spread pages</Label>
-                            <Input
-                                type="number"
-                                min={0}
-                                max={50}
-                                step="0.1"
-                                value={whiteMarginMm}
-                                onChange={(e) => {
-                                    const parsed = Number(e.target.value);
-                                    const nextValue = Number.isFinite(parsed) ? parsed : 0;
-                                    setWhiteMarginMm(nextValue);
-                                    if (!isCoverMarginCustom) {
-                                        setCoverWhiteMarginsMm(createUniformCoverMargins(nextValue));
-                                    }
-                                }}
-                                className="h-9 text-sm"
-                            />
-                        </div>
-                        <div className="space-y-3 rounded-lg border border-border/70 p-3">
-                            <div className="flex items-center space-x-2">
-                                <Checkbox
-                                    id="custom-cover-white-margins"
-                                    checked={isCoverMarginCustom}
-                                    onCheckedChange={(checked) => {
-                                        const nextChecked = checked === true;
-                                        setIsCoverMarginCustom(nextChecked);
-                                        if (!nextChecked) {
-                                            setCoverWhiteMarginsMm(createUniformCoverMargins(whiteMarginMm));
-                                        }
-                                    }}
-                                />
-                                <Label
-                                    htmlFor="custom-cover-white-margins"
-                                    className="text-sm font-medium leading-none"
-                                >
-                                    Separate cover margins
-                                </Label>
-                            </div>
-                            {isCoverMarginCustom ? (
+                <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+                    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,0.98fr)_minmax(360px,0.82fr)]">
+                        <div className="space-y-5">
+                            {/* Format selection */}
+                            <div className="space-y-2">
+                                <Label className="text-sm font-semibold">Format</Label>
                                 <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormat('pdf')}
+                                        className={cn(
+                                            'flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all text-left',
+                                            format === 'pdf'
+                                                ? 'border-primary bg-primary/5'
+                                                : 'border-border hover:border-muted-foreground/40'
+                                        )}
+                                    >
+                                        <FileText className={cn('h-6 w-6', format === 'pdf' ? 'text-primary' : 'text-muted-foreground')} />
+                                        <div>
+                                            <div className="font-medium text-sm">PDF</div>
+                                            <div className="text-xs text-muted-foreground">Single file, all pages</div>
+                                        </div>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormat('images')}
+                                        className={cn(
+                                            'flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all text-left',
+                                            format === 'images'
+                                                ? 'border-primary bg-primary/5'
+                                                : 'border-border hover:border-muted-foreground/40'
+                                        )}
+                                    >
+                                        <FileImage className={cn('h-6 w-6', format === 'images' ? 'text-primary' : 'text-muted-foreground')} />
+                                        <div>
+                                            <div className="font-medium text-sm">Images (ZIP)</div>
+                                            <div className="text-xs text-muted-foreground">High-res PNG files</div>
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Resolution selection */}
+                            <div className="space-y-2">
+                                <Label className="text-sm font-semibold">Resolution</Label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[
+                                        { value: 150 as ExportDpi, label: '150 DPI', hint: 'Fast' },
+                                        { value: 200 as ExportDpi, label: '200 DPI', hint: 'Balanced' },
+                                        { value: 300 as ExportDpi, label: '300 DPI', hint: 'Print' },
+                                    ].map((option) => (
+                                        <button
+                                            key={option.value}
+                                            type="button"
+                                            onClick={() => setDpi(option.value)}
+                                            className={cn(
+                                                'rounded-md border px-3 py-2 text-left transition-all',
+                                                dpi === option.value
+                                                    ? 'border-primary bg-primary/5'
+                                                    : 'border-border hover:border-muted-foreground/40'
+                                            )}
+                                        >
+                                            <div className="text-sm font-medium">{option.label}</div>
+                                            <div className="text-[11px] text-muted-foreground">{option.hint}</div>
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Applied to PNG export, PDF export, and page download quality.
+                                </p>
+                            </div>
+
+                            {/* Page range */}
+                            <div className="space-y-3 rounded-xl border border-border/70 p-4">
+                                <Label className="text-sm font-semibold">Pages</Label>
+                                <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="range"
+                                            checked={rangeMode === 'all'}
+                                            onChange={() => setRangeMode('all')}
+                                            className="accent-primary"
+                                        />
+                                        <span className="text-sm">All pages ({totalPages} total)</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="range"
+                                            checked={rangeMode === 'cover'}
+                                            onChange={() => setRangeMode('cover')}
+                                            className="accent-primary"
+                                        />
+                                        <span className="text-sm">Cover only</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="range"
+                                            checked={rangeMode === 'singles'}
+                                            onChange={() => setRangeMode('singles')}
+                                            className="accent-primary"
+                                        />
+                                        <span className="text-sm">Single pages only</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="range"
+                                            checked={rangeMode === 'range'}
+                                            onChange={() => setRangeMode('range')}
+                                            className="accent-primary"
+                                        />
+                                        <span className="text-sm">Page range</span>
+                                    </label>
+                                </div>
+
+                                {rangeMode === 'range' && (
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        <div className="flex items-center gap-2">
+                                            <Label className="text-xs text-muted-foreground whitespace-nowrap">From</Label>
+                                            <Input
+                                                type="number"
+                                                min={1}
+                                                max={totalPages}
+                                                value={fromPage}
+                                                onChange={(e) => setFromPage(Number(e.target.value))}
+                                                className="h-8 text-sm"
+                                            />
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Label className="text-xs text-muted-foreground whitespace-nowrap">To</Label>
+                                            <Input
+                                                type="number"
+                                                min={1}
+                                                max={totalPages}
+                                                value={toPage}
+                                                onChange={(e) => setToPage(Number(e.target.value))}
+                                                className="h-8 text-sm"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* White margin settings */}
+                        <div className="self-start space-y-4 rounded-xl border border-border/70 bg-muted/[0.04] p-4">
+                            <div className="space-y-1">
+                                <Label className="text-sm font-semibold">White margins (mm)</Label>
+                                <p className="text-xs text-muted-foreground">
+                                    Added outside the page size for print safety. 10 mm = 1 cm.
+                                </p>
+                            </div>
+                            <div className="grid gap-3 sm:grid-cols-[minmax(200px,0.9fr)_minmax(0,1.1fr)]">
+                                <div className="space-y-1.5 rounded-lg border border-border/70 bg-background/60 p-3">
+                                    <Label className="text-xs text-muted-foreground">Single + spread pages</Label>
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        max={50}
+                                        step="0.1"
+                                        value={whiteMarginMm}
+                                        onChange={(e) => {
+                                            const parsed = Number(e.target.value);
+                                            const nextValue = Number.isFinite(parsed) ? parsed : 0;
+                                            setWhiteMarginMm(nextValue);
+                                            if (!isCoverMarginCustom) {
+                                                setCoverWhiteMarginsMm(createUniformCoverMargins(nextValue));
+                                            }
+                                        }}
+                                        className="h-9 text-sm"
+                                    />
+                                </div>
+                                <div className="space-y-3 rounded-lg border border-border/70 bg-background/40 p-3">
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id="custom-cover-white-margins"
+                                            checked={isCoverMarginCustom}
+                                            onCheckedChange={(checked) => {
+                                                const nextChecked = checked === true;
+                                                setIsCoverMarginCustom(nextChecked);
+                                                if (!nextChecked) {
+                                                    setCoverWhiteMarginsMm(createUniformCoverMargins(whiteMarginMm));
+                                                }
+                                            }}
+                                        />
+                                        <Label
+                                            htmlFor="custom-cover-white-margins"
+                                            className="text-sm font-medium leading-none"
+                                        >
+                                            Separate cover margins
+                                        </Label>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        {isCoverMarginCustom
+                                            ? 'Set separate white margins for the cover only.'
+                                            : 'Cover uses the same white margin on all four sides.'}
+                                    </p>
+                                </div>
+                            </div>
+                            {isCoverMarginCustom && (
+                                <div className="grid grid-cols-2 gap-3 rounded-lg border border-border/70 bg-background/40 p-3">
                                     {([
                                         ['top', 'Top'],
                                         ['right', 'Right'],
@@ -301,93 +391,12 @@ export function ExportDialog({
                                         </div>
                                     ))}
                                 </div>
-                            ) : (
-                                <p className="text-xs text-muted-foreground">
-                                    Cover uses the same white margin on all four sides.
-                                </p>
                             )}
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                            Adds white border around exported pages for print safety. 10 mm = 1 cm.
-                        </p>
-                    </div>
-
-                    {/* Page range */}
-                    <div className="space-y-3">
-                        <Label className="text-sm font-semibold">Pages</Label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                    type="radio"
-                                    name="range"
-                                    checked={rangeMode === 'all'}
-                                    onChange={() => setRangeMode('all')}
-                                    className="accent-primary"
-                                />
-                                <span className="text-sm">All pages ({totalPages} total)</span>
-                            </label>
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                    type="radio"
-                                    name="range"
-                                    checked={rangeMode === 'cover'}
-                                    onChange={() => setRangeMode('cover')}
-                                    className="accent-primary"
-                                />
-                                <span className="text-sm">Cover only</span>
-                            </label>
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                    type="radio"
-                                    name="range"
-                                    checked={rangeMode === 'singles'}
-                                    onChange={() => setRangeMode('singles')}
-                                    className="accent-primary"
-                                />
-                                <span className="text-sm">Single pages only</span>
-                            </label>
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                    type="radio"
-                                    name="range"
-                                    checked={rangeMode === 'range'}
-                                    onChange={() => setRangeMode('range')}
-                                    className="accent-primary"
-                                />
-                                <span className="text-sm">Page range</span>
-                            </label>
-                        </div>
-
-                        {rangeMode === 'range' && (
-                            <div className="flex items-center gap-3 pl-6">
-                                <div className="flex items-center gap-2">
-                                    <Label className="text-xs text-muted-foreground whitespace-nowrap">From</Label>
-                                    <Input
-                                        type="number"
-                                        min={1}
-                                        max={totalPages}
-                                        value={fromPage}
-                                        onChange={(e) => setFromPage(Number(e.target.value))}
-                                        className="h-8 w-20 text-sm"
-                                    />
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Label className="text-xs text-muted-foreground whitespace-nowrap">To</Label>
-                                    <Input
-                                        type="number"
-                                        min={1}
-                                        max={totalPages}
-                                        value={toPage}
-                                        onChange={(e) => setToPage(Number(e.target.value))}
-                                        className="h-8 w-20 text-sm"
-                                    />
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </div>
 
-                <DialogFooter className="pt-6">
+                <DialogFooter className="border-t px-6 py-4">
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
                         Cancel
                     </Button>

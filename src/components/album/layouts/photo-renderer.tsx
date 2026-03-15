@@ -31,6 +31,9 @@ interface PhotoRendererProps {
   clipOverflow?: boolean;
 }
 
+const WHEEL_ZOOM_SENSITIVITY = 0.0006;
+const MAX_WHEEL_ZOOM_DELTA = 36;
+
 // Using memo to prevent re-rendering of all photos when only one is being updated
 export const PhotoRenderer = memo(function PhotoRenderer({
   photo,
@@ -285,8 +288,11 @@ export const PhotoRenderer = memo(function PhotoRenderer({
   };
 
   const handleScaleChange = (deltaY: number) => {
-    const scrollSensitivity = 0.0015;
-    const newScale = Math.max(1, Math.min(5, currentValues.current.scale - deltaY * scrollSensitivity));
+    const boundedDelta = Math.sign(deltaY) * Math.min(Math.abs(deltaY), MAX_WHEEL_ZOOM_DELTA);
+    const newScale = Math.max(
+      1,
+      Math.min(5, currentValues.current.scale - boundedDelta * WHEEL_ZOOM_SENSITIVITY)
+    );
 
     currentValues.current.scale = newScale;
     updatePanBoundaries();
@@ -420,7 +426,9 @@ export const PhotoRenderer = memo(function PhotoRenderer({
           <img
             src={photo.src}
             alt={photo.alt}
-            loading="lazy"
+            loading="eager"
+            fetchPriority="high"
+            decoding="async"
             style={{
               width: '100%',
               height: '100%',

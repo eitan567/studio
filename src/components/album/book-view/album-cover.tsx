@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { AlbumPage, CoverText, CoverImage, AlbumConfig, Photo, PhotoPanAndZoom } from '@/lib/types';
 import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { cn } from '@/lib/utils';
@@ -1045,7 +1045,7 @@ export const AlbumCover = ({
         }
     };
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (!containerRef.current) return;
 
         const measure = () => {
