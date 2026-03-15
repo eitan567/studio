@@ -71,7 +71,9 @@ export async function GET(request: NextRequest) {
         const requestedFormat = searchParams.get('format');
         const format = requestedFormat === 'avif' ? 'avif' : 'webp';
 
-        const upstreamResponse = await fetch(src, { cache: 'force-cache' });
+        // The local transform route is fed with original Supabase assets that can be several MB.
+        // Next.js fetch cache rejects entries above 2MB, which floods dev logs without helping us.
+        const upstreamResponse = await fetch(src, { cache: 'no-store' });
 
         if (!upstreamResponse.ok) {
             return NextResponse.json({ error: 'Failed to fetch source image' }, { status: upstreamResponse.status });
