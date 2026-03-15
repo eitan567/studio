@@ -30,16 +30,32 @@ interface AlbumExporterProps {
 
 export type ExportDpi = 150 | 200 | 300;
 
+export interface ExportWhiteMarginsMm {
+    top?: number;
+    right?: number;
+    bottom?: number;
+    left?: number;
+}
+
+interface NormalizedWhiteMarginsMm {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+}
+
 export interface ExportRenderOptions {
     dpi?: ExportDpi;
     whiteMarginMm?: number;
     coverWhiteMarginMm?: number;
+    coverWhiteMarginsMm?: ExportWhiteMarginsMm;
 }
 
 interface NormalizedExportRenderOptions {
     dpi: ExportDpi;
     whiteMarginMm: number;
     coverWhiteMarginMm: number;
+    coverWhiteMarginsMm: NormalizedWhiteMarginsMm;
     pixelRatioFallback: number;
 }
 
@@ -84,6 +100,13 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
     const DEFAULT_PDF_DPI: ExportDpi = 200;
     const [activeRenderOptions, setActiveRenderOptions] = useState<NormalizedExportRenderOptions | null>(null);
 
+    const createUniformWhiteMargins = React.useCallback((value: number): NormalizedWhiteMarginsMm => ({
+        top: value,
+        right: value,
+        bottom: value,
+        left: value,
+    }), []);
+
     const parseAlbumSizeCm = React.useCallback(() => {
         const [rawW, rawH] = String(config.size || '').split('x');
         const widthCm = Number(rawW);
@@ -120,6 +143,16 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
         return Math.max(MIN_WHITE_MARGIN_MM, Math.min(MAX_WHITE_MARGIN_MM, numericValue));
     }, []);
 
+    const normalizeEdgeWhiteMarginsMm = React.useCallback((
+        value: ExportWhiteMarginsMm | undefined,
+        fallbackMarginMm: number
+    ): NormalizedWhiteMarginsMm => ({
+        top: clampWhiteMarginMm(value?.top ?? fallbackMarginMm),
+        right: clampWhiteMarginMm(value?.right ?? fallbackMarginMm),
+        bottom: clampWhiteMarginMm(value?.bottom ?? fallbackMarginMm),
+        left: clampWhiteMarginMm(value?.left ?? fallbackMarginMm),
+    }), [clampWhiteMarginMm]);
+
     const normalizeRenderOptions = React.useCallback((
         options: ExportRenderOptions | undefined,
         defaultDpi: ExportDpi,
@@ -131,9 +164,13 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
             dpi: options?.dpi ?? defaultDpi,
             whiteMarginMm,
             coverWhiteMarginMm: clampWhiteMarginMm(coverMarginSource),
+            coverWhiteMarginsMm: normalizeEdgeWhiteMarginsMm(
+                options?.coverWhiteMarginsMm,
+                clampWhiteMarginMm(coverMarginSource)
+            ),
             pixelRatioFallback,
         };
-    }, [clampWhiteMarginMm]);
+    }, [clampWhiteMarginMm, normalizeEdgeWhiteMarginsMm]);
 
     const getRenderWhiteMarginPx = React.useCallback((
         marginMm: number,
@@ -147,6 +184,18 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
         if (!Number.isFinite(pixelRatio) || pixelRatio <= 0) return 0;
         return targetPixelMargin / pixelRatio;
     }, [getPixelRatioForDpi]);
+
+    const getRenderWhiteMarginsPx = React.useCallback((
+        marginsMm: NormalizedWhiteMarginsMm,
+        dpi: ExportDpi,
+        isSpread: boolean,
+        pixelRatioFallback: number
+    ): NormalizedWhiteMarginsMm => ({
+        top: getRenderWhiteMarginPx(marginsMm.top, dpi, isSpread, pixelRatioFallback),
+        right: getRenderWhiteMarginPx(marginsMm.right, dpi, isSpread, pixelRatioFallback),
+        bottom: getRenderWhiteMarginPx(marginsMm.bottom, dpi, isSpread, pixelRatioFallback),
+        left: getRenderWhiteMarginPx(marginsMm.left, dpi, isSpread, pixelRatioFallback),
+    }), [getRenderWhiteMarginPx]);
 
     const resetRenderState = React.useCallback(() => {
         setIsRendering(false);
@@ -444,6 +493,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
         dpi: DEFAULT_IMAGES_DPI,
         whiteMarginMm: 0,
         coverWhiteMarginMm: 0,
+        coverWhiteMarginsMm: createUniformWhiteMargins(0),
         pixelRatioFallback: IMAGES_PIXEL_RATIO_FALLBACK,
     };
 
@@ -506,17 +556,21 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                         ? Math.max(0, exportDynamicFrameGapRaw)
                         : 0;
                     const exportDynamicFrameGapColor = '#ffffff';
-                    const marginMm = isCover
-                        ? renderOptionsForCapture.coverWhiteMarginMm
-                        : renderOptionsForCapture.whiteMarginMm;
-                    const whiteMarginPx = getRenderWhiteMarginPx(
-                        marginMm,
-                        renderOptionsForCapture.dpi,
-                        isSpread,
-                        renderOptionsForCapture.pixelRatioFallback
-                    );
-                    const exportWidth = pageWidth + (whiteMarginPx * 2);
-                    const exportHeight = pageHeight + (whiteMarginPx * 2);
+                    const pageWhiteMarginsPx = isCover
+                        ? getRenderWhiteMarginsPx(
+                            renderOptionsForCapture.coverWhiteMarginsMm,
+                            renderOptionsForCapture.dpi,
+                            isSpread,
+                            renderOptionsForCapture.pixelRatioFallback
+                        )
+                        : createUniformWhiteMargins(getRenderWhiteMarginPx(
+                            renderOptionsForCapture.whiteMarginMm,
+                            renderOptionsForCapture.dpi,
+                            isSpread,
+                            renderOptionsForCapture.pixelRatioFallback
+                        ));
+                    const exportWidth = pageWidth + pageWhiteMarginsPx.left + pageWhiteMarginsPx.right;
+                    const exportHeight = pageHeight + pageWhiteMarginsPx.top + pageWhiteMarginsPx.bottom;
 
                     return (
                         <div
@@ -531,7 +585,10 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                 position: 'relative',
                                 backgroundColor: '#ffffff',
                                 boxSizing: 'border-box',
-                                padding: `${whiteMarginPx}px`,
+                                paddingTop: `${pageWhiteMarginsPx.top}px`,
+                                paddingRight: `${pageWhiteMarginsPx.right}px`,
+                                paddingBottom: `${pageWhiteMarginsPx.bottom}px`,
+                                paddingLeft: `${pageWhiteMarginsPx.left}px`,
                             }}
                         >
                             <div style={{

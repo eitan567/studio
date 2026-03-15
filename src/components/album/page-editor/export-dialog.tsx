@@ -11,11 +11,26 @@ import {
     DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import type { ExportDpi } from '../shared/album-exporter';
+
+type CoverWhiteMargins = {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+};
+
+const createUniformCoverMargins = (value: number): CoverWhiteMargins => ({
+    top: value,
+    right: value,
+    bottom: value,
+    left: value,
+});
 
 export interface ExportOptions {
     format: 'images' | 'pdf';
@@ -23,6 +38,7 @@ export interface ExportOptions {
     dpi: ExportDpi;
     whiteMarginMm: number;
     coverWhiteMarginMm: number;
+    coverWhiteMarginsMm: CoverWhiteMargins;
 }
 
 interface ExportDialogProps {
@@ -48,7 +64,7 @@ export function ExportDialog({
     const [fromPage, setFromPage] = useState(1);
     const [toPage, setToPage] = useState(totalPages);
     const [whiteMarginMm, setWhiteMarginMm] = useState(0);
-    const [coverWhiteMarginMm, setCoverWhiteMarginMm] = useState(0);
+    const [coverWhiteMarginsMm, setCoverWhiteMarginsMm] = useState<CoverWhiteMargins>(() => createUniformCoverMargins(0));
     const [isCoverMarginCustom, setIsCoverMarginCustom] = useState(false);
 
     const progressPct = exportProgress
@@ -63,11 +79,20 @@ export function ExportDialog({
     };
 
     const handleConfirm = () => {
+        const normalizedCoverMargins = isCoverMarginCustom
+            ? coverWhiteMarginsMm
+            : createUniformCoverMargins(whiteMarginMm);
         const options: ExportOptions = {
             format,
             dpi,
             whiteMarginMm: clampMarginMm(whiteMarginMm),
-            coverWhiteMarginMm: clampMarginMm(coverWhiteMarginMm),
+            coverWhiteMarginMm: clampMarginMm(whiteMarginMm),
+            coverWhiteMarginsMm: {
+                top: clampMarginMm(normalizedCoverMargins.top),
+                right: clampMarginMm(normalizedCoverMargins.right),
+                bottom: clampMarginMm(normalizedCoverMargins.bottom),
+                left: clampMarginMm(normalizedCoverMargins.left),
+            },
             pageRange:
                 rangeMode === 'all' || rangeMode === 'cover' || rangeMode === 'singles'
                     ? rangeMode
@@ -209,42 +234,78 @@ export function ExportDialog({
                     {/* White margin settings */}
                     <div className="space-y-3">
                         <Label className="text-sm font-semibold">White margins (mm)</Label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                                <Label className="text-xs text-muted-foreground">Single + spread pages</Label>
-                                <Input
-                                    type="number"
-                                    min={0}
-                                    max={50}
-                                    step="0.1"
-                                    value={whiteMarginMm}
-                                    onChange={(e) => {
-                                        const parsed = Number(e.target.value);
-                                        const nextValue = Number.isFinite(parsed) ? parsed : 0;
-                                        setWhiteMarginMm(nextValue);
-                                        if (!isCoverMarginCustom) {
-                                            setCoverWhiteMarginMm(nextValue);
+                        <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">Single + spread pages</Label>
+                            <Input
+                                type="number"
+                                min={0}
+                                max={50}
+                                step="0.1"
+                                value={whiteMarginMm}
+                                onChange={(e) => {
+                                    const parsed = Number(e.target.value);
+                                    const nextValue = Number.isFinite(parsed) ? parsed : 0;
+                                    setWhiteMarginMm(nextValue);
+                                    if (!isCoverMarginCustom) {
+                                        setCoverWhiteMarginsMm(createUniformCoverMargins(nextValue));
+                                    }
+                                }}
+                                className="h-9 text-sm"
+                            />
+                        </div>
+                        <div className="space-y-3 rounded-lg border border-border/70 p-3">
+                            <div className="flex items-center space-x-2">
+                                <Checkbox
+                                    id="custom-cover-white-margins"
+                                    checked={isCoverMarginCustom}
+                                    onCheckedChange={(checked) => {
+                                        const nextChecked = checked === true;
+                                        setIsCoverMarginCustom(nextChecked);
+                                        if (!nextChecked) {
+                                            setCoverWhiteMarginsMm(createUniformCoverMargins(whiteMarginMm));
                                         }
                                     }}
-                                    className="h-9 text-sm"
                                 />
+                                <Label
+                                    htmlFor="custom-cover-white-margins"
+                                    className="text-sm font-medium leading-none"
+                                >
+                                    Separate cover margins
+                                </Label>
                             </div>
-                            <div className="space-y-1.5">
-                                <Label className="text-xs text-muted-foreground">Cover only</Label>
-                                <Input
-                                    type="number"
-                                    min={0}
-                                    max={50}
-                                    step="0.1"
-                                    value={coverWhiteMarginMm}
-                                    onChange={(e) => {
-                                        const parsed = Number(e.target.value);
-                                        setCoverWhiteMarginMm(Number.isFinite(parsed) ? parsed : 0);
-                                        setIsCoverMarginCustom(true);
-                                    }}
-                                    className="h-9 text-sm"
-                                />
-                            </div>
+                            {isCoverMarginCustom ? (
+                                <div className="grid grid-cols-2 gap-3">
+                                    {([
+                                        ['top', 'Top'],
+                                        ['right', 'Right'],
+                                        ['bottom', 'Bottom'],
+                                        ['left', 'Left'],
+                                    ] as const).map(([side, label]) => (
+                                        <div key={side} className="space-y-1.5">
+                                            <Label className="text-xs text-muted-foreground">{label}</Label>
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                max={50}
+                                                step="0.1"
+                                                value={coverWhiteMarginsMm[side]}
+                                                onChange={(e) => {
+                                                    const parsed = Number(e.target.value);
+                                                    setCoverWhiteMarginsMm((prev) => ({
+                                                        ...prev,
+                                                        [side]: Number.isFinite(parsed) ? parsed : 0,
+                                                    }));
+                                                }}
+                                                className="h-9 text-sm"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-xs text-muted-foreground">
+                                    Cover uses the same white margin on all four sides.
+                                </p>
+                            )}
                         </div>
                         <p className="text-xs text-muted-foreground">
                             Adds white border around exported pages for print safety. 10 mm = 1 cm.

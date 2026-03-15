@@ -1043,6 +1043,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
       dpi: options.dpi,
       whiteMarginMm: options.whiteMarginMm,
       coverWhiteMarginMm: options.coverWhiteMarginMm,
+      coverWhiteMarginsMm: options.coverWhiteMarginsMm,
     };
     if (options.format === 'pdf') {
       exporterRef.current?.exportToPdf(range, exportRenderOptions);
