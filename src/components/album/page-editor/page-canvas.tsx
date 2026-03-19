@@ -1540,12 +1540,15 @@ export const PageCanvas = React.memo(({
 
     const dynamicModeUnsupportedReason = useMemo(() => {
         if (!onUpdatePage) return 'Dynamic mode requires editable page state.';
-        if (page.isCover) return 'Dynamic mode is available on non-cover pages.';
-        if (page.type === 'spread' && page.spreadMode === 'split') {
+        if (page.isCover) {
+            if (page.coverType === 'split' || !page.coverType) {
+                return 'Switch this cover to Full mode before using Dynamic mode.';
+            }
+        } else if (page.type === 'spread' && page.spreadMode === 'split') {
             return 'Switch this spread to Full mode before using Dynamic mode.';
         }
         return null;
-    }, [onUpdatePage, page.isCover, page.spreadMode, page.type]);
+    }, [onUpdatePage, page.isCover, page.coverType, page.spreadMode, page.type]);
 
     useEffect(() => {
         setIsDynamicMode(false);

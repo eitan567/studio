@@ -134,7 +134,7 @@ export function useAlbumPageEditor({
                 const { baseId } = parseLayoutId(newLayoutId);
                 const { baseId: currentBaseId } = parseLayoutId(page.layout || defaultGridTemplate?.id || '');
                 const didBaseTemplateChange = String(currentBaseId) !== String(baseId);
-                const shouldClearDynamicFrames = !page.isCover && didBaseTemplateChange && (page.coverImages?.length ?? 0) > 0;
+                const shouldClearDynamicFrames = didBaseTemplateChange && (page.coverImages?.length ?? 0) > 0;
                 console.log('[updatePageLayout] Called with:', { pageId, newLayoutId, baseId, currentPhotosLength: page.photos?.length });
 
                 // Dynamic layouts generate their template based on photos
@@ -226,13 +226,17 @@ export function useAlbumPageEditor({
 
                 if (side === 'full') {
                     const { baseId: baseLayoutId } = parseLayoutId(newLayout);
+                    const { baseId: currentBaseId } = parseLayoutId(page.layout || defaultCoverTemplate?.id || '');
+                    const didBaseTemplateChange = String(currentBaseId) !== String(baseLayoutId);
+                    const shouldClearDynamicFrames = didBaseTemplateChange && (page.coverImages?.length ?? 0) > 0;
 
                     // CRITICAL: Dynamic layouts should preserve all photos - don't truncate!
                     if (String(baseLayoutId).startsWith('dynamic-justified')) {
                         console.log('[handleUpdateCoverLayout] Dynamic layout - PRESERVING photos:', page.photos?.length);
                         return {
                             ...page,
-                            layout: newLayout
+                            layout: newLayout,
+                            coverImages: shouldClearDynamicFrames ? [] : page.coverImages
                             // Keep photos unchanged!
                         };
                     }
@@ -261,7 +265,8 @@ export function useAlbumPageEditor({
                     return {
                         ...page,
                         layout: newLayout,
-                        photos: currentPhotos
+                        photos: currentPhotos,
+                        coverImages: shouldClearDynamicFrames ? [] : page.coverImages
                     };
                 }
 
@@ -274,6 +279,11 @@ export function useAlbumPageEditor({
                 const { baseId: frontBaseId } = parseLayoutId(frontLayout);
                 const { baseId: backBaseId } = parseLayoutId(backLayout);
 
+                const { baseId: oldFrontBaseId } = parseLayoutId(currentFrontLayout);
+                const { baseId: oldBackBaseId } = parseLayoutId(currentBackLayout);
+                const didBaseTemplateChange = String(oldFrontBaseId) !== String(frontBaseId) || String(oldBackBaseId) !== String(backBaseId);
+                const shouldClearDynamicFrames = didBaseTemplateChange && (page.coverImages?.length ?? 0) > 0;
+
                 // CRITICAL: Dynamic layouts should preserve all photos - don't truncate!
                 if (String(frontBaseId).startsWith('dynamic-justified') || String(backBaseId).startsWith('dynamic-justified')) {
                     return {
@@ -281,7 +291,8 @@ export function useAlbumPageEditor({
                         coverLayouts: {
                             front: frontLayout,
                             back: backLayout
-                        }
+                        },
+                        coverImages: shouldClearDynamicFrames ? [] : page.coverImages
                         // Keep photos unchanged!
                     };
                 }
@@ -317,7 +328,8 @@ export function useAlbumPageEditor({
                     coverLayouts: {
                         front: frontLayout,
                         back: backLayout
-                    }
+                    },
+                    coverImages: shouldClearDynamicFrames ? [] : page.coverImages
                 };
             });
         });
