@@ -283,6 +283,12 @@ const GalleryPhotoItem = React.memo(GalleryPhotoItemComponent, (prev, next) => {
     // We can assume src/alt don't change often for the same ID, or check them if needed
     // if (prev.photo.src !== next.photo.src) return false;
 
+    // Layout size changes must invalidate the memoized item; otherwise the justified
+    // gallery can keep stale dimensions after filtering used photos on drag/drop.
+    if (prev.style?.width !== next.style?.width) return false;
+    if (prev.style?.height !== next.style?.height) return false;
+    if (prev.style?.flexShrink !== next.style?.flexShrink) return false;
+
     if (prev.index !== next.index) return false;
     if (prev.isSelected !== next.isSelected) return false;
     if (prev.isActiveBubble !== next.isActiveBubble) return false;
