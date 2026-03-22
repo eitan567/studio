@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, ImageIcon, Loader2, RefreshCw, Sparkles, Upload, X } from 'lucide-react';
+import { CheckCircle2, ImageIcon, Loader2, RefreshCw, RotateCw, Sparkles, Upload, X } from 'lucide-react';
 import { aiEnhancePhoto } from '@/ai/ai-enhance-photo';
 import { Photo } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -92,13 +92,87 @@ type ModelId = (typeof MODEL_OPTIONS)[number]['id'];
 const MAX_REFERENCE_IMAGE_DATA_URL_LENGTH = 850_000;
 const MAX_REFERENCE_IMAGE_DIMENSION = 1400;
 const REFERENCE_IMAGE_STORAGE_KEY = 'ai-enhancer-reference-image-v1';
+const ROTATION_STEP_DEGREES = 90;
+const ROTATED_IMAGE_EXPORT_QUALITY = 0.92;
+
+function normalizeRotationDegrees(value: number): number {
+  const normalized = value % 360;
+  return normalized < 0 ? normalized + 360 : normalized;
+}
+
+function getCanvasExportMimeType(sourceMimeType?: string): 'image/jpeg' | 'image/png' | 'image/webp' {
+  const normalizedType = sourceMimeType?.toLowerCase() || '';
+  if (normalizedType.includes('jpeg') || normalizedType.includes('jpg')) return 'image/jpeg';
+  if (normalizedType.includes('webp')) return 'image/webp';
+  return 'image/png';
+}
+
+async function loadImageElement(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new window.Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('Could not read the enhanced image.'));
+    image.src = src;
+  });
+}
+
+async function rotateImageUrlToBlob(imageUrl: string, rotationDegrees: number): Promise<Blob> {
+  const normalizedRotation = normalizeRotationDegrees(rotationDegrees);
+  const response = await fetch(imageUrl);
+  if (!response.ok) {
+    throw new Error('Could not prepare the enhanced image.');
+  }
+
+  const sourceBlob = await response.blob();
+  if (normalizedRotation === 0) {
+    return sourceBlob;
+  }
+
+  const objectUrl = URL.createObjectURL(sourceBlob);
+  try {
+    const image = await loadImageElement(objectUrl);
+    const sourceWidth = image.naturalWidth || image.width;
+    const sourceHeight = image.naturalHeight || image.height;
+    const isSideways = normalizedRotation % 180 !== 0;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = isSideways ? sourceHeight : sourceWidth;
+    canvas.height = isSideways ? sourceWidth : sourceHeight;
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      throw new Error('Could not rotate the enhanced image.');
+    }
+
+    context.translate(canvas.width / 2, canvas.height / 2);
+    context.rotate((normalizedRotation * Math.PI) / 180);
+    context.drawImage(image, -sourceWidth / 2, -sourceHeight / 2, sourceWidth, sourceHeight);
+
+    const mimeType = getCanvasExportMimeType(sourceBlob.type);
+    return await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            resolve(blob);
+            return;
+          }
+          reject(new Error('Could not finalize the rotated image.'));
+        },
+        mimeType,
+        ROTATED_IMAGE_EXPORT_QUALITY
+      );
+    });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
 
 export interface AiPhotoEnhancerSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sourcePhoto: Photo | null;
   sourceImageUrl: string | null;
-  onApprove: (enhancedImageUrl: string, appliedPrompt: string) => Promise<void>;
+  onApprove: (enhancedImage: string | Blob, appliedPrompt: string) => Promise<void>;
 }
 
 export function AiPhotoEnhancerSheet({
@@ -115,6 +189,7 @@ export function AiPhotoEnhancerSheet({
   const [isApplying, setIsApplying] = useState(false);
   const [resultImageUrl, setResultImageUrl] = useState<string | null>(null);
   const [resultOpen, setResultOpen] = useState(false);
+  const [resultRotation, setResultRotation] = useState(0);
   const [lastAppliedPrompt, setLastAppliedPrompt] = useState('');
   const [selectedModelId, setSelectedModelId] = useState<ModelId>('gemini-3.1-flash-image-preview');
   const [lastModelUsed, setLastModelUsed] = useState<string>('');
@@ -159,6 +234,7 @@ export function AiPhotoEnhancerSheet({
     if (!open) return;
     setResultImageUrl(null);
     setResultOpen(false);
+    setResultRotation(0);
     setLastAppliedPrompt('');
     setLastModelUsed('');
   }, [open, sourceImageUrl]);
@@ -294,6 +370,7 @@ export function AiPhotoEnhancerSheet({
       setLastAppliedPrompt(result.appliedPrompt || '');
       setLastModelUsed(result.modelUsed || selectedModelId);
       setResultImageUrl(result.imageUrl);
+      setResultRotation(0);
       setResultOpen(true);
     } catch (err) {
       toast({
@@ -311,7 +388,10 @@ export function AiPhotoEnhancerSheet({
 
     setIsApplying(true);
     try {
-      await onApprove(resultImageUrl, lastAppliedPrompt);
+      const imageToApprove = resultRotation === 0
+        ? resultImageUrl
+        : await rotateImageUrlToBlob(resultImageUrl, resultRotation);
+      await onApprove(imageToApprove, lastAppliedPrompt);
       setResultOpen(false);
       onOpenChange(false);
     } catch (err) {
@@ -323,11 +403,15 @@ export function AiPhotoEnhancerSheet({
     } finally {
       setIsApplying(false);
     }
-  }, [lastAppliedPrompt, onApprove, onOpenChange, resultImageUrl, toast]);
+  }, [lastAppliedPrompt, onApprove, onOpenChange, resultImageUrl, resultRotation, toast]);
 
   const handleTryAgain = useCallback(async () => {
     await handleEnhance();
   }, [handleEnhance]);
+
+  const handleRotateResult = useCallback(() => {
+    setResultRotation((currentRotation) => normalizeRotationDegrees(currentRotation + ROTATION_STEP_DEGREES));
+  }, []);
 
   return (
     <>
@@ -624,6 +708,11 @@ export function AiPhotoEnhancerSheet({
                   Model: {lastModelUsed}
                 </span>
               )}
+              {resultRotation !== 0 && (
+                <span className="rounded-full border border-primary/30 bg-primary/5 px-2.5 py-1 text-primary">
+                  Rotation: {resultRotation}°
+                </span>
+              )}
               {sourcePhoto?.alt && (
                 <span className="truncate rounded-full border px-2.5 py-1">
                   {sourcePhoto.alt}
@@ -650,18 +739,39 @@ export function AiPhotoEnhancerSheet({
               </div>
 
               <div className="rounded-xl border border-primary/30 bg-card/40 p-4">
-                <Label className="mb-3 block text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
-                  Enhanced
-                </Label>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <Label className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
+                    Enhanced
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {resultRotation}°
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-3 text-xs"
+                      onClick={handleRotateResult}
+                      disabled={!resultImageUrl || isEnhancing || isApplying}
+                    >
+                      <RotateCw className="mr-1.5 h-3.5 w-3.5" />
+                      Rotate
+                    </Button>
+                  </div>
+                </div>
                 <div className="relative flex min-h-[340px] items-center justify-center overflow-hidden rounded-lg bg-[radial-gradient(circle_at_top,_hsl(var(--primary)/0.12),_transparent_62%),linear-gradient(to_bottom,_hsl(var(--muted)/0.2),_hsl(var(--muted)/0.34))] p-5">
                   {resultImageUrl ? (
                     <img
                       src={resultImageUrl}
                       alt="Enhanced result"
                       className={cn(
-                        'max-h-[420px] w-auto max-w-full rounded-md object-contain transition-opacity',
+                        'max-h-[420px] w-auto max-w-full rounded-md object-contain transition-[opacity,transform] duration-200',
                         isEnhancing ? 'opacity-35' : 'opacity-100'
                       )}
+                      style={{
+                        transform: resultRotation === 0 ? undefined : `rotate(${resultRotation}deg)`,
+                      }}
                     />
                   ) : (
                     <div className="text-sm text-muted-foreground">Enhanced preview is not available.</div>

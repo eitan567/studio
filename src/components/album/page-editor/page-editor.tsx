@@ -449,17 +449,22 @@ export function PageEditor({ albumId }: PageEditorProps) {
     }
   }, []);
 
-  const handleApproveEnhancedPhoto = useCallback(async (enhancedImageUrl: string) => {
+  const handleApproveEnhancedPhoto = useCallback(async (enhancedImage: string | Blob) => {
     if (!enhanceTarget) {
       throw new Error('No photo selected for enhancement.');
     }
 
-    const imageResponse = await fetch(enhancedImageUrl);
-    if (!imageResponse.ok) {
-      throw new Error('Could not download enhanced image.');
+    let blob: Blob;
+    if (typeof enhancedImage === 'string') {
+      const imageResponse = await fetch(enhancedImage);
+      if (!imageResponse.ok) {
+        throw new Error('Could not download enhanced image.');
+      }
+      blob = await imageResponse.blob();
+    } else {
+      blob = enhancedImage;
     }
 
-    const blob = await imageResponse.blob();
     const fileName = buildEnhancedFileName(enhanceTarget.photo.alt || 'photo', blob.type);
     const file = new File([blob], fileName, {
       type: blob.type || 'image/png',
