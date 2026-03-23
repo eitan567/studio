@@ -110,6 +110,8 @@ function PanoramicSpreadViewer({
 // ─────────────────────────────────────────────────────────────────────────────
 export function BookViewOverlay({ pages, config, onClose, onUpdatePage }: BookViewOverlayProps) {
     const [currentSpreadIndex, setCurrentSpreadIndex] = useState(0);
+    const bookOpeningDirection = config.bookOpeningDirection ?? 'ltr';
+    const isRtl = bookOpeningDirection === 'rtl';
 
     // Build Spreads
     const spreads = useMemo(() => {
@@ -119,15 +121,30 @@ export function BookViewOverlay({ pages, config, onClose, onUpdatePage }: BookVi
         const frontCover = pages.find(p => p.isCover) || pages[0];
         const innerPages = pages.filter(p => !p.isCover && p !== frontCover);
         let pageCounter = 1;
+        const createLeafSpread = (left: AlbumPage | null, right: AlbumPage | null, extra: Omit<Spread, 'left' | 'right'>) => {
+            if (isRtl) {
+                return { left: right, right: left, ...extra };
+            }
+            return { left, right, ...extra };
+        };
 
         // 1. Front Cover (right side only)
-        newSpreads.push({ left: null, right: frontCover, isCover: true, pageLabel: 'Front Cover', pageStart: 0, pageEnd: 0 });
+        newSpreads.push(createLeafSpread(null, frontCover, {
+            isCover: true,
+            pageLabel: 'Front Cover',
+            pageStart: 0,
+            pageEnd: 0,
+        }));
 
         let i = 0;
 
         // First inner page might be a lone single on the right
         if (innerPages.length > 0 && innerPages[0].type === 'single') {
-            newSpreads.push({ left: null, right: innerPages[0], pageLabel: `Page ${pageCounter}`, pageStart: pageCounter, pageEnd: pageCounter });
+            newSpreads.push(createLeafSpread(null, innerPages[0], {
+                pageLabel: `Page ${pageCounter}`,
+                pageStart: pageCounter,
+                pageEnd: pageCounter,
+            }));
             pageCounter++;
             i++;
         }
@@ -146,12 +163,20 @@ export function BookViewOverlay({ pages, config, onClose, onUpdatePage }: BookVi
                 if (next && next.type === 'single') {
                     const start = pageCounter;
                     const end = pageCounter + 1;
-                    newSpreads.push({ left: current, right: next, pageLabel: `Pages ${start}-${end}`, pageStart: start, pageEnd: end });
+                    newSpreads.push(createLeafSpread(current, next, {
+                        pageLabel: `Pages ${start}-${end}`,
+                        pageStart: start,
+                        pageEnd: end,
+                    }));
                     pageCounter += 2;
                     i += 2;
                 } else {
                     const cur = pageCounter;
-                    newSpreads.push({ left: current, right: null, pageLabel: `Page ${cur}`, pageStart: cur, pageEnd: cur });
+                    newSpreads.push(createLeafSpread(current, null, {
+                        pageLabel: `Page ${cur}`,
+                        pageStart: cur,
+                        pageEnd: cur,
+                    }));
                     pageCounter++;
                     i++;
                 }
@@ -160,11 +185,16 @@ export function BookViewOverlay({ pages, config, onClose, onUpdatePage }: BookVi
 
         // 3. Back Cover
         if (frontCover) {
-            newSpreads.push({ left: frontCover, right: null, isBackCover: true, pageLabel: 'Back Cover', pageStart: 0, pageEnd: 0 });
+            newSpreads.push(createLeafSpread(frontCover, null, {
+                isBackCover: true,
+                pageLabel: 'Back Cover',
+                pageStart: 0,
+                pageEnd: 0,
+            }));
         }
 
         return newSpreads;
-    }, [pages]);
+    }, [isRtl, pages]);
 
     const goToNext = () => {
         if (currentSpreadIndex < spreads.length - 1) setCurrentSpreadIndex(prev => prev + 1);
@@ -172,19 +202,41 @@ export function BookViewOverlay({ pages, config, onClose, onUpdatePage }: BookVi
     const goToPrev = () => {
         if (currentSpreadIndex > 0) setCurrentSpreadIndex(prev => prev - 1);
     };
+    const leftNavAction = isRtl ? goToNext : goToPrev;
+    const rightNavAction = isRtl ? goToPrev : goToNext;
+    const leftNavDisabled = isRtl ? currentSpreadIndex === spreads.length - 1 : currentSpreadIndex === 0;
+    const rightNavDisabled = isRtl ? currentSpreadIndex === 0 : currentSpreadIndex === spreads.length - 1;
 
     React.useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'ArrowRight') goToNext();
-            if (e.key === 'ArrowLeft') goToPrev();
+            if (e.key === 'ArrowRight') {
+                if (isRtl) {
+                    goToPrev();
+                } else {
+                    goToNext();
+                }
+            }
+            if (e.key === 'ArrowLeft') {
+                if (isRtl) {
+                    goToNext();
+                } else {
+                    goToPrev();
+                }
+            }
             if (e.key === 'Escape') onClose();
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [currentSpreadIndex, spreads.length, onClose]);
+    }, [currentSpreadIndex, isRtl, onClose, spreads.length]);
 
     if (spreads.length === 0) return null;
     const currentSpread = spreads[currentSpreadIndex];
+    const shouldShowLeftPane = currentSpread.isCover || currentSpread.isBackCover
+        ? !!currentSpread.left
+        : (!!currentSpread.left || !currentSpread.isPanoramic);
+    const shouldShowRightPane = currentSpread.isCover || currentSpread.isBackCover
+        ? !!currentSpread.right
+        : (!!currentSpread.right || !currentSpread.isPanoramic);
 
     return (
         <div className="fixed inset-0 z-50 bg-[#1a1a1a] flex flex-col items-center justify-center overflow-hidden animate-in fade-in duration-300">
@@ -212,7 +264,7 @@ export function BookViewOverlay({ pages, config, onClose, onUpdatePage }: BookVi
             {/* Book Stage */}
             <div className="relative flex items-center justify-center w-full h-full p-4 md:p-10">
 
-                <button onClick={goToPrev} disabled={currentSpreadIndex === 0}
+                <button onClick={leftNavAction} disabled={leftNavDisabled}
                     className="absolute left-4 md:left-8 z-50 p-3 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-0 text-white transition-all backdrop-blur-md shadow-lg">
                     <ChevronLeft className="w-8 h-8" />
                 </button>
@@ -233,7 +285,7 @@ export function BookViewOverlay({ pages, config, onClose, onUpdatePage }: BookVi
                             'flex-1 relative overflow-hidden transition-opacity duration-500 bg-white',
                             // Show border-r only for non-panoramic (panoramic has overlay without seam)
                             !currentSpread.isPanoramic && 'border-r border-[#ccc]',
-                            currentSpread.left || (!currentSpread.isCover && !currentSpread.isPanoramic) ? 'opacity-100' : 'opacity-0'
+                            shouldShowLeftPane ? 'opacity-100' : 'opacity-0'
                         )}
                         style={{ borderTopLeftRadius: '4px', borderBottomLeftRadius: '4px' }}
                     >
@@ -250,6 +302,8 @@ export function BookViewOverlay({ pages, config, onClose, onUpdatePage }: BookVi
                             <div className="w-full h-full relative">
                                 {currentSpread.isBackCover ? (
                                     <AlbumCover page={currentSpread.left} config={config} mode="preview" activeView="back" />
+                                ) : currentSpread.isCover ? (
+                                    <AlbumCover page={currentSpread.left} config={config} mode="preview" activeView="front" />
                                 ) : (
                                     <AlbumCover page={currentSpread.left} config={config} mode="preview" activeView="full" />
                                 )}
@@ -282,7 +336,7 @@ export function BookViewOverlay({ pages, config, onClose, onUpdatePage }: BookVi
                     <div
                         className={cn(
                             'flex-1 relative overflow-hidden transition-opacity duration-500 bg-white',
-                            currentSpread.right || (!currentSpread.isBackCover && !currentSpread.isPanoramic) ? 'opacity-100' : 'opacity-0'
+                            shouldShowRightPane ? 'opacity-100' : 'opacity-0'
                         )}
                         style={{ borderTopRightRadius: '4px', borderBottomRightRadius: '4px' }}
                     >
@@ -299,6 +353,8 @@ export function BookViewOverlay({ pages, config, onClose, onUpdatePage }: BookVi
                             <div className="w-full h-full relative">
                                 {currentSpread.isCover ? (
                                     <AlbumCover page={currentSpread.right} config={config} mode="preview" activeView="front" />
+                                ) : currentSpread.isBackCover ? (
+                                    <AlbumCover page={currentSpread.right} config={config} mode="preview" activeView="back" />
                                 ) : (
                                     <AlbumCover page={currentSpread.right} config={config} mode="preview" activeView="full" />
                                 )}
@@ -325,7 +381,7 @@ export function BookViewOverlay({ pages, config, onClose, onUpdatePage }: BookVi
                     )}
                 </div>
 
-                <button onClick={goToNext} disabled={currentSpreadIndex === spreads.length - 1}
+                <button onClick={rightNavAction} disabled={rightNavDisabled}
                     className="absolute right-4 md:right-8 z-50 p-3 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-0 text-white transition-all backdrop-blur-md shadow-lg">
                     <ChevronRight className="w-8 h-8" />
                 </button>
@@ -337,6 +393,7 @@ export function BookViewOverlay({ pages, config, onClose, onUpdatePage }: BookVi
                     currentIndex={currentSpreadIndex}
                     totalSpreads={spreads.length}
                     spreads={spreads}
+                    isRtl={isRtl}
                     onJump={(idx) => setCurrentSpreadIndex(idx)}
                 />
             </div>
@@ -344,8 +401,8 @@ export function BookViewOverlay({ pages, config, onClose, onUpdatePage }: BookVi
     );
 }
 
-function BookNavigationControls({ currentIndex, totalSpreads, spreads, onJump }: {
-    currentIndex: number; totalSpreads: number; spreads: Spread[]; onJump: (idx: number) => void;
+function BookNavigationControls({ currentIndex, totalSpreads, spreads, isRtl, onJump }: {
+    currentIndex: number; totalSpreads: number; spreads: Spread[]; isRtl: boolean; onJump: (idx: number) => void;
 }) {
     const [targetSpread, setTargetSpread] = useState<string>('');
 
@@ -361,10 +418,10 @@ function BookNavigationControls({ currentIndex, totalSpreads, spreads, onJump }:
     };
 
     return (
-        <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md p-1.5 rounded-full border border-white/10 shadow-2xl">
+        <div className={cn("flex items-center gap-2 bg-black/40 backdrop-blur-md p-1.5 rounded-full border border-white/10 shadow-2xl", isRtl && "flex-row-reverse")}>
             <button onClick={() => onJump(0)} disabled={currentIndex === 0}
                 className="p-2 rounded-full hover:bg-white/10 text-white/80 hover:text-white transition-colors disabled:opacity-30" title="Jump to Start">
-                <ChevronsLeft className="w-4 h-4" />
+                {isRtl ? <ChevronsRight className="w-4 h-4" /> : <ChevronsLeft className="w-4 h-4" />}
             </button>
             <div className="flex items-center gap-1 mx-1 bg-white/5 rounded-full px-2 py-0.5 border border-white/5 focus-within:border-white/20 transition-colors">
                 <input type="number"
@@ -380,7 +437,7 @@ function BookNavigationControls({ currentIndex, totalSpreads, spreads, onJump }:
             </div>
             <button onClick={() => onJump(totalSpreads - 1)} disabled={currentIndex === totalSpreads - 1}
                 className="p-2 rounded-full hover:bg-white/10 text-white/80 hover:text-white transition-colors disabled:opacity-30" title="Jump to End">
-                <ChevronsRight className="w-4 h-4" />
+                {isRtl ? <ChevronsLeft className="w-4 h-4" /> : <ChevronsRight className="w-4 h-4" />}
             </button>
         </div>
     );

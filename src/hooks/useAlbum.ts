@@ -18,6 +18,7 @@ const DEFAULT_CONFIG: AlbumConfig = {
     pageMargin: 0,
     backgroundColor: '#ffffff',
     cornerRadius: 0,
+    bookOpeningDirection: 'ltr',
 }
 
 export function useAlbum(albumId: string | null, options: UseAlbumOptions = {}) {

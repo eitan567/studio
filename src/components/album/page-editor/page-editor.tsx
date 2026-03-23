@@ -25,7 +25,7 @@ import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 
-import type { Photo, AlbumConfig, AlbumPage, PhotoPanAndZoom } from '@/lib/types';
+import type { Photo, AlbumConfig, AlbumPage, PhotoPanAndZoom, BookOpeningDirection } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 // import { AlbumEditor } from '../album-editor/album-editor'; // Removed in favor of VirtualizedPageList
@@ -1017,6 +1017,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
   const [photoGap, setPhotoGap] = useState(2);
   const [pageMargin, setPageMargin] = useState(0);
   const [cornerRadius, setCornerRadius] = useState(0);
+  const [bookOpeningDirection, setBookOpeningDirection] = useState<BookOpeningDirection>('ltr');
   // Preview values - Handled by AlbumEditorContext
   const [backgroundColor, setBackgroundColor] = useState('#ffffff');
   const [backgroundImage, setBackgroundImage] = useState<string | undefined>(undefined);
@@ -1114,6 +1115,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
       setPhotoGap(savedConfig.photoGap ?? settings.defaultPhotoGap);
       setPageMargin(savedConfig.pageMargin ?? settings.defaultPageMargin);
       setCornerRadius(savedConfig.cornerRadius || 0);
+      setBookOpeningDirection(savedConfig.bookOpeningDirection ?? 'ltr');
       setBackgroundColor(savedConfig.backgroundColor || '#ffffff');
       setBackgroundImage(savedConfig.backgroundImage);
       setMultiSelectModeLocal(savedConfig.multiSelectMode ?? false);
@@ -1135,6 +1137,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
       setPhotoGap(liveSettings.defaultPhotoGap);
       setPageMargin(liveSettings.defaultPageMargin);
       setCornerRadius(liveSettings.defaultCornerRadius);
+      setBookOpeningDirection('ltr');
       setBackgroundColor(liveSettings.defaultBackgroundColor);
       setIsInitialized(true);
     }
@@ -1274,6 +1277,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
       config.photoGap !== savedConfig.photoGap ||
       config.pageMargin !== savedConfig.pageMargin ||
       config.cornerRadius !== savedConfig.cornerRadius ||
+      config.bookOpeningDirection !== (savedConfig.bookOpeningDirection ?? 'ltr') ||
       config.backgroundColor !== savedConfig.backgroundColor ||
       config.backgroundImage !== savedConfig.backgroundImage ||
       watchedSize !== savedConfig.size;
@@ -1285,17 +1289,18 @@ export function PageEditor({ albumId }: PageEditorProps) {
 
     logger.debug('Auto-saving config...');
     updateConfig(config);
-  }, [photoGap, pageMargin, cornerRadius, backgroundColor, backgroundImage, watchedSize, isInitialized, isAlbumLoading, isNew, album, savedConfig]);
+  }, [photoGap, pageMargin, cornerRadius, bookOpeningDirection, backgroundColor, backgroundImage, watchedSize, isInitialized, isAlbumLoading, isNew, album, savedConfig]);
 
 
   const config: AlbumConfig = useMemo(() => ({
     size: watchedSize as '20x20',
     photoGap,
     pageMargin,
+    bookOpeningDirection,
     backgroundColor,
     backgroundImage,
     cornerRadius,
-  }), [watchedSize, photoGap, pageMargin, backgroundColor, backgroundImage, cornerRadius]);
+  }), [watchedSize, photoGap, pageMargin, bookOpeningDirection, backgroundColor, backgroundImage, cornerRadius]);
 
   const hasLockedPages = useMemo(() => albumPages.some(page => !!page.isLocked), [albumPages]);
 
@@ -1435,6 +1440,9 @@ export function PageEditor({ albumId }: PageEditorProps) {
     }
     if (typeof importedConfig.cornerRadius === 'number') {
       setCornerRadius(importedConfig.cornerRadius);
+    }
+    if (importedConfig.bookOpeningDirection === 'ltr' || importedConfig.bookOpeningDirection === 'rtl') {
+      setBookOpeningDirection(importedConfig.bookOpeningDirection);
     }
     if (typeof importedConfig.backgroundColor === 'string' && importedConfig.backgroundColor.trim()) {
       setBackgroundColor(importedConfig.backgroundColor);
@@ -1866,6 +1874,8 @@ export function PageEditor({ albumId }: PageEditorProps) {
                   setPageMargin={setPageMargin}
                   cornerRadius={cornerRadius}
                   setCornerRadius={setCornerRadius}
+                  bookOpeningDirection={bookOpeningDirection}
+                  setBookOpeningDirection={setBookOpeningDirection}
                   backgroundColor={backgroundColor}
                   setBackgroundColor={setBackgroundColor}
                   handleColorChange={handleColorChange}

@@ -3,6 +3,7 @@
 import React from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { Lock, Trash2, Unlock } from 'lucide-react';
+import type { BookOpeningDirection } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Form,
@@ -33,6 +34,8 @@ interface AlbumConfigCardProps {
     setPageMargin: (value: number) => void;
     cornerRadius: number;
     setCornerRadius: (value: number) => void;
+    bookOpeningDirection: BookOpeningDirection;
+    setBookOpeningDirection: (value: BookOpeningDirection) => void;
     backgroundColor: string;
     setBackgroundColor: (value: string) => void;
     handleColorChange: (color: string) => void;
@@ -56,6 +59,8 @@ export function AlbumConfigCard({
     setPageMargin,
     cornerRadius,
     setCornerRadius,
+    bookOpeningDirection,
+    setBookOpeningDirection,
     backgroundColor,
     setBackgroundColor,
     handleColorChange,
@@ -152,6 +157,21 @@ export function AlbumConfigCard({
                                 </FormItem>
                             )}
                         />
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Book Opening</label>
+                            <Select
+                                value={bookOpeningDirection}
+                                onValueChange={(value) => setBookOpeningDirection(value as BookOpeningDirection)}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select opening direction" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ltr">Left to Right</SelectItem>
+                                    <SelectItem value="rtl">Right to Left</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
                                 <label className="text-sm font-medium">Photo Gap</label>

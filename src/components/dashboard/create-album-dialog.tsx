@@ -140,7 +140,8 @@ export function CreateAlbumDialog({ children, albumToEdit, onAlbumUpdated, onAlb
                     photoGap: liveSettings.defaultPhotoGap,
                     pageMargin: liveSettings.defaultPageMargin,
                     backgroundColor: liveSettings.defaultBackgroundColor,
-                    cornerRadius: liveSettings.defaultCornerRadius
+                    cornerRadius: liveSettings.defaultCornerRadius,
+                    bookOpeningDirection: albumToEdit?.config?.bookOpeningDirection ?? 'ltr',
                 },
                 pages: [], // Added as per instruction
                 thumbnail_url: thumbnailUrl

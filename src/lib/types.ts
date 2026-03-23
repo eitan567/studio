@@ -5,6 +5,8 @@ export type PhotoPanAndZoom = {
   flipHorizontal?: boolean;
 };
 
+export type BookOpeningDirection = 'ltr' | 'rtl';
+
 export type Photo = {
   id: string;
   src: string;
@@ -27,6 +29,7 @@ export type AlbumConfig = {
   backgroundColor: string; // Background color for pages
   backgroundImage?: string; // Default background image URL for pages
   cornerRadius?: number; // Corner radius for photo frames in pixels (default 0)
+  bookOpeningDirection?: BookOpeningDirection; // How the book opens in preview: left-to-right or right-to-left
   description?: string; // Optional description
   multiSelectMode?: boolean; // Gallery selection mode: true = checkboxes, false = trash icons
 };

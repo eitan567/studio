@@ -974,7 +974,7 @@ const PhotoGalleryCardComponent = ({
                     ) : (
                         <ScrollArea
                             viewportRef={photoScrollRef}
-                            className="h-full w-full pr-4 pl-1 py-1"
+                            className="h-full w-full pr-0 pl-1 py-1"
                             thumbClassName="min-h-[50px]"
                         >
                             <VirtualGalleryContent

@@ -1189,6 +1189,9 @@ export const AlbumCover = ({
     const isFull = activeView === 'full';
     const isFront = activeView === 'front';
     const isBack = activeView === 'back';
+    const isRtlPreviewCover = mode === 'preview'
+        && page.isCover
+        && (config?.bookOpeningDirection ?? 'ltr') === 'rtl';
     const backLayoutId = page.isCover
         ? (page.coverLayouts?.back || defaultCoverTemplate?.id || '')
         : (page.spreadLayouts?.left || defaultGridTemplate?.id || '');
@@ -1334,6 +1337,51 @@ export const AlbumCover = ({
     const fullWidth = (singlePageW * 2) + spineWidth;
     const backEndPercent = (singlePageW / fullWidth) * 100; // Where back cover ends
     const frontStartPercent = ((singlePageW + spineWidth) / fullWidth) * 100; // Where front cover starts
+    const frontPageStartPercent = isRtlPreviewCover ? 0 : frontStartPercent;
+    const frontPageEndPercent = isRtlPreviewCover ? backEndPercent : 100;
+    const backPageStartPercent = isRtlPreviewCover ? frontStartPercent : 0;
+    const backPageEndPercent = isRtlPreviewCover ? 100 : backEndPercent;
+    const frontPageRange = Math.max(0.0001, frontPageEndPercent - frontPageStartPercent);
+    const backPageRange = Math.max(0.0001, backPageEndPercent - backPageStartPercent);
+    const showSecondHalfInSinglePagePreview = isFront ? !isRtlPreviewCover : (isBack ? isRtlPreviewCover : false);
+
+    const mapGlobalXToLocalPage = (globalX: number, pageSide: 'front' | 'back') => {
+        if (pageSide === 'front') {
+            return {
+                localX: ((globalX - frontPageStartPercent) / frontPageRange) * 100,
+                isVisible: globalX >= frontPageStartPercent && globalX <= frontPageEndPercent,
+            };
+        }
+
+        return {
+            localX: ((globalX - backPageStartPercent) / backPageRange) * 100,
+            isVisible: globalX >= backPageStartPercent && globalX <= backPageEndPercent,
+        };
+    };
+
+    const mapLocalXToGlobalPage = (localX: number, pageSide: 'front' | 'back') => {
+        if (pageSide === 'front') {
+            return frontPageStartPercent + ((localX / 100) * frontPageRange);
+        }
+
+        return backPageStartPercent + ((localX / 100) * backPageRange);
+    };
+
+    const mapGlobalWidthToLocalPage = (globalWidth: number, pageSide: 'front' | 'back') => {
+        if (pageSide === 'front') {
+            return (globalWidth / frontPageRange) * 100;
+        }
+
+        return (globalWidth / backPageRange) * 100;
+    };
+
+    const mapLocalWidthToGlobalPage = (localWidth: number, pageSide: 'front' | 'back') => {
+        if (pageSide === 'front') {
+            return (localWidth / 100) * frontPageRange;
+        }
+
+        return (localWidth / 100) * backPageRange;
+    };
 
     // Calculate aspect ratio for smart layout
     const singlePageRatio = configW / configH;
@@ -1445,7 +1493,7 @@ export const AlbumCover = ({
                     className="relative h-full bg-background overflow-hidden flex"
                     style={{
                         width: isFull ? '100%' : '200%',
-                        transform: isFront ? 'translateX(-50%)' : 'none',
+                        transform: showSecondHalfInSinglePagePreview ? 'translateX(-50%)' : 'none',
                         backgroundColor: page.backgroundColor || config?.backgroundColor || (safePageMargin > 0 ? '#fff' : 'transparent'),
                         backgroundImage: (page.backgroundImage || config?.backgroundImage) ? `url(${page.backgroundImage || config?.backgroundImage})` : undefined,
                         backgroundSize: 'cover',
@@ -1648,15 +1696,13 @@ export const AlbumCover = ({
             let isVisible = true;
 
             if (isFront) { // Viewing only Front
-                // Transform from global (frontStartPercent-100%) to local (0-100%)
-                // localX = (globalX - frontStartPercent) / (100 - frontStartPercent) * 100
-                const frontRange = 100 - frontStartPercent;
-                localX = ((currentX - frontStartPercent) / frontRange) * 100;
-                if (currentX < frontStartPercent) isVisible = false;
+                const mappedFront = mapGlobalXToLocalPage(currentX, 'front');
+                localX = mappedFront.localX;
+                isVisible = mappedFront.isVisible;
             } else if (isBack) { // Viewing only Back
-                // Transform from global (0-backEndPercent%) to local (0-100%)
-                localX = (currentX / backEndPercent) * 100;
-                if (currentX > backEndPercent) isVisible = false;
+                const mappedBack = mapGlobalXToLocalPage(currentX, 'back');
+                localX = mappedBack.localX;
+                isVisible = mappedBack.isVisible;
             }
 
             if (!isVisible) return null;
@@ -1691,12 +1737,9 @@ export const AlbumCover = ({
                             let globalX = x;
                             let globalY = y;
                             if (isFront) {
-                                // Local 0-100% maps to global frontStartPercent-100%
-                                const frontRange = 100 - frontStartPercent;
-                                globalX = frontStartPercent + (x / 100) * frontRange;
+                                globalX = mapLocalXToGlobalPage(x, 'front');
                             } else if (isBack) {
-                                // Local 0-100% maps to global 0-backEndPercent%
-                                globalX = (x / 100) * backEndPercent;
+                                globalX = mapLocalXToGlobalPage(x, 'back');
                             }
 
                             handleUpdateTextPosition(textItem.id, globalX, globalY);
@@ -1733,21 +1776,15 @@ export const AlbumCover = ({
             let isVisible = true;
 
             if (isFront) {
-                // Global to Local (Front)
-                // Transform from global (frontStartPercent-100%) to local (0-100%)
-                const frontRange = 100 - frontStartPercent;
-                localX = ((currentX - frontStartPercent) / frontRange) * 100;
-                // Width: % of Full -> % of Front (Front is narrower proportionally)
-                localWidth = (imgItem.width / frontRange) * 100;
-
-                if (currentX < frontStartPercent) isVisible = false;
+                const mappedFront = mapGlobalXToLocalPage(currentX, 'front');
+                localX = mappedFront.localX;
+                localWidth = mapGlobalWidthToLocalPage(imgItem.width, 'front');
+                isVisible = mappedFront.isVisible;
             } else if (isBack) {
-                // Global to Local (Back)
-                // Transform from global (0-backEndPercent%) to local (0-100%)
-                localX = (currentX / backEndPercent) * 100;
-                localWidth = (imgItem.width / backEndPercent) * 100;
-
-                if (currentX > backEndPercent) isVisible = false;
+                const mappedBack = mapGlobalXToLocalPage(currentX, 'back');
+                localX = mappedBack.localX;
+                localWidth = mapGlobalWidthToLocalPage(imgItem.width, 'back');
+                isVisible = mappedBack.isVisible;
             }
 
             if (!isVisible) return null;
@@ -1769,12 +1806,9 @@ export const AlbumCover = ({
                             let globalX = x;
                             let globalY = y;
                             if (isFront) {
-                                // Local 0-100% maps to global frontStartPercent-100%
-                                const frontRange = 100 - frontStartPercent;
-                                globalX = frontStartPercent + (x / 100) * frontRange;
+                                globalX = mapLocalXToGlobalPage(x, 'front');
                             } else if (isBack) {
-                                // Local 0-100% maps to global 0-backEndPercent%
-                                globalX = (x / 100) * backEndPercent;
+                                globalX = mapLocalXToGlobalPage(x, 'back');
                             }
                             handleUpdateImagePosition(imgItem.id, globalX, globalY);
                         }}
@@ -1784,19 +1818,10 @@ export const AlbumCover = ({
                             let globalHeight = h;
 
                             if (isFront) {
-                                const frontRange = 100 - frontStartPercent;
-                                globalWidth = (w / 100) * frontRange;
-                                // Height is vertical, range is 100% usually?
-                                // Local relative to page, Global relative to... full spread?
-                                // Height is consistently 100% of container HEIGHT.
-                                // So Local Height % == Global Height %.
-                                // Wait, the coordinate system:
-                                // Y is 0-100% of Canvas Height.
-                                // So Global Y == Local Y.
-                                // So Global Height == Local Height.
+                                globalWidth = mapLocalWidthToGlobalPage(w, 'front');
                                 globalHeight = h;
                             } else if (isBack) {
-                                globalWidth = (w / 100) * backEndPercent;
+                                globalWidth = mapLocalWidthToGlobalPage(w, 'back');
                                 globalHeight = h;
                             }
 
@@ -1858,10 +1883,9 @@ export const AlbumCover = ({
         y = Math.max(0, Math.min(100, y));
 
         if (isFront) {
-            const frontRange = 100 - frontStartPercent;
-            x = frontStartPercent + ((x / 100) * frontRange);
+            x = mapLocalXToGlobalPage(x, 'front');
         } else if (isBack) {
-            x = (x / 100) * backEndPercent;
+            x = mapLocalXToGlobalPage(x, 'back');
         }
 
         onDynamicDropPhoto(page.id, droppedPhotoId, {
