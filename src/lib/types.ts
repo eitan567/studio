@@ -2,6 +2,7 @@ export type PhotoPanAndZoom = {
   scale: number;
   x: number;
   y: number;
+  flipHorizontal?: boolean;
 };
 
 export type Photo = {

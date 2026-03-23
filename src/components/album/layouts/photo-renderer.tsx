@@ -91,7 +91,8 @@ export const PhotoRenderer = memo(function PhotoRenderer({
   const currentValues = useRef<PhotoPanAndZoom>({
     scale: photo.panAndZoom?.scale ?? 1,
     x: photo.panAndZoom?.x ?? 50,
-    y: photo.panAndZoom?.y ?? 50
+    y: photo.panAndZoom?.y ?? 50,
+    flipHorizontal: photo.panAndZoom?.flipHorizontal ?? false
   });
 
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -254,7 +255,8 @@ export const PhotoRenderer = memo(function PhotoRenderer({
       currentValues.current = {
         scale: photo.panAndZoom?.scale ?? 1,
         x: photo.panAndZoom?.x ?? 50,
-        y: photo.panAndZoom?.y ?? 50
+        y: photo.panAndZoom?.y ?? 50,
+        flipHorizontal: photo.panAndZoom?.flipHorizontal ?? false
       };
       // Apply using current container size (state or measure?)
       // State might be 0 on first render, so measure again to be safe
@@ -433,6 +435,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({
               width: '100%',
               height: '100%',
               objectFit: 'cover',
+              transform: photo.panAndZoom?.flipHorizontal ? 'scaleX(-1)' : undefined,
               pointerEvents: 'none'
             }}
           />
@@ -465,6 +468,9 @@ export const PhotoRenderer = memo(function PhotoRenderer({
           alt={photo.alt}
           fill
           className="object-cover pointer-events-none"
+          style={{
+            transform: photo.panAndZoom?.flipHorizontal ? 'scaleX(-1)' : undefined,
+          }}
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           draggable={false}
           priority={priority}

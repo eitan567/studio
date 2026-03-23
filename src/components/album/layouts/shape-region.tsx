@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { Hash, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
+import { FlipHorizontal, Hash, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
 import { Photo } from '@/lib/types';
 import { LayoutRegion, TemplateImageRotationMode, regionToClipPath } from '@/lib/advanced-layout-types';
 import { PhotoRenderer } from './photo-renderer';
@@ -537,7 +537,8 @@ export const ShapeRegion = ({
     const photoNumber = galleryPhotoId ? chronologicalIndex?.[galleryPhotoId] : undefined;
     const hasGalleryJump = photoNumber !== undefined && !!scrollToGallery;
     const hasEnhanceAction = !!(photo?.src && pageId && onEnhanceWithAi);
-    const hasAnyAction = !!(photo?.src && (onReplace || onRemovePhoto || hasGalleryJump || hasEnhanceAction));
+    const hasFlipAction = !!(photo?.src && onUpdatePanAndZoom);
+    const hasAnyAction = !!(photo?.src && (onReplace || onRemovePhoto || hasGalleryJump || hasEnhanceAction || hasFlipAction));
     const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number } | null>(null);
 
     const closeContextMenu = React.useCallback(() => {
@@ -581,7 +582,7 @@ export const ShapeRegion = ({
         onReplace(syntheticEvent, rootRef.current);
     };
 
-    const actionCount = (onReplace ? 1 : 0) + (hasEnhanceAction ? 1 : 0) + (onRemovePhoto ? 1 : 0) + (hasGalleryJump ? 1 : 0);
+    const actionCount = (onReplace ? 1 : 0) + (hasFlipAction ? 1 : 0) + (hasEnhanceAction ? 1 : 0) + (onRemovePhoto ? 1 : 0) + (hasGalleryJump ? 1 : 0);
     const menuWidth = 200;
     const menuHeight = 12 + (actionCount * 34);
     const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
@@ -616,6 +617,24 @@ export const ShapeRegion = ({
                         >
                             <RefreshCw className="h-4 w-4 shrink-0 opacity-80" />
                             <span>Replace photo</span>
+                        </button>
+                    )}
+                    {hasFlipAction && (
+                        <button
+                            type="button"
+                            className="flex w-full items-center gap-2.5 rounded-sm px-2.5 py-2 text-left text-sm leading-5 hover:bg-accent hover:text-accent-foreground"
+                            onClick={() => {
+                                onUpdatePanAndZoom?.({
+                                    scale: photo?.panAndZoom?.scale ?? 1,
+                                    x: photo?.panAndZoom?.x ?? 50,
+                                    y: photo?.panAndZoom?.y ?? 50,
+                                    flipHorizontal: !(photo?.panAndZoom?.flipHorizontal ?? false),
+                                });
+                                closeContextMenu();
+                            }}
+                        >
+                            <FlipHorizontal className="h-4 w-4 shrink-0 opacity-80" />
+                            <span>{photo?.panAndZoom?.flipHorizontal ? 'Reset horizontal flip' : 'Flip horizontal'}</span>
                         </button>
                     )}
                     {hasEnhanceAction && (
