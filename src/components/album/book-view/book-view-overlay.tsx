@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useRef } from 'react';
 import { X, ChevronLeft, ChevronRight, BookOpen, ChevronsLeft, ChevronsRight, CornerDownRight } from 'lucide-react';
 import { AlbumPage, AlbumConfig, PhotoPanAndZoom } from '@/lib/types';
+import type { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { AlbumCover } from './album-cover';
 import { PhotoRenderer } from '../layouts/photo-renderer';
 import { LAYOUT_TEMPLATES } from '@/hooks/useTemplates';
@@ -33,6 +34,7 @@ interface BookViewOverlayProps {
     config: AlbumConfig;
     onClose: () => void;
     onUpdatePage?: (pageId: string, updatedPage: AlbumPage) => void;
+    extraTemplates?: AdvancedTemplate[];
 }
 
 interface Spread {
@@ -57,10 +59,12 @@ function PanoramicSpreadViewer({
     page,
     config,
     onUpdatePage,
+    extraTemplates = [],
 }: {
     page: AlbumPage;
     config: AlbumConfig;
     onUpdatePage?: (updatedPage: AlbumPage) => void;
+    extraTemplates?: AdvancedTemplate[];
 }) {
     const localPageRef = useRef<AlbumPage>(page);
 
@@ -95,6 +99,7 @@ function PanoramicSpreadViewer({
                 activeView="full"
                 useSimpleImage={false}
                 onUpdatePhotoPanAndZoom={handleUpdatePhotoPanAndZoom}
+                extraTemplates={extraTemplates}
             />
             {onUpdatePage && (
                 <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-50 bg-black/60 text-white/80 text-[11px] px-3 py-1.5 rounded-full pointer-events-none select-none whitespace-nowrap">
@@ -108,7 +113,13 @@ function PanoramicSpreadViewer({
 // ─────────────────────────────────────────────────────────────────────────────
 // BookViewOverlay
 // ─────────────────────────────────────────────────────────────────────────────
-export function BookViewOverlay({ pages, config, onClose, onUpdatePage }: BookViewOverlayProps) {
+export function BookViewOverlay({
+    pages,
+    config,
+    onClose,
+    onUpdatePage,
+    extraTemplates = [],
+}: BookViewOverlayProps) {
     const [currentSpreadIndex, setCurrentSpreadIndex] = useState(0);
     const bookOpeningDirection = config.bookOpeningDirection ?? 'ltr';
     const isRtl = bookOpeningDirection === 'rtl';
@@ -301,11 +312,11 @@ export function BookViewOverlay({ pages, config, onClose, onUpdatePage }: BookVi
                         {currentSpread.left && !currentSpread.isPanoramic && (
                             <div className="w-full h-full relative">
                                 {currentSpread.isBackCover ? (
-                                    <AlbumCover page={currentSpread.left} config={config} mode="preview" activeView="back" />
+                                    <AlbumCover page={currentSpread.left} config={config} mode="preview" activeView="back" extraTemplates={extraTemplates} />
                                 ) : currentSpread.isCover ? (
-                                    <AlbumCover page={currentSpread.left} config={config} mode="preview" activeView="front" />
+                                    <AlbumCover page={currentSpread.left} config={config} mode="preview" activeView="front" extraTemplates={extraTemplates} />
                                 ) : (
-                                    <AlbumCover page={currentSpread.left} config={config} mode="preview" activeView="full" />
+                                    <AlbumCover page={currentSpread.left} config={config} mode="preview" activeView="full" extraTemplates={extraTemplates} />
                                 )}
                             </div>
                         )}
@@ -316,6 +327,7 @@ export function BookViewOverlay({ pages, config, onClose, onUpdatePage }: BookVi
                         <PanoramicSpreadViewer
                             page={currentSpread.left}
                             config={config}
+                            extraTemplates={extraTemplates}
                             onUpdatePage={
                                 onUpdatePage
                                     ? (updated) => onUpdatePage(updated.id, updated)
@@ -352,11 +364,11 @@ export function BookViewOverlay({ pages, config, onClose, onUpdatePage }: BookVi
                         {currentSpread.right && !currentSpread.isPanoramic && (
                             <div className="w-full h-full relative">
                                 {currentSpread.isCover ? (
-                                    <AlbumCover page={currentSpread.right} config={config} mode="preview" activeView="front" />
+                                    <AlbumCover page={currentSpread.right} config={config} mode="preview" activeView="front" extraTemplates={extraTemplates} />
                                 ) : currentSpread.isBackCover ? (
-                                    <AlbumCover page={currentSpread.right} config={config} mode="preview" activeView="back" />
+                                    <AlbumCover page={currentSpread.right} config={config} mode="preview" activeView="back" extraTemplates={extraTemplates} />
                                 ) : (
-                                    <AlbumCover page={currentSpread.right} config={config} mode="preview" activeView="full" />
+                                    <AlbumCover page={currentSpread.right} config={config} mode="preview" activeView="full" extraTemplates={extraTemplates} />
                                 )}
                             </div>
                         )}
@@ -372,6 +384,7 @@ export function BookViewOverlay({ pages, config, onClose, onUpdatePage }: BookVi
                         <PanoramicSpreadViewer
                             page={currentSpread.left}
                             config={config}
+                            extraTemplates={extraTemplates}
                             onUpdatePage={
                                 onUpdatePage
                                     ? (updated) => onUpdatePage(updated.id, updated)

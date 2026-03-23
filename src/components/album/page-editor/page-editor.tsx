@@ -1810,6 +1810,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
           pages={albumPages}
           config={config}
           albumName={albumName}
+          extraTemplates={customTemplates}
           onExportStart={() => {
             setIsExporting(true);
             setExportProgress(null);
@@ -2088,6 +2089,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
           <BookViewOverlay
             pages={albumPages}
             config={config}
+            extraTemplates={customTemplates}
             onClose={() => setIsBookViewOpen(false)}
             onUpdatePage={(_pageId, updatedPage) => handleUpdatePage(updatedPage)}
           />

@@ -5,6 +5,7 @@ import { jsPDF } from 'jspdf';
 import { saveAs } from 'file-saver';
 import { flushSync } from 'react-dom';
 import { AlbumPage, AlbumConfig } from '@/lib/types';
+import type { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { PageLayout } from '../layouts/page-layout';
 import { AlbumCover, StaticCoverText, StaticCoverImage } from '../book-view/album-cover';
 import { LAYOUT_TEMPLATES, ADVANCED_TEMPLATES, getPhotoCount } from '@/hooks/useTemplates';
@@ -24,6 +25,7 @@ interface AlbumExporterProps {
     pages: AlbumPage[];
     config: AlbumConfig;
     albumName?: string;
+    extraTemplates?: AdvancedTemplate[];
     onExportStart?: () => void;
     onExportProgress?: (current: number, total: number) => void;
     onExportComplete?: () => void;
@@ -77,6 +79,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
     pages,
     config,
     albumName,
+    extraTemplates = [],
     onExportStart,
     onExportProgress,
     onExportComplete,
@@ -103,6 +106,13 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
     const DEFAULT_PDF_DPI: ExportDpi = 200;
     const ASSET_WAIT_TIMEOUT_MS = 8000;
     const [activeRenderOptions, setActiveRenderOptions] = useState<NormalizedExportRenderOptions | null>(null);
+    const mergedPageTemplates = React.useMemo(() => {
+        const templateMap = new Map<string, AdvancedTemplate>();
+        [...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES, ...extraTemplates].forEach((template) => {
+            templateMap.set(String(template.id), template);
+        });
+        return Array.from(templateMap.values());
+    }, [extraTemplates]);
 
     const createUniformWhiteMargins = React.useCallback((value: number): NormalizedWhiteMarginsMm => ({
         top: value,
@@ -779,6 +789,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                                 onDropPhoto={() => { }}
                                                 onUpdatePhotoPanAndZoom={() => { }}
                                                 useSimpleImage={true}
+                                                extraTemplates={extraTemplates}
                                             />
                                             {/* Title Overlay for Cover */}
                                             {page.titleText && (
@@ -805,7 +816,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                             if (isSplit) {
                                                 const leftLayoutId = page.spreadLayouts?.left || LAYOUT_TEMPLATES[0].id;
                                                 const rightLayoutId = page.spreadLayouts?.right || LAYOUT_TEMPLATES[0].id; // unused for slice, but good for consistency
-                                                const leftTemplate = LAYOUT_TEMPLATES.find(t => String(t.id) === String(leftLayoutId)) || ADVANCED_TEMPLATES.find(t => String(t.id) === String(leftLayoutId)) || LAYOUT_TEMPLATES[0];
+                                                const leftTemplate = mergedPageTemplates.find(t => String(t.id) === String(leftLayoutId)) || mergedPageTemplates[0] || LAYOUT_TEMPLATES[0];
                                                 const leftPhotos = page.photos.slice(0, getPhotoCount(leftTemplate));
                                                 const rightPhotos = page.photos.slice(getPhotoCount(leftTemplate));
 
@@ -823,6 +834,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                                                 cornerRadius={exportCornerRadius}
                                                                 overridePhotos={leftPhotos}
                                                                 overrideLayout={leftLayoutId}
+                                                                templateSource={mergedPageTemplates as any}
                                                                 onUpdatePhotoPanAndZoom={() => { }}
                                                                 onInteractionChange={() => { }}
                                                                 onDropPhoto={() => { }}
@@ -838,6 +850,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                                                 cornerRadius={exportCornerRadius}
                                                                 overridePhotos={rightPhotos}
                                                                 overrideLayout={rightLayoutId}
+                                                                templateSource={mergedPageTemplates as any}
                                                                 onUpdatePhotoPanAndZoom={() => { }}
                                                                 onInteractionChange={() => { }}
                                                                 onDropPhoto={() => { }}
@@ -857,6 +870,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                                         backgroundColor={exportPageBackground}
                                                         backgroundImage={page.backgroundImage || config.backgroundImage}
                                                         cornerRadius={exportCornerRadius}
+                                                        templateSource={mergedPageTemplates as any}
                                                         onUpdatePhotoPanAndZoom={() => { }}
                                                         onInteractionChange={() => { }}
                                                         onDropPhoto={() => { }}
@@ -872,6 +886,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                             backgroundColor={exportPageBackground}
                                             backgroundImage={page.backgroundImage || config.backgroundImage}
                                             cornerRadius={exportCornerRadius}
+                                            templateSource={mergedPageTemplates as any}
                                             onUpdatePhotoPanAndZoom={() => { }}
                                             onInteractionChange={() => { }}
                                             onDropPhoto={() => { }}
