@@ -1104,7 +1104,9 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 setGridDesignerSegments([]);
                 setIsGridDesignerEnabled(false);
 
-                if (editorSnapshot.length > 0) {
+                const hasEditorVersion = template._editorVersion !== undefined || templateConfigData._editorVersion !== undefined;
+
+                if (editorSnapshot.length > 0 || hasEditorVersion) {
                     setVectorObjects(editorSnapshot);
                 } else {
                     // Backward compatibility: Convert template regions to VectorObjects
@@ -2085,7 +2087,7 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
         gridSnapshot?: EditorGridSnapshot | null,
         editorObjectsForSnapshot?: VectorObject[]
     ): boolean => {
-        if (objectsToProcess.length === 0) return false;
+        // Removed `if (objectsToProcess.length === 0) return false;` to allow empty template processing
 
         // Calculate aspect ratio to pass to geometry engine
         let configW = 20;
@@ -2121,6 +2123,9 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
         // Group objects by zIndex to separate layers
         const zIndices = Array.from(new Set(objectsToProcess.map(o => o.zIndex ?? 0))).sort((a, b) => a - b);
+        if (zIndices.length === 0) {
+            zIndices.push(0); // Synthesize a base grid layer to generate the empty page background
+        }
         const baseZ = zIndices[0] ?? 0; // The lowest layer is the "Grid" (Base Layer)
 
         let allNewRegions: LayoutRegion[] = [];
@@ -2336,16 +2341,14 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
 
     // Process the drawn strokes into regions
     const handleProcessLayout = useCallback(() => {
-        let fallbackEditorObjects: VectorObject[] = [];
         let fallbackGridSnapshot: EditorGridSnapshot | null = null;
 
-        if (pendingCloneTemplate && vectorObjects.length === 0 && activeGridSegments.length === 0) {
+        if (pendingCloneTemplate && activeGridSegments.length === 0) {
             const fallbackTemplateConfig = parseTemplateConfigObject(pendingCloneTemplate.template_config);
             fallbackGridSnapshot = parseEditorGridSnapshot(fallbackTemplateConfig._editorGrid);
-            fallbackEditorObjects = normalizeEditorSnapshotObjects(cloneVectorObjects(pendingCloneTemplate._editorObjects));
         }
 
-        const effectiveVectorObjects = vectorObjects.length > 0 ? vectorObjects : fallbackEditorObjects;
+        const effectiveVectorObjects = vectorObjects;
         const effectiveGridSegments = activeGridSegments.length > 0
             ? activeGridSegments
             : (fallbackGridSnapshot?.segments.filter((segment) => segment.active) ?? []);
