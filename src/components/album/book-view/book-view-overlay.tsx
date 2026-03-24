@@ -281,9 +281,41 @@ export function BookViewOverlay({
                 </button>
 
                 {/* ── The Book ── */}
+                {(() => {
+                    // For covers, include spine width in aspect ratio to match the editor.
+                    // The editor (ScaledCoverPreview) uses: logicalWidth = (singlePageW * 2) + spineWidth
+                    // We must do the same so photo containers have identical aspect ratios.
+                    const BASE_PAGE_PX = 450;
+                    let cfgW = 20, cfgH = 20;
+                    if (config?.size) {
+                        const parts = config.size.split('x').map(Number);
+                        if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+                            cfgW = parts[0];
+                            cfgH = parts[1];
+                        }
+                    }
+                    const pxPerUnit = BASE_PAGE_PX / cfgH;
+                    const singlePageW = cfgW * pxPerUnit;
+                    const isCoverSpread = currentSpread.isCover || currentSpread.isBackCover;
+                    const spineWidth = isCoverSpread
+                        ? (currentSpread.left?.spineWidth ?? currentSpread.right?.spineWidth ?? 40)
+                        : 0;
+                    const logicalWidth = (singlePageW * 2) + spineWidth;
+                    const logicalHeight = BASE_PAGE_PX;
+                    
+                    // The editor's ScaledCoverPreview wraps the content in a w-[97%] h-[95%] container.
+                    // This creates a visual "book margin" effect, but critically, it changes the aspect
+                    // ratio of the container that AlbumCover measures (width * 0.97 / height * 0.95).
+                    // To ensure identical zoom/pan calculations, the book view container must have the exact same ratio.
+                    const editorLayer3Width = logicalWidth * 0.97;
+                    const editorLayer3Height = logicalHeight * 0.95;
+
+                    const bookAspectRatio = `${editorLayer3Width} / ${editorLayer3Height}`;
+
+                    return (
                 <div
                     className="relative flex shadow-2xl"
-                    style={{ height: 'min(85vh, 60vw)', aspectRatio: '2 / 1', maxHeight: '900px' }}
+                    style={{ height: 'min(85vh, 60vw)', aspectRatio: bookAspectRatio, maxHeight: '900px' }}
                 >
                     {/* Page label */}
                     <div className="absolute -top-8 w-full text-center text-white/40 text-xs tracking-widest uppercase pointer-events-none">
@@ -393,6 +425,8 @@ export function BookViewOverlay({
                         />
                     )}
                 </div>
+                    );
+                })()}
 
                 <button onClick={rightNavAction} disabled={rightNavDisabled}
                     className="absolute right-4 md:right-8 z-50 p-3 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-0 text-white transition-all backdrop-blur-md shadow-lg">

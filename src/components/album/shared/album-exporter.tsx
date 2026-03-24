@@ -701,9 +701,35 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                 {isRendering && pages.map((page) => {
                     const isCover = page.isCover === true;
                     const isSpread = page.type === 'spread' || isCover;
-                    const pageWidth = isSpread ? 1000 : 500;
-                    const pageHeight = 500; // 2:1 ratio for spread, 1:1 for single (assuming square format preference in config, typically 20x20 is square)
-                    // Note: The app supports 20x20 which is square. So Single is Square. Spread is 2 Squares (2:1).
+                    // Compute container dimensions using the SAME formula as the editor's ScaledCoverPreview.
+                    // The editor derives logical dimensions from config.size:
+                    //   BASE_PAGE_PX = 450, pxPerUnit = BASE_PAGE_PX / cfgH
+                    //   singlePageLogicalW = cfgW * pxPerUnit
+                    //   logicalWidth = isDouble ? (singlePageLogicalW * 2) + spineWidth : singlePageLogicalW
+                    //   logicalHeight = BASE_PAGE_PX
+                    // We replicate this so the container aspect ratio matches exactly.
+                    const EXPORT_BASE_PX = 450;
+                    const sizeStr = config?.size || '800x600';
+                    const [cfgWStr, cfgHStr] = sizeStr.split('x');
+                    const cfgW = Number(cfgWStr) || 800;
+                    const cfgH = Number(cfgHStr) || 600;
+                    const pxPerUnit = EXPORT_BASE_PX / cfgH;
+                    const singlePageLogicalW = cfgW * pxPerUnit;
+                    const coverSpineWidth = isCover ? (page.spineWidth !== undefined ? page.spineWidth : 40) : 0;
+                    const logicalWidth = isSpread
+                        ? (singlePageLogicalW * 2) + coverSpineWidth
+                        : singlePageLogicalW;
+                    const logicalHeight = EXPORT_BASE_PX;
+                    
+                    // The editor's ScaledCoverPreview wraps the content in a w-[97%] h-[95%] container.
+                    // This creates a visual "book margin" effect, but critically, it changes the aspect
+                    // ratio of the container that AlbumCover measures (width * 0.97 / height * 0.95).
+                    // To ensure identical zoom/pan calculations, the export container must have the exact same ratio.
+                    const editorLayer3Width = logicalWidth * 0.97;
+                    const editorLayer3Height = logicalHeight * 0.95;
+
+                    const pageWidth = editorLayer3Width;
+                    const pageHeight = editorLayer3Height;
                     const exportPageBackground = page.backgroundColor || config.backgroundColor || '#ffffff';
                     const exportCornerRadius = (typeof page.cornerRadius === 'number' && page.cornerRadius > 0)
                         ? page.cornerRadius

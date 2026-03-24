@@ -413,6 +413,38 @@ export const PhotoRenderer = memo(function PhotoRenderer({
   }
 
   if (useSimpleImage) {
+    // Compute wrapper dimensions declaratively from state/props so that
+    // React reconciliation never overrides the values (unlike the imperative
+    // applyTransform path whose pixel values can be reset by React re-renders).
+    const cWidth = containerSize.width;
+    const cHeight = containerSize.height;
+    const scale = photo.panAndZoom?.scale ?? 1;
+    const panX = photo.panAndZoom?.x ?? 50;
+    const panY = photo.panAndZoom?.y ?? 50;
+
+    let wrapperStyle: React.CSSProperties = {
+      transition: 'none',
+      width: '100%',
+      height: '100%',
+    };
+
+    if (cWidth && cHeight && photo.width && photo.height) {
+      const { wrapperWidth, wrapperHeight, overflowX, overflowY } =
+        getDimensions(cWidth, cHeight, photo.width, photo.height, scale);
+      const baseLeft = (cWidth - wrapperWidth) / 2;
+      const baseTop = (cHeight - wrapperHeight) / 2;
+      const left = baseLeft + (((50 - panX) / 100) * overflowX);
+      const top = baseTop + (((50 - panY) / 100) * overflowY);
+
+      wrapperStyle = {
+        transition: 'none',
+        width: `${wrapperWidth}px`,
+        height: `${wrapperHeight}px`,
+        left: `${left}px`,
+        top: `${top}px`,
+      };
+    }
+
     return (
       <div
         ref={containerRef}
@@ -422,7 +454,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({
         <div
           ref={imageRef}
           className="absolute"
-          style={{ transition: 'none', width: '100%', height: '100%' }}
+          style={wrapperStyle}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
