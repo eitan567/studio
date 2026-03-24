@@ -267,11 +267,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
                     logger.debug('Guest mode, using local settings');
                     const local = loadSettingsFromStorage();
-                    if (local.themePreference) {
-                        if (sessionUser !== 'guest') {
-                            setTheme(local.themePreference);
-                            if (typeof window !== 'undefined') sessionStorage.setItem(SESSION_INIT_KEY, 'guest');
-                        }
+                    if (mounted) {
+                        setSettings(local);
+                        setSessionSettings(local);
+                    }
+
+                    // Preserve the active next-themes selection for guests/logout flows.
+                    // Theme toggles are stored separately by next-themes, and forcing
+                    // themePreference here was causing logout to revert the app to light mode.
+                    if (sessionUser !== 'guest' && typeof window !== 'undefined') {
+                        sessionStorage.setItem(SESSION_INIT_KEY, 'guest');
                     }
                 }
             } catch (err) {

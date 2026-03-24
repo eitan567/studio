@@ -223,6 +223,7 @@ import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { createClient } from "@/lib/supabase";
+import { normalizeSupabaseStorageUrl } from "@/lib/supabase-media-normalizer";
 
 interface UserProfile {
     id: string;
@@ -273,7 +274,12 @@ function UsersTab() {
 
                 if (usersError) throw usersError;
                 // @ts-ignore - Join typing can be tricky
-                setUsers(usersData || []);
+                setUsers(
+                    (usersData || []).map((profile) => ({
+                        ...profile,
+                        avatar_url: normalizeSupabaseStorageUrl(profile.avatar_url) || profile.avatar_url,
+                    }))
+                );
 
             } catch (error) {
                 console.error('Error fetching users full details:', JSON.stringify(error, null, 2));

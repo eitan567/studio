@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { createClient } from '@/lib/supabase';
+import { normalizeSupabaseStorageUrl } from '@/lib/supabase-media-normalizer';
 import { Loader2, User as UserIcon, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,10 +46,10 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
 
                 if (data && !error) {
                     setFullName(data.full_name || user.user_metadata?.full_name || '');
-                    setAvatarUrl(data.avatar_url || user.user_metadata?.avatar_url || '');
+                    setAvatarUrl(normalizeSupabaseStorageUrl(data.avatar_url || user.user_metadata?.avatar_url || '') || '');
                 } else {
                     setFullName(user.user_metadata?.full_name || '');
-                    setAvatarUrl(user.user_metadata?.avatar_url || '');
+                    setAvatarUrl(normalizeSupabaseStorageUrl(user.user_metadata?.avatar_url || '') || '');
                 }
             };
             fetchProfile();
@@ -83,7 +84,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
                 .getPublicUrl(filePath);
 
             // 4. Update Preview State immediately
-            setAvatarUrl(publicUrl);
+            setAvatarUrl(normalizeSupabaseStorageUrl(publicUrl) || publicUrl);
 
             toast({
                 title: "Photo Ready",

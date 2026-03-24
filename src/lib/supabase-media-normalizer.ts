@@ -1,13 +1,43 @@
 import type { AlbumPage, Photo } from '@/lib/types';
 
-const STORAGE_OBJECT_SEGMENT = '/storage/v1/object/public/photos/';
-const STORAGE_RENDER_SEGMENT = '/storage/v1/render/image/public/photos/';
+const STORAGE_PUBLIC_OBJECT_SEGMENT = '/storage/v1/object/public/';
+const STORAGE_PUBLIC_RENDER_SEGMENT = '/storage/v1/render/image/public/';
+const STORAGE_OBJECT_SEGMENT = `${STORAGE_PUBLIC_OBJECT_SEGMENT}photos/`;
+const STORAGE_RENDER_SEGMENT = `${STORAGE_PUBLIC_RENDER_SEGMENT}photos/`;
 
 function normalizeBaseUrl(baseUrl?: string | null): string | null {
     if (!baseUrl || typeof baseUrl !== 'string') return null;
     const trimmed = baseUrl.trim();
     if (!trimmed) return null;
     return trimmed.replace(/\/+$/, '');
+}
+
+function rebaseSupabasePublicUrl(
+    value: string | null | undefined,
+    baseUrl: string | null | undefined = process.env.NEXT_PUBLIC_SUPABASE_URL
+): string | null {
+    if (typeof value !== 'string') return null;
+
+    const input = value.trim();
+    if (!input.startsWith('http')) return null;
+
+    const normalizedBase = normalizeBaseUrl(baseUrl);
+    if (!normalizedBase) return null;
+
+    const segment =
+        input.includes(STORAGE_PUBLIC_OBJECT_SEGMENT)
+            ? STORAGE_PUBLIC_OBJECT_SEGMENT
+            : input.includes(STORAGE_PUBLIC_RENDER_SEGMENT)
+                ? STORAGE_PUBLIC_RENDER_SEGMENT
+                : null;
+
+    if (!segment) return null;
+
+    const [, trailing = ''] = input.split(segment);
+    const normalizedTrailing = trailing.replace(/^\/+/, '');
+    if (!normalizedTrailing) return null;
+
+    return `${normalizedBase}${segment}${normalizedTrailing}`;
 }
 
 export function buildSupabaseStorageUrl(
@@ -53,6 +83,9 @@ export function normalizeSupabaseStorageUrl(
     baseUrl: string | null | undefined = process.env.NEXT_PUBLIC_SUPABASE_URL
 ): string | null | undefined {
     if (typeof value !== 'string') return value;
+
+    const rebasedUrl = rebaseSupabasePublicUrl(value, baseUrl);
+    if (rebasedUrl) return rebasedUrl;
 
     const storagePath = extractSupabaseStoragePath(value);
     if (!storagePath) return value;

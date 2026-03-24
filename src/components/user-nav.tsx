@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { User, Settings, LogOut } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { normalizeSupabaseStorageUrl } from '@/lib/supabase-media-normalizer';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -30,7 +31,7 @@ export function UserNav({ showSettingsLink = true }: UserNavProps) {
     // Derive display name/avatar
     // useAuth updates user object from session, which should have metadata
     const fullName = user.user_metadata?.full_name;
-    const avatarUrl = user.user_metadata?.avatar_url;
+    const avatarUrl = normalizeSupabaseStorageUrl(user.user_metadata?.avatar_url) || undefined;
     const email = user.email;
 
     return (

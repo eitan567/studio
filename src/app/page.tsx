@@ -132,7 +132,7 @@ export default function LandingPage() {
 
         {/* CTA Section */}
         <section className="w-full py-24 md:py-32 bg-primary text-primary-foreground relative overflow-hidden">
-          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+          <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-20"></div>
           <div className="container relative z-10 grid items-center justify-center gap-6 px-4 text-center md:px-6">
             <div className="space-y-4">
               <h2 className="heading-lg">
