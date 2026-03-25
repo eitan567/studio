@@ -701,13 +701,9 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                 {isRendering && pages.map((page) => {
                     const isCover = page.isCover === true;
                     const isSpread = page.type === 'spread' || isCover;
-                    // Compute container dimensions using the SAME formula as the editor's ScaledCoverPreview.
-                    // The editor derives logical dimensions from config.size:
-                    //   BASE_PAGE_PX = 450, pxPerUnit = BASE_PAGE_PX / cfgH
-                    //   singlePageLogicalW = cfgW * pxPerUnit
-                    //   logicalWidth = isDouble ? (singlePageLogicalW * 2) + spineWidth : singlePageLogicalW
-                    //   logicalHeight = BASE_PAGE_PX
-                    // We replicate this so the container aspect ratio matches exactly.
+                    // Match the editor render ratio exactly (ScaledCoverPreview inner surface):
+                    // width * 0.97, height * 0.95. Without this, cover exports can shift/crop
+                    // compared to what the user sees in the editor.
                     const EXPORT_BASE_PX = 450;
                     const sizeStr = config?.size || '800x600';
                     const [cfgWStr, cfgHStr] = sizeStr.split('x');
@@ -720,16 +716,8 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                         ? (singlePageLogicalW * 2) + coverSpineWidth
                         : singlePageLogicalW;
                     const logicalHeight = EXPORT_BASE_PX;
-                    
-                    // The editor's ScaledCoverPreview wraps the content in a w-[97%] h-[95%] container.
-                    // This creates a visual "book margin" effect, but critically, it changes the aspect
-                    // ratio of the container that AlbumCover measures (width * 0.97 / height * 0.95).
-                    // To ensure identical zoom/pan calculations, the export container must have the exact same ratio.
-                    const editorLayer3Width = logicalWidth * 0.97;
-                    const editorLayer3Height = logicalHeight * 0.95;
-
-                    const pageWidth = editorLayer3Width;
-                    const pageHeight = editorLayer3Height;
+                    const pageWidth = Math.max(1, Math.round(logicalWidth * 0.97));
+                    const pageHeight = Math.max(1, Math.round(logicalHeight * 0.95));
                     const exportPageBackground = page.backgroundColor || config.backgroundColor || '#ffffff';
                     const exportCornerRadius = (typeof page.cornerRadius === 'number' && page.cornerRadius > 0)
                         ? page.cornerRadius
@@ -753,8 +741,14 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                             isSpread,
                             renderOptionsForCapture.pixelRatioFallback
                         ));
-                    const exportWidth = pageWidth + pageWhiteMarginsPx.left + pageWhiteMarginsPx.right;
-                    const exportHeight = pageHeight + pageWhiteMarginsPx.top + pageWhiteMarginsPx.bottom;
+                    const roundedWhiteMarginsPx = {
+                        top: Math.max(0, Math.round(pageWhiteMarginsPx.top)),
+                        right: Math.max(0, Math.round(pageWhiteMarginsPx.right)),
+                        bottom: Math.max(0, Math.round(pageWhiteMarginsPx.bottom)),
+                        left: Math.max(0, Math.round(pageWhiteMarginsPx.left)),
+                    };
+                    const exportWidth = Math.max(1, Math.round(pageWidth + roundedWhiteMarginsPx.left + roundedWhiteMarginsPx.right));
+                    const exportHeight = Math.max(1, Math.round(pageHeight + roundedWhiteMarginsPx.top + roundedWhiteMarginsPx.bottom));
 
                     return (
                         <div
@@ -769,10 +763,10 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                 position: 'relative',
                                 backgroundColor: '#ffffff',
                                 boxSizing: 'border-box',
-                                paddingTop: `${pageWhiteMarginsPx.top}px`,
-                                paddingRight: `${pageWhiteMarginsPx.right}px`,
-                                paddingBottom: `${pageWhiteMarginsPx.bottom}px`,
-                                paddingLeft: `${pageWhiteMarginsPx.left}px`,
+                                paddingTop: `${roundedWhiteMarginsPx.top}px`,
+                                paddingRight: `${roundedWhiteMarginsPx.right}px`,
+                                paddingBottom: `${roundedWhiteMarginsPx.bottom}px`,
+                                paddingLeft: `${roundedWhiteMarginsPx.left}px`,
                             }}
                         >
                             <div style={{

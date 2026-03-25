@@ -586,7 +586,20 @@ export function useAlbumPageEditor({
                                     if (!found) console.warn('[handleDropPhoto] Photo not found in ref:', id);
                                     return found;
                                 })
-                                .filter((p): p is Photo => !!p); // Filters out undefined photos
+                                .filter((p): p is Photo => !!p)
+                                .map((p) => {
+                                    const droppedSource = p.remoteUrl || p.src;
+                                    return {
+                                        ...p,
+                                        id: uuidv4(), // Dynamic slots must always have unique IDs
+                                        originalId: p.originalId || p.id,
+                                        remoteUrl: droppedSource,
+                                        storagePath: p.storagePath || extractSupabaseStoragePath(droppedSource) || undefined,
+                                        panAndZoom: { scale: 1, x: 50, y: 50 },
+                                        width: p.width || 800,
+                                        height: p.height || 600
+                                    };
+                                }); // Filters out undefined photos
 
                             console.log('[handleDropPhoto] newPhotos count:', newPhotos.length);
 

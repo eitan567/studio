@@ -1451,7 +1451,7 @@ interface PageCanvasProps {
     canMoveUp?: boolean;
     canMoveDown?: boolean;
     customTemplates?: AdvancedTemplate[];
-    onCreateCustomTemplate?: (template: AdvancedTemplate) => void;
+    onCreateCustomTemplate?: (template: AdvancedTemplate) => Promise<void> | void;
     defaultViewMode?: 'single' | 'spread';
     visibleTemplateCategories?: string[];
     allowedTemplateIds?: string[];
@@ -2049,7 +2049,7 @@ export const PageCanvas = React.memo(({
         setIsDynamicExitDialogOpen(false);
     }, []);
 
-    const handleSaveDynamicTemplate = useCallback(() => {
+    const handleSaveDynamicTemplate = useCallback(async () => {
         if (!onCreateCustomTemplate) {
             toast({
                 title: 'Template save is unavailable',
@@ -2151,13 +2151,21 @@ export const PageCanvas = React.memo(({
             regions: allRegions
         };
 
-        onCreateCustomTemplate(newTemplate);
-        toast({
-            title: 'Dynamic template saved',
-            description: `"${templateName}" is now available in the template picker.`
-        });
-
-        setIsDynamicExitDialogOpen(false);
+        try {
+            await Promise.resolve(onCreateCustomTemplate(newTemplate));
+            toast({
+                title: 'Dynamic template saved',
+                description: `"${templateName}" is now available in the template picker.`
+            });
+            setIsDynamicExitDialogOpen(false);
+        } catch (error) {
+            console.error('Failed to save dynamic template', error);
+            toast({
+                title: 'Cannot save dynamic template',
+                description: 'Failed to persist this template. Please try again.',
+                variant: 'destructive'
+            });
+        }
     }, [
         defaultCoverTemplate?.id,
         defaultGridTemplate?.id,

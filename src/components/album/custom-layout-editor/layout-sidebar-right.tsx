@@ -274,11 +274,11 @@ export const LayoutSidebarRight = ({
                                                 {canShowEditDeleteActions(template) && (
                                                     <>
                                                         {/* Edit Action (Top Right) */}
-                                                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-[60] pointer-events-none">
                                                             <Button
                                                                 variant="secondary"
                                                                 size="icon"
-                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
+                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px] pointer-events-auto"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     onEditAdvancedTemplate?.(template, sidebarMode);
@@ -290,11 +290,11 @@ export const LayoutSidebarRight = ({
                                                         </div>
 
                                                         {/* Delete Action (Top Left) */}
-                                                        <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                        <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-[60] pointer-events-none">
                                                             <Button
                                                                 variant="ghost"
                                                                 size="icon"
-                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-destructive hover:text-destructive-foreground text-destructive border border-border/10 backdrop-blur-[2px] p-0"
+                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-destructive hover:text-destructive-foreground text-destructive border border-border/10 backdrop-blur-[2px] p-0 pointer-events-auto"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     onDeleteTemplate?.(template);
@@ -310,11 +310,11 @@ export const LayoutSidebarRight = ({
                                                 {canShowEditDeleteActions(template) && (
                                                     <>
                                                         {/* Metadata Action (Bottom Left) */}
-                                                        <div className="absolute bottom-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                        <div className="absolute bottom-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-[60] pointer-events-none">
                                                             <Button
                                                                 variant="secondary"
                                                                 size="icon"
-                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
+                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px] pointer-events-auto"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     setMetadataInfoTemplate(template);
@@ -328,11 +328,11 @@ export const LayoutSidebarRight = ({
                                                 )}
 
                                                 {/* Clone Action (Bottom Right) */}
-                                                <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-[60] pointer-events-none">
                                                     <Button
                                                         variant="secondary"
                                                         size="icon"
-                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
+                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px] pointer-events-auto"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             onCloneAdvancedTemplate?.(template, sidebarMode);
@@ -393,11 +393,11 @@ export const LayoutSidebarRight = ({
                                                         {canShowEditDeleteActions(template) && (
                                                             <>
                                                                 {/* Edit Action (Top Right) */}
-                                                                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-[60] pointer-events-none">
                                                                     <Button
                                                                         variant="secondary"
                                                                         size="icon"
-                                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
+                                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px] pointer-events-auto"
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
                                                                             onEditAdvancedTemplate?.(template, sidebarMode);
@@ -409,11 +409,11 @@ export const LayoutSidebarRight = ({
                                                                 </div>
 
                                                                 {/* Delete Action (Top Left) */}
-                                                                <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                                <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-[60] pointer-events-none">
                                                                     <Button
                                                                         variant="ghost"
                                                                         size="icon"
-                                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-destructive hover:text-destructive-foreground text-destructive border border-border/10 backdrop-blur-[2px] p-0"
+                                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-destructive hover:text-destructive-foreground text-destructive border border-border/10 backdrop-blur-[2px] p-0 pointer-events-auto"
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
                                                                             onDeleteTemplate?.(template);
@@ -429,11 +429,11 @@ export const LayoutSidebarRight = ({
                                                         {canShowEditDeleteActions(template) && (
                                                             <>
                                                                 {/* Metadata Action (Bottom Left) */}
-                                                                <div className="absolute bottom-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                                <div className="absolute bottom-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-[60] pointer-events-none">
                                                                     <Button
                                                                         variant="secondary"
                                                                         size="icon"
-                                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
+                                                                        className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px] pointer-events-auto"
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
                                                                             setMetadataInfoTemplate(template);
@@ -491,11 +491,11 @@ export const LayoutSidebarRight = ({
                                                                 {canShowEditDeleteActions(template) && (
                                                                     <>
                                                                         {/* Edit Action (Top Right) */}
-                                                                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-[60] pointer-events-none">
                                                                             <Button
                                                                                 variant="secondary"
                                                                                 size="icon"
-                                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
+                                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px] pointer-events-auto"
                                                                                 onClick={(e) => {
                                                                                     e.stopPropagation();
                                                                                     onEditAdvancedTemplate?.(template, sidebarMode);
@@ -507,11 +507,11 @@ export const LayoutSidebarRight = ({
                                                                         </div>
 
                                                                         {/* Delete Action (Top Left) */}
-                                                                        <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                                        <div className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-[60] pointer-events-none">
                                                                             <Button
                                                                                 variant="ghost"
                                                                                 size="icon"
-                                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-destructive hover:text-destructive-foreground text-destructive border border-border/10 backdrop-blur-[2px] p-0"
+                                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-destructive hover:text-destructive-foreground text-destructive border border-border/10 backdrop-blur-[2px] p-0 pointer-events-auto"
                                                                                 onClick={(e) => {
                                                                                     e.stopPropagation();
                                                                                     onDeleteTemplate?.(template);
@@ -527,11 +527,11 @@ export const LayoutSidebarRight = ({
                                                                 {canShowEditDeleteActions(template) && (
                                                                     <>
                                                                         {/* Metadata Action (Bottom Left) */}
-                                                                        <div className="absolute bottom-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                                        <div className="absolute bottom-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity z-[60] pointer-events-none">
                                                                             <Button
                                                                                 variant="secondary"
                                                                                 size="icon"
-                                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px]"
+                                                                                className="h-5 w-5 rounded-full shadow-sm bg-background/80 hover:bg-background border border-border/10 backdrop-blur-[2px] pointer-events-auto"
                                                                                 onClick={(e) => {
                                                                                     e.stopPropagation();
                                                                                     setMetadataInfoTemplate(template);

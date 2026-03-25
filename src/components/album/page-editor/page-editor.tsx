@@ -95,6 +95,7 @@ import { AlbumEditorToolbar } from './toolbar';
 import { VirtualizedPageList } from './virtualized-page-list';
 import { extractSupabaseStoragePath, normalizePhotoMediaUrls } from '@/lib/supabase-media-normalizer';
 import { parseLayoutId } from '@/lib/layout-id-utils';
+import { createClient } from '@/lib/supabase';
 import {
   buildAlbumBackupPayload,
   describeBackupPhotoRef,
@@ -129,9 +130,112 @@ type PendingBackupImport = {
   requiredCount: number;
 };
 
+const CUSTOM_ALBUM_TEMPLATES_STORAGE_KEY = 'custom_album_templates';
+const LATEST_SAVED_TEMPLATES_STORAGE_KEY = 'album:last-saved-template-ids';
+const LATEST_SAVED_TEMPLATES_EVENT = 'album:last-saved-templates';
+const MAX_LATEST_SAVED_TEMPLATE_IDS = 6;
+
+type LatestSavedTemplatesPayload = {
+  ids?: Array<string | number>;
+  savedAt?: string;
+};
+
+type TemplateIdMap = Record<string, number>;
+
+const isCustomTemplateEntry = (template: AdvancedTemplate): boolean => {
+  const normalizedId = String(template.id ?? '');
+  return template.isCustom === true
+    || template.category === 'custom'
+    || normalizedId.startsWith('dynamic-custom-');
+};
+
+const normalizeCustomTemplatesPayload = (rawValue: unknown): AdvancedTemplate[] => {
+  if (!Array.isArray(rawValue)) return [];
+
+  const templatesById = new Map<string, AdvancedTemplate>();
+  rawValue.forEach((template) => {
+    if (!template || typeof template !== 'object') return;
+    const parsedTemplate = template as AdvancedTemplate;
+    if (parsedTemplate.id === null || parsedTemplate.id === undefined) return;
+    const normalizedTemplate: AdvancedTemplate = {
+      ...parsedTemplate,
+    };
+    if (!isCustomTemplateEntry(normalizedTemplate)) return;
+    templatesById.set(String(normalizedTemplate.id), normalizedTemplate);
+  });
+
+  return Array.from(templatesById.values());
+};
+
+const readLatestSavedTemplateIds = (): string[] => {
+  if (typeof window === 'undefined') return [];
+
+  try {
+    const raw = window.localStorage.getItem(LATEST_SAVED_TEMPLATES_STORAGE_KEY);
+    if (!raw) return [];
+
+    const parsed = JSON.parse(raw) as LatestSavedTemplatesPayload | Array<string | number>;
+    const ids = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray(parsed?.ids)
+        ? parsed.ids
+        : [];
+
+    return ids.map((id) => String(id));
+  } catch {
+    return [];
+  }
+};
+
+const parseTemplateConfigObject = (templateConfig?: string | null): Record<string, unknown> => {
+  if (!templateConfig || typeof templateConfig !== 'string') return {};
+  try {
+    const parsed = JSON.parse(templateConfig);
+    if (!parsed || typeof parsed !== 'object') return {};
+    return parsed as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+};
+
+const remapLayoutReference = (
+  layoutId: string | number | null | undefined,
+  idMap: TemplateIdMap
+): string | number | null | undefined => {
+  if (layoutId === null || layoutId === undefined) return layoutId;
+  const { baseId, rotation } = parseLayoutId(layoutId);
+  const mappedId = idMap[String(baseId)];
+  if (mappedId === undefined) return layoutId;
+  if (!rotation) return mappedId;
+  return `${mappedId}_r${rotation}`;
+};
+
+const remapPageLayoutReferences = (page: AlbumPage, idMap: TemplateIdMap): AlbumPage => {
+  const nextLayout = remapLayoutReference(page.layout, idMap);
+  const nextSpreadLayouts = page.spreadLayouts
+    ? {
+      left: remapLayoutReference(page.spreadLayouts.left, idMap) ?? page.spreadLayouts.left,
+      right: remapLayoutReference(page.spreadLayouts.right, idMap) ?? page.spreadLayouts.right,
+    }
+    : page.spreadLayouts;
+  const nextCoverLayouts = page.coverLayouts
+    ? {
+      front: remapLayoutReference(page.coverLayouts.front, idMap) ?? page.coverLayouts.front,
+      back: remapLayoutReference(page.coverLayouts.back, idMap) ?? page.coverLayouts.back,
+    }
+    : page.coverLayouts;
+
+  return {
+    ...page,
+    layout: nextLayout ?? page.layout,
+    spreadLayouts: nextSpreadLayouts,
+    coverLayouts: nextCoverLayouts,
+  };
+};
+
 export function PageEditor({ albumId }: PageEditorProps) {
   const { settings, liveSettings, isLoaded: isSettingsLoaded } = useSettings();
-  const { defaultCoverTemplate, defaultGridTemplate, findTemplate, findCoverTemplate } = useTemplates();
+  const { defaultCoverTemplate, defaultGridTemplate, findTemplate, findCoverTemplate, refresh: refreshTemplates } = useTemplates();
   const isManualSaveMode = settings.albumSaveMode === 'manual';
   // Album persistence hook
   const {
@@ -817,25 +921,208 @@ export function PageEditor({ albumId }: PageEditorProps) {
     lastHistorySignatureRef.current = signature;
   }, [albumPages, clonePagesSnapshot, isAlbumLoading, isInitialized]);
 
-  // Load custom templates from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('custom_album_templates');
-    if (saved) {
-      try {
-        setCustomTemplates(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to load custom templates', e);
-      }
+  const localTemplateMigrationStartedRef = useRef(false);
+
+  const persistTemplatesToDatabase = useCallback(async (
+    templates: AdvancedTemplate[],
+    options: {
+      includeInLatest?: boolean;
+      legacyIdByTemplateId?: Record<string, string>;
+    } = {}
+  ): Promise<TemplateIdMap> => {
+    if (!templates.length) return {};
+
+    const { includeInLatest = false, legacyIdByTemplateId } = options;
+    const supabase = createClient();
+
+    const { data: maxIdResult, error: maxIdError } = await supabase
+      .from('templates')
+      .select('id')
+      .order('id', { ascending: false })
+      .limit(1);
+
+    if (maxIdError) throw maxIdError;
+
+    let nextId = (maxIdResult && maxIdResult.length > 0)
+      ? (Number(maxIdResult[0].id) + 1)
+      : 1000;
+
+    const numericCandidateIds = Array.from(new Set(
+      templates
+        .map((template) => {
+          const templateIdRaw = template.id;
+          const templateIdString = String(templateIdRaw);
+          return typeof templateIdRaw === 'number'
+            ? templateIdRaw
+            : (/^\d+$/.test(templateIdString) ? Number(templateIdString) : NaN);
+        })
+        .filter((id) => Number.isFinite(id))
+    ));
+    const existingTemplateRowsById = new Map<number, { is_system: boolean | null }>();
+    if (numericCandidateIds.length > 0) {
+      const { data: existingRows, error: existingRowsError } = await supabase
+        .from('templates')
+        .select('id,is_system')
+        .in('id', numericCandidateIds);
+      if (existingRowsError) throw existingRowsError;
+      (existingRows || []).forEach((row) => {
+        existingTemplateRowsById.set(Number(row.id), { is_system: row.is_system });
+      });
     }
+
+    const rowsToUpsert = templates.map((template) => {
+      const templateIdRaw = template.id;
+      const templateIdString = String(templateIdRaw);
+      const numericTemplateId = typeof templateIdRaw === 'number'
+        ? templateIdRaw
+        : (/^\d+$/.test(templateIdString) ? Number(templateIdString) : NaN);
+      const existingRow = Number.isFinite(numericTemplateId)
+        ? existingTemplateRowsById.get(Number(numericTemplateId))
+        : undefined;
+      const canReuseNumericId = Number.isFinite(numericTemplateId) && existingRow?.is_system !== true;
+      const persistedId = Number.isFinite(numericTemplateId)
+        ? (canReuseNumericId ? numericTemplateId : nextId++)
+        : nextId++;
+
+      let typeId = 3; // BOTH
+      if (template.type === 'single') typeId = 1;
+      if (template.type === 'spread') typeId = 2;
+
+      const existingTemplateConfig = parseTemplateConfigObject(template.template_config);
+      const templateConfigPayload: Record<string, unknown> = {
+        ...existingTemplateConfig,
+        type: template.type,
+        _editorVersion: template._editorVersion ?? 1,
+        _editorSpreadMode: template._editorSpreadMode ?? (template.type === 'spread' ? 'full' : 'split'),
+        _editorObjects: template._editorObjects
+      };
+
+      const legacyLocalTemplateId = legacyIdByTemplateId?.[templateIdString];
+      if (legacyLocalTemplateId) {
+        templateConfigPayload._legacyLocalTemplateId = legacyLocalTemplateId;
+      }
+
+      return {
+        id: persistedId,
+        name: template.name,
+        category_id: 5,
+        photo_count: template.photoCount || template.regions.length,
+        regions: template.regions,
+        template_config: JSON.stringify(templateConfigPayload),
+        created_by: null,
+        is_system: false,
+        is_active: true,
+        sort_order: 999,
+        type_id: typeId
+      };
+    });
+
+    const { error: upsertError } = await supabase
+      .from('templates')
+      .upsert(rowsToUpsert, { onConflict: 'id' });
+
+    if (upsertError) throw upsertError;
+
+    const idMap: TemplateIdMap = {};
+    rowsToUpsert.forEach((row, index) => {
+      idMap[String(templates[index].id)] = Number(row.id);
+    });
+
+    if (includeInLatest && typeof window !== 'undefined') {
+      const latestPersistedIds = rowsToUpsert.map((row) => String(row.id));
+      const existingLatestIds = readLatestSavedTemplateIds();
+      const nextLatestIds = [...latestPersistedIds, ...existingLatestIds.filter((id) => !latestPersistedIds.includes(id))]
+        .slice(0, MAX_LATEST_SAVED_TEMPLATE_IDS);
+      const payload: LatestSavedTemplatesPayload = {
+        ids: nextLatestIds,
+        savedAt: new Date().toISOString()
+      };
+
+      window.localStorage.setItem(LATEST_SAVED_TEMPLATES_STORAGE_KEY, JSON.stringify(payload));
+      window.dispatchEvent(new CustomEvent(LATEST_SAVED_TEMPLATES_EVENT, { detail: payload }));
+    }
+
+    return idMap;
   }, []);
 
-  const handleAddCustomTemplate = (template: AdvancedTemplate) => {
-    setCustomTemplates(prev => {
-      const next = [...prev, template];
-      localStorage.setItem('custom_album_templates', JSON.stringify(next));
-      return next;
+  const migrateLocalCustomTemplatesToDatabase = useCallback(async (localTemplates: AdvancedTemplate[]) => {
+    if (!localTemplates.length || typeof window === 'undefined') return;
+
+    const legacyIdByTemplateId = localTemplates.reduce<Record<string, string>>((acc, template) => {
+      const legacyId = String(template.id);
+      acc[legacyId] = legacyId;
+      return acc;
+    }, {});
+
+    const idMap = await persistTemplatesToDatabase(localTemplates, {
+      includeInLatest: false,
+      legacyIdByTemplateId
     });
-  };
+
+    if (Object.keys(idMap).length > 0) {
+      setAlbumPages((prevPages) => prevPages.map((page) => remapPageLayoutReferences(page, idMap)));
+    }
+
+    setCustomTemplates([]);
+    window.localStorage.removeItem(CUSTOM_ALBUM_TEMPLATES_STORAGE_KEY);
+    await refreshTemplates();
+    toast({
+      title: 'Templates migrated to database',
+      description: `${localTemplates.length} local templates were moved to DB storage.`
+    });
+  }, [persistTemplatesToDatabase, refreshTemplates, setAlbumPages, toast]);
+
+  // One-time migration: move legacy local templates into DB, then clear local storage.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (localTemplateMigrationStartedRef.current) return;
+    localTemplateMigrationStartedRef.current = true;
+
+    const saved = window.localStorage.getItem(CUSTOM_ALBUM_TEMPLATES_STORAGE_KEY);
+    if (!saved) {
+      setCustomTemplates([]);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(saved);
+      const normalized = normalizeCustomTemplatesPayload(parsed);
+      if (normalized.length === 0) {
+        setCustomTemplates([]);
+        window.localStorage.removeItem(CUSTOM_ALBUM_TEMPLATES_STORAGE_KEY);
+        return;
+      }
+
+      setCustomTemplates(normalized);
+      void migrateLocalCustomTemplatesToDatabase(normalized).catch((error) => {
+        console.error('Failed to migrate local templates to DB', error);
+        toast({
+          title: 'Template migration failed',
+          description: 'Local templates could not be moved to DB. Please try again.',
+          variant: 'destructive'
+        });
+      });
+    } catch (e) {
+      console.error('Failed to load custom templates', e);
+      setCustomTemplates([]);
+      window.localStorage.removeItem(CUSTOM_ALBUM_TEMPLATES_STORAGE_KEY);
+    }
+  }, [migrateLocalCustomTemplatesToDatabase, toast]);
+
+  const handleCreateDynamicTemplate = useCallback(async (template: AdvancedTemplate) => {
+    const idMap = await persistTemplatesToDatabase([template], { includeInLatest: true });
+    const persistedTemplateId = idMap[String(template.id)];
+    if (!persistedTemplateId) {
+      throw new Error('Template persistence returned no id');
+    }
+
+    const layoutIdMap: TemplateIdMap = {
+      [String(template.id)]: persistedTemplateId
+    };
+    setAlbumPages((prevPages) => prevPages.map((page) => remapPageLayoutReferences(page, layoutIdMap)));
+    setCustomTemplates([]);
+    await refreshTemplates();
+  }, [persistTemplatesToDatabase, refreshTemplates, setAlbumPages]);
 
   const [randomSeed, setRandomSeed] = useState('');
   const [isClient, setIsClient] = useState(false);
@@ -1979,7 +2266,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
                 onRedo={handleRedo}
                 onToggleLock={handleTogglePageLock}
                 customTemplates={customTemplates}
-                onCreateCustomTemplate={handleAddCustomTemplate}
+                onCreateCustomTemplate={handleCreateDynamicTemplate}
                 defaultViewMode={settings.defaultEditorViewMode as "single" | "spread"}
                 visibleTemplateCategories={settings.visibleTemplateCategories}
                 allowedTemplateIds={settings.allowedTemplateIds || []}
@@ -2099,7 +2386,6 @@ export function PageEditor({ albumId }: PageEditorProps) {
             config={config}
             onClose={() => setIsCustomLayoutEditorOpen(false)}
             customTemplates={customTemplates}
-            onAddTemplate={handleAddCustomTemplate}
           />
         )}
         {isCoverEditorOpen && editingPageId && (

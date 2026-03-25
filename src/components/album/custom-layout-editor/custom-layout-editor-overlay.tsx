@@ -542,12 +542,6 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
     const [cloneDraft, setCloneDraft] = useState<CloneDraft | null>(null);
     const [pendingCloneTemplate, setPendingCloneTemplate] = useState<AdvancedTemplate | null>(null);
 
-    // Use only templates passed via props (if any) or start empty for session
-    // Do NOT auto-load all custom templates from the global cache to avoid cluttering "New Templates"
-    const existingCustomTemplates = useMemo(() => {
-        return customTemplates || [];
-    }, [customTemplates]);
-
     // Local state for created templates (starts empty)
     const [createdTemplates, setCreatedTemplates] = useState<AdvancedTemplate[]>([]);
 
@@ -1105,8 +1099,12 @@ export const CustomLayoutEditorOverlay = ({ onClose, config, customTemplates, on
                 setIsGridDesignerEnabled(false);
 
                 const hasEditorVersion = template._editorVersion !== undefined || templateConfigData._editorVersion !== undefined;
+                const hasDynamicRegionFrames = Array.isArray(template.regions)
+                    && template.regions.some((region) => String(region.id || '').startsWith('dynamic-'));
 
-                if (editorSnapshot.length > 0 || hasEditorVersion) {
+                // Keep historical behavior for regular templates: prefer editor snapshot.
+                // Dynamic templates append runtime regions, so they must be restored from regions.
+                if ((editorSnapshot.length > 0 || hasEditorVersion) && !hasDynamicRegionFrames) {
                     setVectorObjects(editorSnapshot);
                 } else {
                     // Backward compatibility: Convert template regions to VectorObjects

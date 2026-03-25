@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
+import React, { useRef, useState, useEffect, useLayoutEffect, useCallback } from 'react';
 import { AlbumPage, CoverText, CoverImage, AlbumConfig, Photo, PhotoPanAndZoom } from '@/lib/types';
 import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { cn } from '@/lib/utils';
@@ -1033,6 +1033,7 @@ export const AlbumCover = ({
         defaultCoverTemplate
     } = useTemplates();
     const containerRef = useRef<HTMLDivElement>(null);
+    const latestPageRef = useRef(page);
     const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
     // Optimization: Local state for drag positions to avoid global re-renders
     const [dragPositions, setDragPositions] = useState<Record<string, { x: number, y: number }>>({});
@@ -1044,6 +1045,17 @@ export const AlbumCover = ({
             onSelectImage?.(null);
         }
     };
+
+    useEffect(() => {
+        latestPageRef.current = page;
+    }, [page]);
+
+    const commitPageUpdate = useCallback((updater: (currentPage: AlbumPage) => AlbumPage) => {
+        if (!onUpdatePage) return;
+        const nextPage = updater(latestPageRef.current);
+        latestPageRef.current = nextPage;
+        onUpdatePage(nextPage);
+    }, [onUpdatePage]);
 
     useLayoutEffect(() => {
         if (!containerRef.current) return;
@@ -1143,15 +1155,13 @@ export const AlbumCover = ({
     };
 
     const handleUpdateImageSize = (triggerId: string, newWidth: number, newHeight: number | undefined) => {
-        // Direct update via onUpdatePage because resize is usually "per frame" not continuous drag like moves
-        // For smoothness we probably want local state too.
-        // For MVP: Direct update.
+        commitPageUpdate((currentPage) => {
+            const newImages = (currentPage.coverImages || []).map(img =>
+                img.id === triggerId ? { ...img, width: newWidth, height: newHeight } : img
+            );
 
-        const newImages = page.coverImages?.map(img =>
-            img.id === triggerId ? { ...img, width: newWidth, height: newHeight } : img
-        ) || [];
-
-        onUpdatePage?.({ ...page, coverImages: newImages });
+            return { ...currentPage, coverImages: newImages };
+        });
     };
 
     const handleUpdateImagePanAndZoom = (panAndZoom: PhotoPanAndZoom) => {
@@ -1162,26 +1172,25 @@ export const AlbumCover = ({
     };
 
     const handleDragEnd = () => {
-        if (!onUpdatePage) return;
-
         // Commit changes to actual page state
         if (Object.keys(dragPositions).length === 0) return;
+        commitPageUpdate((currentPage) => {
+            const newTexts = (currentPage.coverTexts || []).map(t => {
+                if (dragPositions[t.id]) {
+                    return { ...t, ...dragPositions[t.id] };
+                }
+                return t;
+            });
 
-        const newTexts = page.coverTexts?.map(t => {
-            if (dragPositions[t.id]) {
-                return { ...t, ...dragPositions[t.id] };
-            }
-            return t;
-        }) || [];
+            const newImages = (currentPage.coverImages || []).map(img => {
+                if (dragPositions[img.id]) {
+                    return { ...img, ...dragPositions[img.id] };
+                }
+                return img;
+            });
 
-        const newImages = page.coverImages?.map(img => {
-            if (dragPositions[img.id]) {
-                return { ...img, ...dragPositions[img.id] };
-            }
-            return img;
-        }) || [];
-
-        onUpdatePage({ ...page, coverTexts: newTexts, coverImages: newImages });
+            return { ...currentPage, coverTexts: newTexts, coverImages: newImages };
+        });
         setDragPositions({});
     };
 
@@ -1257,22 +1266,24 @@ export const AlbumCover = ({
 
     // Helper to update specific image pan/zoom
     const updateCoverImagePanAndZoom = (imgId: string, panAndZoom: PhotoPanAndZoom) => {
-        const newImages = page.coverImages?.map(img =>
-            img.id === imgId ? { ...img, panAndZoom } : img
-        ) || [];
-        onUpdatePage?.({ ...page, coverImages: newImages });
+        commitPageUpdate((currentPage) => {
+            const newImages = (currentPage.coverImages || []).map(img =>
+                img.id === imgId ? { ...img, panAndZoom } : img
+            );
+            return { ...currentPage, coverImages: newImages };
+        });
     };
 
     const updateCoverImageRotation = (imgId: string, rotation: number) => {
-        const newImages = page.coverImages?.map((img) => (
-            img.id === imgId ? { ...img, rotation } : img
-        )) || [];
-        onUpdatePage?.({ ...page, coverImages: newImages });
+        commitPageUpdate((currentPage) => {
+            const newImages = (currentPage.coverImages || []).map((img) => (
+                img.id === imgId ? { ...img, rotation } : img
+            ));
+            return { ...currentPage, coverImages: newImages };
+        });
     };
 
     const replaceCoverImageByGalleryPhoto = (imgId: string, droppedPhotoId: string) => {
-        if (!onUpdatePage || !page.coverImages) return;
-
         const droppedPhoto = allPhotos.find((photo) => photo.id === droppedPhotoId);
         if (!droppedPhoto) return;
 
@@ -1283,18 +1294,20 @@ export const AlbumCover = ({
             ? (droppedPhoto.width / droppedPhoto.height)
             : undefined;
 
-        const newImages = page.coverImages.map((img) => {
-            if (img.id !== imgId) return img;
+        commitPageUpdate((currentPage) => {
+            const newImages = (currentPage.coverImages || []).map((img) => {
+                if (img.id !== imgId) return img;
 
-            return {
-                ...img,
-                url: sourceUrl,
-                aspectRatio: resolvedAspectRatio && resolvedAspectRatio > 0 ? resolvedAspectRatio : img.aspectRatio,
-                panAndZoom: { scale: 1, x: 50, y: 50 }
-            };
+                return {
+                    ...img,
+                    url: sourceUrl,
+                    aspectRatio: resolvedAspectRatio && resolvedAspectRatio > 0 ? resolvedAspectRatio : img.aspectRatio,
+                    panAndZoom: { scale: 1, x: 50, y: 50 }
+                };
+            });
+
+            return { ...currentPage, coverImages: newImages };
         });
-
-        onUpdatePage({ ...page, coverImages: newImages });
     };
 
     // Derived Styles

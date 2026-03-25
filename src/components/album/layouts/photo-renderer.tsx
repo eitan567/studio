@@ -34,6 +34,20 @@ interface PhotoRendererProps {
 const WHEEL_ZOOM_SENSITIVITY = 0.0006;
 const MAX_WHEEL_ZOOM_DELTA = 36;
 
+const normalizePanAndZoom = (panAndZoom?: PhotoPanAndZoom): PhotoPanAndZoom => ({
+  scale: panAndZoom?.scale ?? 1,
+  x: panAndZoom?.x ?? 50,
+  y: panAndZoom?.y ?? 50,
+  flipHorizontal: panAndZoom?.flipHorizontal ?? false
+});
+
+const isPanAndZoomEqual = (left: PhotoPanAndZoom, right: PhotoPanAndZoom): boolean => (
+  left.scale === right.scale
+  && left.x === right.x
+  && left.y === right.y
+  && (left.flipHorizontal ?? false) === (right.flipHorizontal ?? false)
+);
+
 // Using memo to prevent re-rendering of all photos when only one is being updated
 export const PhotoRenderer = memo(function PhotoRenderer({
   photo,
@@ -88,12 +102,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({
   };
 
   // CRITICAL: Always create a LOCAL COPY of the panAndZoom state to avoid mutating props
-  const currentValues = useRef<PhotoPanAndZoom>({
-    scale: photo.panAndZoom?.scale ?? 1,
-    x: photo.panAndZoom?.x ?? 50,
-    y: photo.panAndZoom?.y ?? 50,
-    flipHorizontal: photo.panAndZoom?.flipHorizontal ?? false
-  });
+  const currentValues = useRef<PhotoPanAndZoom>(normalizePanAndZoom(photo.panAndZoom));
 
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -252,12 +261,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({
   useLayoutEffect(() => {
     if (!isInteracting.current) {
       // ... (sync logic)
-      currentValues.current = {
-        scale: photo.panAndZoom?.scale ?? 1,
-        x: photo.panAndZoom?.x ?? 50,
-        y: photo.panAndZoom?.y ?? 50,
-        flipHorizontal: photo.panAndZoom?.flipHorizontal ?? false
-      };
+      currentValues.current = normalizePanAndZoom(photo.panAndZoom);
       // Apply using current container size (state or measure?)
       // State might be 0 on first render, so measure again to be safe
       const width = containerSize.width || containerRef.current?.getBoundingClientRect().width || 0;
@@ -266,11 +270,13 @@ export const PhotoRenderer = memo(function PhotoRenderer({
         applyTransform(width, height);
       }
     }
-  }, [photo.panAndZoom, photo.src, containerSize.width, containerSize.height, fitRotationDeg, fitClipSignature]);
+  }, [photo.panAndZoom, photo.src, containerSize.width, containerSize.height, fitRotationDeg, fitClipSignature, useSimpleImage]);
 
   const commitChanges = () => {
-    // Pass a fresh copy to the parent
-    onUpdate({ ...currentValues.current });
+    const nextPanAndZoom = { ...currentValues.current };
+    const basePanAndZoom = normalizePanAndZoom(photo.panAndZoom);
+    if (isPanAndZoomEqual(nextPanAndZoom, basePanAndZoom)) return;
+    onUpdate(nextPanAndZoom);
   };
 
   const updatePanBoundaries = () => {
@@ -303,7 +309,10 @@ export const PhotoRenderer = memo(function PhotoRenderer({
     if (width && height) applyTransform(width, height);
 
     if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
-    syncTimeoutRef.current = setTimeout(commitChanges, 200);
+    syncTimeoutRef.current = setTimeout(() => {
+      syncTimeoutRef.current = null;
+      commitChanges();
+    }, 200);
   };
 
   // Stable references for global mouse events to avoid registration bugs
@@ -400,7 +409,11 @@ export const PhotoRenderer = memo(function PhotoRenderer({
       container.removeEventListener('wheel', handleWheel);
       window.removeEventListener('mousemove', handleGlobalMouseMove);
       window.removeEventListener('mouseup', handleGlobalMouseUp);
-      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+        syncTimeoutRef.current = null;
+        commitChanges();
+      }
     };
   }, [containerSize, photo.width, photo.height, photo.src, fitRotationDeg, fitClipSignature]);
 

@@ -55,7 +55,7 @@ interface VirtualizedPageListProps {
     onToggleLock?: (pageId: string) => void;
 
     customTemplates: AdvancedTemplate[];
-    onCreateCustomTemplate?: (template: AdvancedTemplate) => void;
+    onCreateCustomTemplate?: (template: AdvancedTemplate) => Promise<void> | void;
     defaultViewMode: 'single' | 'spread';
     visibleTemplateCategories: string[];
     allowedTemplateIds: string[];
