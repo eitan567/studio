@@ -16,6 +16,13 @@ import { useSettings } from '@/hooks/use-settings';
 import { AlbumConfig } from '@/lib/types';
 import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { getPhotoCount } from '@/hooks/useTemplates';
+
+type TemplateCountSection = {
+    key: string;
+    title: string;
+    templates: AdvancedTemplate[];
+};
+
 export interface LayoutSidebarRightProps {
     selectedLayout: string;
     onSelectLayout: (layoutId: string, mode?: 'full' | 'split') => void;
@@ -111,6 +118,56 @@ export const LayoutSidebarRight = ({
     }, [config?.size, sidebarMode]);
 
 
+    const getTemplateRecencyScore = React.useCallback((template: AdvancedTemplate) => {
+        const metadata = template as unknown as Record<string, unknown>;
+        const createdAt = metadata.created_at ?? metadata.createdAt;
+        const updatedAt = metadata.updated_at ?? metadata.updatedAt;
+        const dateValue = (typeof createdAt === 'string' ? createdAt : null)
+            || (typeof updatedAt === 'string' ? updatedAt : null);
+
+        if (dateValue) {
+            const parsedDate = Date.parse(dateValue);
+            if (!Number.isNaN(parsedDate)) return parsedDate;
+        }
+
+        const numericId = Number(template.id);
+        if (!Number.isNaN(numericId)) return numericId;
+        return 0;
+    }, []);
+
+    const sortTemplatesByRecency = React.useCallback((templates: AdvancedTemplate[]) => {
+        return [...templates].sort((a, b) => {
+            const recencyDiff = getTemplateRecencyScore(b) - getTemplateRecencyScore(a);
+            if (recencyDiff !== 0) return recencyDiff;
+
+            const numericIdDiff = Number(b.id) - Number(a.id);
+            if (!Number.isNaN(numericIdDiff) && numericIdDiff !== 0) return numericIdDiff;
+
+            return String(a.name || a.id).localeCompare(String(b.name || b.id));
+        });
+    }, [getTemplateRecencyScore]);
+
+    const buildPhotoCountSections = React.useCallback((templates: AdvancedTemplate[]): TemplateCountSection[] => {
+        const sortedTemplates = sortTemplatesByRecency(templates);
+        const groupedByPhotoCount = new Map<number, AdvancedTemplate[]>();
+
+        for (const template of sortedTemplates) {
+            const photoCount = getPhotoCount(template);
+            if (!groupedByPhotoCount.has(photoCount)) {
+                groupedByPhotoCount.set(photoCount, []);
+            }
+            groupedByPhotoCount.get(photoCount)!.push(template);
+        }
+
+        return Array.from(groupedByPhotoCount.keys())
+            .sort((a, b) => a - b)
+            .map((photoCount) => ({
+                key: `count-${photoCount}`,
+                title: `${photoCount} ${photoCount === 1 ? 'Photo' : 'Photos'}`,
+                templates: groupedByPhotoCount.get(photoCount) ?? []
+            }));
+    }, [sortTemplatesByRecency]);
+
     // Remove local filtering by mode here if we want to show all in "My Templates"
     // or keep it consistent. Let's keep it consistent but ensure we use sidebarMode.
     const filteredSystem = systemTemplates.filter(t => {
@@ -127,6 +184,21 @@ export const LayoutSidebarRight = ({
         if (t.type) return (t.type === mode || t.type === 'both');
         return true;
     }).filter(matchesTemplateSearch);
+
+    const standardSections = React.useMemo(
+        () => buildPhotoCountSections(filteredSystem),
+        [buildPhotoCountSections, filteredSystem]
+    );
+
+    const newSpreadSections = React.useMemo(
+        () => buildPhotoCountSections(filteredCustom.filter((template) => template.type === 'spread')),
+        [buildPhotoCountSections, filteredCustom]
+    );
+
+    const newSingleSections = React.useMemo(
+        () => buildPhotoCountSections(filteredCustom.filter((template) => template.type === 'single' || !template.type)),
+        [buildPhotoCountSections, filteredCustom]
+    );
 
     // Calculate counts for tabs
     const doublePageCount = React.useMemo(() => systemTemplates.filter(t =>
@@ -244,9 +316,18 @@ export const LayoutSidebarRight = ({
                     <ScrollArea className="flex-1">
                         <div className="p-2 pr-4 space-y-6">
                             {activeTab === 'standard' ? (
-                                filteredSystem.length > 0 ? (
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {filteredSystem.map((template) => (
+                                standardSections.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {standardSections.map((section) => (
+                                            <div key={section.key} className="space-y-2">
+                                                <div className="flex items-center gap-2 px-1">
+                                                    <span className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-widest">
+                                                        {section.title}
+                                                    </span>
+                                                    <div className="h-[1px] flex-1 bg-border/50" />
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    {section.templates.map((template) => (
                                             <div key={template.id} className="relative group">
                                                 <button
                                                     onClick={() => onSelectLayout(String(template.id), sidebarMode)}
@@ -343,6 +424,9 @@ export const LayoutSidebarRight = ({
                                                     </Button>
                                                 </div>
                                             </div>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         ))}
                                     </div>
                                 ) : (
@@ -356,14 +440,25 @@ export const LayoutSidebarRight = ({
                                     </div>
                                 )
                             ) : (
-                                filteredCustom.length > 0 ? (
+                                (newSpreadSections.length > 0 || newSingleSections.length > 0) ? (
                                     <div className="space-y-6">
                                         {/* Full Spread Group */}
-
-                                        <div className="grid grid-cols-2 gap-2">
-                                            {filteredCustom
-                                                .filter(t => t.type === 'spread')
-                                                .map((template) => (
+                                        {newSpreadSections.length > 0 && (
+                                            <div className="space-y-3">
+                                                <div className="flex items-center gap-2 px-1">
+                                                    <span className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-widest">Double Pages</span>
+                                                    <div className="h-[1px] flex-1 bg-border/50" />
+                                                </div>
+                                                {newSpreadSections.map((section) => (
+                                                    <div key={`spread-${section.key}`} className="space-y-2">
+                                                        <div className="flex items-center gap-2 px-1">
+                                                            <span className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-widest">
+                                                                {section.title}
+                                                            </span>
+                                                            <div className="h-[1px] flex-1 bg-border/50" />
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            {section.templates.map((template) => (
                                                     <div key={template.id} className="relative group col-span-2">
                                                         <button
                                                             onClick={() => onSelectAdvancedTemplate(template, sidebarMode)}
@@ -447,21 +542,31 @@ export const LayoutSidebarRight = ({
                                                         )}
 
                                                     </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
                                                 ))}
-                                        </div>
+                                            </div>
+                                        )}
 
 
                                         {/* Single Page Group */}
-                                        {filteredCustom.some(t => t.type === 'single' || !t.type) && (
+                                        {newSingleSections.length > 0 && (
                                             <div className="space-y-2">
                                                 <div className="flex items-center gap-2 px-1">
                                                     <span className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-widest">Single Pages</span>
                                                     <div className="h-[1px] flex-1 bg-border/50" />
                                                 </div>
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    {filteredCustom
-                                                        .filter(t => t.type === 'single' || !t.type)
-                                                        .map((template) => (
+                                                {newSingleSections.map((section) => (
+                                                    <div key={`single-${section.key}`} className="space-y-2">
+                                                        <div className="flex items-center gap-2 px-1">
+                                                            <span className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-widest">
+                                                                {section.title}
+                                                            </span>
+                                                            <div className="h-[1px] flex-1 bg-border/50" />
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            {section.templates.map((template) => (
                                                             <div key={template.id} className="relative group">
                                                                 <button
                                                                     onClick={() => onSelectAdvancedTemplate(template, sidebarMode)}
@@ -545,8 +650,10 @@ export const LayoutSidebarRight = ({
                                                                 )}
 
                                                             </div>
-                                                        ))}
-                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
                                         )}
                                     </div>
