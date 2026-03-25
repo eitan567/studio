@@ -7,7 +7,7 @@ import {
     RotateCw, Plus, ArrowUp, ArrowDown, ChevronsUp, ChevronsDown,
     CornerDownRight, CornerDownLeft, ChevronUp, ChevronDown, Settings2, Lock, LockOpen, Sparkles,
     Maximize2, ArrowUpDown, AlignStartVertical, AlignEndVertical, AlignStartHorizontal, AlignEndHorizontal, AlignCenter,
-    AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter
+    AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, FlipHorizontal, FlipVertical
 } from 'lucide-react';
 
 import type { AlbumPage, AlbumConfig, CoverImage, Photo, PhotoPanAndZoom } from '@/lib/types';
@@ -1019,6 +1019,7 @@ const ScaledCoverPreview = React.memo(({
     onMatchSelectedDynamicFramesSize,
     onAlignSelectedDynamicFrames,
     onDistributeSelectedDynamicFrames,
+    onFlipSelectedDynamicFrames,
     activeDynamicImageIds = [],
     onSelectDynamicImage,
     disableFrameDrop = false,
@@ -1060,6 +1061,7 @@ const ScaledCoverPreview = React.memo(({
     onMatchSelectedDynamicFramesSize?: (mode: 'both' | 'width' | 'height') => void;
     onAlignSelectedDynamicFrames?: (mode: 'left' | 'right' | 'top' | 'bottom' | 'center') => void;
     onDistributeSelectedDynamicFrames?: (mode: 'horizontal' | 'vertical') => void;
+    onFlipSelectedDynamicFrames?: (mode: 'horizontal' | 'vertical') => void;
     activeDynamicImageIds?: string[];
     onSelectDynamicImage?: (id: string | string[] | null, isMulti?: boolean) => void;
     disableFrameDrop?: boolean;
@@ -1420,6 +1422,27 @@ const ScaledCoverPreview = React.memo(({
                                     className="inline-flex items-center justify-center rounded-sm p-0.5 transition-colors hover:bg-background/80"
                                 >
                                     <AlignVerticalDistributeCenter className="h-2.5 w-2.5" />
+                                </button>
+                            </>
+                        )}
+                        {dynamicMode && selectedDynamicImage && activeDynamicImageIds.length > 1 && (
+                            <>
+                                <span className="mx-1 h-3 w-px bg-border/60" />
+                                <button
+                                    type="button"
+                                    onClick={() => onFlipSelectedDynamicFrames?.('horizontal')}
+                                    title="Flip selection horizontally"
+                                    className="inline-flex items-center justify-center rounded-sm p-0.5 transition-colors hover:bg-background/80"
+                                >
+                                    <FlipHorizontal className="h-2.5 w-2.5" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onFlipSelectedDynamicFrames?.('vertical')}
+                                    title="Flip selection vertically"
+                                    className="inline-flex items-center justify-center rounded-sm p-0.5 transition-colors hover:bg-background/80"
+                                >
+                                    <FlipVertical className="h-2.5 w-2.5" />
                                 </button>
                             </>
                         )}
@@ -1992,6 +2015,51 @@ export const PageCanvas = React.memo(({
         });
     }, [activeDynamicImageIds, clampFrameCenterToPage, getFrameGeometry, updateDynamicImages]);
 
+    const handleFlipSelectedDynamicFrames = useCallback((mode: 'horizontal' | 'vertical') => {
+        if (activeDynamicImageIds.length < 2) return;
+
+        updateDynamicImages((images) => {
+            const selectedSet = new Set(activeDynamicImageIds);
+            const selectedImages = images.filter((image) => selectedSet.has(image.id));
+            if (selectedImages.length < 2) return images;
+
+            const selectedGeometry = selectedImages.map((image) => {
+                const geometry = getFrameGeometry(image);
+                return { image, geometry };
+            });
+
+            const minLeft = Math.min(...selectedGeometry.map((entry) => entry.geometry.left));
+            const maxRight = Math.max(...selectedGeometry.map((entry) => entry.geometry.right));
+            const minTop = Math.min(...selectedGeometry.map((entry) => entry.geometry.top));
+            const maxBottom = Math.max(...selectedGeometry.map((entry) => entry.geometry.bottom));
+
+            const mirrorCenterX = (minLeft + maxRight) / 2;
+            const mirrorCenterY = (minTop + maxBottom) / 2;
+            const normalizeRotation = (value: number) => ((value % 360) + 360) % 360;
+
+            return images.map((image) => {
+                if (!selectedSet.has(image.id)) return image;
+
+                const currentRotation = normalizeRotation(image.rotation || 0);
+                const reflectedX = mode === 'horizontal' ? ((2 * mirrorCenterX) - image.x) : image.x;
+                const reflectedY = mode === 'vertical' ? ((2 * mirrorCenterY) - image.y) : image.y;
+                const reflectedRotation = mode === 'horizontal'
+                    ? normalizeRotation(180 - currentRotation)
+                    : normalizeRotation(-currentRotation);
+
+                const geometry = getFrameGeometry(image);
+                const clamped = clampFrameCenterToPage(reflectedX, reflectedY, geometry.width, geometry.height);
+
+                return {
+                    ...image,
+                    x: clamped.x,
+                    y: clamped.y,
+                    rotation: reflectedRotation
+                };
+            });
+        });
+    }, [activeDynamicImageIds, clampFrameCenterToPage, getFrameGeometry, updateDynamicImages]);
+
     const handleMoveSelectedDynamicFrames = useCallback((deltaX: number, deltaY: number) => {
         if (activeDynamicImageIds.length === 0) return;
 
@@ -2529,6 +2597,7 @@ export const PageCanvas = React.memo(({
                                 onMatchSelectedDynamicFramesSize={handleMatchSelectedDynamicFramesSize}
                                 onAlignSelectedDynamicFrames={handleAlignSelectedDynamicFrames}
                                 onDistributeSelectedDynamicFrames={handleDistributeSelectedDynamicFrames}
+                                onFlipSelectedDynamicFrames={handleFlipSelectedDynamicFrames}
                                 activeDynamicImageIds={activeDynamicImageIds}
                                 onSelectDynamicImage={handleSelectDynamicImage}
                                 disableFrameDrop={isDynamicMode}
