@@ -55,6 +55,8 @@ export interface CoverText {
 export interface CoverImage {
   id: string;
   url: string;
+  originalId?: string;
+  storagePath?: string;
   x: number; // percentage
   y: number; // percentage
   width: number; // percentage

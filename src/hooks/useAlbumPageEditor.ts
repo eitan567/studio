@@ -6,6 +6,7 @@ import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
 import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { parseLayoutId } from '@/lib/layout-id-utils';
 import { extractSupabaseStoragePath } from '@/lib/supabase-media-normalizer';
+import { createGalleryPhotoReferenceResolver } from '@/lib/photo-reference';
 
 
 interface UseAlbumPageEditorProps {
@@ -848,17 +849,31 @@ export function useAlbumPageEditor({
 
     const handleRemovePhotosFromAlbum = useCallback((photoIds: string[]) => {
         setAlbumPages(prevPages => {
+            const photoIdSet = new Set(photoIds);
+            const resolveGalleryPhotoId = createGalleryPhotoReferenceResolver(allPhotosRef.current);
+
             return prevPages.map(page => {
                 if (page.isLocked) return page;
 
-                // Check if page has any of the photos to be removed
-                const hasPhotoToRemove = page.photos.some(p => photoIds.includes(p.originalId || p.id));
+                const matchesRemovedPhoto = (reference: {
+                    id?: string;
+                    originalId?: string;
+                    src?: string;
+                    remoteUrl?: string;
+                    url?: string;
+                    storagePath?: string;
+                }) => {
+                    const resolvedPhotoId = resolveGalleryPhotoId(reference);
+                    return resolvedPhotoId ? photoIdSet.has(resolvedPhotoId) : false;
+                };
+
+                const hasPhotoToRemove = page.photos.some(matchesRemovedPhoto)
+                    || (page.coverImages || []).some(matchesRemovedPhoto);
 
                 if (!hasPhotoToRemove) return page;
 
-                // Replace removed photos with empty slots
                 const newPhotos = page.photos.map(photo => {
-                    if (photoIds.includes(photo.originalId || photo.id)) {
+                    if (matchesRemovedPhoto(photo)) {
                         return {
                             id: uuidv4(),
                             src: '',
@@ -871,9 +886,13 @@ export function useAlbumPageEditor({
                     return photo;
                 });
 
+                const currentCoverImages = page.coverImages || [];
+                const newCoverImages = currentCoverImages.filter((image) => !matchesRemovedPhoto(image));
+
                 return {
                     ...page,
-                    photos: newPhotos
+                    photos: newPhotos,
+                    coverImages: currentCoverImages.length > 0 ? newCoverImages : page.coverImages
                 };
             });
         });

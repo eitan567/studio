@@ -95,6 +95,7 @@ import { AlbumEditorToolbar } from './toolbar';
 import { VirtualizedPageList } from './virtualized-page-list';
 import { extractSupabaseStoragePath, normalizePhotoMediaUrls } from '@/lib/supabase-media-normalizer';
 import { parseLayoutId } from '@/lib/layout-id-utils';
+import { createGalleryPhotoReferenceResolver } from '@/lib/photo-reference';
 import { createClient } from '@/lib/supabase';
 import {
   buildAlbumBackupPayload,
@@ -396,36 +397,45 @@ export function PageEditor({ albumId }: PageEditorProps) {
   const [customTemplates, setCustomTemplates] = useState<AdvancedTemplate[]>([]);
 
   // Computed dependencies
+  const resolveGalleryPhotoId = useMemo(() => createGalleryPhotoReferenceResolver(allPhotos), [allPhotos]);
+
   const photoUsageDetails = useMemo(() => {
     const details: Record<string, { count: number; pages: number[] }> = {};
 
-    // Pre-compute a map of src -> photoId for faster lookup
-    const srcToIdMap = new Map<string, string>();
-    allPhotos.forEach(p => {
-      if (p.src) srcToIdMap.set(p.src, p.id);
-    });
+    const trackUsage = (
+      pageIndex: number,
+      reference: {
+        id?: string;
+        originalId?: string;
+        src?: string;
+        remoteUrl?: string;
+        url?: string;
+        storagePath?: string;
+      }
+    ) => {
+      const galleryId = resolveGalleryPhotoId(reference);
+      if (!galleryId) return;
+
+      if (!details[galleryId]) {
+        details[galleryId] = { count: 0, pages: [] };
+      }
+      details[galleryId].count++;
+      if (!details[galleryId].pages.includes(pageIndex)) {
+        details[galleryId].pages.push(pageIndex);
+      }
+    };
 
     albumPages.forEach((page, pageIndex) => {
       page.photos.forEach(photo => {
-        let galleryId = photo.originalId;
-        if (!galleryId && photo.src) {
-          galleryId = srcToIdMap.get(photo.src);
-        }
-        galleryId = galleryId || photo.id;
+        trackUsage(pageIndex, photo);
+      });
 
-        if (!photo.src || photo.src === '') return;
-
-        if (!details[galleryId]) {
-          details[galleryId] = { count: 0, pages: [] };
-        }
-        details[galleryId].count++;
-        if (!details[galleryId].pages.includes(pageIndex)) {
-          details[galleryId].pages.push(pageIndex);
-        }
+      page.coverImages?.forEach((image) => {
+        trackUsage(pageIndex, image);
       });
     });
     return details;
-  }, [albumPages, allPhotos]);
+  }, [albumPages, resolveGalleryPhotoId]);
 
   const usedPhotoIds = useMemo(() => {
     return new Set(Object.keys(photoUsageDetails));
@@ -1597,7 +1607,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
         page.photos.some((photo) => {
           const source = (photo.remoteUrl || photo.src || '').trim();
           return source.length > 0;
-        })
+        }) || page.coverImages?.some((image) => (image.url || '').trim().length > 0)
       )
       .map((page) => page.id);
   }, [albumPages]);

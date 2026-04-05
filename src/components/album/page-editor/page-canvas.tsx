@@ -40,6 +40,7 @@ import { useCanvaFrames } from '@/hooks/useCanvaFrames';
 import { AlbumCover } from '../book-view/album-cover';
 import { TemplatePreview } from '@/components/album/shared/template-preview';
 import { LayoutRegion } from '@/lib/advanced-layout-types';
+import { extractSupabaseStoragePath } from '@/lib/supabase-media-normalizer';
 // Import CoverEditorOverlay if needed, or pass onOpenCoverEditor prop to handle it in parent
 // Assuming parent handles opening the overlay since it's a modal over everything
 
@@ -1772,6 +1773,8 @@ export const PageCanvas = React.memo(({
         const newImage: CoverImage = {
             id: crypto.randomUUID(),
             url: sourceUrl,
+            originalId: droppedPhoto.id,
+            storagePath: droppedPhoto.storagePath || extractSupabaseStoragePath(sourceUrl) || undefined,
             x: Math.max(0, Math.min(100, payload.x)),
             y: Math.max(0, Math.min(100, payload.y)),
             width,
