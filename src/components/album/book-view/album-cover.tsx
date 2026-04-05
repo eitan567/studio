@@ -298,6 +298,90 @@ const sanitizeClipId = (id: string): string => {
     return id.replace(/[^a-zA-Z0-9_-]/g, '-');
 };
 
+type AlbumDragSource = { pageId: string; photoId: string };
+type GalleryDragSource = { photoId: string; selectedPhotoIds?: string[] };
+
+const getDragDataTypes = (dataTransfer: DataTransfer): string[] => {
+    try {
+        return Array.from(dataTransfer.types || []);
+    } catch {
+        return [];
+    }
+};
+
+const resolveGalleryDragSource = (
+    e: React.DragEvent<HTMLElement>,
+    activeGalleryDrag: GalleryDragSource | null
+): GalleryDragSource | null => {
+    const directId = e.dataTransfer.getData('photoId');
+    const selectedIds = e.dataTransfer.getData('selectedPhotoIds');
+
+    if (selectedIds) {
+        try {
+            const parsed = JSON.parse(selectedIds);
+            if (Array.isArray(parsed) && typeof parsed[0] === 'string' && parsed[0]) {
+                return {
+                    photoId: directId || parsed[0],
+                    selectedPhotoIds: parsed,
+                };
+            }
+        } catch {
+            // Ignore malformed multi-select payload.
+        }
+    }
+
+    if (directId) {
+        return { photoId: directId };
+    }
+
+    const albumPhotoId = e.dataTransfer.getData('albumPhotoId');
+    const sourcePageId = e.dataTransfer.getData('sourcePageId');
+    if (albumPhotoId || sourcePageId) {
+        return null;
+    }
+
+    const dragTypes = getDragDataTypes(e.dataTransfer);
+    if (dragTypes.includes('Files')) {
+        return null;
+    }
+
+    return activeGalleryDrag;
+};
+
+const resolveDroppedPhotoIdFromEvent = (
+    e: React.DragEvent<HTMLElement>,
+    activeGalleryDrag: GalleryDragSource | null
+): string => {
+    return resolveGalleryDragSource(e, activeGalleryDrag)?.photoId || '';
+};
+
+const hasGalleryDragPayload = (
+    e: React.DragEvent<HTMLElement>,
+    activeGalleryDrag: GalleryDragSource | null
+): boolean => {
+    return !!resolveGalleryDragSource(e, activeGalleryDrag);
+};
+
+const resolveAlbumDragSource = (
+    e: React.DragEvent<HTMLElement>,
+    activeAlbumDrag: AlbumDragSource | null,
+    activeGalleryDrag: GalleryDragSource | null
+): AlbumDragSource | null => {
+    const albumPhotoId = e.dataTransfer.getData('albumPhotoId');
+    const sourcePageId = e.dataTransfer.getData('sourcePageId');
+
+    if (albumPhotoId && sourcePageId) {
+        return { pageId: sourcePageId, photoId: albumPhotoId };
+    }
+
+    const dragTypes = getDragDataTypes(e.dataTransfer);
+    if (dragTypes.includes('Files') || hasGalleryDragPayload(e, activeGalleryDrag)) {
+        return null;
+    }
+
+    return activeAlbumDrag;
+};
+
 // Draggable Image for Editor
 const DraggableCoverImage = ({
     item,
@@ -342,7 +426,9 @@ const DraggableCoverImage = ({
 }) => {
     const albumEditor = useOptionalAlbumEditor();
     const setActiveAlbumDrag = albumEditor?.setActiveAlbumDrag;
+    const setActiveGalleryDrag = albumEditor?.setActiveGalleryDrag;
     const activeAlbumDrag = albumEditor?.activeAlbumDrag ?? null;
+    const activeGalleryDrag = albumEditor?.activeGalleryDrag ?? null;
     const [isDragging, setIsDragging] = useState(false);
     const [isResizing, setIsResizing] = useState(false);
     const [isRotating, setIsRotating] = useState(false);
@@ -509,25 +595,6 @@ const DraggableCoverImage = ({
         onOpenContextMenu(e, item);
     };
 
-    const resolveDroppedPhotoId = (e: React.DragEvent<HTMLDivElement>) => {
-        const directId = e.dataTransfer.getData('photoId');
-        if (directId) return directId;
-
-        const selectedIds = e.dataTransfer.getData('selectedPhotoIds');
-        if (selectedIds) {
-            try {
-                const parsed = JSON.parse(selectedIds);
-                if (Array.isArray(parsed) && typeof parsed[0] === 'string' && parsed[0]) {
-                    return parsed[0];
-                }
-            } catch {
-                // Ignore malformed multi-select payload.
-            }
-        }
-
-        return '';
-    };
-
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
         if (!isCtrlPressed || !pageId || !photoId) {
             e.preventDefault();
@@ -537,18 +604,15 @@ const DraggableCoverImage = ({
         e.dataTransfer.setData('albumPhotoId', photoId);
         e.dataTransfer.setData('sourcePageId', pageId);
         e.dataTransfer.effectAllowed = 'move';
+        setActiveGalleryDrag?.(null);
         setActiveAlbumDrag?.({ pageId, photoId });
     };
 
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-        const albumPhotoId = e.dataTransfer.getData('albumPhotoId');
-        const sourcePageId = e.dataTransfer.getData('sourcePageId');
-        const droppedPhotoId = resolveDroppedPhotoId(e);
-        const swapSource = (albumPhotoId && sourcePageId)
-            ? { pageId: sourcePageId, photoId: albumPhotoId }
-            : activeAlbumDrag;
+        const isGalleryDrag = hasGalleryDragPayload(e, activeGalleryDrag);
+        const swapSource = isGalleryDrag ? null : resolveAlbumDragSource(e, activeAlbumDrag, activeGalleryDrag);
         const canSwap = !!(swapSource && onSwapDrop && photoId);
-        const canReplace = !!(droppedPhotoId && onReplaceByPhotoId);
+        const canReplace = !!(isGalleryDrag && onReplaceByPhotoId);
 
         if (!canSwap && !canReplace) return;
 
@@ -558,11 +622,9 @@ const DraggableCoverImage = ({
     };
 
     const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-        const albumPhotoId = e.dataTransfer.getData('albumPhotoId');
-        const sourcePageId = e.dataTransfer.getData('sourcePageId');
-        const swapSource = (albumPhotoId && sourcePageId)
-            ? { pageId: sourcePageId, photoId: albumPhotoId }
-            : activeAlbumDrag;
+        const isGalleryDrag = hasGalleryDragPayload(e, activeGalleryDrag);
+        const swapSource = isGalleryDrag ? null : resolveAlbumDragSource(e, activeAlbumDrag, activeGalleryDrag);
+
         if (swapSource && onSwapDrop && photoId) {
             e.preventDefault();
             e.stopPropagation();
@@ -570,7 +632,7 @@ const DraggableCoverImage = ({
             return;
         }
 
-        const droppedPhotoId = resolveDroppedPhotoId(e);
+        const droppedPhotoId = resolveDroppedPhotoIdFromEvent(e, activeGalleryDrag);
         if (!droppedPhotoId || !onReplaceByPhotoId) return;
 
         e.preventDefault();
@@ -779,7 +841,10 @@ const DraggableCoverImage = ({
             data-dynamic-image-id={item.id}
             draggable={isCtrlPressed && !!pageId && !!photoId}
             onDragStart={handleDragStart}
-            onDragEnd={() => setActiveAlbumDrag?.(null)}
+            onDragEnd={() => {
+                setActiveAlbumDrag?.(null);
+                setActiveGalleryDrag?.(null);
+            }}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             onMouseDown={isCtrlPressed ? undefined : handleMouseDown}
@@ -975,7 +1040,9 @@ export const StaticCoverImage = ({
 }) => {
     const albumEditor = useOptionalAlbumEditor();
     const setActiveAlbumDrag = albumEditor?.setActiveAlbumDrag;
+    const setActiveGalleryDrag = albumEditor?.setActiveGalleryDrag;
     const activeAlbumDrag = albumEditor?.activeAlbumDrag ?? null;
+    const activeGalleryDrag = albumEditor?.activeGalleryDrag ?? null;
     const [isCtrlPressed, setIsCtrlPressed] = useState(false);
 
     useEffect(() => {
@@ -1027,33 +1094,11 @@ export const StaticCoverImage = ({
         panAndZoom: item.panAndZoom
     };
 
-    const resolveDroppedPhotoId = (e: React.DragEvent<HTMLDivElement>) => {
-        const directId = e.dataTransfer.getData('photoId');
-        if (directId) return directId;
-
-        const selectedIds = e.dataTransfer.getData('selectedPhotoIds');
-        if (selectedIds) {
-            try {
-                const parsed = JSON.parse(selectedIds);
-                if (Array.isArray(parsed) && typeof parsed[0] === 'string' && parsed[0]) {
-                    return parsed[0];
-                }
-            } catch {
-                // Ignore malformed multi-select payload.
-            }
-        }
-
-        return '';
-    };
-
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-        const albumPhotoId = e.dataTransfer.getData('albumPhotoId');
-        const sourcePageId = e.dataTransfer.getData('sourcePageId');
-        const swapSource = (albumPhotoId && sourcePageId)
-            ? { pageId: sourcePageId, photoId: albumPhotoId }
-            : activeAlbumDrag;
+        const isGalleryDrag = hasGalleryDragPayload(e, activeGalleryDrag);
+        const swapSource = isGalleryDrag ? null : resolveAlbumDragSource(e, activeAlbumDrag, activeGalleryDrag);
         const canSwap = !!(swapSource && onSwapDrop && photoId);
-        const canReplace = !!(interactive && onReplaceByPhotoId);
+        const canReplace = !!(interactive && isGalleryDrag && onReplaceByPhotoId);
         if (!canSwap && !canReplace) return;
         e.preventDefault();
         e.stopPropagation();
@@ -1061,11 +1106,8 @@ export const StaticCoverImage = ({
     };
 
     const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-        const albumPhotoId = e.dataTransfer.getData('albumPhotoId');
-        const sourcePageId = e.dataTransfer.getData('sourcePageId');
-        const swapSource = (albumPhotoId && sourcePageId)
-            ? { pageId: sourcePageId, photoId: albumPhotoId }
-            : activeAlbumDrag;
+        const isGalleryDrag = hasGalleryDragPayload(e, activeGalleryDrag);
+        const swapSource = isGalleryDrag ? null : resolveAlbumDragSource(e, activeAlbumDrag, activeGalleryDrag);
         if (swapSource && onSwapDrop && photoId) {
             e.preventDefault();
             e.stopPropagation();
@@ -1074,7 +1116,7 @@ export const StaticCoverImage = ({
         }
 
         if (!interactive || !onReplaceByPhotoId) return;
-        const droppedPhotoId = resolveDroppedPhotoId(e);
+        const droppedPhotoId = resolveDroppedPhotoIdFromEvent(e, activeGalleryDrag);
         if (!droppedPhotoId) return;
         e.preventDefault();
         e.stopPropagation();
@@ -1090,6 +1132,7 @@ export const StaticCoverImage = ({
         e.dataTransfer.setData('albumPhotoId', photoId);
         e.dataTransfer.setData('sourcePageId', pageId);
         e.dataTransfer.effectAllowed = 'move';
+        setActiveGalleryDrag?.(null);
         setActiveAlbumDrag?.({ pageId, photoId });
     };
 
@@ -1113,7 +1156,10 @@ export const StaticCoverImage = ({
             data-dynamic-image-id={item.id}
             draggable={isCtrlPressed && !!pageId && !!photoId}
             onDragStart={handleDragStart}
-            onDragEnd={() => setActiveAlbumDrag?.(null)}
+            onDragEnd={() => {
+                setActiveAlbumDrag?.(null);
+                setActiveGalleryDrag?.(null);
+            }}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             onContextMenu={(e) => onOpenContextMenu?.(e, item)}
@@ -1235,6 +1281,7 @@ export const AlbumCover = ({
     const albumEditor = useOptionalAlbumEditor();
     const scrollToGallery = albumEditor?.scrollToGallery;
     const activeAlbumDrag = albumEditor?.activeAlbumDrag ?? null;
+    const activeGalleryDrag = albumEditor?.activeGalleryDrag ?? null;
 
     // Canvas click handler (for deselecting)
     const handleCanvasClick = (e: React.MouseEvent) => {
@@ -2449,11 +2496,8 @@ export const AlbumCover = ({
 
     const handleDynamicCanvasDragOver = (e: React.DragEvent<HTMLDivElement>) => {
         if (!dynamicMode) return;
-        const albumPhotoId = e.dataTransfer.getData('albumPhotoId');
-        const sourcePageId = e.dataTransfer.getData('sourcePageId');
-        const activeDragSource = (albumPhotoId && sourcePageId)
-            ? { pageId: sourcePageId, photoId: albumPhotoId }
-            : activeAlbumDrag;
+        const isGalleryDrag = hasGalleryDragPayload(e, activeGalleryDrag);
+        const activeDragSource = isGalleryDrag ? null : resolveAlbumDragSource(e, activeAlbumDrag, activeGalleryDrag);
 
         if (activeDragSource) {
             const targetImageId = resolveDynamicImageTargetFromPointer(e.clientX, e.clientY);
@@ -2464,7 +2508,7 @@ export const AlbumCover = ({
             return;
         }
 
-        if (!onDynamicDropPhoto) return;
+        if (!isGalleryDrag || !onDynamicDropPhoto) return;
         e.preventDefault();
         e.stopPropagation();
         e.dataTransfer.dropEffect = 'copy';
@@ -2473,11 +2517,8 @@ export const AlbumCover = ({
     const handleDynamicCanvasDrop = (e: React.DragEvent<HTMLDivElement>) => {
         if (!dynamicMode) return;
 
-        const albumPhotoId = e.dataTransfer.getData('albumPhotoId');
-        const sourcePageId = e.dataTransfer.getData('sourcePageId');
-        const activeDragSource = (albumPhotoId && sourcePageId)
-            ? { pageId: sourcePageId, photoId: albumPhotoId }
-            : activeAlbumDrag;
+        const isGalleryDrag = hasGalleryDragPayload(e, activeGalleryDrag);
+        const activeDragSource = isGalleryDrag ? null : resolveAlbumDragSource(e, activeAlbumDrag, activeGalleryDrag);
 
         if (activeDragSource) {
             const targetImageId = resolveDynamicImageTargetFromPointer(e.clientX, e.clientY);
@@ -2489,10 +2530,10 @@ export const AlbumCover = ({
             return;
         }
 
-        if (!onDynamicDropPhoto) return;
+        if (!isGalleryDrag || !onDynamicDropPhoto) return;
         if (!containerRef.current) return;
 
-        const droppedPhotoId = e.dataTransfer.getData('photoId');
+        const droppedPhotoId = resolveDroppedPhotoIdFromEvent(e, activeGalleryDrag);
         if (!droppedPhotoId) return;
 
         e.preventDefault();

@@ -15,6 +15,8 @@ interface AlbumEditorContextType {
     highlightedPhotoId: string | null;
     activeAlbumDrag: { pageId: string; photoId: string } | null;
     setActiveAlbumDrag: (value: { pageId: string; photoId: string } | null) => void;
+    activeGalleryDrag: { photoId: string; selectedPhotoIds?: string[] } | null;
+    setActiveGalleryDrag: (value: { photoId: string; selectedPhotoIds?: string[] } | null) => void;
 }
 
 const AlbumEditorContext = createContext<AlbumEditorContextType | undefined>(undefined);
@@ -29,6 +31,22 @@ export function AlbumEditorProvider({ children }: { children: ReactNode }) {
     const [highlightedPhotoId, setHighlightedPhotoId] = useState<string | null>(null);
     const highlightTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const [activeAlbumDrag, setActiveAlbumDrag] = useState<{ pageId: string; photoId: string } | null>(null);
+    const [activeGalleryDrag, setActiveGalleryDrag] = useState<{ photoId: string; selectedPhotoIds?: string[] } | null>(null);
+
+    React.useEffect(() => {
+        const clearActiveDragState = () => {
+            setActiveAlbumDrag((currentValue) => (currentValue ? null : currentValue));
+            setActiveGalleryDrag((currentValue) => (currentValue ? null : currentValue));
+        };
+
+        window.addEventListener('dragend', clearActiveDragState);
+        window.addEventListener('drop', clearActiveDragState);
+
+        return () => {
+            window.removeEventListener('dragend', clearActiveDragState);
+            window.removeEventListener('drop', clearActiveDragState);
+        };
+    }, []);
 
     const registerGalleryScroll = React.useCallback((scrollFn: (photoId: string) => void) => {
         galleryScrollFnRef.current = scrollFn;
@@ -68,6 +86,8 @@ export function AlbumEditorProvider({ children }: { children: ReactNode }) {
                 highlightedPhotoId,
                 activeAlbumDrag,
                 setActiveAlbumDrag,
+                activeGalleryDrag,
+                setActiveGalleryDrag,
             }}
         >
             {children}

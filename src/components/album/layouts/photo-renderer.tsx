@@ -66,7 +66,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({
   fitClipPolygon,
   clipOverflow = true
 }: PhotoRendererProps) {
-  const { scrollToGallery, setActiveAlbumDrag } = useAlbumEditor();
+  const { scrollToGallery, setActiveAlbumDrag, setActiveGalleryDrag } = useAlbumEditor();
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLDivElement>(null);
   const isInteracting = useRef(false);
@@ -99,6 +99,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({
     e.dataTransfer.setData('albumPhotoId', photoId);
     e.dataTransfer.setData('sourcePageId', pageId);
     e.dataTransfer.effectAllowed = 'move';
+    setActiveGalleryDrag(null);
     setActiveAlbumDrag({ pageId, photoId });
   };
 
@@ -496,7 +497,10 @@ export const PhotoRenderer = memo(function PhotoRenderer({
       className={`absolute inset-0 ${clipOverflow ? 'overflow-hidden' : 'overflow-visible'} touch-none group ${isCtrlPressed && pageId ? 'cursor-move' : 'cursor-grab'}`}
       draggable={isCtrlPressed && !!pageId}
       onDragStart={handleDragStart}
-      onDragEnd={() => setActiveAlbumDrag(null)}
+      onDragEnd={() => {
+        setActiveAlbumDrag(null);
+        setActiveGalleryDrag(null);
+      }}
       onMouseDown={isCtrlPressed ? undefined : onMouseDown}
     >
       <div

@@ -329,7 +329,9 @@ const VirtualGalleryContent = React.forwardRef(({
     parentRef,
     onDimensionsLoaded,
     containerWidth,
-    highlightedPhotoId
+    highlightedPhotoId,
+    setActiveAlbumDrag,
+    setActiveGalleryDrag
 }: {
     isSingleColumn: boolean;
     filteredPhotos: Photo[];
@@ -347,6 +349,8 @@ const VirtualGalleryContent = React.forwardRef(({
     onDimensionsLoaded: (id: string, width: number, height: number) => void;
     containerWidth: number;
     highlightedPhotoId: string | null;
+    setActiveAlbumDrag: (value: { pageId: string; photoId: string } | null) => void;
+    setActiveGalleryDrag: (value: { photoId: string; selectedPhotoIds?: string[] } | null) => void;
 }, ref) => {
     const count = displayRows.length;
     // Gap is now handled via padding on the row wrapper
@@ -440,6 +444,7 @@ const VirtualGalleryContent = React.forwardRef(({
                                     onRemoveFromAlbum={(id) => onRemovePhotosFromAlbum([id])}
                                     onDimensionsLoaded={onDimensionsLoaded}
                                     onDragStart={(e, id) => {
+                                        setActiveAlbumDrag(null);
                                         // CRITICAL: Use ref to get LATEST selection, bypassing stale closure
                                         const currentSelection = selectedPhotosRef.current;
                                         // Only use multi-select mode (dynamic justified) when 2+ photos are selected
@@ -447,6 +452,9 @@ const VirtualGalleryContent = React.forwardRef(({
                                         if (currentSelection.has(id) && currentSelection.size > 1) {
                                             const ids = Array.from(currentSelection);
                                             e.dataTransfer.setData('selectedPhotoIds', JSON.stringify(ids));
+                                            setActiveGalleryDrag({ photoId: id, selectedPhotoIds: ids });
+                                        } else {
+                                            setActiveGalleryDrag({ photoId: id });
                                         }
                                         // Always set the single photo ID for normal drop targets
                                         e.dataTransfer.setData('photoId', id);
@@ -499,7 +507,7 @@ const PhotoGalleryCardComponent = ({
     isResizing = false
 }: PhotoGalleryCardProps) => {
     const { settings } = useSettings();
-    const { registerGalleryScroll, highlightedPhotoId } = useAlbumEditor();
+    const { registerGalleryScroll, highlightedPhotoId, setActiveAlbumDrag, setActiveGalleryDrag } = useAlbumEditor();
     const virtualContentRef = useRef<{ scrollToPhoto: (photoId: string) => void }>(null);
 
     useEffect(() => {
@@ -995,6 +1003,8 @@ const PhotoGalleryCardComponent = ({
                                 onDimensionsLoaded={handlePhotoDimensionsLoaded}
                                 containerWidth={containerWidth}
                                 highlightedPhotoId={highlightedPhotoId}
+                                setActiveAlbumDrag={setActiveAlbumDrag}
+                                setActiveGalleryDrag={setActiveGalleryDrag}
                             />
                         </ScrollArea>
                     )}
