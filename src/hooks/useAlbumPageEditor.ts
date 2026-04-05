@@ -957,9 +957,27 @@ export function useAlbumPageEditor({
                     };
                 });
 
+                const gallerySource = galleryPhoto.remoteUrl || galleryPhoto.src;
+                const galleryAspectRatio = (galleryPhoto.width && galleryPhoto.height && galleryPhoto.width > 0 && galleryPhoto.height > 0)
+                    ? (galleryPhoto.width / galleryPhoto.height)
+                    : undefined;
+                const nextCoverImages = (page.coverImages || []).map((image) => {
+                    if (image.id !== slotPhotoId) return image;
+
+                    return {
+                        ...image,
+                        url: gallerySource,
+                        originalId: galleryPhoto.id,
+                        storagePath: galleryPhoto.storagePath || extractSupabaseStoragePath(gallerySource) || image.storagePath,
+                        aspectRatio: galleryAspectRatio && galleryAspectRatio > 0 ? galleryAspectRatio : image.aspectRatio,
+                        panAndZoom: { scale: 1, x: 50, y: 50 },
+                    };
+                });
+
                 return {
                     ...page,
                     photos: nextPhotos,
+                    coverImages: nextCoverImages,
                 };
             });
         });

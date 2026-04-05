@@ -1,4 +1,6 @@
-import React, { useRef, useState, useEffect, useLayoutEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
+import { FlipHorizontal, Hash, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
 import { AlbumPage, CoverText, CoverImage, AlbumConfig, Photo, PhotoPanAndZoom } from '@/lib/types';
 import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { cn } from '@/lib/utils';
@@ -8,6 +10,10 @@ import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
 import { useSettings } from '@/hooks/use-settings';
 import { parseLayoutId } from '@/lib/layout-id-utils';
 import { RotationAngle } from '@/lib/template-rotation';
+import { useOptionalAlbumEditor } from '../album-editor/context';
+import { SuggestionFan } from '../album-editor/suggestion-fan';
+import { createGalleryPhotoReferenceResolver } from '@/lib/photo-reference';
+import { extractSupabaseStoragePath } from '@/lib/supabase-media-normalizer';
 
 
 // --- Types ---
@@ -304,6 +310,7 @@ const DraggableCoverImage = ({
     onDragEnd,
     containerRef,
     onUpdatePanAndZoom,
+    onOpenContextMenu,
     lockAspectRatio = false,
     frameGap = 0,
     frameGapColor = '#ffffff',
@@ -319,6 +326,7 @@ const DraggableCoverImage = ({
     onDragEnd?: () => void;
     containerRef: React.RefObject<HTMLDivElement | null>;
     onUpdatePanAndZoom?: (panAndZoom: PhotoPanAndZoom) => void;
+    onOpenContextMenu?: (e: React.MouseEvent<HTMLDivElement>, item: CoverImage) => void;
     lockAspectRatio?: boolean;
     frameGap?: number;
     frameGapColor?: string;
@@ -462,6 +470,15 @@ const DraggableCoverImage = ({
         if (isSelected) {
             setIsCropMode(!isCropMode);
         }
+    };
+
+    const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!onOpenContextMenu) return;
+        e.stopPropagation();
+        if (!isSelected || e.ctrlKey || e.metaKey || e.shiftKey) {
+            onSelect(e);
+        }
+        onOpenContextMenu(e, item);
     };
 
     // Close crop mode when deselected
@@ -665,6 +682,7 @@ const DraggableCoverImage = ({
             onMouseDown={handleMouseDown}
             onClick={handleClick}
             onDoubleClick={handleDoubleClick}
+            onContextMenu={handleContextMenu}
         >
             {isLeadSelection && (
                 <div className="absolute -top-5 left-0 rounded-sm border border-emerald-500/50 bg-emerald-500/15 px-1 py-[1px] text-[9px] font-semibold leading-none text-emerald-300 pointer-events-none">
@@ -834,6 +852,7 @@ export const StaticCoverImage = ({
     interactive = false,
     onUpdatePanAndZoom,
     onReplaceByPhotoId,
+    onOpenContextMenu,
     containerAspectRatio = 1
 }: {
     item: CoverImage;
@@ -842,6 +861,7 @@ export const StaticCoverImage = ({
     interactive?: boolean;
     onUpdatePanAndZoom?: (panAndZoom: PhotoPanAndZoom) => void;
     onReplaceByPhotoId?: (photoId: string) => void;
+    onOpenContextMenu?: (e: React.MouseEvent<HTMLDivElement>, item: CoverImage) => void;
     containerAspectRatio?: number;
 }) => {
     // If height is missing, use aspect ratio
@@ -932,6 +952,7 @@ export const StaticCoverImage = ({
             }}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
+            onContextMenu={(e) => onOpenContextMenu?.(e, item)}
         >
             {hasPathFrame && pathClipId && item.framePath && (
                 <svg
@@ -1037,6 +1058,18 @@ export const AlbumCover = ({
     const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
     // Optimization: Local state for drag positions to avoid global re-renders
     const [dragPositions, setDragPositions] = useState<Record<string, { x: number, y: number }>>({});
+    const [dynamicContextMenu, setDynamicContextMenu] = useState<{
+        x: number;
+        y: number;
+        imageId: string;
+        anchorRect: DOMRect | null;
+    } | null>(null);
+    const [dynamicSuggestionAnchor, setDynamicSuggestionAnchor] = useState<{
+        rect: DOMRect;
+        imageId: string;
+    } | null>(null);
+    const albumEditor = useOptionalAlbumEditor();
+    const scrollToGallery = albumEditor?.scrollToGallery;
 
     // Canvas click handler (for deselecting)
     const handleCanvasClick = (e: React.MouseEvent) => {
@@ -1056,6 +1089,42 @@ export const AlbumCover = ({
         latestPageRef.current = nextPage;
         onUpdatePage(nextPage);
     }, [onUpdatePage]);
+
+    const closeDynamicContextMenu = useCallback(() => {
+        setDynamicContextMenu(null);
+    }, []);
+
+    useEffect(() => {
+        if (!dynamicContextMenu) return;
+
+        const handlePointerDown = () => closeDynamicContextMenu();
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') closeDynamicContextMenu();
+        };
+        const handleScroll = () => closeDynamicContextMenu();
+
+        window.addEventListener('mousedown', handlePointerDown);
+        window.addEventListener('keydown', handleEscape);
+        window.addEventListener('scroll', handleScroll, true);
+
+        return () => {
+            window.removeEventListener('mousedown', handlePointerDown);
+            window.removeEventListener('keydown', handleEscape);
+            window.removeEventListener('scroll', handleScroll, true);
+        };
+    }, [dynamicContextMenu, closeDynamicContextMenu]);
+
+    useEffect(() => {
+        const validIds = new Set((page.coverImages || []).map((image) => image.id));
+
+        if (dynamicContextMenu && !validIds.has(dynamicContextMenu.imageId)) {
+            setDynamicContextMenu(null);
+        }
+
+        if (dynamicSuggestionAnchor && !validIds.has(dynamicSuggestionAnchor.imageId)) {
+            setDynamicSuggestionAnchor(null);
+        }
+    }, [dynamicContextMenu, dynamicSuggestionAnchor, page.coverImages]);
 
     useLayoutEffect(() => {
         if (!containerRef.current) return;
@@ -1262,6 +1331,7 @@ export const AlbumCover = ({
     // If full spread dynamic, we pass ALL photos to the single layout instance.
     const backPhotos = isDynamicBack ? safePhotos : safePhotos.slice(0, backPhotoCount);
     const frontPhotos = isDynamicFront ? safePhotos : safePhotos.slice(backPhotoCount);
+    const resolveGalleryPhotoId = useMemo(() => createGalleryPhotoReferenceResolver(allPhotos), [allPhotos]);
 
 
     // Helper to update specific image pan/zoom
@@ -1301,6 +1371,8 @@ export const AlbumCover = ({
                 return {
                     ...img,
                     url: sourceUrl,
+                    originalId: droppedPhoto.id,
+                    storagePath: droppedPhoto.storagePath || extractSupabaseStoragePath(sourceUrl) || img.storagePath,
                     aspectRatio: resolvedAspectRatio && resolvedAspectRatio > 0 ? resolvedAspectRatio : img.aspectRatio,
                     panAndZoom: { scale: 1, x: 50, y: 50 }
                 };
@@ -1309,6 +1381,134 @@ export const AlbumCover = ({
             return { ...currentPage, coverImages: newImages };
         });
     };
+
+    const removeCoverImage = useCallback((imgId: string) => {
+        commitPageUpdate((currentPage) => ({
+            ...currentPage,
+            coverImages: (currentPage.coverImages || []).filter((img) => img.id !== imgId)
+        }));
+    }, [commitPageUpdate]);
+
+    const getDynamicImageSuggestions = useCallback((imageId: string): Photo[] => {
+        if (allPhotos.length === 0) return [];
+
+        const activeTarget = (page.coverImages || []).find((img) => img.id === imageId);
+        const targetGalleryPhotoId = activeTarget ? resolveGalleryPhotoId(activeTarget) : null;
+        const usedGalleryPhotoIds = new Set<string>();
+
+        safePhotos.forEach((photo) => {
+            const galleryPhotoId = resolveGalleryPhotoId(photo);
+            if (galleryPhotoId) usedGalleryPhotoIds.add(galleryPhotoId);
+        });
+
+        (page.coverImages || []).forEach((image) => {
+            const galleryPhotoId = resolveGalleryPhotoId(image);
+            if (galleryPhotoId) usedGalleryPhotoIds.add(galleryPhotoId);
+        });
+
+        if (targetGalleryPhotoId) {
+            usedGalleryPhotoIds.delete(targetGalleryPhotoId);
+        }
+
+        const currentPageReferences = [
+            ...safePhotos.filter((photo) => (photo.remoteUrl || photo.src || '').trim().length > 0),
+            ...(page.coverImages || []).filter((image) => (image.url || '').trim().length > 0)
+        ];
+        const referenceItems = currentPageReferences.length > 0
+            ? currentPageReferences
+            : previousPagePhotos.filter((photo) => (photo.remoteUrl || photo.src || '').trim().length > 0);
+
+        if (referenceItems.length === 0) {
+            return allPhotos.filter((photo) => !usedGalleryPhotoIds.has(photo.id)).slice(0, 8);
+        }
+
+        let highestIndex = -1;
+        referenceItems.forEach((reference) => {
+            const galleryPhotoId = resolveGalleryPhotoId(reference);
+            if (!galleryPhotoId) return;
+
+            const index = allPhotos.findIndex((photo) => photo.id === galleryPhotoId);
+            if (index > highestIndex) {
+                highestIndex = index;
+            }
+        });
+
+        if (highestIndex < 0) {
+            return allPhotos.filter((photo) => !usedGalleryPhotoIds.has(photo.id)).slice(0, 8);
+        }
+
+        const afterPhotos: Photo[] = [];
+        const beforePhotos: Photo[] = [];
+
+        for (let i = 1; i <= 4 && highestIndex + i < allPhotos.length; i++) {
+            const candidate = allPhotos[highestIndex + i];
+            if (!usedGalleryPhotoIds.has(candidate.id)) {
+                afterPhotos.push(candidate);
+            }
+        }
+
+        for (let i = 1; i <= 4 && highestIndex - i >= 0; i++) {
+            const candidate = allPhotos[highestIndex - i];
+            if (!usedGalleryPhotoIds.has(candidate.id)) {
+                beforePhotos.unshift(candidate);
+            }
+        }
+
+        return [...afterPhotos, ...beforePhotos].slice(0, 8);
+    }, [allPhotos, page.coverImages, previousPagePhotos, resolveGalleryPhotoId, safePhotos]);
+
+    const dynamicContextImage = dynamicContextMenu
+        ? (page.coverImages || []).find((image) => image.id === dynamicContextMenu.imageId) || null
+        : null;
+    const dynamicContextGalleryPhotoId = dynamicContextImage ? resolveGalleryPhotoId(dynamicContextImage) : null;
+    const dynamicContextPhotoNumber = dynamicContextGalleryPhotoId
+        ? chronologicalIndex?.[dynamicContextGalleryPhotoId]
+        : undefined;
+    const dynamicImageSuggestions = useMemo(() => {
+        if (!dynamicContextMenu) return [];
+        return getDynamicImageSuggestions(dynamicContextMenu.imageId);
+    }, [dynamicContextMenu, getDynamicImageSuggestions]);
+
+    const openDynamicContextMenu = useCallback((e: React.MouseEvent<HTMLDivElement>, image: CoverImage) => {
+        if (mode !== 'editor') return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        onSelectImage?.([image.id], false);
+
+        const target = e.currentTarget as HTMLElement;
+        const domRect = target.getBoundingClientRect();
+        const anchorRect = {
+            top: domRect.top,
+            left: domRect.left,
+            width: domRect.width,
+            height: domRect.height,
+            bottom: domRect.bottom,
+            right: domRect.right,
+            x: domRect.x,
+            y: domRect.y
+        } as DOMRect;
+
+        setDynamicSuggestionAnchor(null);
+        setDynamicContextMenu({
+            x: e.clientX,
+            y: e.clientY,
+            imageId: image.id,
+            anchorRect
+        });
+    }, [mode, onSelectImage]);
+
+    const hasDynamicReplaceAction = dynamicImageSuggestions.length > 0;
+    const hasDynamicFlipAction = !!dynamicContextImage?.url;
+    const hasDynamicEnhanceAction = !!(dynamicContextImage?.url && onEnhancePhotoWithAi);
+    const hasDynamicRemoveAction = !!dynamicContextImage?.url;
+    const hasDynamicGalleryJump = dynamicContextPhotoNumber !== undefined && !!scrollToGallery;
+    const hasDynamicContextActions = hasDynamicReplaceAction
+        || hasDynamicFlipAction
+        || hasDynamicEnhanceAction
+        || hasDynamicRemoveAction
+        || hasDynamicGalleryJump;
 
     // Derived Styles
     const pageMargin = page.pageMargin ?? config?.pageMargin ?? 0;
@@ -1844,6 +2044,7 @@ export const AlbumCover = ({
                         onUpdatePanAndZoom={(mz) => updateCoverImagePanAndZoom(imgItem.id, mz)}
                         onDragEnd={handleDragEnd}
                         containerRef={containerRef}
+                        onOpenContextMenu={openDynamicContextMenu}
                         lockAspectRatio={lockOverlayImageAspectRatio}
                         frameGap={dynamicFrameGap}
                         frameGapColor={dynamicFrameGapColor}
@@ -1861,12 +2062,160 @@ export const AlbumCover = ({
                         interactive={allowPanAsTemplateFrame}
                         onUpdatePanAndZoom={allowPanAsTemplateFrame ? (mz) => updateCoverImagePanAndZoom(imgItem.id, mz) : undefined}
                         onReplaceByPhotoId={allowPanAsTemplateFrame ? (droppedPhotoId) => replaceCoverImageByGalleryPhoto(imgItem.id, droppedPhotoId) : undefined}
+                        onOpenContextMenu={mode === 'editor' ? openDynamicContextMenu : undefined}
                         containerAspectRatio={overlayContainerAspectRatio}
                     />
                 );
             }
         });
     };
+
+    const handleSelectDynamicSuggestion = useCallback((photo: Photo) => {
+        if (!dynamicSuggestionAnchor) return;
+        replaceCoverImageByGalleryPhoto(dynamicSuggestionAnchor.imageId, photo.id);
+        setDynamicSuggestionAnchor(null);
+    }, [dynamicSuggestionAnchor, replaceCoverImageByGalleryPhoto]);
+
+    const dynamicContextActionCount = (hasDynamicReplaceAction ? 1 : 0)
+        + (hasDynamicFlipAction ? 1 : 0)
+        + (hasDynamicEnhanceAction ? 1 : 0)
+        + (hasDynamicRemoveAction ? 1 : 0)
+        + (hasDynamicGalleryJump ? 1 : 0);
+    const dynamicMenuWidth = 200;
+    const dynamicMenuHeight = 12 + (dynamicContextActionCount * 34);
+    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
+    const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080;
+    const dynamicMenuLeft = dynamicContextMenu
+        ? Math.max(8, Math.min(dynamicContextMenu.x, viewportWidth - dynamicMenuWidth - 8))
+        : 8;
+    const dynamicMenuTop = dynamicContextMenu
+        ? Math.max(8, Math.min(dynamicContextMenu.y, viewportHeight - dynamicMenuHeight - 8))
+        : 8;
+
+    const dynamicContextMenuOverlay = dynamicContextMenu
+        && dynamicContextImage
+        && hasDynamicContextActions
+        && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+                className="fixed inset-0 z-[500]"
+                onMouseDown={closeDynamicContextMenu}
+                onContextMenu={(e) => {
+                    e.preventDefault();
+                    closeDynamicContextMenu();
+                }}
+            >
+                <div
+                    className="absolute w-[200px] rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+                    style={{ left: `${dynamicMenuLeft}px`, top: `${dynamicMenuTop}px` }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onContextMenu={(e) => e.preventDefault()}
+                >
+                    {hasDynamicReplaceAction && (
+                        <button
+                            type="button"
+                            className="flex w-full items-center gap-2.5 rounded-sm px-2.5 py-2 text-left text-sm leading-5 hover:bg-accent hover:text-accent-foreground"
+                            onClick={() => {
+                                if (dynamicContextMenu.anchorRect) {
+                                    setDynamicSuggestionAnchor({
+                                        rect: dynamicContextMenu.anchorRect,
+                                        imageId: dynamicContextImage.id
+                                    });
+                                }
+                                closeDynamicContextMenu();
+                            }}
+                        >
+                            <RefreshCw className="h-4 w-4 shrink-0 opacity-80" />
+                            <span>Replace photo</span>
+                        </button>
+                    )}
+                    {hasDynamicFlipAction && (
+                        <button
+                            type="button"
+                            className="flex w-full items-center gap-2.5 rounded-sm px-2.5 py-2 text-left text-sm leading-5 hover:bg-accent hover:text-accent-foreground"
+                            onClick={() => {
+                                updateCoverImagePanAndZoom(dynamicContextImage.id, {
+                                    scale: dynamicContextImage.panAndZoom?.scale ?? 1,
+                                    x: dynamicContextImage.panAndZoom?.x ?? 50,
+                                    y: dynamicContextImage.panAndZoom?.y ?? 50,
+                                    flipHorizontal: !(dynamicContextImage.panAndZoom?.flipHorizontal ?? false),
+                                });
+                                closeDynamicContextMenu();
+                            }}
+                        >
+                            <FlipHorizontal className="h-4 w-4 shrink-0 opacity-80" />
+                            <span>{dynamicContextImage.panAndZoom?.flipHorizontal ? 'Reset horizontal flip' : 'Flip horizontal'}</span>
+                        </button>
+                    )}
+                    {hasDynamicEnhanceAction && (
+                        <button
+                            type="button"
+                            className="flex w-full items-center gap-2.5 rounded-sm px-2.5 py-2 text-left text-sm leading-5 hover:bg-accent hover:text-accent-foreground"
+                            onClick={() => {
+                                const matchedGalleryPhoto = dynamicContextGalleryPhotoId
+                                    ? allPhotos.find((photo) => photo.id === dynamicContextGalleryPhotoId)
+                                    : undefined;
+                                const photoForEnhancement: Photo = matchedGalleryPhoto
+                                    ? {
+                                        ...matchedGalleryPhoto,
+                                        id: dynamicContextImage.id,
+                                        src: dynamicContextImage.url,
+                                        remoteUrl: dynamicContextImage.url,
+                                        originalId: dynamicContextGalleryPhotoId || matchedGalleryPhoto.id,
+                                        storagePath: dynamicContextImage.storagePath || matchedGalleryPhoto.storagePath,
+                                        panAndZoom: dynamicContextImage.panAndZoom,
+                                    }
+                                    : {
+                                        id: dynamicContextImage.id,
+                                        src: dynamicContextImage.url,
+                                        remoteUrl: dynamicContextImage.url,
+                                        originalId: dynamicContextGalleryPhotoId || dynamicContextImage.originalId,
+                                        storagePath: dynamicContextImage.storagePath,
+                                        alt: dynamicContextImage.frameName || 'Dynamic photo',
+                                        panAndZoom: dynamicContextImage.panAndZoom,
+                                        width: dynamicContextImage.aspectRatio > 0 ? 1000 : undefined,
+                                        height: dynamicContextImage.aspectRatio > 0 ? (1000 / dynamicContextImage.aspectRatio) : undefined,
+                                    };
+
+                                onEnhancePhotoWithAi?.(page.id, dynamicContextImage.id, photoForEnhancement);
+                                closeDynamicContextMenu();
+                            }}
+                        >
+                            <Sparkles className="h-4 w-4 shrink-0 opacity-80" />
+                            <span>Enhance with AI</span>
+                        </button>
+                    )}
+                    {hasDynamicRemoveAction && (
+                        <button
+                            type="button"
+                            className="flex w-full items-center gap-2.5 rounded-sm px-2.5 py-2 text-left text-sm leading-5 hover:bg-accent hover:text-accent-foreground"
+                            onClick={() => {
+                                removeCoverImage(dynamicContextImage.id);
+                                closeDynamicContextMenu();
+                            }}
+                        >
+                            <Trash2 className="h-4 w-4 shrink-0 opacity-80" />
+                            <span>Remove photo</span>
+                        </button>
+                    )}
+                    {hasDynamicGalleryJump && (
+                        <button
+                            type="button"
+                            className="flex w-full items-center gap-2.5 rounded-sm px-2.5 py-2 text-left text-sm leading-5 hover:bg-accent hover:text-accent-foreground"
+                            onClick={() => {
+                                scrollToGallery?.(dynamicContextGalleryPhotoId!);
+                                closeDynamicContextMenu();
+                            }}
+                        >
+                            <Hash className="h-4 w-4 shrink-0 opacity-80" />
+                            <span>Go to photo #{dynamicContextPhotoNumber}</span>
+                        </button>
+                    )}
+                </div>
+            </div>,
+            document.body
+        )
+        : null;
 
     const handleDynamicCanvasDragOver = (e: React.DragEvent<HTMLDivElement>) => {
         if (!dynamicMode) return;
@@ -1925,6 +2274,15 @@ export const AlbumCover = ({
             >
                 {renderContent()}
             </div>
+            {dynamicSuggestionAnchor && (
+                <SuggestionFan
+                    suggestions={getDynamicImageSuggestions(dynamicSuggestionAnchor.imageId)}
+                    onSelect={handleSelectDynamicSuggestion}
+                    onClose={() => setDynamicSuggestionAnchor(null)}
+                    anchorRect={dynamicSuggestionAnchor.rect}
+                />
+            )}
+            {dynamicContextMenuOverlay}
         </div>
     );
 };
