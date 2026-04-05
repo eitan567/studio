@@ -13,6 +13,8 @@ interface AlbumEditorContextType {
     registerGalleryScroll: (scrollFn: (photoId: string) => void) => void;
     scrollToGallery: (photoId: string) => void;
     highlightedPhotoId: string | null;
+    activeAlbumDrag: { pageId: string; photoId: string } | null;
+    setActiveAlbumDrag: (value: { pageId: string; photoId: string } | null) => void;
 }
 
 const AlbumEditorContext = createContext<AlbumEditorContextType | undefined>(undefined);
@@ -26,6 +28,7 @@ export function AlbumEditorProvider({ children }: { children: ReactNode }) {
     const galleryScrollFnRef = React.useRef<((photoId: string) => void) | null>(null);
     const [highlightedPhotoId, setHighlightedPhotoId] = useState<string | null>(null);
     const highlightTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [activeAlbumDrag, setActiveAlbumDrag] = useState<{ pageId: string; photoId: string } | null>(null);
 
     const registerGalleryScroll = React.useCallback((scrollFn: (photoId: string) => void) => {
         galleryScrollFnRef.current = scrollFn;
@@ -63,6 +66,8 @@ export function AlbumEditorProvider({ children }: { children: ReactNode }) {
                 registerGalleryScroll,
                 scrollToGallery,
                 highlightedPhotoId,
+                activeAlbumDrag,
+                setActiveAlbumDrag,
             }}
         >
             {children}

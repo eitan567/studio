@@ -311,6 +311,10 @@ const DraggableCoverImage = ({
     containerRef,
     onUpdatePanAndZoom,
     onOpenContextMenu,
+    pageId,
+    photoId,
+    onSwapDrop,
+    onReplaceByPhotoId,
     lockAspectRatio = false,
     frameGap = 0,
     frameGapColor = '#ffffff',
@@ -327,15 +331,23 @@ const DraggableCoverImage = ({
     containerRef: React.RefObject<HTMLDivElement | null>;
     onUpdatePanAndZoom?: (panAndZoom: PhotoPanAndZoom) => void;
     onOpenContextMenu?: (e: React.MouseEvent<HTMLDivElement>, item: CoverImage) => void;
+    pageId?: string;
+    photoId?: string;
+    onSwapDrop?: (targetPhotoId: string, sourceInfo: { pageId: string; photoId: string }) => void;
+    onReplaceByPhotoId?: (photoId: string) => void;
     lockAspectRatio?: boolean;
     frameGap?: number;
     frameGapColor?: string;
     containerAspectRatio?: number;
 }) => {
+    const albumEditor = useOptionalAlbumEditor();
+    const setActiveAlbumDrag = albumEditor?.setActiveAlbumDrag;
+    const activeAlbumDrag = albumEditor?.activeAlbumDrag ?? null;
     const [isDragging, setIsDragging] = useState(false);
     const [isResizing, setIsResizing] = useState(false);
     const [isRotating, setIsRotating] = useState(false);
     const [isCropMode, setIsCropMode] = useState(false); // New Crop Mode state
+    const [isCtrlPressed, setIsCtrlPressed] = useState(false);
 
     const hasMovedRef = useRef(false);
     const dragOffsetRef = useRef({ x: 0, y: 0 });
@@ -391,8 +403,24 @@ const DraggableCoverImage = ({
     const rotateAccentClass = isLeadSelection ? "bg-emerald-500/90" : "bg-pink-500/90";
     const rotateButtonClass = isLeadSelection ? "bg-emerald-500" : "bg-pink-500";
 
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.ctrlKey) setIsCtrlPressed(true);
+        };
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (!e.ctrlKey) setIsCtrlPressed(false);
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, []);
+
     const handleMouseDown = (e: React.MouseEvent) => {
         if (e.button !== 0) return;
+        if (isCtrlPressed) return;
         if (isCropMode) return; // Let PhotoRenderer handle interaction in Crop Mode
 
         e.stopPropagation();
@@ -479,6 +507,75 @@ const DraggableCoverImage = ({
             onSelect(e);
         }
         onOpenContextMenu(e, item);
+    };
+
+    const resolveDroppedPhotoId = (e: React.DragEvent<HTMLDivElement>) => {
+        const directId = e.dataTransfer.getData('photoId');
+        if (directId) return directId;
+
+        const selectedIds = e.dataTransfer.getData('selectedPhotoIds');
+        if (selectedIds) {
+            try {
+                const parsed = JSON.parse(selectedIds);
+                if (Array.isArray(parsed) && typeof parsed[0] === 'string' && parsed[0]) {
+                    return parsed[0];
+                }
+            } catch {
+                // Ignore malformed multi-select payload.
+            }
+        }
+
+        return '';
+    };
+
+    const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+        if (!isCtrlPressed || !pageId || !photoId) {
+            e.preventDefault();
+            return;
+        }
+
+        e.dataTransfer.setData('albumPhotoId', photoId);
+        e.dataTransfer.setData('sourcePageId', pageId);
+        e.dataTransfer.effectAllowed = 'move';
+        setActiveAlbumDrag?.({ pageId, photoId });
+    };
+
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        const albumPhotoId = e.dataTransfer.getData('albumPhotoId');
+        const sourcePageId = e.dataTransfer.getData('sourcePageId');
+        const droppedPhotoId = resolveDroppedPhotoId(e);
+        const swapSource = (albumPhotoId && sourcePageId)
+            ? { pageId: sourcePageId, photoId: albumPhotoId }
+            : activeAlbumDrag;
+        const canSwap = !!(swapSource && onSwapDrop && photoId);
+        const canReplace = !!(droppedPhotoId && onReplaceByPhotoId);
+
+        if (!canSwap && !canReplace) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = canSwap ? 'move' : 'copy';
+    };
+
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        const albumPhotoId = e.dataTransfer.getData('albumPhotoId');
+        const sourcePageId = e.dataTransfer.getData('sourcePageId');
+        const swapSource = (albumPhotoId && sourcePageId)
+            ? { pageId: sourcePageId, photoId: albumPhotoId }
+            : activeAlbumDrag;
+        if (swapSource && onSwapDrop && photoId) {
+            e.preventDefault();
+            e.stopPropagation();
+            onSwapDrop(photoId, swapSource);
+            return;
+        }
+
+        const droppedPhotoId = resolveDroppedPhotoId(e);
+        if (!droppedPhotoId || !onReplaceByPhotoId) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+        onReplaceByPhotoId(droppedPhotoId);
     };
 
     // Close crop mode when deselected
@@ -679,7 +776,13 @@ const DraggableCoverImage = ({
                 zIndex: item.zIndex,
                 boxSizing: 'border-box'
             }}
-            onMouseDown={handleMouseDown}
+            data-dynamic-image-id={item.id}
+            draggable={isCtrlPressed && !!pageId && !!photoId}
+            onDragStart={handleDragStart}
+            onDragEnd={() => setActiveAlbumDrag?.(null)}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            onMouseDown={isCtrlPressed ? undefined : handleMouseDown}
             onClick={handleClick}
             onDoubleClick={handleDoubleClick}
             onContextMenu={handleContextMenu}
@@ -853,6 +956,9 @@ export const StaticCoverImage = ({
     onUpdatePanAndZoom,
     onReplaceByPhotoId,
     onOpenContextMenu,
+    pageId,
+    photoId,
+    onSwapDrop,
     containerAspectRatio = 1
 }: {
     item: CoverImage;
@@ -862,8 +968,31 @@ export const StaticCoverImage = ({
     onUpdatePanAndZoom?: (panAndZoom: PhotoPanAndZoom) => void;
     onReplaceByPhotoId?: (photoId: string) => void;
     onOpenContextMenu?: (e: React.MouseEvent<HTMLDivElement>, item: CoverImage) => void;
+    pageId?: string;
+    photoId?: string;
+    onSwapDrop?: (targetPhotoId: string, sourceInfo: { pageId: string; photoId: string }) => void;
     containerAspectRatio?: number;
 }) => {
+    const albumEditor = useOptionalAlbumEditor();
+    const setActiveAlbumDrag = albumEditor?.setActiveAlbumDrag;
+    const activeAlbumDrag = albumEditor?.activeAlbumDrag ?? null;
+    const [isCtrlPressed, setIsCtrlPressed] = useState(false);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.ctrlKey) setIsCtrlPressed(true);
+        };
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (!e.ctrlKey) setIsCtrlPressed(false);
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, []);
+
     // If height is missing, use aspect ratio
     const heightPercent = item.height ?? (item.width / item.aspectRatio);
     const normalizedRotation = ((item.rotation ?? 0) % 360 + 360) % 360;
@@ -918,19 +1047,50 @@ export const StaticCoverImage = ({
     };
 
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-        if (!interactive || !onReplaceByPhotoId) return;
+        const albumPhotoId = e.dataTransfer.getData('albumPhotoId');
+        const sourcePageId = e.dataTransfer.getData('sourcePageId');
+        const swapSource = (albumPhotoId && sourcePageId)
+            ? { pageId: sourcePageId, photoId: albumPhotoId }
+            : activeAlbumDrag;
+        const canSwap = !!(swapSource && onSwapDrop && photoId);
+        const canReplace = !!(interactive && onReplaceByPhotoId);
+        if (!canSwap && !canReplace) return;
         e.preventDefault();
         e.stopPropagation();
-        e.dataTransfer.dropEffect = 'copy';
+        e.dataTransfer.dropEffect = canSwap ? 'move' : 'copy';
     };
 
     const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        const albumPhotoId = e.dataTransfer.getData('albumPhotoId');
+        const sourcePageId = e.dataTransfer.getData('sourcePageId');
+        const swapSource = (albumPhotoId && sourcePageId)
+            ? { pageId: sourcePageId, photoId: albumPhotoId }
+            : activeAlbumDrag;
+        if (swapSource && onSwapDrop && photoId) {
+            e.preventDefault();
+            e.stopPropagation();
+            onSwapDrop(photoId, swapSource);
+            return;
+        }
+
         if (!interactive || !onReplaceByPhotoId) return;
         const droppedPhotoId = resolveDroppedPhotoId(e);
         if (!droppedPhotoId) return;
         e.preventDefault();
         e.stopPropagation();
         onReplaceByPhotoId(droppedPhotoId);
+    };
+
+    const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+        if (!isCtrlPressed || !pageId || !photoId) {
+            e.preventDefault();
+            return;
+        }
+
+        e.dataTransfer.setData('albumPhotoId', photoId);
+        e.dataTransfer.setData('sourcePageId', pageId);
+        e.dataTransfer.effectAllowed = 'move';
+        setActiveAlbumDrag?.({ pageId, photoId });
     };
 
     return (
@@ -950,6 +1110,10 @@ export const StaticCoverImage = ({
                 zIndex: item.zIndex ?? 40,
                 boxSizing: 'border-box'
             }}
+            data-dynamic-image-id={item.id}
+            draggable={isCtrlPressed && !!pageId && !!photoId}
+            onDragStart={handleDragStart}
+            onDragEnd={() => setActiveAlbumDrag?.(null)}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             onContextMenu={(e) => onOpenContextMenu?.(e, item)}
@@ -1070,6 +1234,7 @@ export const AlbumCover = ({
     } | null>(null);
     const albumEditor = useOptionalAlbumEditor();
     const scrollToGallery = albumEditor?.scrollToGallery;
+    const activeAlbumDrag = albumEditor?.activeAlbumDrag ?? null;
 
     // Canvas click handler (for deselecting)
     const handleCanvasClick = (e: React.MouseEvent) => {
@@ -2045,6 +2210,10 @@ export const AlbumCover = ({
                         onDragEnd={handleDragEnd}
                         containerRef={containerRef}
                         onOpenContextMenu={openDynamicContextMenu}
+                        pageId={page.id}
+                        photoId={imgItem.id}
+                        onSwapDrop={handleDynamicSwapDrop}
+                        onReplaceByPhotoId={(droppedPhotoId) => replaceCoverImageByGalleryPhoto(imgItem.id, droppedPhotoId)}
                         lockAspectRatio={lockOverlayImageAspectRatio}
                         frameGap={dynamicFrameGap}
                         frameGapColor={dynamicFrameGapColor}
@@ -2063,6 +2232,9 @@ export const AlbumCover = ({
                         onUpdatePanAndZoom={allowPanAsTemplateFrame ? (mz) => updateCoverImagePanAndZoom(imgItem.id, mz) : undefined}
                         onReplaceByPhotoId={allowPanAsTemplateFrame ? (droppedPhotoId) => replaceCoverImageByGalleryPhoto(imgItem.id, droppedPhotoId) : undefined}
                         onOpenContextMenu={mode === 'editor' ? openDynamicContextMenu : undefined}
+                        pageId={page.id}
+                        photoId={imgItem.id}
+                        onSwapDrop={handleDynamicSwapDrop}
                         containerAspectRatio={overlayContainerAspectRatio}
                     />
                 );
@@ -2217,8 +2389,81 @@ export const AlbumCover = ({
         )
         : null;
 
+    const handleDynamicSwapDrop = useCallback((targetPhotoId: string, sourceInfo: { pageId: string; photoId: string }) => {
+        onDropPhoto?.(page.id, targetPhotoId, sourceInfo.photoId, sourceInfo);
+    }, [onDropPhoto, page.id]);
+
+    const resolveDynamicImageTargetFromPointer = useCallback((clientX: number, clientY: number): string | null => {
+        if (!containerRef.current) return null;
+
+        const rect = containerRef.current.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return null;
+        if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return null;
+
+        const localPointerX = ((clientX - rect.left) / rect.width) * 100;
+        const localPointerY = ((clientY - rect.top) / rect.height) * 100;
+
+        const candidates = (page.coverImages || [])
+            .map((imgItem) => {
+                const currentX = dragPositions[imgItem.id]?.x ?? imgItem.x;
+                const currentY = dragPositions[imgItem.id]?.y ?? imgItem.y;
+
+                let localX = currentX;
+                let localWidth = imgItem.width;
+                let isVisible = true;
+
+                if (isFront) {
+                    const mappedFront = mapGlobalXToLocalPage(currentX, 'front');
+                    localX = mappedFront.localX;
+                    localWidth = mapGlobalWidthToLocalPage(imgItem.width, 'front');
+                    isVisible = mappedFront.isVisible;
+                } else if (isBack) {
+                    const mappedBack = mapGlobalXToLocalPage(currentX, 'back');
+                    localX = mappedBack.localX;
+                    localWidth = mapGlobalWidthToLocalPage(imgItem.width, 'back');
+                    isVisible = mappedBack.isVisible;
+                }
+
+                if (!isVisible) return null;
+
+                const localHeight = imgItem.height ?? (localWidth / Math.max(imgItem.aspectRatio || 1, 0.01));
+                const halfWidth = localWidth / 2;
+                const halfHeight = localHeight / 2;
+                const isInside = localPointerX >= (localX - halfWidth)
+                    && localPointerX <= (localX + halfWidth)
+                    && localPointerY >= (currentY - halfHeight)
+                    && localPointerY <= (currentY + halfHeight);
+
+                if (!isInside) return null;
+
+                return {
+                    id: imgItem.id,
+                    zIndex: imgItem.zIndex ?? 40
+                };
+            })
+            .filter((candidate): candidate is { id: string; zIndex: number } => !!candidate)
+            .sort((left, right) => right.zIndex - left.zIndex);
+
+        return candidates[0]?.id || null;
+    }, [dragPositions, isBack, isFront, mapGlobalWidthToLocalPage, mapGlobalXToLocalPage, page.coverImages]);
+
     const handleDynamicCanvasDragOver = (e: React.DragEvent<HTMLDivElement>) => {
         if (!dynamicMode) return;
+        const albumPhotoId = e.dataTransfer.getData('albumPhotoId');
+        const sourcePageId = e.dataTransfer.getData('sourcePageId');
+        const activeDragSource = (albumPhotoId && sourcePageId)
+            ? { pageId: sourcePageId, photoId: albumPhotoId }
+            : activeAlbumDrag;
+
+        if (activeDragSource) {
+            const targetImageId = resolveDynamicImageTargetFromPointer(e.clientX, e.clientY);
+            if (!targetImageId) return;
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'move';
+            return;
+        }
+
         if (!onDynamicDropPhoto) return;
         e.preventDefault();
         e.stopPropagation();
@@ -2227,6 +2472,23 @@ export const AlbumCover = ({
 
     const handleDynamicCanvasDrop = (e: React.DragEvent<HTMLDivElement>) => {
         if (!dynamicMode) return;
+
+        const albumPhotoId = e.dataTransfer.getData('albumPhotoId');
+        const sourcePageId = e.dataTransfer.getData('sourcePageId');
+        const activeDragSource = (albumPhotoId && sourcePageId)
+            ? { pageId: sourcePageId, photoId: albumPhotoId }
+            : activeAlbumDrag;
+
+        if (activeDragSource) {
+            const targetImageId = resolveDynamicImageTargetFromPointer(e.clientX, e.clientY);
+            if (!targetImageId) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+            onDropPhoto?.(page.id, targetImageId, activeDragSource.photoId, activeDragSource);
+            return;
+        }
+
         if (!onDynamicDropPhoto) return;
         if (!containerRef.current) return;
 

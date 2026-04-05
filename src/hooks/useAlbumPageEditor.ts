@@ -1,7 +1,7 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
-import { AlbumPage, Photo, PhotoPanAndZoom } from '@/lib/types';
+import { AlbumPage, CoverImage, Photo, PhotoPanAndZoom } from '@/lib/types';
 import { useTemplates, getPhotoCount } from '@/hooks/useTemplates';
 import { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { parseLayoutId } from '@/lib/layout-id-utils';
@@ -639,131 +639,247 @@ export function useAlbumPageEditor({
             if (sourceInfo.photoId === targetPhotoId) return;
 
             setAlbumPages(prevPages => {
-                // Find source and target photos FIRST
-                let sourcePhoto: Photo | undefined;
-                let targetPhoto: Photo | undefined;
+                type ResolvedDragItem =
+                    | { kind: 'photo'; item: Photo; index: number }
+                    | { kind: 'coverImage'; item: CoverImage; index: number };
 
-                // Helper to resolve target photo (handles both ID and INSERT_AT)
-                const resolveTargetPhoto = (page: AlbumPage, targetId: string) => {
-                    if (targetId.startsWith('__INSERT_AT__')) {
-                        const idx = parseInt(targetId.replace('__INSERT_AT__', ''), 10);
-                        return page.photos[idx]; // Might be undefined or empty slot
+                const resolveGalleryPhotoId = createGalleryPhotoReferenceResolver(allPhotosRef.current);
+
+                const emptyPhotoSlot = (slotId: string): Photo => ({
+                    id: slotId,
+                    src: '',
+                    alt: 'Drop photo here',
+                    width: 600,
+                    height: 400,
+                    panAndZoom: { scale: 1, x: 50, y: 50 }
+                });
+
+                const getPhotoSource = (photo: Photo | null | undefined) => (photo?.remoteUrl || photo?.src || '').trim();
+                const getCoverImageSource = (image: CoverImage | null | undefined) => (image?.url || '').trim();
+                const isFilledPhoto = (photo: Photo | null | undefined) => getPhotoSource(photo).length > 0;
+                const isFilledCoverImage = (image: CoverImage | null | undefined) => getCoverImageSource(image).length > 0;
+
+                const resolveDragItem = (page: AlbumPage, id: string): ResolvedDragItem | null => {
+                    if (id.startsWith('__INSERT_AT__')) {
+                        const index = parseInt(id.replace('__INSERT_AT__', ''), 10);
+                        if (isNaN(index) || index < 0 || index >= page.photos.length) return null;
+                        return {
+                            kind: 'photo',
+                            item: page.photos[index],
+                            index
+                        };
                     }
-                    return page.photos.find(p => p.id === targetId);
+
+                    const photoIndex = page.photos.findIndex((photo) => photo.id === id);
+                    if (photoIndex >= 0) {
+                        return {
+                            kind: 'photo',
+                            item: page.photos[photoIndex],
+                            index: photoIndex
+                        };
+                    }
+
+                    const coverImages = page.coverImages || [];
+                    const coverImageIndex = coverImages.findIndex((image) => image.id === id);
+                    if (coverImageIndex >= 0) {
+                        return {
+                            kind: 'coverImage',
+                            item: coverImages[coverImageIndex],
+                            index: coverImageIndex
+                        };
+                    }
+
+                    return null;
                 };
+
+                const buildPhotoFromSource = (slotId: string, source: Photo | CoverImage | null | undefined): Photo => {
+                    if (!source) return emptyPhotoSlot(slotId);
+
+                    if ('url' in source) {
+                        const sourceUrl = getCoverImageSource(source);
+                        if (!sourceUrl) return emptyPhotoSlot(slotId);
+
+                        const resolvedOriginalId = source.originalId || resolveGalleryPhotoId(source) || undefined;
+                        const normalizedAspectRatio = Number(source.aspectRatio);
+                        const fallbackAspectRatio = Number.isFinite(normalizedAspectRatio) && normalizedAspectRatio > 0
+                            ? normalizedAspectRatio
+                            : 1;
+
+                        return {
+                            id: slotId,
+                            src: sourceUrl,
+                            remoteUrl: sourceUrl,
+                            alt: source.frameName || 'Dynamic photo',
+                            width: 1000,
+                            height: 1000 / fallbackAspectRatio,
+                            originalId: resolvedOriginalId,
+                            storagePath: source.storagePath || extractSupabaseStoragePath(sourceUrl) || undefined,
+                            panAndZoom: { scale: 1, x: 50, y: 50 }
+                        };
+                    }
+
+                    const sourceUrl = getPhotoSource(source);
+                    if (!sourceUrl) return emptyPhotoSlot(slotId);
+
+                    return {
+                        ...source,
+                        id: slotId,
+                        src: source.src || sourceUrl,
+                        remoteUrl: source.remoteUrl || sourceUrl,
+                        originalId: source.originalId || source.id,
+                        storagePath: source.storagePath || extractSupabaseStoragePath(sourceUrl) || undefined,
+                        panAndZoom: { scale: 1, x: 50, y: 50 },
+                        width: source.width || 800,
+                        height: source.height || 600
+                    };
+                };
+
+                const buildCoverImageFromSource = (
+                    frame: CoverImage,
+                    source: Photo | CoverImage | null | undefined
+                ): CoverImage => {
+                    if (!source) {
+                        return {
+                            ...frame,
+                            url: '',
+                            originalId: undefined,
+                            storagePath: undefined,
+                            panAndZoom: { scale: 1, x: 50, y: 50 }
+                        };
+                    }
+
+                    if ('url' in source) {
+                        const sourceUrl = getCoverImageSource(source);
+                        if (!sourceUrl) {
+                            return {
+                                ...frame,
+                                url: '',
+                                originalId: undefined,
+                                storagePath: undefined,
+                                panAndZoom: { scale: 1, x: 50, y: 50 }
+                            };
+                        }
+
+                        const resolvedOriginalId = source.originalId || resolveGalleryPhotoId(source) || undefined;
+                        const normalizedAspectRatio = Number(source.aspectRatio);
+
+                        return {
+                            ...frame,
+                            url: sourceUrl,
+                            originalId: resolvedOriginalId,
+                            storagePath: source.storagePath || extractSupabaseStoragePath(sourceUrl) || undefined,
+                            aspectRatio: Number.isFinite(normalizedAspectRatio) && normalizedAspectRatio > 0
+                                ? normalizedAspectRatio
+                                : frame.aspectRatio,
+                            panAndZoom: { scale: 1, x: 50, y: 50 }
+                        };
+                    }
+
+                    const sourceUrl = getPhotoSource(source);
+                    if (!sourceUrl) {
+                        return {
+                            ...frame,
+                            url: '',
+                            originalId: undefined,
+                            storagePath: undefined,
+                            panAndZoom: { scale: 1, x: 50, y: 50 }
+                        };
+                    }
+
+                    const resolvedAspectRatio = (source.width && source.height && source.width > 0 && source.height > 0)
+                        ? (source.width / source.height)
+                        : frame.aspectRatio;
+
+                    return {
+                        ...frame,
+                        url: sourceUrl,
+                        originalId: source.originalId || source.id,
+                        storagePath: source.storagePath || extractSupabaseStoragePath(sourceUrl) || undefined,
+                        aspectRatio: resolvedAspectRatio,
+                        panAndZoom: { scale: 1, x: 50, y: 50 }
+                    };
+                };
+
+                let sourceItem: ResolvedDragItem | null = null;
+                let targetItem: ResolvedDragItem | null = null;
 
                 for (const page of prevPages) {
                     if (page.id === sourceInfo.pageId) {
-                        sourcePhoto = page.photos.find(p => p.id === sourceInfo.photoId);
+                        sourceItem = resolveDragItem(page, sourceInfo.photoId);
                     }
                     if (page.id === pageId) {
-                        targetPhoto = resolveTargetPhoto(page, targetPhotoId);
+                        targetItem = resolveDragItem(page, targetPhotoId);
                     }
                 }
 
-                if (!sourcePhoto) return prevPages;
+                if (!sourceItem) return prevPages;
 
-                // Check if swapping within the same page (SPLIT mode case)
-                const isSamePage = sourceInfo.pageId === pageId;
+                const sourceContent = sourceItem.kind === 'photo'
+                    ? (isFilledPhoto(sourceItem.item) ? sourceItem.item : null)
+                    : (isFilledCoverImage(sourceItem.item) ? sourceItem.item : null);
+                const targetContent = !targetItem
+                    ? null
+                    : targetItem.kind === 'photo'
+                        ? (isFilledPhoto(targetItem.item) ? targetItem.item : null)
+                        : (isFilledCoverImage(targetItem.item) ? targetItem.item : null);
 
-                // Capture these for use in map callbacks
-                const capturedSourcePhoto = sourcePhoto;
-                const capturedTargetPhoto = targetPhoto;
-
-                // Perform the swap
                 return prevPages.map(page => {
-                    // Same page swap
-                    if (isSamePage && page.id === pageId) {
-                        return {
-                            ...page,
-                            photos: page.photos.map((p, index) => {
-                                const isTarget = targetPhotoId.startsWith('__INSERT_AT__')
-                                    ? index === parseInt(targetPhotoId.replace('__INSERT_AT__', ''), 10)
-                                    : p.id === targetPhotoId;
+                    if (page.id !== sourceInfo.pageId && page.id !== pageId) return page;
 
-                                // Replace source photo slot with target content (or empty)
-                                if (p.id === sourceInfo.photoId) {
-                                    if (capturedTargetPhoto && capturedTargetPhoto.src) {
-                                        return {
-                                            ...capturedTargetPhoto,
-                                            id: sourceInfo.photoId,
-                                            panAndZoom: { scale: 1, x: 50, y: 50 }
-                                        };
-                                    } else {
-                                        return {
-                                            id: sourceInfo.photoId,
-                                            src: '',
-                                            alt: 'Drop photo here',
-                                            width: 600,
-                                            height: 400,
-                                            panAndZoom: { scale: 1, x: 50, y: 50 }
-                                        };
-                                    }
-                                }
-                                // Replace target photo slot with source content
-                                if (isTarget) {
-                                    return {
-                                        ...capturedSourcePhoto,
-                                        id: p.id, // Keep existing slot ID
-                                        panAndZoom: { scale: 1, x: 50, y: 50 }
-                                    } as Photo;
-                                }
-                                return p;
-                            })
-                        };
+                    let didChange = false;
+                    let nextPhotos = page.photos;
+                    let nextCoverImages = page.coverImages;
+
+                    if (page.id === sourceInfo.pageId) {
+                        if (sourceItem.kind === 'photo') {
+                            nextPhotos = page.photos.map((photo) => {
+                                if (photo.id !== sourceInfo.photoId) return photo;
+                                didChange = true;
+                                return buildPhotoFromSource(sourceInfo.photoId, targetContent);
+                            });
+                        } else {
+                            const currentCoverImages = page.coverImages || [];
+                            nextCoverImages = currentCoverImages.map((image) => {
+                                if (image.id !== sourceInfo.photoId) return image;
+                                didChange = true;
+                                return buildCoverImageFromSource(image, targetContent);
+                            });
+                        }
                     }
 
-                    // Different pages - update source page (Remove Source)
-                    if (!isSamePage && page.id === sourceInfo.pageId) {
-                        return {
-                            ...page,
-                            photos: page.photos.map(p => {
-                                if (p.id === sourceInfo.photoId) {
-                                    // If we are swapping with a valid target, take it. Else clear.
-                                    if (capturedTargetPhoto && capturedTargetPhoto.src) {
-                                        return {
-                                            ...capturedTargetPhoto,
-                                            id: sourceInfo.photoId,
-                                            panAndZoom: { scale: 1, x: 50, y: 50 }
-                                        };
-                                    } else {
-                                        return {
-                                            id: sourceInfo.photoId,
-                                            src: '',
-                                            alt: 'Drop photo here',
-                                            width: 600,
-                                            height: 400,
-                                            panAndZoom: { scale: 1, x: 50, y: 50 }
-                                        };
-                                    }
-                                }
-                                return p;
-                            })
-                        };
+                    if (page.id === pageId) {
+                        if (targetPhotoId.startsWith('__INSERT_AT__')) {
+                            const targetIndex = parseInt(targetPhotoId.replace('__INSERT_AT__', ''), 10);
+                            if (!isNaN(targetIndex)) {
+                                nextPhotos = (nextPhotos || page.photos).map((photo, index) => {
+                                    if (index !== targetIndex) return photo;
+                                    didChange = true;
+                                    return buildPhotoFromSource(photo.id, sourceContent);
+                                });
+                            }
+                        } else if (targetItem?.kind === 'photo') {
+                            nextPhotos = (nextPhotos || page.photos).map((photo) => {
+                                if (photo.id !== targetPhotoId) return photo;
+                                didChange = true;
+                                return buildPhotoFromSource(photo.id, sourceContent);
+                            });
+                        } else if (targetItem?.kind === 'coverImage') {
+                            const currentCoverImages = nextCoverImages || page.coverImages || [];
+                            nextCoverImages = currentCoverImages.map((image) => {
+                                if (image.id !== targetPhotoId) return image;
+                                didChange = true;
+                                return buildCoverImageFromSource(image, sourceContent);
+                            });
+                        }
                     }
 
-                    // Different pages - update target page (Insert Source)
-                    if (!isSamePage && page.id === pageId) {
-                        return {
-                            ...page,
-                            photos: page.photos.map((p, index) => {
-                                const isTarget = targetPhotoId.startsWith('__INSERT_AT__')
-                                    ? index === parseInt(targetPhotoId.replace('__INSERT_AT__', ''), 10)
-                                    : p.id === targetPhotoId;
+                    if (!didChange) return page;
 
-                                if (isTarget) {
-                                    return {
-                                        ...capturedSourcePhoto,
-                                        id: p.id, // Keep slot ID
-                                        panAndZoom: { scale: 1, x: 50, y: 50 }
-                                    } as Photo;
-                                }
-                                return p;
-                            })
-                        };
-                    }
-
-                    return page;
+                    return {
+                        ...page,
+                        photos: nextPhotos,
+                        coverImages: nextCoverImages
+                    };
                 });
             });
 
