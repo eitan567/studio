@@ -92,7 +92,8 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
     const [duplicateWarningOpen, setDuplicateWarningOpen] = useState(false);
     const duplicateWarningResolverRef = React.useRef<((proceed: boolean) => void) | null>(null);
     const BASE_SINGLE_WIDTH_PX = 500;
-    const BASE_SPREAD_WIDTH_PX = 1000;
+    const BASE_SPREAD_WIDTH_PX = BASE_SINGLE_WIDTH_PX * 2;
+    const EXPORT_SPINE_BASE_HEIGHT_PX = 450;
     const CM_PER_INCH = 2.54;
     const MM_PER_INCH = 25.4;
     const MIN_PIXEL_RATIO = 1;
@@ -656,9 +657,8 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
         pixelRatioFallback: IMAGES_PIXEL_RATIO_FALLBACK,
     };
 
-    // Render all pages in a hidden container
-    // We use fixed width to ensure consistency regardless of screen size
-    // Single: 500px (approx editor preview), Spread: 1000px
+    // Render all pages in a hidden container using a stable physical aspect ratio.
+    // The export pixelRatio later scales this base render to the requested DPI.
     return (
         <>
             <AlertDialog
@@ -702,23 +702,22 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                 {isRendering && pages.map((page) => {
                     const isCover = page.isCover === true;
                     const isSpread = page.type === 'spread' || isCover;
-                    // Match the editor render ratio exactly (ScaledCoverPreview inner surface):
-                    // width * 0.97, height * 0.95. Without this, cover exports can shift/crop
-                    // compared to what the user sees in the editor.
-                    const EXPORT_BASE_PX = 450;
                     const sizeStr = config?.size || '800x600';
                     const [cfgWStr, cfgHStr] = sizeStr.split('x');
                     const cfgW = Number(cfgWStr) || 800;
                     const cfgH = Number(cfgHStr) || 600;
-                    const pxPerUnit = EXPORT_BASE_PX / cfgH;
-                    const singlePageLogicalW = cfgW * pxPerUnit;
-                    const coverSpineWidth = isCover ? (page.spineWidth !== undefined ? page.spineWidth : 40) : 0;
-                    const logicalWidth = isSpread
-                        ? (singlePageLogicalW * 2) + coverSpineWidth
-                        : singlePageLogicalW;
-                    const logicalHeight = EXPORT_BASE_PX;
-                    const pageWidth = Math.max(1, Math.round(logicalWidth * 0.97));
-                    const pageHeight = Math.max(1, Math.round(logicalHeight * 0.95));
+                    const safeCfgW = cfgW > 0 ? cfgW : 1;
+                    const safeCfgH = cfgH > 0 ? cfgH : 1;
+                    const singlePageHeight = Math.max(1, Math.round(BASE_SINGLE_WIDTH_PX * (safeCfgH / safeCfgW)));
+                    const spineWidth = isCover ? (page.spineWidth !== undefined ? page.spineWidth : 40) : 0;
+                    const scaledSpineWidth = isCover
+                        ? Math.max(0, (spineWidth / EXPORT_SPINE_BASE_HEIGHT_PX) * singlePageHeight)
+                        : 0;
+                    const pageWidth = Math.max(
+                        1,
+                        Math.round((isSpread ? BASE_SPREAD_WIDTH_PX : BASE_SINGLE_WIDTH_PX) + scaledSpineWidth)
+                    );
+                    const pageHeight = singlePageHeight;
                     const exportPageBackground = page.backgroundColor || config.backgroundColor || '#ffffff';
                     const exportCornerRadius = (typeof page.cornerRadius === 'number' && page.cornerRadius > 0)
                         ? page.cornerRadius
