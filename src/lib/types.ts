@@ -72,6 +72,7 @@ export interface CoverImage {
   frameViewBox?: string;
   frameTemplateId?: string;
   frameName?: string;
+  showPhotoGap?: boolean;
 }
 
 export type AlbumPage = {

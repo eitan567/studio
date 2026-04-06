@@ -298,6 +298,11 @@ const sanitizeClipId = (id: string): string => {
     return id.replace(/[^a-zA-Z0-9_-]/g, '-');
 };
 
+const resolveCoverImageFrameGap = (item: CoverImage, frameGap: number): number => {
+    if (item.showPhotoGap === false) return 0;
+    return Number.isFinite(frameGap) ? Math.max(0, frameGap) : 0;
+};
+
 type AlbumDragSource = { pageId: string; photoId: string };
 type GalleryDragSource = { photoId: string; selectedPhotoIds?: string[] };
 
@@ -479,6 +484,7 @@ const DraggableCoverImage = ({
     const pathClipId = hasPathFrame ? `dynamic-path-${sanitizeClipId(item.id)}` : null;
     const pathClipValue = hasPathFrame && pathClipId ? `url(#${pathClipId})` : undefined;
     const pathClipTransform = hasPathFrame ? buildPathClipTransform(item.frameViewBox) : '';
+    const effectiveFrameGap = resolveCoverImageFrameGap(item, frameGap);
     const isLeadSelection = !!isLead && isSelected;
     const cornerHandleClass = isLeadSelection
         ? "border-emerald-500 hover:bg-emerald-500"
@@ -875,7 +881,7 @@ const DraggableCoverImage = ({
             <div
                 className="w-full h-full relative overflow-hidden pointer-events-none"
                 style={{
-                    ...(frameGap > 0 ? { backgroundColor: frameGapColor } : {}),
+                    ...(effectiveFrameGap > 0 ? { backgroundColor: frameGapColor } : {}),
                     clipPath: pathClipValue,
                     WebkitClipPath: pathClipValue
                 }}
@@ -888,10 +894,10 @@ const DraggableCoverImage = ({
                 <div
                     className={cn("absolute overflow-hidden", isCropMode ? "pointer-events-auto" : "pointer-events-none")}
                     style={{
-                        left: frameGap > 0 ? `${frameGap}px` : 0,
-                        top: frameGap > 0 ? `${frameGap}px` : 0,
-                        right: frameGap > 0 ? `${frameGap}px` : 0,
-                        bottom: frameGap > 0 ? `${frameGap}px` : 0,
+                        left: effectiveFrameGap > 0 ? `${effectiveFrameGap}px` : 0,
+                        top: effectiveFrameGap > 0 ? `${effectiveFrameGap}px` : 0,
+                        right: effectiveFrameGap > 0 ? `${effectiveFrameGap}px` : 0,
+                        bottom: effectiveFrameGap > 0 ? `${effectiveFrameGap}px` : 0,
                         clipPath: pathClipValue,
                         WebkitClipPath: pathClipValue
                     }}
@@ -1084,6 +1090,7 @@ export const StaticCoverImage = ({
     const pathClipId = hasPathFrame ? `dynamic-path-${sanitizeClipId(item.id)}` : null;
     const pathClipValue = hasPathFrame && pathClipId ? `url(#${pathClipId})` : undefined;
     const pathClipTransform = hasPathFrame ? buildPathClipTransform(item.frameViewBox) : '';
+    const effectiveFrameGap = resolveCoverImageFrameGap(item, frameGap);
 
     const photoObject: Photo = {
         id: item.id,
@@ -1182,7 +1189,7 @@ export const StaticCoverImage = ({
             <div
                 className="w-full h-full relative overflow-hidden"
                 style={{
-                    ...(frameGap > 0 ? { backgroundColor: frameGapColor } : {}),
+                    ...(effectiveFrameGap > 0 ? { backgroundColor: frameGapColor } : {}),
                     clipPath: pathClipValue,
                     WebkitClipPath: pathClipValue
                 }}
@@ -1190,10 +1197,10 @@ export const StaticCoverImage = ({
                 <div
                     className="absolute overflow-hidden"
                     style={{
-                        left: frameGap > 0 ? `${frameGap}px` : 0,
-                        top: frameGap > 0 ? `${frameGap}px` : 0,
-                        right: frameGap > 0 ? `${frameGap}px` : 0,
-                        bottom: frameGap > 0 ? `${frameGap}px` : 0,
+                        left: effectiveFrameGap > 0 ? `${effectiveFrameGap}px` : 0,
+                        top: effectiveFrameGap > 0 ? `${effectiveFrameGap}px` : 0,
+                        right: effectiveFrameGap > 0 ? `${effectiveFrameGap}px` : 0,
+                        bottom: effectiveFrameGap > 0 ? `${effectiveFrameGap}px` : 0,
                         clipPath: pathClipValue,
                         WebkitClipPath: pathClipValue
                     }}

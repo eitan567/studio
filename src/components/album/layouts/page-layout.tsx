@@ -219,7 +219,7 @@ const PageLayoutComponent = ({
                         key={region.id || index}
                         region={region}
                         photo={photo}
-                        photoGap={gapValueNum}
+                        photoGap={region.showPhotoGap === false ? 0 : gapValueNum}
                         backgroundColor={page.backgroundColor || configBackgroundColor || 'transparent'}
                         gapColor={effectiveGapColor}
                         containerWidth={W}

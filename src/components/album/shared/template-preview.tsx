@@ -34,12 +34,13 @@ export const TemplatePreview = ({
         let found = false;
 
         for (const region of sortedRegions) {
+            const gapInset = region.showPhotoGap === false ? 0 : GAP_INSET;
             // Path regions are often the source of overflow artifacts;
             // derive clip bounds from slot geometry only.
             if (region.shape === 'path') continue;
 
             if (region.shape === 'polygon' && region.points && region.points.length >= 3) {
-                const insetPoints = insetPolygon(region.points, GAP_INSET);
+                const insetPoints = insetPolygon(region.points, gapInset);
                 for (const [px, py] of insetPoints) {
                     const sx = EDGE_MARGIN + (px * scale);
                     const sy = EDGE_MARGIN + (py * scale);
@@ -52,10 +53,10 @@ export const TemplatePreview = ({
                 continue;
             }
 
-            const gapX = region.bounds.x + GAP_INSET;
-            const gapY = region.bounds.y + GAP_INSET;
-            const gapW = Math.max(0, region.bounds.width - (GAP_INSET * 2));
-            const gapH = Math.max(0, region.bounds.height - (GAP_INSET * 2));
+            const gapX = region.bounds.x + gapInset;
+            const gapY = region.bounds.y + gapInset;
+            const gapW = Math.max(0, region.bounds.width - (gapInset * 2));
+            const gapH = Math.max(0, region.bounds.height - (gapInset * 2));
             const x = EDGE_MARGIN + (gapX * scale);
             const y = EDGE_MARGIN + (gapY * scale);
             const w = gapW * scale;
@@ -93,6 +94,7 @@ export const TemplatePreview = ({
     const regionsContent = sortedRegions.map((region, index) => {
                 const isCircular = region.shape === 'circle' || region.shape === 'ellipse';
                 const isPolygon = region.shape === 'polygon' && region.points && region.points.length >= 3;
+                const gapInset = region.showPhotoGap === false ? 0 : GAP_INSET;
 
                 if (region.shape === 'path' && region.path) {
                     const vb = region.viewBox ? region.viewBox.split(' ').map(Number) : [0, 0, 100, 100];
@@ -172,7 +174,7 @@ export const TemplatePreview = ({
                 }
 
                 if (isPolygon && region.points) {
-                    const insetPoints = insetPolygon(region.points, GAP_INSET);
+                    const insetPoints = insetPolygon(region.points, gapInset);
                     const scaledPoints = insetPoints.map(([px, py]) => {
                         const scaledX = EDGE_MARGIN + (px * scale);
                         const scaledY = EDGE_MARGIN + (py * scale);
@@ -236,10 +238,10 @@ export const TemplatePreview = ({
                     );
                 }
 
-                const gapX = region.bounds.x + GAP_INSET;
-                const gapY = region.bounds.y + GAP_INSET;
-                const gapW = Math.max(0, region.bounds.width - (GAP_INSET * 2));
-                const gapH = Math.max(0, region.bounds.height - (GAP_INSET * 2));
+                const gapX = region.bounds.x + gapInset;
+                const gapY = region.bounds.y + gapInset;
+                const gapW = Math.max(0, region.bounds.width - (gapInset * 2));
+                const gapH = Math.max(0, region.bounds.height - (gapInset * 2));
 
                 const x = EDGE_MARGIN + (gapX * scale);
                 const y = EDGE_MARGIN + (gapY * scale);

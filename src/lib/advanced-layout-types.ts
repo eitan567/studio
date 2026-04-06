@@ -68,6 +68,9 @@ export interface LayoutRegion {
     // When true, the photo should use object-fit: contain instead of cover
     // This preserves the photo's natural aspect ratio without cropping
     preserveAspectRatio?: boolean;
+
+    // When false, this region ignores the page/template photo gap.
+    showPhotoGap?: boolean;
 }
 
 // Complete vector object definition for the editor

@@ -1016,6 +1016,7 @@ const ScaledCoverPreview = React.memo(({
     canvaFramesLoading = false,
     onApplyCanvaFrameToSelectedDynamicImage,
     onToggleSelectedDynamicImageRotationMode,
+    onToggleSelectedDynamicImageGap,
     onDeleteSelectedDynamicImage,
     onMatchSelectedDynamicFramesSize,
     onAlignSelectedDynamicFrames,
@@ -1058,6 +1059,7 @@ const ScaledCoverPreview = React.memo(({
     canvaFramesLoading?: boolean;
     onApplyCanvaFrameToSelectedDynamicImage?: (frameTemplate: AdvancedTemplate | null) => void;
     onToggleSelectedDynamicImageRotationMode?: () => void;
+    onToggleSelectedDynamicImageGap?: () => void;
     onDeleteSelectedDynamicImage?: () => void;
     onMatchSelectedDynamicFramesSize?: (mode: 'both' | 'width' | 'height') => void;
     onAlignSelectedDynamicFrames?: (mode: 'left' | 'right' | 'top' | 'bottom' | 'center') => void;
@@ -1313,8 +1315,21 @@ const ScaledCoverPreview = React.memo(({
                                                 ))}
                                             </div>
                                         </div>
-                                    </PopoverContent>
+                                </PopoverContent>
                                 </Popover>
+                                <span className="mx-1 h-3 w-px bg-border/60" />
+                                <button
+                                    type="button"
+                                    onClick={onToggleSelectedDynamicImageGap}
+                                    title={selectedDynamicImage.showPhotoGap === false
+                                        ? 'Switch to Use GAP'
+                                        : 'Switch to Ignore GAP'}
+                                    className="inline-flex items-center gap-1 rounded-sm px-0.5 whitespace-nowrap transition-colors hover:bg-background/80"
+                                >
+                                    <span className="text-[10px] font-semibold uppercase tracking-[0.08em]">
+                                        {selectedDynamicImage.showPhotoGap === false ? 'Ignore GAP' : 'Use GAP'}
+                                    </span>
+                                </button>
                                 <span className="mx-1 h-3 w-px bg-border/60" />
                                 <button
                                     type="button"
@@ -1785,7 +1800,8 @@ export const PageCanvas = React.memo(({
             opacity: 1,
             zIndex: highestZ + 1,
             imageRotationMode: 'follow-frame',
-            frameShape: 'rect'
+            frameShape: 'rect',
+            showPhotoGap: true
         };
 
         onUpdatePage({
@@ -1811,6 +1827,18 @@ export const PageCanvas = React.memo(({
             return {
                 ...image,
                 imageRotationMode: currentMode === 'keep-horizontal' ? 'follow-frame' : 'keep-horizontal'
+            };
+        }));
+    }, [activeDynamicImageIds, updateDynamicImages]);
+
+    const handleToggleSelectedDynamicImageGap = useCallback(() => {
+        const selectedId = activeDynamicImageIds[0];
+        if (!selectedId) return;
+        updateDynamicImages((images) => images.map((image) => {
+            if (image.id !== selectedId) return image;
+            return {
+                ...image,
+                showPhotoGap: image.showPhotoGap === false ? true : false
             };
         }));
     }, [activeDynamicImageIds, updateDynamicImages]);
@@ -2249,6 +2277,7 @@ export const PageCanvas = React.memo(({
                     bounds: { x, y, width, height },
                     rotation: image.rotation || 0,
                     imageRotationMode,
+                    showPhotoGap: image.showPhotoGap !== false,
                     zIndex: (image.zIndex ?? maxBaseZ + index + 1),
                     label: image.frameName ? `Dynamic Frame: ${image.frameName}` : `Dynamic Frame ${index + 1}`
                 };
@@ -2260,6 +2289,7 @@ export const PageCanvas = React.memo(({
                 bounds: { x, y, width, height },
                 rotation: image.rotation || 0,
                 imageRotationMode,
+                showPhotoGap: image.showPhotoGap !== false,
                 zIndex: (image.zIndex ?? maxBaseZ + index + 1),
                 label: `Dynamic Frame ${index + 1}`
             };
@@ -2541,6 +2571,7 @@ export const PageCanvas = React.memo(({
                     selectedDynamicImage={selectedDynamicImage}
                     onDeleteSelectedDynamicImage={handleDeleteSelectedDynamicImage}
                     onToggleSelectedDynamicImageRotationMode={handleToggleSelectedDynamicImageRotationMode}
+                    onToggleSelectedDynamicImageGap={handleToggleSelectedDynamicImageGap}
                     config={config}
                 />
             </div>
@@ -2596,6 +2627,7 @@ export const PageCanvas = React.memo(({
                                 canvaFramesLoading={canvaFramesLoading}
                                 onApplyCanvaFrameToSelectedDynamicImage={handleApplyCanvaFrameToSelectedDynamicImage}
                                 onToggleSelectedDynamicImageRotationMode={handleToggleSelectedDynamicImageRotationMode}
+                                onToggleSelectedDynamicImageGap={handleToggleSelectedDynamicImageGap}
                                 onDeleteSelectedDynamicImage={handleDeleteSelectedDynamicImage}
                                 onMatchSelectedDynamicFramesSize={handleMatchSelectedDynamicFramesSize}
                                 onAlignSelectedDynamicFrames={handleAlignSelectedDynamicFrames}
