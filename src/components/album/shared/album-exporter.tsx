@@ -8,7 +8,7 @@ import { AlbumPage, AlbumConfig } from '@/lib/types';
 import type { AdvancedTemplate } from '@/lib/advanced-layout-types';
 import { PageLayout } from '../layouts/page-layout';
 import { AlbumCover, StaticCoverText, StaticCoverImage } from '../book-view/album-cover';
-import { LAYOUT_TEMPLATES, ADVANCED_TEMPLATES, getPhotoCount } from '@/hooks/useTemplates';
+import { getPhotoCount, useTemplates } from '@/hooks/useTemplates';
 import { useSettings } from '@/hooks/use-settings';
 import {
     AlertDialog,
@@ -86,6 +86,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
     onExportError
 }, ref) => {
     const { settings } = useSettings();
+    const { rawGridTemplates, rawCoverTemplates } = useTemplates();
     const containerRef = React.useRef<HTMLDivElement>(null);
     const [isRendering, setIsRendering] = useState(false);
     const [duplicateWarningOpen, setDuplicateWarningOpen] = useState(false);
@@ -108,11 +109,11 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
     const [activeRenderOptions, setActiveRenderOptions] = useState<NormalizedExportRenderOptions | null>(null);
     const mergedPageTemplates = React.useMemo(() => {
         const templateMap = new Map<string, AdvancedTemplate>();
-        [...LAYOUT_TEMPLATES, ...ADVANCED_TEMPLATES, ...extraTemplates].forEach((template) => {
+        [...rawGridTemplates, ...rawCoverTemplates, ...extraTemplates].forEach((template) => {
             templateMap.set(String(template.id), template);
         });
         return Array.from(templateMap.values());
-    }, [extraTemplates]);
+    }, [extraTemplates, rawCoverTemplates, rawGridTemplates]);
 
     const createUniformWhiteMargins = React.useCallback((value: number): NormalizedWhiteMarginsMm => ({
         top: value,
@@ -834,9 +835,10 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                                         (() => {
                                             const isSplit = page.spreadMode === 'split';
                                             if (isSplit) {
-                                                const leftLayoutId = page.spreadLayouts?.left || LAYOUT_TEMPLATES[0].id;
-                                                const rightLayoutId = page.spreadLayouts?.right || LAYOUT_TEMPLATES[0].id; // unused for slice, but good for consistency
-                                                const leftTemplate = mergedPageTemplates.find(t => String(t.id) === String(leftLayoutId)) || mergedPageTemplates[0] || LAYOUT_TEMPLATES[0];
+                                                const fallbackTemplate = mergedPageTemplates[0];
+                                                const leftLayoutId = page.spreadLayouts?.left || fallbackTemplate?.id || '';
+                                                const rightLayoutId = page.spreadLayouts?.right || fallbackTemplate?.id || ''; // unused for slice, but good for consistency
+                                                const leftTemplate = mergedPageTemplates.find(t => String(t.id) === String(leftLayoutId)) || fallbackTemplate;
                                                 const leftPhotos = page.photos.slice(0, getPhotoCount(leftTemplate));
                                                 const rightPhotos = page.photos.slice(getPhotoCount(leftTemplate));
 
