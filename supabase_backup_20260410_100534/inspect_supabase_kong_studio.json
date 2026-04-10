@@ -1,0 +1,291 @@
+[
+    {
+        "Id": "a198d3096c4ec81089aea8fa526429ff977433167847edc826e42700666d1400",
+        "Created": "2026-03-24T20:47:01.583600133Z",
+        "Path": "sh",
+        "Args": [
+            "-c",
+            "cat \u003c\u003c'EOF' \u003e /home/kong/kong.yml \u0026\u0026 \\\ncat \u003c\u003c'EOF' \u003e /home/kong/custom_nginx.template \u0026\u0026 \\\ncat \u003c\u003c'EOF' \u003e /home/kong/localhost.crt \u0026\u0026 \\\ncat \u003c\u003c'EOF' \u003e /home/kong/localhost.key \u0026\u0026 \\\n./docker-entrypoint.sh kong docker-start --nginx-conf /home/kong/custom_nginx.template\n_format_version: \"1.1\"\nservices:\n  # Tenant project endpoints\n  - name: auth-v1-open\n    _comment: \"GoTrue: /auth/v1/verify* -\u003e http://auth:9999/verify*\"\n    url: http://supabase_auth_studio:9999/verify\n    routes:\n      - name: auth-v1-open\n        strip_path: true\n        paths:\n          - /auth/v1/verify\n    plugins:\n      - name: cors\n  - name: auth-v1-open-callback\n    _comment: \"GoTrue: /auth/v1/callback* -\u003e http://auth:9999/callback*\"\n    url: http://supabase_auth_studio:9999/callback\n    routes:\n      - name: auth-v1-open-callback\n        strip_path: true\n        paths:\n          - /auth/v1/callback\n    plugins:\n      - name: cors\n  - name: auth-v1-open-authorize\n    _comment: \"GoTrue: /auth/v1/authorize* -\u003e http://auth:9999/authorize*\"\n    url: http://supabase_auth_studio:9999/authorize\n    routes:\n      - name: auth-v1-open-authorize\n        strip_path: true\n        paths:\n          - /auth/v1/authorize\n    plugins:\n      - name: cors\n  - name: auth-v1\n    _comment: \"GoTrue: /auth/v1/* -\u003e http://auth:9999/*\"\n    url: http://supabase_auth_studio:9999/\n    routes:\n      - name: auth-v1-all\n        strip_path: true\n        paths:\n          - /auth/v1/\n    plugins:\n      - name: cors\n      - name: request-transformer\n        config:\n          add:\n            headers:\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n          replace:\n            headers:\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n  - name: rest-v1\n    _comment: \"PostgREST: /rest/v1/* -\u003e http://rest:3000/*\"\n    url: http://supabase_rest_studio:3000/\n    routes:\n      - name: rest-v1-all\n        strip_path: true\n        paths:\n          - /rest/v1/\n    plugins:\n      - name: cors\n      - name: request-transformer\n        config:\n          add:\n            headers:\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n          replace:\n            headers:\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n  - name: rest-admin-v1\n    _comment: \"PostgREST: /rest-admin/v1/* -\u003e http://rest:3001/*\"\n    url: http://supabase_rest_studio:3001/\n    routes:\n      - name: rest-admin-v1-all\n        strip_path: true\n        paths:\n          - /rest-admin/v1/\n    plugins:\n      - name: cors\n      # TODO: validate apikey\n  - name: graphql-v1\n    _comment: \"PostgREST: /graphql/v1 -\u003e http://rest:3000/rpc/graphql\"\n    url: http://supabase_rest_studio:3000/rpc/graphql\n    routes:\n      - name: graphql-v1-all\n        strip_path: true\n        paths:\n          - /graphql/v1\n    plugins:\n      - name: cors\n      - name: request-transformer\n        config:\n          add:\n            headers:\n              - \"Content-Profile: graphql_public\"\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n          replace:\n            headers:\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n  - name: realtime-v1-ws\n    _comment: \"Realtime: /realtime/v1/* -\u003e ws://realtime:4000/socket/websocket\"\n    url: http://realtime-dev:4000/socket\n    protocol: ws\n    routes:\n      - name: realtime-v1-ws\n        strip_path: true\n        paths:\n          - /realtime/v1/\n    plugins:\n      - name: cors\n      - name: request-transformer\n        config:\n          replace:\n            querystring:\n              - \"apikey:$((query_params.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (query_params.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or query_params.apikey)\"\n  - name: realtime-v1-rest\n    _comment: \"Realtime: /realtime/v1/* -\u003e http://realtime:4000/api/*\"\n    url: http://realtime-dev:4000/api\n    protocol: http\n    routes:\n      - name: realtime-v1-rest\n        strip_path: true\n        paths:\n          - /realtime/v1/api\n    plugins:\n      - name: cors\n      - name: request-transformer\n        config:\n          add:\n            headers:\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n          replace:\n            headers:\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n  # S3-compatible storage endpoint (no Authorization header transformation)\n  - name: storage-v1-s3\n    _comment: \"Storage S3: /storage/v1/s3/* -\u003e http://storage-api:5000/s3/*\"\n    url: http://supabase_storage_studio:5000/s3\n    routes:\n      - name: storage-v1-s3-all\n        strip_path: true\n        paths:\n          - /storage/v1/s3/\n    plugins:\n      - name: cors\n      # Note: No request-transformer plugin for Authorization header\n      # S3 presigned URLs require the original AWS signature in the Authorization header\n      # Adding/replacing with Bearer token would break S3 signature validation\n  # Regular storage API endpoint (with Authorization header transformation)\n  - name: storage-v1\n    _comment: \"Storage API: /storage/v1/* -\u003e http://storage-api:5000/*\"\n    url: http://supabase_storage_studio:5000/\n    routes:\n      - name: storage-v1-all\n        strip_path: true\n        paths:\n          - /storage/v1/\n    plugins:\n      - name: cors\n      - name: request-transformer\n        config:\n          add:\n            headers:\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n          replace:\n            headers:\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n  - name: functions-v1\n    _comment: \"Functions: /functions/v1/* -\u003e http://edge-runtime:8081/*\"\n    url: http://supabase_edge_runtime_studio:8081/\n    # Set request idle timeout to 150s to match hosted project\n    # Ref: https://supabase.com/docs/guides/functions/limits\n    read_timeout: 150000\n    routes:\n      - name: functions-v1-all\n        strip_path: true\n        paths:\n          - /functions/v1/\n    plugins:\n      - name: cors\n      - name: request-transformer\n        config:\n          add:\n            headers:\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n          replace:\n            headers:\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n  # Management API endpoints\n  - name: well-known-oauth\n    _comment: \"GoTrue: /.well-known/oauth-authorization-server -\u003e http://auth:9999/.well-known/oauth-authorization-server\"\n    url: http://supabase_auth_studio:9999/.well-known/oauth-authorization-server\n    routes:\n      - name: well-known-oauth\n        strip_path: true\n        paths:\n          - /.well-known/oauth-authorization-server\n    plugins:\n      - name: cors\n  - name: pg-meta\n    _comment: \"pg-meta: /pg/* -\u003e http://pg-meta:8080/*\"\n    url: http://supabase_pg_meta_studio:8080/\n    routes:\n      - name: pg-meta-all\n        strip_path: true\n        paths:\n          - /pg/\n    plugins:\n      - name: cors\n  - name: analytics-v1\n    _comment: \"Analytics: /analytics/v1/* -\u003e http://logflare:4000/*\"\n    url: http://supabase_analytics_studio:4000/\n    routes:\n      - name: analytics-v1-all\n        strip_path: true\n        paths:\n          - /analytics/v1/\n    plugins:\n      - name: cors\n  - name: pooler-v2-ws\n    _comment: \"Pooler: /pooler/v2/* -\u003e ws://pooler:4000/v2/*\"\n    url: http://supabase_pooler_studio:4000/v2\n    protocol: ws\n    routes:\n      - name: pooler-v2-ws\n        strip_path: true\n        paths:\n          - /pooler/v2/\n    plugins:\n      - name: cors\n  - name: mcp\n    _comment: \"MCP: /mcp -\u003e http://studio:3000/api/mcp\"\n    url: http://supabase_studio_studio:3000/api/mcp\n    routes:\n      - name: mcp\n        strip_path: true\n        paths:\n          - /mcp\n    plugins:\n      - name: cors\n\nEOF\npid pids/nginx.pid;                      # this setting is mandatory\nerror_log logs/error.log ${{LOG_LEVEL}}; # can be set by kong.conf\n\ndaemon ${{NGINX_DAEMON}};                     # can be set by kong.conf\nworker_processes ${{NGINX_WORKER_PROCESSES}}; # can be set by kong.conf\n\nevents {\n    multi_accept on;\n}\n\nhttp {\n    # here, we declare our custom location serving our website\n    # (or API portal) which we can optimize for serving static assets\n    server {\n        server_name email_templates;\n        listen 0.0.0.0:8088 reuseport backlog=16384;\n\n        access_log logs/email_templates_access.log;\n        error_log  logs/error.log notice;\n\n        location /email {\n            autoindex on;\n            root /home/kong/templates;\n        }\n    }\n\n    # include default Kong Nginx config\n    include 'nginx-kong.conf';\n}\n\nEOF\n-----BEGIN CERTIFICATE-----\nMIIFJTCCAw2gAwIBAgIURUQAFIOhttOg0D12xZvx+pScX4cwDQYJKoZIhvcNAQEL\nBQAwFDESMBAGA1UEAwwJbG9jYWxob3N0MB4XDTI0MDcwNTE0MjI1NFoXDTM0MDcw\nMzE0MjI1NFowFDESMBAGA1UEAwwJbG9jYWxob3N0MIICIjANBgkqhkiG9w0BAQEF\nAAOCAg8AMIICCgKCAgEAyL79RrCl78/XutDm7tVNyIJNZqbNSfX+3AsnP1dQc37Q\n7QkxmNJ2EmfklTLyvY1A+CY/o+3S1blK+O8lm40yTHP+GC30InKS7lSnCUNqSrHy\nDaGNShtphqJoao9vo69/anI6I2tKc8VQ2tebvMVzmjrsvGtWcU4ciyzbUterKQas\nIin8Aw5gDCLswVNZnl6wUvlcgbLmiTLPaJKnNsbYcBJxST2SFxY5q5YWzlugm9Q0\n3913XB64rVoKAyQ86Yabl4UXyVXknyJcbpfnsmn6ORxnZJebnuU0O9y8ys/E9hGw\n5rkVTm7QjzsbczMYOgvpPbR1miyDQaZ1bGyj9SmJo1H5e12xO0RNi+awuMnpt3cB\n8NeTsZctOgnEQB1Gidq2XcYV48e2OGJTNtVVVPu1UKCNeJur1AfLNPRz8fJq06A+\nXy5xeRNGFsaeYRt/IO+/CZUOHcY/vR55i8PeeTj9cB1f9KjfmQVeOt25widxrhFK\nRkpRgA1ofQ4O8/gPSOcnroQgSs2Whr9RXIF71uSLJyZU0IBxru0cznuEpXxkh7oK\nFb6t/n1SZB2WEQXHh5iG49fw7MT29CzNpJIP1ApT3LKasHZHf4yBn9ZwVAagCGSL\nW7kMDhIUhOfVwpyfkXYHzQE2aaCdQ9IfZy9ybO/Y8sbUg6B5i5t8xODutv+fmd0C\nAwEAAaNvMG0wHQYDVR0OBBYEFGtw+BogdJ6GJRCe+BHGQdA0f85XMB8GA1UdIwQY\nMBaAFGtw+BogdJ6GJRCe+BHGQdA0f85XMA8GA1UdEwEB/wQFMAMBAf8wGgYDVR0R\nBBMwEYIJbG9jYWxob3N0hwR/AAABMA0GCSqGSIb3DQEBCwUAA4ICAQCO9ITlkXil\n+dLTddpSq06UuRTYLx8vWGLnd8uEoUg4qlLKi/hKnqTEP9dePw+QeuIM+aLjvvXY\nbP4SqBOUi192OohQs7ZPCpjXizmabDNl4/Z+qyiGvZK/N0gWPEaTn6tzeQ03hECK\nvY8lRrAP7xLrEYmA6unjfaj3inNUJeqL26i3SIAq/koK4jPm1F/AzwslNH00MJld\nxKormGzvNJtaZPr5xrtuLQAmeCotE6av+R5k9zmSYa25Nel50JTk31fNiuUFmECD\nqop+Yqfzw9/UkObDWw+g1+N3uHlH9CB2RvfkB2fW9SFMsznjQlq+MyQCwKFs699Q\nrNMeHbUEwovDEcPUaLc3d5gCk/dvH9aR8mVLEcs7lMyHSsiG1Co1QXg6UjpMCrIV\nTvk+MrSQVVxw0rKS4H7ZEhfC2PfEVe1az24HrrPWJDZKnRhv1Ohj4jsxkBSprXsu\n3qxcMCr7yr4hjsu9BsKtmvRfHTrMOwY1WtZBcl7hjgAItfMs29Fd4Tkn0aZs5f+n\nGSwG5BeJL3kfEKwOjw8j+EAqRBu/7mbcoUyErnuLK7FimU4jtL8VX03n6nTgLJzS\nxjUTaplgerrazAvV31vMaiINoaGM0RDnGjSCgZT4Va33noqo3qVJJOnWpheFmaXq\nbUMQtwrAWTt12NECJt1nWAT4VWhfDoBE7A==\n-----END CERTIFICATE-----\n\nEOF\n-----BEGIN PRIVATE KEY-----\n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\nMviBG5FCtAAJp+5btxy72dIKBYBVUJ8=\n-----END PRIVATE KEY-----\n\nEOF\n"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 859,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2026-04-10T06:30:30.658116319Z",
+            "FinishedAt": "2026-04-10T06:30:28.48267002Z",
+            "Health": {
+                "Status": "healthy",
+                "FailingStreak": 0,
+                "Log": [
+                    {
+                        "Start": "2026-04-10T07:04:51.280185469Z",
+                        "End": "2026-04-10T07:04:51.375937691Z",
+                        "ExitCode": 0,
+                        "Output": "nginx.......running\n\nKong is healthy at /usr/local/kong\n"
+                    },
+                    {
+                        "Start": "2026-04-10T07:05:01.375844893Z",
+                        "End": "2026-04-10T07:05:01.480179973Z",
+                        "ExitCode": 0,
+                        "Output": "nginx.......running\n\nKong is healthy at /usr/local/kong\n"
+                    },
+                    {
+                        "Start": "2026-04-10T07:05:11.481448015Z",
+                        "End": "2026-04-10T07:05:11.571298381Z",
+                        "ExitCode": 0,
+                        "Output": "nginx.......running\n\nKong is healthy at /usr/local/kong\n"
+                    },
+                    {
+                        "Start": "2026-04-10T07:05:21.572150927Z",
+                        "End": "2026-04-10T07:05:21.664605777Z",
+                        "ExitCode": 0,
+                        "Output": "nginx.......running\n\nKong is healthy at /usr/local/kong\n"
+                    },
+                    {
+                        "Start": "2026-04-10T07:05:31.665030592Z",
+                        "End": "2026-04-10T07:05:31.752908693Z",
+                        "ExitCode": 0,
+                        "Output": "nginx.......running\n\nKong is healthy at /usr/local/kong\n"
+                    }
+                ]
+            }
+        },
+        "Image": "sha256:1b53405d8680a09d6f44494b7990bf7da2ea43f84a258c59717d4539abf09f6d",
+        "ResolvConfPath": "/var/lib/docker/containers/a198d3096c4ec81089aea8fa526429ff977433167847edc826e42700666d1400/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/a198d3096c4ec81089aea8fa526429ff977433167847edc826e42700666d1400/hostname",
+        "HostsPath": "/var/lib/docker/containers/a198d3096c4ec81089aea8fa526429ff977433167847edc826e42700666d1400/hosts",
+        "LogPath": "/var/lib/docker/containers/a198d3096c4ec81089aea8fa526429ff977433167847edc826e42700666d1400/a198d3096c4ec81089aea8fa526429ff977433167847edc826e42700666d1400-json.log",
+        "Name": "/supabase_kong_studio",
+        "RestartCount": 0,
+        "Driver": "overlayfs",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": [],
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "supabase_network_studio",
+            "PortBindings": {
+                "8000/tcp": [
+                    {
+                        "HostIp": "",
+                        "HostPort": "64321"
+                    }
+                ]
+            },
+            "RestartPolicy": {
+                "Name": "unless-stopped",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "host",
+            "Dns": [],
+            "DnsOptions": [],
+            "DnsSearch": [],
+            "ExtraHosts": null,
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": false,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/acpi",
+                "/proc/asound",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/sys/devices/virtual/powercap",
+                "/sys/firmware"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "Storage": {
+            "RootFS": {
+                "Snapshot": {
+                    "Name": "overlayfs"
+                }
+            }
+        },
+        "Mounts": [],
+        "Config": {
+            "Hostname": "a198d3096c4e",
+            "Domainname": "",
+            "User": "kong",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "ExposedPorts": {
+                "8000/tcp": {},
+                "8001/tcp": {},
+                "8088/tcp": {},
+                "8443/tcp": {},
+                "8444/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "KONG_DATABASE=off",
+                "KONG_DECLARATIVE_CONFIG=/home/kong/kong.yml",
+                "KONG_DNS_ORDER=LAST,A,CNAME",
+                "KONG_PLUGINS=request-transformer,cors",
+                "KONG_PORT_MAPS=64321:8000",
+                "KONG_NGINX_PROXY_PROXY_BUFFER_SIZE=160k",
+                "KONG_NGINX_PROXY_PROXY_BUFFERS=64 160k",
+                "KONG_NGINX_WORKER_PROCESSES=1",
+                "KONG_SSL_CERT=/home/kong/localhost.crt",
+                "KONG_SSL_CERT_KEY=/home/kong/localhost.key",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "ASSET=ce",
+                "KONG_VERSION=2.8.1"
+            ],
+            "Cmd": null,
+            "Healthcheck": {
+                "Test": [
+                    "CMD-SHELL",
+                    "kong health"
+                ],
+                "Interval": 10000000000,
+                "Timeout": 10000000000,
+                "Retries": 10
+            },
+            "Image": "public.ecr.aws/supabase/kong:2.8.1",
+            "Volumes": null,
+            "WorkingDir": "",
+            "Entrypoint": [
+                "sh",
+                "-c",
+                "cat \u003c\u003c'EOF' \u003e /home/kong/kong.yml \u0026\u0026 \\\ncat \u003c\u003c'EOF' \u003e /home/kong/custom_nginx.template \u0026\u0026 \\\ncat \u003c\u003c'EOF' \u003e /home/kong/localhost.crt \u0026\u0026 \\\ncat \u003c\u003c'EOF' \u003e /home/kong/localhost.key \u0026\u0026 \\\n./docker-entrypoint.sh kong docker-start --nginx-conf /home/kong/custom_nginx.template\n_format_version: \"1.1\"\nservices:\n  # Tenant project endpoints\n  - name: auth-v1-open\n    _comment: \"GoTrue: /auth/v1/verify* -\u003e http://auth:9999/verify*\"\n    url: http://supabase_auth_studio:9999/verify\n    routes:\n      - name: auth-v1-open\n        strip_path: true\n        paths:\n          - /auth/v1/verify\n    plugins:\n      - name: cors\n  - name: auth-v1-open-callback\n    _comment: \"GoTrue: /auth/v1/callback* -\u003e http://auth:9999/callback*\"\n    url: http://supabase_auth_studio:9999/callback\n    routes:\n      - name: auth-v1-open-callback\n        strip_path: true\n        paths:\n          - /auth/v1/callback\n    plugins:\n      - name: cors\n  - name: auth-v1-open-authorize\n    _comment: \"GoTrue: /auth/v1/authorize* -\u003e http://auth:9999/authorize*\"\n    url: http://supabase_auth_studio:9999/authorize\n    routes:\n      - name: auth-v1-open-authorize\n        strip_path: true\n        paths:\n          - /auth/v1/authorize\n    plugins:\n      - name: cors\n  - name: auth-v1\n    _comment: \"GoTrue: /auth/v1/* -\u003e http://auth:9999/*\"\n    url: http://supabase_auth_studio:9999/\n    routes:\n      - name: auth-v1-all\n        strip_path: true\n        paths:\n          - /auth/v1/\n    plugins:\n      - name: cors\n      - name: request-transformer\n        config:\n          add:\n            headers:\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n          replace:\n            headers:\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n  - name: rest-v1\n    _comment: \"PostgREST: /rest/v1/* -\u003e http://rest:3000/*\"\n    url: http://supabase_rest_studio:3000/\n    routes:\n      - name: rest-v1-all\n        strip_path: true\n        paths:\n          - /rest/v1/\n    plugins:\n      - name: cors\n      - name: request-transformer\n        config:\n          add:\n            headers:\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n          replace:\n            headers:\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n  - name: rest-admin-v1\n    _comment: \"PostgREST: /rest-admin/v1/* -\u003e http://rest:3001/*\"\n    url: http://supabase_rest_studio:3001/\n    routes:\n      - name: rest-admin-v1-all\n        strip_path: true\n        paths:\n          - /rest-admin/v1/\n    plugins:\n      - name: cors\n      # TODO: validate apikey\n  - name: graphql-v1\n    _comment: \"PostgREST: /graphql/v1 -\u003e http://rest:3000/rpc/graphql\"\n    url: http://supabase_rest_studio:3000/rpc/graphql\n    routes:\n      - name: graphql-v1-all\n        strip_path: true\n        paths:\n          - /graphql/v1\n    plugins:\n      - name: cors\n      - name: request-transformer\n        config:\n          add:\n            headers:\n              - \"Content-Profile: graphql_public\"\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n          replace:\n            headers:\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n  - name: realtime-v1-ws\n    _comment: \"Realtime: /realtime/v1/* -\u003e ws://realtime:4000/socket/websocket\"\n    url: http://realtime-dev:4000/socket\n    protocol: ws\n    routes:\n      - name: realtime-v1-ws\n        strip_path: true\n        paths:\n          - /realtime/v1/\n    plugins:\n      - name: cors\n      - name: request-transformer\n        config:\n          replace:\n            querystring:\n              - \"apikey:$((query_params.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (query_params.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or query_params.apikey)\"\n  - name: realtime-v1-rest\n    _comment: \"Realtime: /realtime/v1/* -\u003e http://realtime:4000/api/*\"\n    url: http://realtime-dev:4000/api\n    protocol: http\n    routes:\n      - name: realtime-v1-rest\n        strip_path: true\n        paths:\n          - /realtime/v1/api\n    plugins:\n      - name: cors\n      - name: request-transformer\n        config:\n          add:\n            headers:\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n          replace:\n            headers:\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n  # S3-compatible storage endpoint (no Authorization header transformation)\n  - name: storage-v1-s3\n    _comment: \"Storage S3: /storage/v1/s3/* -\u003e http://storage-api:5000/s3/*\"\n    url: http://supabase_storage_studio:5000/s3\n    routes:\n      - name: storage-v1-s3-all\n        strip_path: true\n        paths:\n          - /storage/v1/s3/\n    plugins:\n      - name: cors\n      # Note: No request-transformer plugin for Authorization header\n      # S3 presigned URLs require the original AWS signature in the Authorization header\n      # Adding/replacing with Bearer token would break S3 signature validation\n  # Regular storage API endpoint (with Authorization header transformation)\n  - name: storage-v1\n    _comment: \"Storage API: /storage/v1/* -\u003e http://storage-api:5000/*\"\n    url: http://supabase_storage_studio:5000/\n    routes:\n      - name: storage-v1-all\n        strip_path: true\n        paths:\n          - /storage/v1/\n    plugins:\n      - name: cors\n      - name: request-transformer\n        config:\n          add:\n            headers:\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n          replace:\n            headers:\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n  - name: functions-v1\n    _comment: \"Functions: /functions/v1/* -\u003e http://edge-runtime:8081/*\"\n    url: http://supabase_edge_runtime_studio:8081/\n    # Set request idle timeout to 150s to match hosted project\n    # Ref: https://supabase.com/docs/guides/functions/limits\n    read_timeout: 150000\n    routes:\n      - name: functions-v1-all\n        strip_path: true\n        paths:\n          - /functions/v1/\n    plugins:\n      - name: cors\n      - name: request-transformer\n        config:\n          add:\n            headers:\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n          replace:\n            headers:\n              - \"Authorization: $((headers.authorization ~= nil and headers.authorization:sub(1, 10) ~= 'Bearer sb_' and headers.authorization) or (headers.apikey == 'sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU') or (headers.apikey == 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' and 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0') or headers.apikey)\"\n  # Management API endpoints\n  - name: well-known-oauth\n    _comment: \"GoTrue: /.well-known/oauth-authorization-server -\u003e http://auth:9999/.well-known/oauth-authorization-server\"\n    url: http://supabase_auth_studio:9999/.well-known/oauth-authorization-server\n    routes:\n      - name: well-known-oauth\n        strip_path: true\n        paths:\n          - /.well-known/oauth-authorization-server\n    plugins:\n      - name: cors\n  - name: pg-meta\n    _comment: \"pg-meta: /pg/* -\u003e http://pg-meta:8080/*\"\n    url: http://supabase_pg_meta_studio:8080/\n    routes:\n      - name: pg-meta-all\n        strip_path: true\n        paths:\n          - /pg/\n    plugins:\n      - name: cors\n  - name: analytics-v1\n    _comment: \"Analytics: /analytics/v1/* -\u003e http://logflare:4000/*\"\n    url: http://supabase_analytics_studio:4000/\n    routes:\n      - name: analytics-v1-all\n        strip_path: true\n        paths:\n          - /analytics/v1/\n    plugins:\n      - name: cors\n  - name: pooler-v2-ws\n    _comment: \"Pooler: /pooler/v2/* -\u003e ws://pooler:4000/v2/*\"\n    url: http://supabase_pooler_studio:4000/v2\n    protocol: ws\n    routes:\n      - name: pooler-v2-ws\n        strip_path: true\n        paths:\n          - /pooler/v2/\n    plugins:\n      - name: cors\n  - name: mcp\n    _comment: \"MCP: /mcp -\u003e http://studio:3000/api/mcp\"\n    url: http://supabase_studio_studio:3000/api/mcp\n    routes:\n      - name: mcp\n        strip_path: true\n        paths:\n          - /mcp\n    plugins:\n      - name: cors\n\nEOF\npid pids/nginx.pid;                      # this setting is mandatory\nerror_log logs/error.log ${{LOG_LEVEL}}; # can be set by kong.conf\n\ndaemon ${{NGINX_DAEMON}};                     # can be set by kong.conf\nworker_processes ${{NGINX_WORKER_PROCESSES}}; # can be set by kong.conf\n\nevents {\n    multi_accept on;\n}\n\nhttp {\n    # here, we declare our custom location serving our website\n    # (or API portal) which we can optimize for serving static assets\n    server {\n        server_name email_templates;\n        listen 0.0.0.0:8088 reuseport backlog=16384;\n\n        access_log logs/email_templates_access.log;\n        error_log  logs/error.log notice;\n\n        location /email {\n            autoindex on;\n            root /home/kong/templates;\n        }\n    }\n\n    # include default Kong Nginx config\n    include 'nginx-kong.conf';\n}\n\nEOF\n-----BEGIN CERTIFICATE-----\nMIIFJTCCAw2gAwIBAgIURUQAFIOhttOg0D12xZvx+pScX4cwDQYJKoZIhvcNAQEL\nBQAwFDESMBAGA1UEAwwJbG9jYWxob3N0MB4XDTI0MDcwNTE0MjI1NFoXDTM0MDcw\nMzE0MjI1NFowFDESMBAGA1UEAwwJbG9jYWxob3N0MIICIjANBgkqhkiG9w0BAQEF\nAAOCAg8AMIICCgKCAgEAyL79RrCl78/XutDm7tVNyIJNZqbNSfX+3AsnP1dQc37Q\n7QkxmNJ2EmfklTLyvY1A+CY/o+3S1blK+O8lm40yTHP+GC30InKS7lSnCUNqSrHy\nDaGNShtphqJoao9vo69/anI6I2tKc8VQ2tebvMVzmjrsvGtWcU4ciyzbUterKQas\nIin8Aw5gDCLswVNZnl6wUvlcgbLmiTLPaJKnNsbYcBJxST2SFxY5q5YWzlugm9Q0\n3913XB64rVoKAyQ86Yabl4UXyVXknyJcbpfnsmn6ORxnZJebnuU0O9y8ys/E9hGw\n5rkVTm7QjzsbczMYOgvpPbR1miyDQaZ1bGyj9SmJo1H5e12xO0RNi+awuMnpt3cB\n8NeTsZctOgnEQB1Gidq2XcYV48e2OGJTNtVVVPu1UKCNeJur1AfLNPRz8fJq06A+\nXy5xeRNGFsaeYRt/IO+/CZUOHcY/vR55i8PeeTj9cB1f9KjfmQVeOt25widxrhFK\nRkpRgA1ofQ4O8/gPSOcnroQgSs2Whr9RXIF71uSLJyZU0IBxru0cznuEpXxkh7oK\nFb6t/n1SZB2WEQXHh5iG49fw7MT29CzNpJIP1ApT3LKasHZHf4yBn9ZwVAagCGSL\nW7kMDhIUhOfVwpyfkXYHzQE2aaCdQ9IfZy9ybO/Y8sbUg6B5i5t8xODutv+fmd0C\nAwEAAaNvMG0wHQYDVR0OBBYEFGtw+BogdJ6GJRCe+BHGQdA0f85XMB8GA1UdIwQY\nMBaAFGtw+BogdJ6GJRCe+BHGQdA0f85XMA8GA1UdEwEB/wQFMAMBAf8wGgYDVR0R\nBBMwEYIJbG9jYWxob3N0hwR/AAABMA0GCSqGSIb3DQEBCwUAA4ICAQCO9ITlkXil\n+dLTddpSq06UuRTYLx8vWGLnd8uEoUg4qlLKi/hKnqTEP9dePw+QeuIM+aLjvvXY\nbP4SqBOUi192OohQs7ZPCpjXizmabDNl4/Z+qyiGvZK/N0gWPEaTn6tzeQ03hECK\nvY8lRrAP7xLrEYmA6unjfaj3inNUJeqL26i3SIAq/koK4jPm1F/AzwslNH00MJld\nxKormGzvNJtaZPr5xrtuLQAmeCotE6av+R5k9zmSYa25Nel50JTk31fNiuUFmECD\nqop+Yqfzw9/UkObDWw+g1+N3uHlH9CB2RvfkB2fW9SFMsznjQlq+MyQCwKFs699Q\nrNMeHbUEwovDEcPUaLc3d5gCk/dvH9aR8mVLEcs7lMyHSsiG1Co1QXg6UjpMCrIV\nTvk+MrSQVVxw0rKS4H7ZEhfC2PfEVe1az24HrrPWJDZKnRhv1Ohj4jsxkBSprXsu\n3qxcMCr7yr4hjsu9BsKtmvRfHTrMOwY1WtZBcl7hjgAItfMs29Fd4Tkn0aZs5f+n\nGSwG5BeJL3kfEKwOjw8j+EAqRBu/7mbcoUyErnuLK7FimU4jtL8VX03n6nTgLJzS\nxjUTaplgerrazAvV31vMaiINoaGM0RDnGjSCgZT4Va33noqo3qVJJOnWpheFmaXq\nbUMQtwrAWTt12NECJt1nWAT4VWhfDoBE7A==\n-----END CERTIFICATE-----\n\nEOF\n-----BEGIN PRIVATE KEY-----\n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\nMviBG5FCtAAJp+5btxy72dIKBYBVUJ8=\n-----END PRIVATE KEY-----\n\nEOF\n"
+            ],
+            "Labels": {
+                "com.docker.compose.project": "studio",
+                "com.supabase.cli.project": "studio",
+                "maintainer": "Kong \u003csupport@konghq.com\u003e"
+            },
+            "StopSignal": "SIGQUIT",
+            "StopTimeout": 1
+        },
+        "NetworkSettings": {
+            "SandboxID": "fb9a4eebe153094dbbb097876aca2c5d1a089f60686cf4cae8155102779007c1",
+            "SandboxKey": "/var/run/docker/netns/fb9a4eebe153",
+            "Ports": {
+                "8000/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "64321"
+                    },
+                    {
+                        "HostIp": "::",
+                        "HostPort": "64321"
+                    }
+                ]
+            },
+            "Networks": {
+                "supabase_network_studio": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": [
+                        "kong",
+                        "api.supabase.internal"
+                    ],
+                    "DriverOpts": null,
+                    "GwPriority": 0,
+                    "NetworkID": "77bc37af25cab63f5855c0a4c9d0fac2ab35dc14de196186a18405bf576195ad",
+                    "EndpointID": "6a27b254bdff08483c1ad60ec1fb328e535be998f234f69a3c5b2fa9dafee3eb",
+                    "Gateway": "172.18.0.1",
+                    "IPAddress": "172.18.0.5",
+                    "MacAddress": "8e:a1:12:91:02:2a",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "supabase_kong_studio",
+                        "kong",
+                        "api.supabase.internal",
+                        "a198d3096c4e"
+                    ]
+                }
+            }
+        },
+        "ImageManifestDescriptor": {
+            "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+            "digest": "sha256:e21b0b793879ab96720ed4188f9441260273f4bf775bcbff8d435e019ffb759a",
+            "size": 1154,
+            "platform": {
+                "architecture": "amd64",
+                "os": "linux"
+            }
+        }
+    }
+]

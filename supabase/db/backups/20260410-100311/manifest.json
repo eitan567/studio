@@ -1,0 +1,52 @@
+﻿{
+    "created_at_utc":  "2026-04-10T07:03:12.5281569Z",
+    "source":  {
+                   "container":  "supabase_db_studio",
+                   "db_name":  "postgres",
+                   "db_user":  "postgres"
+               },
+    "files":  {
+                  "schema":  {
+                                 "path":  "schema.sql",
+                                 "sha256":  "3B65C2DC9939AC64B50703E22064055884E5CF9D1AB55BAA12D07D24C0BCD65E"
+                             },
+                  "data":  {
+                               "path":  "data.sql",
+                               "sha256":  "726A34C180C2BAF8C85F907AA4390B9B1D43507F2E8F71610EA25E8954707AB4"
+                           }
+              },
+    "data_policy":  {
+                        "excluded_public_tables":  [
+                                                       "public.album",
+                                                       "public.albums",
+                                                       "public.photos"
+                                                   ],
+                        "explicit_system_tables":  [
+                                                       "auth.instances",
+                                                       "auth.users",
+                                                       "auth.identities",
+                                                       "storage.buckets"
+                                                   ],
+                        "included_table_count":  12,
+                        "included_tables":  [
+                                                "auth.identities",
+                                                "auth.instances",
+                                                "auth.users",
+                                                "public.canva_frames",
+                                                "public.profiles",
+                                                "public.template_categories",
+                                                "public.template_classifications",
+                                                "public.template_types",
+                                                "public.templates",
+                                                "public.user_roles",
+                                                "public.user_settings",
+                                                "storage.buckets"
+                                            ]
+                    },
+    "notes":  [
+                  "Schema contains all objects (tables, indexes, constraints, functions, policies, triggers, etc.).",
+                  "Data includes all public tables except public.album/public.albums/public.photos.",
+                  "Data includes auth.instances, auth.users, auth.identities, and storage.buckets only from system schemas.",
+                  "No object payload tables (e.g. storage.objects) are included."
+              ]
+}
