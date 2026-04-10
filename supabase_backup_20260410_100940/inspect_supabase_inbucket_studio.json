@@ -1,0 +1,272 @@
+[
+    {
+        "Id": "f8169f946de21be63627fc8d7b116736df538814f8376138eac34905f0514f4d",
+        "Created": "2026-03-24T20:47:02.836823592Z",
+        "Path": "/mailpit",
+        "Args": [],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 597,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2026-04-10T07:09:14.396199586Z",
+            "FinishedAt": "2026-04-10T07:09:09.851775516Z",
+            "Health": {
+                "Status": "healthy",
+                "FailingStreak": 0,
+                "Log": [
+                    {
+                        "Start": "2026-04-10T07:09:16.232627631Z",
+                        "End": "2026-04-10T07:09:16.31492187Z",
+                        "ExitCode": 1,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2026-04-10T07:09:17.316030867Z",
+                        "End": "2026-04-10T07:09:17.352121664Z",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2026-04-10T07:09:27.352447694Z",
+                        "End": "2026-04-10T07:09:27.394293954Z",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2026-04-10T07:09:37.395426937Z",
+                        "End": "2026-04-10T07:09:37.430233292Z",
+                        "ExitCode": 0,
+                        "Output": ""
+                    }
+                ]
+            }
+        },
+        "Image": "sha256:f7f7c31de4de59540ad6515a0ca057a77525bca2069b6e747d873ca66c10fe08",
+        "ResolvConfPath": "/var/lib/docker/containers/f8169f946de21be63627fc8d7b116736df538814f8376138eac34905f0514f4d/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/f8169f946de21be63627fc8d7b116736df538814f8376138eac34905f0514f4d/hostname",
+        "HostsPath": "/var/lib/docker/containers/f8169f946de21be63627fc8d7b116736df538814f8376138eac34905f0514f4d/hosts",
+        "LogPath": "/var/lib/docker/containers/f8169f946de21be63627fc8d7b116736df538814f8376138eac34905f0514f4d/f8169f946de21be63627fc8d7b116736df538814f8376138eac34905f0514f4d-json.log",
+        "Name": "/supabase_inbucket_studio",
+        "RestartCount": 0,
+        "Driver": "overlayfs",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": null,
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "supabase_network_studio",
+            "PortBindings": {
+                "8025/tcp": [
+                    {
+                        "HostIp": "",
+                        "HostPort": "64324"
+                    }
+                ]
+            },
+            "RestartPolicy": {
+                "Name": "unless-stopped",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "host",
+            "Dns": [],
+            "DnsOptions": [],
+            "DnsSearch": [],
+            "ExtraHosts": null,
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": false,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/acpi",
+                "/proc/asound",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/sys/devices/virtual/powercap",
+                "/sys/firmware"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "Storage": {
+            "RootFS": {
+                "Snapshot": {
+                    "Name": "overlayfs"
+                }
+            }
+        },
+        "Mounts": [],
+        "Config": {
+            "Hostname": "f8169f946de2",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "ExposedPorts": {
+                "1025/tcp": {},
+                "1110/tcp": {},
+                "8025/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "MP_SMTP_DISABLE_RDNS=true",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+            ],
+            "Cmd": null,
+            "Healthcheck": {
+                "Test": [
+                    "CMD",
+                    "/mailpit",
+                    "readyz"
+                ],
+                "Interval": 10000000000,
+                "Timeout": 2000000000,
+                "StartPeriod": 10000000000,
+                "StartInterval": 1000000000,
+                "Retries": 3
+            },
+            "Image": "public.ecr.aws/supabase/mailpit:v1.22.3",
+            "Volumes": null,
+            "WorkingDir": "/",
+            "Entrypoint": [
+                "/mailpit"
+            ],
+            "Labels": {
+                "com.docker.compose.project": "studio",
+                "com.supabase.cli.project": "studio",
+                "org.opencontainers.image.description": "An email and SMTP testing tool with API for developers",
+                "org.opencontainers.image.documentation": "https://mailpit.axllent.org/docs/",
+                "org.opencontainers.image.licenses": "MIT",
+                "org.opencontainers.image.source": "https://github.com/axllent/mailpit",
+                "org.opencontainers.image.title": "Mailpit",
+                "org.opencontainers.image.url": "https://mailpit.axllent.org"
+            },
+            "StopTimeout": 1
+        },
+        "NetworkSettings": {
+            "SandboxID": "9b12feca868d179ba099fcac3e874dd0be2a9e6d5d0091d4b1e3528bfe3f2ff6",
+            "SandboxKey": "/var/run/docker/netns/9b12feca868d",
+            "Ports": {
+                "8025/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "64324"
+                    },
+                    {
+                        "HostIp": "::",
+                        "HostPort": "64324"
+                    }
+                ]
+            },
+            "Networks": {
+                "supabase_network_studio": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": [
+                        "inbucket"
+                    ],
+                    "DriverOpts": null,
+                    "GwPriority": 0,
+                    "NetworkID": "77bc37af25cab63f5855c0a4c9d0fac2ab35dc14de196186a18405bf576195ad",
+                    "EndpointID": "c982f1f33d76aba672b91e5b19bed295d965e00fdedde2fd41da455eebc19b99",
+                    "Gateway": "172.18.0.1",
+                    "IPAddress": "172.18.0.4",
+                    "MacAddress": "6a:d6:0f:a1:29:81",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "supabase_inbucket_studio",
+                        "inbucket",
+                        "f8169f946de2"
+                    ]
+                }
+            }
+        },
+        "ImageManifestDescriptor": {
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "digest": "sha256:168f762c218e167ba88ae7e48194126eb5ba5e99ef652063e3f14f9c4f0ee70f",
+            "size": 864,
+            "platform": {
+                "architecture": "amd64",
+                "os": "linux"
+            }
+        }
+    }
+]

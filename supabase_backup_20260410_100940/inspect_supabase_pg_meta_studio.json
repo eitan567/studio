@@ -1,0 +1,246 @@
+[
+    {
+        "Id": "887ce075ba912c3687d0e414195675f9f4bdd11b7a80296702b566b847fb5eda",
+        "Created": "2026-03-24T20:47:05.891849543Z",
+        "Path": "docker-entrypoint.sh",
+        "Args": [
+            "node",
+            "dist/server/server.js"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 708,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2026-04-10T07:09:14.796891134Z",
+            "FinishedAt": "2026-04-10T07:09:09.83259634Z",
+            "Health": {
+                "Status": "healthy",
+                "FailingStreak": 0,
+                "Log": [
+                    {
+                        "Start": "2026-04-10T07:09:25.547907141Z",
+                        "End": "2026-04-10T07:09:25.907159325Z",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2026-04-10T07:09:35.907989599Z",
+                        "End": "2026-04-10T07:09:36.0854857Z",
+                        "ExitCode": 0,
+                        "Output": ""
+                    }
+                ]
+            }
+        },
+        "Image": "sha256:2559d20aaa50f2eb86a6cb2e5af4e847e87139673bc214b4655c126d96c160b2",
+        "ResolvConfPath": "/var/lib/docker/containers/887ce075ba912c3687d0e414195675f9f4bdd11b7a80296702b566b847fb5eda/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/887ce075ba912c3687d0e414195675f9f4bdd11b7a80296702b566b847fb5eda/hostname",
+        "HostsPath": "/var/lib/docker/containers/887ce075ba912c3687d0e414195675f9f4bdd11b7a80296702b566b847fb5eda/hosts",
+        "LogPath": "/var/lib/docker/containers/887ce075ba912c3687d0e414195675f9f4bdd11b7a80296702b566b847fb5eda/887ce075ba912c3687d0e414195675f9f4bdd11b7a80296702b566b847fb5eda-json.log",
+        "Name": "/supabase_pg_meta_studio",
+        "RestartCount": 0,
+        "Driver": "overlayfs",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": null,
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "supabase_network_studio",
+            "PortBindings": {},
+            "RestartPolicy": {
+                "Name": "unless-stopped",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "host",
+            "Dns": [],
+            "DnsOptions": [],
+            "DnsSearch": [],
+            "ExtraHosts": null,
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": false,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/acpi",
+                "/proc/asound",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/sys/devices/virtual/powercap",
+                "/sys/firmware"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "Storage": {
+            "RootFS": {
+                "Snapshot": {
+                    "Name": "overlayfs"
+                }
+            }
+        },
+        "Mounts": [],
+        "Config": {
+            "Hostname": "887ce075ba91",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "ExposedPorts": {
+                "8080/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "PG_META_PORT=8080",
+                "PG_META_DB_HOST=supabase_db_studio",
+                "PG_META_DB_NAME=postgres",
+                "PG_META_DB_USER=postgres",
+                "PG_META_DB_PORT=5432",
+                "PG_META_DB_PASSWORD=postgres",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "NODE_VERSION=20.20.0",
+                "YARN_VERSION=1.22.22"
+            ],
+            "Cmd": [
+                "node",
+                "dist/server/server.js"
+            ],
+            "Healthcheck": {
+                "Test": [
+                    "CMD-SHELL",
+                    "node --eval=\"fetch('http://127.0.0.1:8080/health').then((r) =\u003e {if (!r.ok) throw new Error(r.status)})\""
+                ],
+                "Interval": 10000000000,
+                "Timeout": 2000000000,
+                "Retries": 3
+            },
+            "Image": "public.ecr.aws/supabase/postgres-meta:v0.96.1",
+            "Volumes": null,
+            "WorkingDir": "/usr/src/app",
+            "Entrypoint": [
+                "docker-entrypoint.sh"
+            ],
+            "Labels": {
+                "com.docker.compose.project": "studio",
+                "com.supabase.cli.project": "studio"
+            },
+            "StopTimeout": 1
+        },
+        "NetworkSettings": {
+            "SandboxID": "29621d3685dc5f8653b7541491a9081f897dd5524d282cc17b326f8e7d4ddb0e",
+            "SandboxKey": "/var/run/docker/netns/29621d3685dc",
+            "Ports": {
+                "8080/tcp": null
+            },
+            "Networks": {
+                "supabase_network_studio": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": [
+                        "pg_meta"
+                    ],
+                    "DriverOpts": null,
+                    "GwPriority": 0,
+                    "NetworkID": "77bc37af25cab63f5855c0a4c9d0fac2ab35dc14de196186a18405bf576195ad",
+                    "EndpointID": "b14c5f5721cf43ae0e83f5f7f45b27b8217e07ec92a5a37419bf83e28808f033",
+                    "Gateway": "172.18.0.1",
+                    "IPAddress": "172.18.0.5",
+                    "MacAddress": "36:44:1c:e2:96:ba",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "supabase_pg_meta_studio",
+                        "pg_meta",
+                        "887ce075ba91"
+                    ]
+                }
+            }
+        },
+        "ImageManifestDescriptor": {
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "digest": "sha256:6111fe3317ef6022178d12d23624983fe6b0d28ad853dec9067a344337409b9a",
+            "size": 2197,
+            "platform": {
+                "architecture": "amd64",
+                "os": "linux"
+            }
+        }
+    }
+]

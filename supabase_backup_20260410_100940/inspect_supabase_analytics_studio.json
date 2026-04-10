@@ -1,0 +1,285 @@
+[
+    {
+        "Id": "17638d2a26b874a91d4ebb6c3dd051ec1623537af96835241f27730ca032efaa",
+        "Created": "2026-03-24T20:47:00.805201135Z",
+        "Path": "sh",
+        "Args": [
+            "-c",
+            "cat \u003c\u003c'EOF' \u003e run.sh \u0026\u0026 sh run.sh\n./logflare eval Logflare.Release.migrate\n./logflare start --sname logflare\nEOF\n"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 1029,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2026-04-10T07:09:15.324226467Z",
+            "FinishedAt": "2026-04-10T07:09:09.832636555Z",
+            "Health": {
+                "Status": "healthy",
+                "FailingStreak": 0,
+                "Log": [
+                    {
+                        "Start": "2026-04-10T07:09:21.444922394Z",
+                        "End": "2026-04-10T07:09:21.557521843Z",
+                        "ExitCode": 7,
+                        "Output": "curl: (7) Failed to connect to 127.0.0.1 port 4000 after 0 ms: Could not connect to server\n"
+                    },
+                    {
+                        "Start": "2026-04-10T07:09:26.558950831Z",
+                        "End": "2026-04-10T07:09:26.616311555Z",
+                        "ExitCode": 7,
+                        "Output": "curl: (7) Failed to connect to 127.0.0.1 port 4000 after 0 ms: Could not connect to server\n"
+                    },
+                    {
+                        "Start": "2026-04-10T07:09:36.617718374Z",
+                        "End": "2026-04-10T07:09:36.677775523Z",
+                        "ExitCode": 0,
+                        "Output": ""
+                    }
+                ]
+            }
+        },
+        "Image": "sha256:bf3a5b55f48192860000b0a933dbcd1116f46a1a74a635018cbde5229d2d71bb",
+        "ResolvConfPath": "/var/lib/docker/containers/17638d2a26b874a91d4ebb6c3dd051ec1623537af96835241f27730ca032efaa/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/17638d2a26b874a91d4ebb6c3dd051ec1623537af96835241f27730ca032efaa/hostname",
+        "HostsPath": "/var/lib/docker/containers/17638d2a26b874a91d4ebb6c3dd051ec1623537af96835241f27730ca032efaa/hosts",
+        "LogPath": "/var/lib/docker/containers/17638d2a26b874a91d4ebb6c3dd051ec1623537af96835241f27730ca032efaa/17638d2a26b874a91d4ebb6c3dd051ec1623537af96835241f27730ca032efaa-json.log",
+        "Name": "/supabase_analytics_studio",
+        "RestartCount": 0,
+        "Driver": "overlayfs",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": [],
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "supabase_network_studio",
+            "PortBindings": {
+                "4000/tcp": [
+                    {
+                        "HostIp": "",
+                        "HostPort": "64327"
+                    }
+                ]
+            },
+            "RestartPolicy": {
+                "Name": "unless-stopped",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "host",
+            "Dns": [],
+            "DnsOptions": [],
+            "DnsSearch": [],
+            "ExtraHosts": null,
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": false,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/acpi",
+                "/proc/asound",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/sys/devices/virtual/powercap",
+                "/sys/firmware"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "Storage": {
+            "RootFS": {
+                "Snapshot": {
+                    "Name": "overlayfs"
+                }
+            }
+        },
+        "Mounts": [],
+        "Config": {
+            "Hostname": "127.0.0.1",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "ExposedPorts": {
+                "4000/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "DB_DATABASE=_supabase",
+                "DB_HOSTNAME=supabase_db_studio",
+                "DB_PORT=5432",
+                "DB_SCHEMA=_analytics",
+                "DB_USERNAME=supabase_admin",
+                "DB_PASSWORD=postgres",
+                "LOGFLARE_MIN_CLUSTER_SIZE=1",
+                "LOGFLARE_SINGLE_TENANT=true",
+                "LOGFLARE_SUPABASE_MODE=true",
+                "LOGFLARE_PRIVATE_ACCESS_TOKEN=api-key",
+                "LOGFLARE_LOG_LEVEL=warn",
+                "LOGFLARE_NODE_HOST=127.0.0.1",
+                "LOGFLARE_FEATURE_FLAG_OVERRIDE='multibackend=true'",
+                "RELEASE_COOKIE=cookie",
+                "POSTGRES_BACKEND_URL=postgresql://postgres:postgres@supabase_db_studio:5432/_supabase",
+                "POSTGRES_BACKEND_SCHEMA=_analytics",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "LANG=en_US.UTF-8",
+                "LANGUAGE=en_US:en",
+                "LC_ALL=en_US.UTF-8"
+            ],
+            "Cmd": null,
+            "Healthcheck": {
+                "Test": [
+                    "CMD",
+                    "curl",
+                    "-sSfL",
+                    "--head",
+                    "-o",
+                    "/dev/null",
+                    "http://127.0.0.1:4000/health"
+                ],
+                "Interval": 10000000000,
+                "Timeout": 2000000000,
+                "StartPeriod": 10000000000,
+                "Retries": 3
+            },
+            "Image": "public.ecr.aws/supabase/logflare:1.34.7",
+            "Volumes": null,
+            "WorkingDir": "/opt/app/rel/logflare/bin",
+            "Entrypoint": [
+                "sh",
+                "-c",
+                "cat \u003c\u003c'EOF' \u003e run.sh \u0026\u0026 sh run.sh\n./logflare eval Logflare.Release.migrate\n./logflare start --sname logflare\nEOF\n"
+            ],
+            "Labels": {
+                "com.docker.compose.project": "studio",
+                "com.supabase.cli.project": "studio"
+            },
+            "StopTimeout": 1
+        },
+        "NetworkSettings": {
+            "SandboxID": "cff7727a6843b3d42ef8460c2be8191b3fa54d52e19e6f645857bdf4800fd30f",
+            "SandboxKey": "/var/run/docker/netns/cff7727a6843",
+            "Ports": {
+                "4000/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "64327"
+                    },
+                    {
+                        "HostIp": "::",
+                        "HostPort": "64327"
+                    }
+                ]
+            },
+            "Networks": {
+                "supabase_network_studio": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": [
+                        "analytics"
+                    ],
+                    "DriverOpts": null,
+                    "GwPriority": 0,
+                    "NetworkID": "77bc37af25cab63f5855c0a4c9d0fac2ab35dc14de196186a18405bf576195ad",
+                    "EndpointID": "9f113d0721012dbaec213e38cad4d62bfabfa1a3738d044f126494c8b96c76d5",
+                    "Gateway": "172.18.0.1",
+                    "IPAddress": "172.18.0.11",
+                    "MacAddress": "ae:a9:99:be:89:08",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "supabase_analytics_studio",
+                        "analytics",
+                        "17638d2a26b8",
+                        "127.0.0.1"
+                    ]
+                }
+            }
+        },
+        "ImageManifestDescriptor": {
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "digest": "sha256:844c65b7a9bf856a01fe5707132ba8c0b736fb4b9aa1e725e43199c2b16a80cd",
+            "size": 2197,
+            "platform": {
+                "architecture": "amd64",
+                "os": "linux"
+            }
+        }
+    }
+]

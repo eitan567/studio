@@ -1,0 +1,118 @@
+[
+    {
+        "Name": "supabase_network_studio",
+        "Id": "77bc37af25cab63f5855c0a4c9d0fac2ab35dc14de196186a18405bf576195ad",
+        "Created": "2026-03-24T20:46:50.24679919Z",
+        "Scope": "local",
+        "Driver": "bridge",
+        "EnableIPv4": true,
+        "EnableIPv6": false,
+        "IPAM": {
+            "Driver": "default",
+            "Options": null,
+            "Config": [
+                {
+                    "Subnet": "172.18.0.0/16",
+                    "Gateway": "172.18.0.1"
+                }
+            ]
+        },
+        "Internal": false,
+        "Attachable": false,
+        "Ingress": false,
+        "ConfigFrom": {
+            "Network": ""
+        },
+        "ConfigOnly": false,
+        "Options": {
+            "com.docker.network.enable_ipv4": "true",
+            "com.docker.network.enable_ipv6": "false"
+        },
+        "Labels": {
+            "com.docker.compose.project": "studio",
+            "com.supabase.cli.project": "studio"
+        },
+        "Containers": {
+            "17638d2a26b874a91d4ebb6c3dd051ec1623537af96835241f27730ca032efaa": {
+                "Name": "supabase_analytics_studio",
+                "EndpointID": "9f113d0721012dbaec213e38cad4d62bfabfa1a3738d044f126494c8b96c76d5",
+                "MacAddress": "ae:a9:99:be:89:08",
+                "IPv4Address": "172.18.0.11/16",
+                "IPv6Address": ""
+            },
+            "5f9ebbdab9f2d406f11bb465bd5da35a46123bf346398bded5ea3c0b8b9407df": {
+                "Name": "supabase_realtime_studio",
+                "EndpointID": "9f334a857b54c2050dfca8f3e6083146d0885d9fc57f796b51d08d1e8ad6c353",
+                "MacAddress": "06:95:22:dd:af:af",
+                "IPv4Address": "172.18.0.9/16",
+                "IPv6Address": ""
+            },
+            "6ca8d71e523e2ba06ad95e4c01e3f5f9bfd9a12c77001e74a218f6c193cfd0a1": {
+                "Name": "supabase_auth_studio",
+                "EndpointID": "8299321d98eb5644eca1196bd06bf60214473a045b3fb463a4ba25fa7384218b",
+                "MacAddress": "22:c3:e1:03:87:b9",
+                "IPv4Address": "172.18.0.7/16",
+                "IPv6Address": ""
+            },
+            "887ce075ba912c3687d0e414195675f9f4bdd11b7a80296702b566b847fb5eda": {
+                "Name": "supabase_pg_meta_studio",
+                "EndpointID": "b14c5f5721cf43ae0e83f5f7f45b27b8217e07ec92a5a37419bf83e28808f033",
+                "MacAddress": "36:44:1c:e2:96:ba",
+                "IPv4Address": "172.18.0.5/16",
+                "IPv6Address": ""
+            },
+            "91a2ff0579a102e5f5e26dc228df59b6d2225aab4d6b516dfb5a6dda703602f6": {
+                "Name": "supabase_db_studio",
+                "EndpointID": "27ead7a5091eab70d9588a2d8ebea668c810ea32b55ed258876f88f52b7a1ebf",
+                "MacAddress": "da:d0:85:0d:10:fb",
+                "IPv4Address": "172.18.0.12/16",
+                "IPv6Address": ""
+            },
+            "a198d3096c4ec81089aea8fa526429ff977433167847edc826e42700666d1400": {
+                "Name": "supabase_kong_studio",
+                "EndpointID": "19b677079388f49f98d5c71c9eda8bb604e7b7d8b38f889343bc524ca8cd31ed",
+                "MacAddress": "ce:a8:c9:61:b6:d1",
+                "IPv4Address": "172.18.0.3/16",
+                "IPv6Address": ""
+            },
+            "b32c59b6ae780b5724b51027ab44a2831f961c64327442a57befb5c6fbdd4bb3": {
+                "Name": "supabase_storage_studio",
+                "EndpointID": "456eab315ad8a6a6ffc7dceac6eeae268e9cc6ad3d6323d0aaf9c99773e2804f",
+                "MacAddress": "1e:b3:85:d8:03:d4",
+                "IPv4Address": "172.18.0.8/16",
+                "IPv6Address": ""
+            },
+            "b82578ebfb4de3d257850385aa103f0e544df3f7a580fee0f3b0acec885b228a": {
+                "Name": "supabase_rest_studio",
+                "EndpointID": "50502c1d751edd500f42fd5e34eb3e07b0e0b70a029363330459f17b2488f258",
+                "MacAddress": "d2:9c:de:e3:ec:e0",
+                "IPv4Address": "172.18.0.2/16",
+                "IPv6Address": ""
+            },
+            "c2ece5ab0a7317d33f17cbfa0a24a224bafff0f4c7abf3ca7e2287c809c2dcfa": {
+                "Name": "supabase_studio_studio",
+                "EndpointID": "5b3fbe5f015c9155ce757d84f365d91a44b9646fe19dedbf9f167216b033583f",
+                "MacAddress": "0a:c4:23:44:de:1e",
+                "IPv4Address": "172.18.0.10/16",
+                "IPv6Address": ""
+            },
+            "f8169f946de21be63627fc8d7b116736df538814f8376138eac34905f0514f4d": {
+                "Name": "supabase_inbucket_studio",
+                "EndpointID": "c982f1f33d76aba672b91e5b19bed295d965e00fdedde2fd41da455eebc19b99",
+                "MacAddress": "6a:d6:0f:a1:29:81",
+                "IPv4Address": "172.18.0.4/16",
+                "IPv6Address": ""
+            }
+        },
+        "Status": {
+            "IPAM": {
+                "Subnets": {
+                    "172.18.0.0/16": {
+                        "IPsInUse": 13,
+                        "DynamicIPsAvailable": 65523
+                    }
+                }
+            }
+        }
+    }
+]

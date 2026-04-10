@@ -1,0 +1,288 @@
+[
+    {
+        "Id": "c2ece5ab0a7317d33f17cbfa0a24a224bafff0f4c7abf3ca7e2287c809c2dcfa",
+        "Created": "2026-03-24T20:47:06.514896962Z",
+        "Path": "docker-entrypoint.sh",
+        "Args": [
+            "node",
+            "apps/studio/server.js"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 940,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2026-04-10T07:09:15.095239208Z",
+            "FinishedAt": "2026-04-10T07:09:09.850013084Z",
+            "Health": {
+                "Status": "healthy",
+                "FailingStreak": 0,
+                "Log": [
+                    {
+                        "Start": "2026-04-10T07:09:26.382264692Z",
+                        "End": "2026-04-10T07:09:27.020749601Z",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2026-04-10T07:09:37.02224701Z",
+                        "End": "2026-04-10T07:09:37.121816463Z",
+                        "ExitCode": 0,
+                        "Output": ""
+                    }
+                ]
+            }
+        },
+        "Image": "sha256:c5075979805b5169a1108fc1e3d34f648f9ada959139908c86b169c03d3ae27d",
+        "ResolvConfPath": "/var/lib/docker/containers/c2ece5ab0a7317d33f17cbfa0a24a224bafff0f4c7abf3ca7e2287c809c2dcfa/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/c2ece5ab0a7317d33f17cbfa0a24a224bafff0f4c7abf3ca7e2287c809c2dcfa/hostname",
+        "HostsPath": "/var/lib/docker/containers/c2ece5ab0a7317d33f17cbfa0a24a224bafff0f4c7abf3ca7e2287c809c2dcfa/hosts",
+        "LogPath": "/var/lib/docker/containers/c2ece5ab0a7317d33f17cbfa0a24a224bafff0f4c7abf3ca7e2287c809c2dcfa/c2ece5ab0a7317d33f17cbfa0a24a224bafff0f4c7abf3ca7e2287c809c2dcfa-json.log",
+        "Name": "/supabase_studio_studio",
+        "RestartCount": 0,
+        "Driver": "overlayfs",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": [
+                "C:\\Users\\eitan\\Documents\\GitHub\\studio\\supabase\\snippets:/Users/eitan/Documents/GitHub/studio/supabase/snippets:rw"
+            ],
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "supabase_network_studio",
+            "PortBindings": {
+                "3000/tcp": [
+                    {
+                        "HostIp": "",
+                        "HostPort": "64323"
+                    }
+                ]
+            },
+            "RestartPolicy": {
+                "Name": "unless-stopped",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "host",
+            "Dns": [],
+            "DnsOptions": [],
+            "DnsSearch": [],
+            "ExtraHosts": null,
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": null,
+            "BlkioDeviceReadBps": null,
+            "BlkioDeviceWriteBps": null,
+            "BlkioDeviceReadIOps": null,
+            "BlkioDeviceWriteIOps": null,
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": null,
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": false,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/acpi",
+                "/proc/asound",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/sys/devices/virtual/powercap",
+                "/sys/firmware"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "Storage": {
+            "RootFS": {
+                "Snapshot": {
+                    "Name": "overlayfs"
+                }
+            }
+        },
+        "Mounts": [
+            {
+                "Type": "bind",
+                "Source": "C:\\Users\\eitan\\Documents\\GitHub\\studio\\supabase\\snippets",
+                "Destination": "/Users/eitan/Documents/GitHub/studio/supabase/snippets",
+                "Mode": "rw",
+                "RW": true,
+                "Propagation": "rprivate"
+            }
+        ],
+        "Config": {
+            "Hostname": "c2ece5ab0a73",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "ExposedPorts": {
+                "3000/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "CURRENT_CLI_VERSION=2.84.0",
+                "STUDIO_PG_META_URL=http://supabase_pg_meta_studio:8080",
+                "POSTGRES_PASSWORD=postgres",
+                "SUPABASE_URL=http://supabase_kong_studio:8000",
+                "SUPABASE_PUBLIC_URL=http://127.0.0.1:64321",
+                "AUTH_JWT_SECRET=super-secret-jwt-token-with-at-least-32-characters-long",
+                "SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0",
+                "SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU",
+                "LOGFLARE_PRIVATE_ACCESS_TOKEN=api-key",
+                "OPENAI_API_KEY=env(OPENAI_API_KEY)",
+                "PGRST_DB_SCHEMAS=public,graphql_public",
+                "PGRST_DB_EXTRA_SEARCH_PATH=public,extensions",
+                "PGRST_DB_MAX_ROWS=1000",
+                "LOGFLARE_URL=http://supabase_analytics_studio:4000",
+                "NEXT_PUBLIC_ENABLE_LOGS=true",
+                "NEXT_ANALYTICS_BACKEND_PROVIDER=postgres",
+                "EDGE_FUNCTIONS_MANAGEMENT_FOLDER=/Users/eitan/Documents/GitHub/studio/supabase/functions",
+                "SNIPPETS_MANAGEMENT_FOLDER=/Users/eitan/Documents/GitHub/studio/supabase/snippets",
+                "HOSTNAME=0.0.0.0",
+                "POSTGRES_USER_READ_WRITE=postgres",
+                "PATH=/pnpm:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "NODE_VERSION=22.22.0",
+                "YARN_VERSION=1.22.22",
+                "PNPM_HOME=/pnpm"
+            ],
+            "Cmd": [
+                "node",
+                "apps/studio/server.js"
+            ],
+            "Healthcheck": {
+                "Test": [
+                    "CMD-SHELL",
+                    "node --eval=\"fetch('http://127.0.0.1:3000/api/platform/profile').then((r) =\u003e {if (!r.ok) throw new Error(r.status)})\""
+                ],
+                "Interval": 10000000000,
+                "Timeout": 2000000000,
+                "Retries": 3
+            },
+            "Image": "public.ecr.aws/supabase/studio:2026.03.04-sha-0043607",
+            "Volumes": null,
+            "WorkingDir": "/app",
+            "Entrypoint": [
+                "docker-entrypoint.sh"
+            ],
+            "Labels": {
+                "com.docker.compose.project": "studio",
+                "com.supabase.cli.project": "studio"
+            },
+            "StopTimeout": 1
+        },
+        "NetworkSettings": {
+            "SandboxID": "3f9f9ba7f8b8eac73c944ec0aff9829c62c1154ca11bcf872b188f1c3d05421e",
+            "SandboxKey": "/var/run/docker/netns/3f9f9ba7f8b8",
+            "Ports": {
+                "3000/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "64323"
+                    },
+                    {
+                        "HostIp": "::",
+                        "HostPort": "64323"
+                    }
+                ]
+            },
+            "Networks": {
+                "supabase_network_studio": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": [
+                        "studio"
+                    ],
+                    "DriverOpts": null,
+                    "GwPriority": 0,
+                    "NetworkID": "77bc37af25cab63f5855c0a4c9d0fac2ab35dc14de196186a18405bf576195ad",
+                    "EndpointID": "5b3fbe5f015c9155ce757d84f365d91a44b9646fe19dedbf9f167216b033583f",
+                    "Gateway": "172.18.0.1",
+                    "IPAddress": "172.18.0.10",
+                    "MacAddress": "0a:c4:23:44:de:1e",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "supabase_studio_studio",
+                        "studio",
+                        "c2ece5ab0a73"
+                    ]
+                }
+            }
+        },
+        "ImageManifestDescriptor": {
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "digest": "sha256:bf1fcca3e1fa30e75e74be5408e95cec02353449fa6315abe00186857c19cfb8",
+            "size": 2396,
+            "platform": {
+                "architecture": "amd64",
+                "os": "linux"
+            }
+        }
+    }
+]
