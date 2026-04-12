@@ -41,6 +41,7 @@ import { AlbumCover } from '../book-view/album-cover';
 import { TemplatePreview } from '@/components/album/shared/template-preview';
 import { LayoutRegion } from '@/lib/advanced-layout-types';
 import { extractSupabaseStoragePath } from '@/lib/supabase-media-normalizer';
+import { normalizeFrameEdgeFade } from '@/lib/frame-edge-fade';
 // Import CoverEditorOverlay if needed, or pass onOpenCoverEditor prop to handle it in parent
 // Assuming parent handles opening the overlay since it's a modal over everything
 
@@ -1017,6 +1018,7 @@ const ScaledCoverPreview = React.memo(({
     onApplyCanvaFrameToSelectedDynamicImage,
     onToggleSelectedDynamicImageRotationMode,
     onToggleSelectedDynamicImageGap,
+    onUpdateSelectedDynamicImageEdgeFade,
     onDeleteSelectedDynamicImage,
     onMatchSelectedDynamicFramesSize,
     onAlignSelectedDynamicFrames,
@@ -1060,6 +1062,7 @@ const ScaledCoverPreview = React.memo(({
     onApplyCanvaFrameToSelectedDynamicImage?: (frameTemplate: AdvancedTemplate | null) => void;
     onToggleSelectedDynamicImageRotationMode?: () => void;
     onToggleSelectedDynamicImageGap?: () => void;
+    onUpdateSelectedDynamicImageEdgeFade?: (value: number) => void;
     onDeleteSelectedDynamicImage?: () => void;
     onMatchSelectedDynamicFramesSize?: (mode: 'both' | 'width' | 'height') => void;
     onAlignSelectedDynamicFrames?: (mode: 'left' | 'right' | 'top' | 'bottom' | 'center') => void;
@@ -1074,6 +1077,7 @@ const ScaledCoverPreview = React.memo(({
     const wrapperRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
     const BASE_PAGE_PX = 450;
+    const selectedDynamicEdgeFade = Math.round(normalizeFrameEdgeFade(selectedDynamicImage?.frameEdgeFade, 50));
 
     const sizeStr = config?.size || '800x600';
     const [wStr, hStr] = sizeStr.split('x');
@@ -1330,6 +1334,39 @@ const ScaledCoverPreview = React.memo(({
                                         {selectedDynamicImage.showPhotoGap === false ? 'Ignore GAP' : 'Use GAP'}
                                     </span>
                                 </button>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <button
+                                            type="button"
+                                            title="Edge fade is active when Ignore GAP is selected"
+                                            className={cn(
+                                                "inline-flex items-center gap-1 rounded-sm px-0.5 whitespace-nowrap transition-colors hover:bg-background/80",
+                                                selectedDynamicImage.showPhotoGap === false && selectedDynamicEdgeFade > 0 && "text-primary",
+                                                selectedDynamicImage.showPhotoGap !== false && "opacity-60"
+                                            )}
+                                        >
+                                            <span className="text-[10px] font-semibold uppercase tracking-[0.08em]">
+                                                Fade {selectedDynamicEdgeFade}px
+                                            </span>
+                                        </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent side="top" align="end" className="w-56 p-3 space-y-3">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <Label className="text-[11px] font-semibold text-foreground">Edge Fade</Label>
+                                            <span className="text-[10px] font-mono text-muted-foreground">{selectedDynamicEdgeFade}px</span>
+                                        </div>
+                                        <Slider
+                                            min={0}
+                                            max={50}
+                                            step={1}
+                                            value={[selectedDynamicEdgeFade]}
+                                            onValueChange={([value]) => onUpdateSelectedDynamicImageEdgeFade?.(value)}
+                                        />
+                                        <p className="text-[10px] leading-snug text-muted-foreground">
+                                            Active when Ignore GAP is selected.
+                                        </p>
+                                    </PopoverContent>
+                                </Popover>
                                 <span className="mx-1 h-3 w-px bg-border/60" />
                                 <button
                                     type="button"
@@ -1801,7 +1838,8 @@ export const PageCanvas = React.memo(({
             zIndex: highestZ + 1,
             imageRotationMode: 'follow-frame',
             frameShape: 'rect',
-            showPhotoGap: true
+            showPhotoGap: true,
+            frameEdgeFade: 0
         };
 
         onUpdatePage({
@@ -1839,6 +1877,20 @@ export const PageCanvas = React.memo(({
             return {
                 ...image,
                 showPhotoGap: image.showPhotoGap === false ? true : false
+            };
+        }));
+    }, [activeDynamicImageIds, updateDynamicImages]);
+
+    const handleUpdateSelectedDynamicImageEdgeFade = useCallback((value: number) => {
+        const selectedIds = new Set(activeDynamicImageIds);
+        if (selectedIds.size === 0) return;
+
+        const frameEdgeFade = normalizeFrameEdgeFade(value, 50);
+        updateDynamicImages((images) => images.map((image) => {
+            if (!selectedIds.has(image.id)) return image;
+            return {
+                ...image,
+                frameEdgeFade
             };
         }));
     }, [activeDynamicImageIds, updateDynamicImages]);
@@ -2278,6 +2330,7 @@ export const PageCanvas = React.memo(({
                     rotation: image.rotation || 0,
                     imageRotationMode,
                     showPhotoGap: image.showPhotoGap !== false,
+                    frameEdgeFade: image.showPhotoGap === false ? normalizeFrameEdgeFade(image.frameEdgeFade) : 0,
                     zIndex: (image.zIndex ?? maxBaseZ + index + 1),
                     label: image.frameName ? `Dynamic Frame: ${image.frameName}` : `Dynamic Frame ${index + 1}`
                 };
@@ -2290,6 +2343,7 @@ export const PageCanvas = React.memo(({
                 rotation: image.rotation || 0,
                 imageRotationMode,
                 showPhotoGap: image.showPhotoGap !== false,
+                frameEdgeFade: image.showPhotoGap === false ? normalizeFrameEdgeFade(image.frameEdgeFade) : 0,
                 zIndex: (image.zIndex ?? maxBaseZ + index + 1),
                 label: `Dynamic Frame ${index + 1}`
             };
@@ -2628,6 +2682,7 @@ export const PageCanvas = React.memo(({
                                 onApplyCanvaFrameToSelectedDynamicImage={handleApplyCanvaFrameToSelectedDynamicImage}
                                 onToggleSelectedDynamicImageRotationMode={handleToggleSelectedDynamicImageRotationMode}
                                 onToggleSelectedDynamicImageGap={handleToggleSelectedDynamicImageGap}
+                                onUpdateSelectedDynamicImageEdgeFade={handleUpdateSelectedDynamicImageEdgeFade}
                                 onDeleteSelectedDynamicImage={handleDeleteSelectedDynamicImage}
                                 onMatchSelectedDynamicFramesSize={handleMatchSelectedDynamicFramesSize}
                                 onAlignSelectedDynamicFrames={handleAlignSelectedDynamicFrames}

@@ -7,6 +7,7 @@ import { Photo, PhotoPanAndZoom } from '@/lib/types';
 import { PhotoRenderer } from './photo-renderer';
 import { Image as ImageIcon, Plus } from 'lucide-react';
 import { getRegionVisualRotationDeg } from '@/lib/layout-region-rotation';
+import { buildFrameEdgeFadeMaskStyle, normalizeFrameEdgeFade } from '@/lib/frame-edge-fade';
 
 interface ShapePhotoFrameProps {
     region: LayoutRegion;
@@ -125,6 +126,9 @@ export const ShapePhotoFrame = ({
     const targetPhotoWorldRotationDeg = imageRotationMode === 'keep-horizontal' ? 0 : visualFrameRotationDeg;
     const photoExtraRotationDeg = targetPhotoWorldRotationDeg - frameRotationDeg;
     const shouldAdjustPhotoRotation = Math.abs(photoExtraRotationDeg) > 0.0001;
+    const frameEdgeFadeMaskStyle = region.showPhotoGap === false
+        ? buildFrameEdgeFadeMaskStyle(normalizeFrameEdgeFade(region.frameEdgeFade))
+        : undefined;
 
     const photoNode = (
         <PhotoRenderer
@@ -152,7 +156,7 @@ export const ShapePhotoFrame = ({
                 style={innerStyle}
                 className="overflow-hidden"
             >
-                <div className="w-full h-full relative">
+                <div className="w-full h-full relative" style={frameEdgeFadeMaskStyle}>
                     {shouldAdjustPhotoRotation ? (
                         <div
                             className="absolute inset-0"

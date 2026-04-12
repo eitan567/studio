@@ -8,6 +8,7 @@ import { EmptyPhotoSlot } from '../album-editor/empty-photo-slot';
 import { cn } from '@/lib/utils';
 import { getRegionVisualRotationDeg } from '@/lib/layout-region-rotation';
 import { useOptionalAlbumEditor } from '../album-editor/context';
+import { buildFrameEdgeFadeMaskStyle, normalizeFrameEdgeFade } from '@/lib/frame-edge-fade';
 
 // Canva-like placeholder background
 const CanvaPlaceholder = ({ className }: { className?: string }) => (
@@ -461,6 +462,10 @@ export const ShapeRegion = ({
     const targetPhotoWorldRotationDeg = effectiveImageRotationMode === 'keep-horizontal' ? 0 : visualFrameRotationDeg;
     const photoExtraRotationDeg = targetPhotoWorldRotationDeg - frameRotationDeg;
     const shouldAdjustPhotoRotation = Math.abs(photoExtraRotationDeg) > 0.0001;
+    const frameEdgeFade = region.showPhotoGap === false
+        ? normalizeFrameEdgeFade(region.frameEdgeFade)
+        : 0;
+    const frameEdgeFadeMaskStyle = buildFrameEdgeFadeMaskStyle(frameEdgeFade);
     const frameAspectRatio = Math.max(
         0.01,
         adjustedRegionWidthPx / Math.max(1, adjustedRegionHeightPx)
@@ -528,6 +533,17 @@ export const ShapeRegion = ({
                 }}
             >
                 {photoRenderer}
+            </div>
+        );
+    };
+
+    const renderMaskedContent = () => {
+        const content = renderContent();
+        if (!photo?.src || !frameEdgeFadeMaskStyle) return content;
+
+        return (
+            <div className="absolute inset-0" style={frameEdgeFadeMaskStyle}>
+                {content}
             </div>
         );
     };
@@ -775,7 +791,7 @@ export const ShapeRegion = ({
                     onDrop={handleDrop}
                     onContextMenu={openContextMenu}
                 >
-                    {renderContent()}
+                    {renderMaskedContent()}
                 </div>
                 {contextMenuOverlay}
             </div>
@@ -815,7 +831,7 @@ export const ShapeRegion = ({
                 onDrop={handleDrop}
                 onContextMenu={openContextMenu}
             >
-                {renderContent()}
+                {renderMaskedContent()}
             </div>
 
             {/* Stroke Layer (Internal Gaps) */}

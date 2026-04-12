@@ -73,6 +73,8 @@ export interface CoverImage {
   frameTemplateId?: string;
   frameName?: string;
   showPhotoGap?: boolean;
+  // Edge fade in pixels, used when showPhotoGap is false to blend the frame into the background.
+  frameEdgeFade?: number;
 }
 
 export type AlbumPage = {

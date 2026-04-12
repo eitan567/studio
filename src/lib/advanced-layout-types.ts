@@ -71,6 +71,8 @@ export interface LayoutRegion {
 
     // When false, this region ignores the page/template photo gap.
     showPhotoGap?: boolean;
+    // Edge fade in pixels, used when showPhotoGap is false to blend the frame into the background.
+    frameEdgeFade?: number;
 }
 
 // Complete vector object definition for the editor

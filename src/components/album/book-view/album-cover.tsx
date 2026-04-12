@@ -14,6 +14,7 @@ import { useOptionalAlbumEditor } from '../album-editor/context';
 import { SuggestionFan } from '../album-editor/suggestion-fan';
 import { createGalleryPhotoReferenceResolver } from '@/lib/photo-reference';
 import { extractSupabaseStoragePath } from '@/lib/supabase-media-normalizer';
+import { buildFrameEdgeFadeMaskStyle, normalizeFrameEdgeFade } from '@/lib/frame-edge-fade';
 
 
 // --- Types ---
@@ -303,6 +304,11 @@ const resolveCoverImageFrameGap = (item: CoverImage, frameGap: number): number =
     return Number.isFinite(frameGap) ? Math.max(0, frameGap) : 0;
 };
 
+const resolveCoverImageFrameEdgeFade = (item: CoverImage): number => {
+    if (item.showPhotoGap !== false) return 0;
+    return normalizeFrameEdgeFade(item.frameEdgeFade);
+};
+
 type AlbumDragSource = { pageId: string; photoId: string };
 type GalleryDragSource = { photoId: string; selectedPhotoIds?: string[] };
 
@@ -485,6 +491,7 @@ const DraggableCoverImage = ({
     const pathClipValue = hasPathFrame && pathClipId ? `url(#${pathClipId})` : undefined;
     const pathClipTransform = hasPathFrame ? buildPathClipTransform(item.frameViewBox) : '';
     const effectiveFrameGap = resolveCoverImageFrameGap(item, frameGap);
+    const frameEdgeFadeMaskStyle = buildFrameEdgeFadeMaskStyle(resolveCoverImageFrameEdgeFade(item));
     const isLeadSelection = !!isLead && isSelected;
     const cornerHandleClass = isLeadSelection
         ? "border-emerald-500 hover:bg-emerald-500"
@@ -898,6 +905,7 @@ const DraggableCoverImage = ({
                         top: effectiveFrameGap > 0 ? `${effectiveFrameGap}px` : 0,
                         right: effectiveFrameGap > 0 ? `${effectiveFrameGap}px` : 0,
                         bottom: effectiveFrameGap > 0 ? `${effectiveFrameGap}px` : 0,
+                        ...frameEdgeFadeMaskStyle,
                         clipPath: pathClipValue,
                         WebkitClipPath: pathClipValue
                     }}
@@ -1091,6 +1099,7 @@ export const StaticCoverImage = ({
     const pathClipValue = hasPathFrame && pathClipId ? `url(#${pathClipId})` : undefined;
     const pathClipTransform = hasPathFrame ? buildPathClipTransform(item.frameViewBox) : '';
     const effectiveFrameGap = resolveCoverImageFrameGap(item, frameGap);
+    const frameEdgeFadeMaskStyle = buildFrameEdgeFadeMaskStyle(resolveCoverImageFrameEdgeFade(item));
 
     const photoObject: Photo = {
         id: item.id,
@@ -1201,6 +1210,7 @@ export const StaticCoverImage = ({
                         top: effectiveFrameGap > 0 ? `${effectiveFrameGap}px` : 0,
                         right: effectiveFrameGap > 0 ? `${effectiveFrameGap}px` : 0,
                         bottom: effectiveFrameGap > 0 ? `${effectiveFrameGap}px` : 0,
+                        ...frameEdgeFadeMaskStyle,
                         clipPath: pathClipValue,
                         WebkitClipPath: pathClipValue
                     }}
