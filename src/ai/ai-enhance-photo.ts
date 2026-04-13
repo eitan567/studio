@@ -11,15 +11,61 @@ const SUPPORTED_ENHANCEMENT_MODELS = [
   'gemini-3-pro-image-preview',
 ] as const;
 const MODEL_SELECTION_OPTIONS = ['auto', ...SUPPORTED_ENHANCEMENT_MODELS] as const;
+const OUTPUT_SIZE_OPTIONS = ['original', '1K', '2K', '4K'] as const;
+const OUTPUT_SIZE_AREA_EDGE = {
+  '1K': 1024,
+  '2K': 2048,
+  '4K': 4096,
+} as const;
+
+const GEMINI_COMMON_ASPECT_RATIOS = [
+  '1:1',
+  '2:3',
+  '3:2',
+  '3:4',
+  '4:3',
+  '4:5',
+  '5:4',
+  '9:16',
+  '16:9',
+  '21:9',
+] as const;
+
+const GEMINI_31_EXTRA_ASPECT_RATIOS = [
+  '1:4',
+  '1:8',
+  '4:1',
+  '8:1',
+] as const;
+const MAX_COVER_ASPECT_DELTA = 0.22;
+const NORMALIZED_OUTPUT_MIME_TYPE = 'image/jpeg';
+const NORMALIZED_OUTPUT_QUALITY = 95;
 
 type SupportedEnhancementModel = (typeof SUPPORTED_ENHANCEMENT_MODELS)[number];
 type ModelSelection = (typeof MODEL_SELECTION_OPTIONS)[number];
+type OutputSizeOption = (typeof OUTPUT_SIZE_OPTIONS)[number];
+type OutputSizeWithArea = keyof typeof OUTPUT_SIZE_AREA_EDGE;
+type GeminiAspectRatio =
+  | (typeof GEMINI_COMMON_ASPECT_RATIOS)[number]
+  | (typeof GEMINI_31_EXTRA_ASPECT_RATIOS)[number];
 const DEFAULT_ENHANCEMENT_MODEL: SupportedEnhancementModel = 'gemini-3.1-flash-image-preview';
 
 const AIEnhancePhotoInputSchema = z.object({
   imageUrl: z
     .string()
     .describe('Source image URL or data URI to enhance'),
+  sourceWidth: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe('Known source image width in pixels'),
+  sourceHeight: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe('Known source image height in pixels'),
   referenceImageUrl: z
     .string()
     .optional()
@@ -28,6 +74,10 @@ const AIEnhancePhotoInputSchema = z.object({
     .enum(MODEL_SELECTION_OPTIONS)
     .optional()
     .describe('Optional model selection. "auto" uses fallback order.'),
+  outputSize: z
+    .enum(OUTPUT_SIZE_OPTIONS)
+    .optional()
+    .describe('Requested output size. "original" keeps source pixel dimensions.'),
   presetPrompt: z
     .string()
     .optional()
@@ -62,19 +112,186 @@ export async function aiEnhancePhoto(
 
 type ImageDimensions = { width: number; height: number };
 
-async function getImageDimensions(imageUrl: string): Promise<ImageDimensions> {
+function asKnownImageDimensions(width?: number, height?: number): ImageDimensions | null {
+  if (
+    Number.isInteger(width) &&
+    Number.isInteger(height) &&
+    typeof width === 'number' &&
+    typeof height === 'number' &&
+    width > 0 &&
+    height > 0
+  ) {
+    return { width, height };
+  }
+
+  return null;
+}
+
+async function fetchImageBuffer(imageUrl: string): Promise<Buffer> {
   const response = await fetch(imageUrl);
   if (!response.ok) {
     throw new Error(`Could not fetch image for metadata (${response.status})`);
   }
 
   const arrayBuffer = await response.arrayBuffer();
-  const metadata = await sharp(Buffer.from(arrayBuffer)).metadata();
+  return Buffer.from(arrayBuffer);
+}
+
+async function getBufferDimensions(buffer: Buffer): Promise<ImageDimensions> {
+  const metadata = await sharp(buffer).rotate().metadata();
   if (!metadata.width || !metadata.height) {
     throw new Error('Image metadata is missing width/height');
   }
 
   return { width: metadata.width, height: metadata.height };
+}
+
+async function getImageDimensions(imageUrl: string): Promise<ImageDimensions> {
+  const buffer = await fetchImageBuffer(imageUrl);
+  return getBufferDimensions(buffer);
+}
+
+function calculateTargetDimensions(
+  sourceDimensions: ImageDimensions,
+  outputSize: OutputSizeOption
+): ImageDimensions {
+  if (outputSize === 'original') {
+    return sourceDimensions;
+  }
+
+  const targetAreaEdge = OUTPUT_SIZE_AREA_EDGE[outputSize as OutputSizeWithArea];
+  const sourceArea = sourceDimensions.width * sourceDimensions.height;
+  const targetArea = targetAreaEdge * targetAreaEdge;
+  const scale = Math.max(1, Math.sqrt(targetArea / sourceArea));
+
+  return {
+    width: Math.max(sourceDimensions.width, Math.round(sourceDimensions.width * scale)),
+    height: Math.max(sourceDimensions.height, Math.round(sourceDimensions.height * scale)),
+  };
+}
+
+function ratioToNumber(ratio: GeminiAspectRatio): number {
+  const [width, height] = ratio.split(':').map(Number);
+  return width / height;
+}
+
+function getAspectRatiosForModel(model: SupportedEnhancementModel): readonly GeminiAspectRatio[] {
+  if (model === 'gemini-3.1-flash-image-preview') {
+    return [...GEMINI_COMMON_ASPECT_RATIOS, ...GEMINI_31_EXTRA_ASPECT_RATIOS];
+  }
+
+  return GEMINI_COMMON_ASPECT_RATIOS;
+}
+
+function findNearestGeminiAspectRatio(
+  dimensions: ImageDimensions,
+  model: SupportedEnhancementModel
+): GeminiAspectRatio {
+  const sourceAspect = dimensions.width / dimensions.height;
+  const ratios = getAspectRatiosForModel(model);
+  return ratios.reduce((best, current) => {
+    const bestDelta = Math.abs(sourceAspect - ratioToNumber(best)) / sourceAspect;
+    const currentDelta = Math.abs(sourceAspect - ratioToNumber(current)) / sourceAspect;
+    return currentDelta < bestDelta ? current : best;
+  }, ratios[0]);
+}
+
+function modelSupportsNativeImageSize(model: SupportedEnhancementModel): boolean {
+  return model === 'gemini-3.1-flash-image-preview' || model === 'gemini-3-pro-image-preview';
+}
+
+function buildImageConfigForModel(
+  model: SupportedEnhancementModel,
+  sourceDimensions: ImageDimensions,
+  outputSize: OutputSizeOption
+): { aspectRatio: GeminiAspectRatio; imageSize?: OutputSizeWithArea } {
+  const imageConfig: { aspectRatio: GeminiAspectRatio; imageSize?: OutputSizeWithArea } = {
+    aspectRatio: findNearestGeminiAspectRatio(sourceDimensions, model),
+  };
+
+  if (outputSize !== 'original' && modelSupportsNativeImageSize(model)) {
+    imageConfig.imageSize = outputSize as OutputSizeWithArea;
+  }
+
+  return imageConfig;
+}
+
+function toDataUrl(buffer: Buffer, mimeType: string): string {
+  return `data:${mimeType};base64,${buffer.toString('base64')}`;
+}
+
+async function normalizeResultImage(
+  resultUrl: string,
+  sourceDimensions: ImageDimensions,
+  targetDimensions: ImageDimensions
+): Promise<{
+  url: string;
+  rawDimensions: ImageDimensions;
+  finalDimensions: ImageDimensions;
+  aspectDelta: number;
+}> {
+  const buffer = await fetchImageBuffer(resultUrl);
+  const rawDimensions = await getBufferDimensions(buffer);
+  const sourceAspect = sourceDimensions.width / sourceDimensions.height;
+  const rawAspect = rawDimensions.width / rawDimensions.height;
+  const sourceLandscape = sourceDimensions.width >= sourceDimensions.height;
+  const rawLandscape = rawDimensions.width >= rawDimensions.height;
+  const aspectDelta = Math.abs(sourceAspect - rawAspect) / sourceAspect;
+
+  if (sourceLandscape !== rawLandscape) {
+    throw new Error(
+      `Orientation mismatch: source ${sourceDimensions.width}x${sourceDimensions.height}, ` +
+        `result ${rawDimensions.width}x${rawDimensions.height}`
+    );
+  }
+
+  if (aspectDelta > MAX_COVER_ASPECT_DELTA) {
+    throw new Error(
+      `Aspect ratio mismatch is too large to normalize safely: source ${sourceAspect.toFixed(4)}, ` +
+        `result ${rawAspect.toFixed(4)}`
+    );
+  }
+
+  const normalizedBuffer = await sharp(buffer)
+    .rotate()
+    .resize({
+      width: targetDimensions.width,
+      height: targetDimensions.height,
+      fit: 'cover',
+      position: 'centre',
+    })
+    .flatten({ background: '#ffffff' })
+    .jpeg({ quality: NORMALIZED_OUTPUT_QUALITY, mozjpeg: true })
+    .toBuffer();
+
+  const finalDimensions = await getBufferDimensions(normalizedBuffer);
+
+  if (
+    finalDimensions.width !== targetDimensions.width ||
+    finalDimensions.height !== targetDimensions.height
+  ) {
+    throw new Error(
+      `Output normalization failed: expected ${targetDimensions.width}x${targetDimensions.height}, ` +
+        `got ${finalDimensions.width}x${finalDimensions.height}`
+    );
+  }
+
+  if (
+    finalDimensions.width < sourceDimensions.width ||
+    finalDimensions.height < sourceDimensions.height
+  ) {
+    throw new Error(
+      `Output resolution is lower than source: source ${sourceDimensions.width}x${sourceDimensions.height}, ` +
+        `result ${finalDimensions.width}x${finalDimensions.height}`
+    );
+  }
+
+  return {
+    url: toDataUrl(normalizedBuffer, NORMALIZED_OUTPUT_MIME_TYPE),
+    rawDimensions,
+    finalDimensions,
+    aspectDelta,
+  };
 }
 
 const aiEnhancePhotoFlow = ai.defineFlow(
@@ -88,6 +305,7 @@ const aiEnhancePhotoFlow = ai.defineFlow(
     const manualMode = input.manualMode === true;
     const requestText = userPrompt || '';
     const selectedModel: ModelSelection = input.selectedModel || DEFAULT_ENHANCEMENT_MODEL;
+    const outputSize: OutputSizeOption = input.outputSize || 'original';
 
     if (manualMode && !userPrompt) {
       return {
@@ -101,13 +319,25 @@ const aiEnhancePhotoFlow = ai.defineFlow(
     const hasReferenceImage = Boolean(input.referenceImageUrl);
     const isTransferRequest = hasReferenceImage;
     let referenceIdentityProfile = '';
-    let sourceDimensions: ImageDimensions | null = null;
+    let sourceDimensions: ImageDimensions | null = asKnownImageDimensions(input.sourceWidth, input.sourceHeight);
 
     try {
       sourceDimensions = await getImageDimensions(input.imageUrl);
     } catch {
-      sourceDimensions = null;
+      sourceDimensions = asKnownImageDimensions(input.sourceWidth, input.sourceHeight);
     }
+
+    if (!sourceDimensions) {
+      return {
+        success: false,
+        imageUrl: '',
+        appliedPrompt: '',
+        error: 'Could not determine source image dimensions',
+      };
+    }
+
+    const sourceImageDimensions = sourceDimensions;
+    const targetDimensions = calculateTargetDimensions(sourceImageDimensions, outputSize);
 
     if (hasReferenceImage) {
       try {
@@ -136,7 +366,10 @@ const aiEnhancePhotoFlow = ai.defineFlow(
       'Edit only the SOURCE image.',
       'The final image must keep SOURCE as the base canvas.',
       'Never swap SOURCE and REFERENCE roles.',
-      'Preserve SOURCE composition, framing, perspective, and aspect ratio unless the user explicitly asks otherwise.',
+      'Preserve SOURCE composition, framing, perspective, and aspect ratio.',
+      `Final output target is ${targetDimensions.width} x ${targetDimensions.height} pixels.`,
+      `Never return a lower-resolution output than SOURCE (${sourceImageDimensions.width} x ${sourceImageDimensions.height} pixels).`,
+      'Fill the full output canvas with the edited SOURCE image; do not add blurred, padded, letterbox, pillarbox, or decorative border areas.',
       'Do not add text, logos, watermark, or frames unless explicitly requested by the user.',
       ...(hasReferenceImage
         ? [
@@ -194,42 +427,20 @@ const aiEnhancePhotoFlow = ai.defineFlow(
 
     const evaluateResultAgainstInputs = async (
       resultUrl: string
-    ): Promise<{ pass: boolean; reason?: string }> => {
-      if (sourceDimensions) {
-        try {
-          const resultDimensions = await getImageDimensions(resultUrl);
-          const sourceAspect = sourceDimensions.width / sourceDimensions.height;
-          const resultAspect = resultDimensions.width / resultDimensions.height;
-          const sourceLandscape = sourceDimensions.width >= sourceDimensions.height;
-          const resultLandscape = resultDimensions.width >= resultDimensions.height;
-          const aspectDelta = Math.abs(sourceAspect - resultAspect) / sourceAspect;
+    ): Promise<{ pass: boolean; reason?: string; normalizedUrl?: string }> => {
+      let normalizedResult: Awaited<ReturnType<typeof normalizeResultImage>>;
 
-          if (sourceLandscape !== resultLandscape) {
-            return {
-              pass: false,
-              reason:
-                `Orientation mismatch: source ${sourceDimensions.width}x${sourceDimensions.height}, ` +
-                `result ${resultDimensions.width}x${resultDimensions.height}`,
-            };
-          }
-
-          if (aspectDelta > 0.08) {
-            return {
-              pass: false,
-              reason:
-                `Aspect ratio mismatch: source ${sourceAspect.toFixed(4)}, result ${resultAspect.toFixed(4)}`,
-            };
-          }
-        } catch (err) {
-          return {
-            pass: false,
-            reason: err instanceof Error ? err.message : 'Result metadata validation failed',
-          };
-        }
+      try {
+        normalizedResult = await normalizeResultImage(resultUrl, sourceImageDimensions, targetDimensions);
+      } catch (err) {
+        return {
+          pass: false,
+          reason: err instanceof Error ? err.message : 'Result metadata validation failed',
+        };
       }
 
       if (!hasReferenceImage) {
-        return { pass: true };
+        return { pass: true, normalizedUrl: normalizedResult.url };
       }
 
       try {
@@ -242,7 +453,7 @@ const aiEnhancePhotoFlow = ai.defineFlow(
             { text: 'REFERENCE IMAGE (guidance only):' },
             { media: { url: input.referenceImageUrl! } },
             { text: 'RESULT IMAGE:' },
-            { media: { url: resultUrl } },
+            { media: { url: normalizedResult.url } },
             { text: `User request: ${requestText || 'No extra request'}` },
             { text: `Transfer requested: ${isTransferRequest ? 'yes' : 'no'}` },
             {
@@ -285,7 +496,7 @@ const aiEnhancePhotoFlow = ai.defineFlow(
           }
         }
 
-        return { pass: true };
+        return { pass: true, normalizedUrl: normalizedResult.url };
       } catch (err) {
         return {
           pass: false,
@@ -295,7 +506,7 @@ const aiEnhancePhotoFlow = ai.defineFlow(
     };
 
     const tryModel = async (
-      model: string,
+      model: SupportedEnhancementModel,
       correction?: string
     ): Promise<{ url?: string; error?: string }> => {
       try {
@@ -315,6 +526,7 @@ const aiEnhancePhotoFlow = ai.defineFlow(
           prompt,
           config: {
             temperature: hasReferenceImage ? 0.15 : 0.3,
+            imageConfig: buildImageConfigForModel(model, sourceImageDimensions, outputSize),
           },
         });
 
@@ -341,6 +553,12 @@ const aiEnhancePhotoFlow = ai.defineFlow(
           'gemini-3.1-flash-image-preview',
           'gemini-2.5-flash-image',
         ]
+      : outputSize !== 'original'
+        ? [
+            'gemini-3.1-flash-image-preview',
+            'gemini-3-pro-image-preview',
+            'gemini-2.5-flash-image',
+          ]
       : [
           'gemini-2.5-flash-image',
           'gemini-3.1-flash-image-preview',
@@ -366,7 +584,7 @@ const aiEnhancePhotoFlow = ai.defineFlow(
         if (qaCheck.pass) {
           return {
             success: true,
-            imageUrl: result.url,
+            imageUrl: qaCheck.normalizedUrl || result.url,
             appliedPrompt: instructions,
             modelUsed: `${candidate}${attempt === 1 ? ' (retry)' : ''}`,
           };

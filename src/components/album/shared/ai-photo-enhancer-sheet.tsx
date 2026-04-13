@@ -87,7 +87,15 @@ const MODEL_OPTIONS = [
   { id: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image', hint: 'Fastest option.' },
 ] as const;
 
+const OUTPUT_SIZE_OPTIONS = [
+  { id: 'original', label: 'Original resolution', hint: 'Keeps the final file at the source pixel size.' },
+  { id: '1K', label: '1K', hint: 'Preserves the source ratio and never goes below the original.' },
+  { id: '2K', label: '2K', hint: 'Larger output when the source is smaller.' },
+  { id: '4K', label: '4K', hint: 'Highest output size, usually slower.' },
+] as const;
+
 type ModelId = (typeof MODEL_OPTIONS)[number]['id'];
+type OutputSizeId = (typeof OUTPUT_SIZE_OPTIONS)[number]['id'];
 
 const MAX_REFERENCE_IMAGE_DATA_URL_LENGTH = 850_000;
 const MAX_REFERENCE_IMAGE_DIMENSION = 1400;
@@ -192,6 +200,7 @@ export function AiPhotoEnhancerSheet({
   const [resultRotation, setResultRotation] = useState(0);
   const [lastAppliedPrompt, setLastAppliedPrompt] = useState('');
   const [selectedModelId, setSelectedModelId] = useState<ModelId>('gemini-3.1-flash-image-preview');
+  const [selectedOutputSizeId, setSelectedOutputSizeId] = useState<OutputSizeId>('original');
   const [lastModelUsed, setLastModelUsed] = useState<string>('');
   const referenceInputRef = useRef<HTMLInputElement | null>(null);
   const [referenceImageName, setReferenceImageName] = useState<string | null>(null);
@@ -245,6 +254,10 @@ export function AiPhotoEnhancerSheet({
   );
   const customPromptPreview = customPrompt.trim();
   const isManualMode = selectedPreset.manualOnly === true;
+  const sourceWidth = sourcePhoto?.width;
+  const sourceHeight = sourcePhoto?.height;
+  const selectedModel = MODEL_OPTIONS.find((model) => model.id === selectedModelId) || MODEL_OPTIONS[2];
+  const selectedOutputSize = OUTPUT_SIZE_OPTIONS.find((option) => option.id === selectedOutputSizeId) || OUTPUT_SIZE_OPTIONS[0];
   const canEnhance = !!sourceImageUrl
     && !isEnhancing
     && !isPreparingReferenceImage
@@ -356,8 +369,11 @@ export function AiPhotoEnhancerSheet({
     try {
       const result = await aiEnhancePhoto({
         imageUrl: sourceImageUrl,
+        sourceWidth,
+        sourceHeight,
         referenceImageUrl: referenceImageDataUrl || undefined,
         selectedModel: selectedModelId,
+        outputSize: selectedOutputSizeId,
         presetPrompt: selectedPreset?.prompt || undefined,
         customPrompt: customPrompt.trim() || undefined,
         manualMode: isManualMode,
@@ -381,7 +397,7 @@ export function AiPhotoEnhancerSheet({
     } finally {
       setIsEnhancing(false);
     }
-  }, [customPrompt, isManualMode, referenceImageDataUrl, selectedModelId, selectedPreset, sourceImageUrl, toast]);
+  }, [customPrompt, isManualMode, referenceImageDataUrl, selectedModelId, selectedOutputSizeId, selectedPreset, sourceHeight, sourceImageUrl, sourceWidth, toast]);
 
   const handleApprove = useCallback(async () => {
     if (!resultImageUrl) return;
@@ -447,8 +463,8 @@ export function AiPhotoEnhancerSheet({
 
             <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 overflow-hidden px-6 pb-4 pt-3 xl:grid-cols-[0.92fr_1.08fr]">
               <div className="order-2 flex min-h-0 flex-col xl:order-1">
-                <div className="min-h-0 flex-1 pr-1">
-                  <div className="flex h-full min-h-0 flex-col">
+                <div className="min-h-0 flex-1 overflow-hidden pr-1">
+                  <div className="flex h-full min-h-0 flex-col overflow-y-auto pr-2">
                     <div className="shrink-0">
                       <div className="mb-1.5 flex items-center justify-between">
                         <Label className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
@@ -486,34 +502,75 @@ export function AiPhotoEnhancerSheet({
                     </div>
 
                     <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3">
-                      <div className="shrink-0">
-                        <div className="mb-1.5 flex items-center justify-between">
-                          <Label className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                            AI model
-                          </Label>
+                      <div className="grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="min-w-0">
+                          <div className="mb-1.5 flex items-center justify-between">
+                            <Label className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                              AI model
+                            </Label>
+                          </div>
+                          <Select
+                            value={selectedModelId}
+                            onValueChange={(value) => setSelectedModelId(value as ModelId)}
+                            disabled={isEnhancing}
+                            dir="ltr"
+                          >
+                            <SelectTrigger
+                              className="h-9 justify-start gap-2 rounded-lg bg-background/65 text-left ring-1 ring-border/50 [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate [&>span]:text-left [&>svg]:ml-auto [&>svg]:shrink-0"
+                              title={selectedModel.label}
+                            >
+                              <SelectValue className="min-w-0 flex-1 truncate text-left">
+                                {selectedModel.label}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {MODEL_OPTIONS.map((model) => (
+                                <SelectItem key={model.id} value={model.id}>
+                                  {model.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {selectedModel.hint}
+                          </div>
                         </div>
-                        <Select
-                          value={selectedModelId}
-                          onValueChange={(value) => setSelectedModelId(value as ModelId)}
-                          disabled={isEnhancing}
-                        >
-                          <SelectTrigger className="h-9 rounded-lg bg-background/65 ring-1 ring-border/50">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {MODEL_OPTIONS.map((model) => (
-                              <SelectItem key={model.id} value={model.id}>
-                                {model.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          {MODEL_OPTIONS.find((model) => model.id === selectedModelId)?.hint}
+
+                        <div className="min-w-0">
+                          <div className="mb-1.5 flex items-center justify-between">
+                            <Label className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                              Output size
+                            </Label>
+                          </div>
+                          <Select
+                            value={selectedOutputSizeId}
+                            onValueChange={(value) => setSelectedOutputSizeId(value as OutputSizeId)}
+                            disabled={isEnhancing}
+                            dir="ltr"
+                          >
+                            <SelectTrigger
+                              className="h-9 justify-start gap-2 rounded-lg bg-background/65 text-left ring-1 ring-border/50 [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate [&>span]:text-left [&>svg]:ml-auto [&>svg]:shrink-0"
+                              title={selectedOutputSize.label}
+                            >
+                              <SelectValue className="min-w-0 flex-1 truncate text-left">
+                                {selectedOutputSize.label}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {OUTPUT_SIZE_OPTIONS.map((option) => (
+                                <SelectItem key={option.id} value={option.id}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {selectedOutputSize.hint}
+                          </div>
                         </div>
                       </div>
 
-                      <div className="flex min-h-0 flex-1 flex-col">
+                      <div className="shrink-0">
                         <Label className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                           Custom prompt (optional)
                         </Label>
@@ -521,7 +578,7 @@ export function AiPhotoEnhancerSheet({
                           value={customPrompt}
                           onChange={(e) => setCustomPrompt(e.target.value)}
                           placeholder="Example: make it brighter, warmer, and cleaner but keep natural skin tones."
-                          className="mt-2 h-full min-h-[140px] resize-none rounded-lg bg-background/65 px-4 py-3 leading-relaxed ring-1 ring-border/50 focus-visible:ring-1 focus-visible:ring-offset-0"
+                          className="mt-2 min-h-[118px] resize-y rounded-lg bg-background/65 px-4 py-3 leading-relaxed ring-1 ring-border/50 focus-visible:ring-1 focus-visible:ring-offset-0"
                           disabled={isEnhancing}
                         />
                         {isManualMode && !customPromptPreview && (
@@ -598,6 +655,9 @@ export function AiPhotoEnhancerSheet({
                 <div className="mt-3 flex shrink-0 items-center justify-between gap-4 rounded-lg bg-background/55 px-3 py-2.5 ring-1 ring-border/45">
                   <div className="text-sm text-muted-foreground">
                     Applying <span className="font-medium text-foreground">{selectedPreset.label}</span>
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      at {selectedOutputSize.label}
+                    </span>
                     {referenceImageName && (
                       <span className="ml-1 text-xs text-primary">+ reference image</span>
                     )}
@@ -708,6 +768,9 @@ export function AiPhotoEnhancerSheet({
                   Model: {lastModelUsed}
                 </span>
               )}
+              <span className="rounded-full border px-2.5 py-1">
+                Output: {selectedOutputSize.label}
+              </span>
               {resultRotation !== 0 && (
                 <span className="rounded-full border border-primary/30 bg-primary/5 px-2.5 py-1 text-primary">
                   Rotation: {resultRotation}°
