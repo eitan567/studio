@@ -2,6 +2,7 @@ import { useSettingsContext, UserSettings, DEFAULT_SETTINGS } from '@/components
 
 // Re-export types for backward compatibility
 export type { UserSettings };
+export type { PrintMarginSettings } from '@/components/settings-provider';
 export { DEFAULT_SETTINGS };
 
 export function useSettings() {

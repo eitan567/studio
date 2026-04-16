@@ -4,6 +4,8 @@ import { cn } from '@/lib/utils';
 import { PageLayout } from '../layouts/page-layout';
 import { COVER_TEMPLATES } from '../layouts/templates';
 import { AlbumCover } from '../book-view/album-cover';
+import { useSettings } from '@/hooks/use-settings';
+import { SafetyMarginOverlay } from '../shared/safety-margin-overlay';
 
 interface CoverCanvasProps {
     page: AlbumPage;
@@ -22,6 +24,7 @@ interface CoverCanvasProps {
 export const CoverCanvas = ({ page, activeView, activeTextIds, onSelectText, activeImageIds, onSelectImage, onUpdatePage, onDropPhoto, onUpdatePhotoPanAndZoom, config, isCover = true }: CoverCanvasProps) => {
     const wrapperRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
+    const { settings } = useSettings();
 
     // Ensure the page object passed to AlbumCover respects the isCover prop
     // This prevents "ghost spines" if the page object has stale isCover: true data
@@ -148,6 +151,15 @@ export const CoverCanvas = ({ page, activeView, activeTextIds, onSelectText, act
                         onUpdatePage={onUpdatePage}
                         onDropPhoto={onDropPhoto}
                         onUpdatePhotoPanAndZoom={onUpdatePhotoPanAndZoom}
+                    />
+                )}
+                {settings.showSafetyMargin && (
+                    <SafetyMarginOverlay 
+                        margins={settings.coverSafetyMargins} 
+                        pxPerUnit={pxPerUnit}
+                        color={settings.safetyMarginColor}
+                        opacity={settings.safetyMarginOpacity}
+                        lineStyle={settings.safetyMarginLineStyle}
                     />
                 )}
             </div>

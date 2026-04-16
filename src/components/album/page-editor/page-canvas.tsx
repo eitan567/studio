@@ -12,7 +12,8 @@ import {
 
 import type { AlbumPage, AlbumConfig, CoverImage, Photo, PhotoPanAndZoom } from '@/lib/types';
 import type { ExportDpi, ExportRenderOptions } from '@/components/album/shared/album-exporter';
-import { logger } from '@/lib/logger';
+import { PageRulers } from './page-rulers';
+import { SafetyMarginOverlay } from '../shared/safety-margin-overlay';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
@@ -141,6 +142,8 @@ const SpineEffectOverlay = () => {
         </>
     );
 };
+
+// SafetyMarginOverlay removed (moved to shared)
 
 // --- SUB-COMPONENTS ---
 
@@ -1074,6 +1077,7 @@ const ScaledCoverPreview = React.memo(({
     extraTemplates?: AdvancedTemplate[];
     lockOverlayImageAspectRatio?: boolean;
 }) => {
+    const { settings } = useSettings();
     const wrapperRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
     const BASE_PAGE_PX = 450;
@@ -1151,6 +1155,15 @@ const ScaledCoverPreview = React.memo(({
                             lockOverlayImageAspectRatio={lockOverlayImageAspectRatio}
                         />
                         {!page.isCover && page.type === 'spread' && <SpineEffectOverlay />}
+                        {settings.showSafetyMargin && (
+                            <SafetyMarginOverlay 
+                                margins={page.isCover ? settings.coverSafetyMargins : (page.type === 'spread' ? settings.spreadSafetyMargins : settings.singlePageSafetyMargins)} 
+                                pxPerUnit={pxPerUnit}
+                                color={settings.safetyMarginColor}
+                                opacity={settings.safetyMarginOpacity}
+                                lineStyle={settings.safetyMarginLineStyle}
+                            />
+                        )}
                     </div>
                     <div className="absolute inset-0 z-60 pointer-events-none">
                         {page.titleText && <DraggableTitle text={page.titleText} color={page.titleColor} fontSize={page.titleFontSize} fontFamily={page.titleFontFamily} position={page.titlePosition} containerId={`front-cover-container-${page.id}`} onUpdatePosition={(x, y) => onUpdateTitleSettings?.(page.id, { position: { x, y } })} />}

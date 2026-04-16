@@ -11,6 +11,13 @@ import { logger } from '@/lib/logger';
 // ideally these should be in a separate file, but for now I will define them here 
 // and re-export so use-settings.ts can just re-export or use them.
 
+export interface PrintMarginSettings {
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+}
+
 export interface UserSettings {
     // --- [CATEGORY: Album Creator] (Applied immediately to new albums) ---
     defaultAlbumSize: '20x20' | '25x25' | '30x30';
@@ -61,6 +68,15 @@ export interface UserSettings {
     showRiskyGalleryToolbarActions: boolean;
     showDangerousGalleryResetActions: boolean;
     showExistingTemplateEditDeleteIcons: boolean;
+
+    // --- [CATEGORY: Print Safety Margin] ---
+    showSafetyMargin: boolean;  // Show dashed safety/bleed margin guides on all page types
+    singlePageSafetyMargins: PrintMarginSettings;
+    spreadSafetyMargins: PrintMarginSettings;
+    coverSafetyMargins: PrintMarginSettings;
+    safetyMarginColor: string;
+    safetyMarginOpacity: number;
+    safetyMarginLineStyle: 'solid' | 'dashed' | 'dotted';
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -88,6 +104,14 @@ export const DEFAULT_SETTINGS: UserSettings = {
     showRiskyGalleryToolbarActions: false,
     showDangerousGalleryResetActions: false,
     showExistingTemplateEditDeleteIcons: false,
+
+    showSafetyMargin: true,
+    singlePageSafetyMargins: { top: 0, bottom: 0, left: 4, right: 8 },
+    spreadSafetyMargins: { top: 0, bottom: 0, left: 3, right: 2 },
+    coverSafetyMargins: { top: 5, bottom: 3, left: 7.5, right: 15 },
+    safetyMarginColor: '#222020',
+    safetyMarginOpacity: 1,
+    safetyMarginLineStyle: 'solid',
 
     defaultSpineWidth: 15,
     defaultSpineColor: '#000000',

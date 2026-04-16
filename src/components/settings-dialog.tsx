@@ -28,8 +28,8 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { RotateCcw, Monitor, Moon, Sun, LayoutGrid, Bold, Italic, AlignLeft, AlignCenter, AlignRight, RotateCw, Type, Layout } from 'lucide-react';
-import { useSettings, UserSettings, DEFAULT_SETTINGS } from '@/hooks/use-settings';
+import { RotateCcw, Monitor, Moon, Sun, LayoutGrid, Bold, Italic, AlignLeft, AlignCenter, AlignRight, RotateCw, Type, Layout, Ruler } from 'lucide-react';
+import { useSettings, UserSettings, DEFAULT_SETTINGS, PrintMarginSettings } from '@/hooks/use-settings';
 import { TemplateManager } from './settings/template-manager';
 import { toast } from '@/hooks/use-toast';
 import { useTheme } from 'next-themes';
@@ -200,6 +200,121 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                                                     value={[localSettings.defaultCornerRadius]}
                                                     onValueChange={(val) => handleUpdateLocal({ defaultCornerRadius: val[0] })}
                                                 />
+                                            </div>
+
+                                            {/* Print Safety Margin */}
+                                            <div className="pt-2 border-t space-y-4">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <Ruler className="h-4 w-4 text-muted-foreground" />
+                                                        <div>
+                                                            <Label className="text-base">Print Safety Margins</Label>
+                                                            <p className="text-xs text-muted-foreground mt-0.5">Show dashed guides on all pages to prevent content from being cut during printing.</p>
+                                                        </div>
+                                                    </div>
+                                                    <Switch
+                                                        checked={localSettings.showSafetyMargin ?? true}
+                                                        onCheckedChange={(c) => handleUpdateLocal({ showSafetyMargin: c })}
+                                                    />
+                                                </div>
+
+                                                {(localSettings.showSafetyMargin ?? true) && (
+                                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pb-2 border-b">
+                                                        <div className="space-y-1.5 text-right rtl">
+                                                            <div className="flex justify-between flex-row-reverse">
+                                                                <Label className="text-xs">צבע מסגרת</Label>
+                                                            </div>
+                                                            <div className="flex gap-2">
+                                                                <Input 
+                                                                    type="color" 
+                                                                    className="w-12 h-8 p-1 cursor-pointer"
+                                                                    value={localSettings.safetyMarginColor || '#334155'}
+                                                                    onChange={(e) => handleUpdateLocal({ safetyMarginColor: e.target.value })}
+                                                                />
+                                                                <Input 
+                                                                    className="h-8 font-mono text-xs uppercase"
+                                                                    value={localSettings.safetyMarginColor || '#334155'}
+                                                                    onChange={(e) => handleUpdateLocal({ safetyMarginColor: e.target.value })}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-1.5 text-right rtl">
+                                                            <div className="flex justify-between flex-row-reverse">
+                                                                <Label className="text-xs">סוג קו</Label>
+                                                            </div>
+                                                            <Select 
+                                                                value={localSettings.safetyMarginLineStyle || 'dashed'} 
+                                                                onValueChange={(val: any) => handleUpdateLocal({ safetyMarginLineStyle: val })}
+                                                            >
+                                                                <SelectTrigger className="h-8 text-xs">
+                                                                    <SelectValue />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="solid" className="text-xs">רציף (Solid)</SelectItem>
+                                                                    <SelectItem value="dashed" className="text-xs">מקווקו (Dashed)</SelectItem>
+                                                                    <SelectItem value="dotted" className="text-xs">נקודות (Dotted)</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                        <div className="space-y-1.5 text-right rtl">
+                                                            <div className="flex justify-between flex-row-reverse">
+                                                                <Label className="text-xs">שקיפות מילוי</Label>
+                                                                <span className="text-[10px] text-muted-foreground">{Math.round((localSettings.safetyMarginOpacity || 0.15) * 100)}%</span>
+                                                            </div>
+                                                            <Slider 
+                                                                min={0} max={1} step={0.01}
+                                                                value={[localSettings.safetyMarginOpacity || 0.15]}
+                                                                onValueChange={(val) => handleUpdateLocal({ safetyMarginOpacity: val[0] })}
+                                                                className="py-1"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {(localSettings.showSafetyMargin ?? true) && (
+                                                    <div className="space-y-4 pt-2">
+                                                        {([
+                                                            ['Single Pages (mm)', 'singlePageSafetyMargins'],
+                                                            ['Spread Pages (mm)', 'spreadSafetyMargins'],
+                                                            ['Cover Pages (mm)', 'coverSafetyMargins'],
+                                                        ] as const).map(([title, key]) => {
+                                                            const m = (localSettings[key] as PrintMarginSettings) || { top: 15, bottom: 15, left: 15, right: 15 };
+                                                            return (
+                                                                <div key={key} className="space-y-3 rounded-lg border border-border/70 bg-muted/[0.04] p-4">
+                                                                    <Label className="font-semibold text-sm">{title}</Label>
+                                                                    <div className="grid grid-cols-4 gap-3 text-center">
+                                                                        {([
+                                                                            ['top', 'Top'],
+                                                                            ['bottom', 'Bottom'],
+                                                                            ['left', 'Left'],
+                                                                            ['right', 'Right'],
+                                                                        ] as const).map(([side, label]) => (
+                                                                            <div key={side} className="space-y-1.5 flex flex-col">
+                                                                                <Label className="text-xs text-muted-foreground">{label}</Label>
+                                                                                <Input
+                                                                                    type="number"
+                                                                                    min={0}
+                                                                                    max={100}
+                                                                                    step="0.5"
+                                                                                    value={m[side as keyof PrintMarginSettings]}
+                                                                                    onChange={(e) => {
+                                                                                        const parsed = parseFloat(e.target.value);
+                                                                                        handleUpdateLocal({
+                                                                                            [key]: {
+                                                                                                ...m,
+                                                                                                [side]: Number.isFinite(parsed) ? parsed : 0,
+                                                                                            }
+                                                                                        });
+                                                                                    }}
+                                                                                    className="h-8 text-sm text-center"
+                                                                                />
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
