@@ -704,7 +704,7 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                     // Match the editor render ratio exactly (ScaledCoverPreview inner surface):
                     // width * 0.97, height * 0.95. Without this, cover exports can shift/crop
                     // compared to what the user sees in the editor.
-                    const EXPORT_BASE_PX = 450;
+                    const EXPORT_BASE_PX = 500;
                     const sizeStr = config?.size || '800x600';
                     const [cfgWStr, cfgHStr] = sizeStr.split('x');
                     const cfgW = Number(cfgWStr) || 800;
@@ -717,8 +717,8 @@ export const AlbumExporter = forwardRef<AlbumExporterRef, AlbumExporterProps>(({
                         ? (singlePageLogicalW * 2) + coverSpineWidth
                         : singlePageLogicalW;
                     const logicalHeight = EXPORT_BASE_PX;
-                    const pageWidth = Math.max(1, Math.round(logicalWidth * 0.97));
-                    const pageHeight = Math.max(1, Math.round(logicalHeight * 0.95));
+                    const pageWidth = Math.max(1, Math.round(logicalWidth));
+                    const pageHeight = Math.max(1, Math.round(logicalHeight));
                     const exportPageBackground = page.backgroundColor || config.backgroundColor || '#ffffff';
                     const exportCornerRadius = (typeof page.cornerRadius === 'number' && page.cornerRadius > 0)
                         ? page.cornerRadius
