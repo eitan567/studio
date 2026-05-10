@@ -60,6 +60,85 @@ export interface AlbumCoverProps {
     lockOverlayImageAspectRatio?: boolean;
 }
 
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const getFiniteNumber = (value: number | undefined, fallback: number) => {
+    return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+};
+
+const colorWithOpacity = (color: string, opacity: number) => {
+    const normalizedOpacity = clamp(opacity, 0, 1);
+    if (normalizedOpacity <= 0) return 'rgba(0, 0, 0, 0)';
+    if (color === 'transparent') return 'transparent';
+
+    const hexMatch = color.match(/^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
+    if (!hexMatch) return color;
+
+    let hex = hexMatch[1];
+    if (hex.length === 3) {
+        hex = hex.split('').map((char) => char + char).join('');
+    }
+
+    const red = parseInt(hex.slice(0, 2), 16);
+    const green = parseInt(hex.slice(2, 4), 16);
+    const blue = parseInt(hex.slice(4, 6), 16);
+    const alpha = hex.length === 8
+        ? (parseInt(hex.slice(6, 8), 16) / 255) * normalizedOpacity
+        : normalizedOpacity;
+
+    return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+};
+
+const hasCoverTextBackground = (item: CoverText) => {
+    const backgroundColor = item.style.backgroundColor;
+    return !!backgroundColor
+        && backgroundColor !== 'transparent'
+        && getFiniteNumber(item.style.backgroundOpacity, 0.75) > 0;
+};
+
+const getCoverTextBackgroundVisualStyle = (style: CoverText['style']): React.CSSProperties => {
+    const backgroundColor = style.backgroundColor || '#ffffff';
+    const opacity = getFiniteNumber(style.backgroundOpacity, 0.75);
+    const shape = style.backgroundShape || 'rounded';
+    const fontSize = Math.max(1, getFiniteNumber(style.fontSize, 24));
+    const centerColor = colorWithOpacity(backgroundColor, opacity);
+    const midColor = colorWithOpacity(backgroundColor, opacity * 0.45);
+    const transparentColor = colorWithOpacity(backgroundColor, 0);
+
+    return {
+        backgroundImage: `radial-gradient(ellipse at center, ${centerColor} 0%, ${centerColor} 38%, ${midColor} 72%, ${transparentColor} 100%)`,
+        backgroundRepeat: 'no-repeat',
+        backgroundClip: 'padding-box',
+        borderRadius: shape === 'pill' ? '9999px' : shape === 'rounded' ? `${fontSize * 0.35}px` : '0',
+    };
+};
+
+const getCoverTextBoxStyle = (item: CoverText, includeBackground = true): React.CSSProperties => {
+    const fontSize = Math.max(1, getFiniteNumber(item.style.fontSize, 24));
+    const paddingX = clamp(getFiniteNumber(item.style.backgroundPaddingX, 12), 0, 160);
+    const paddingY = clamp(getFiniteNumber(item.style.backgroundPaddingY, 6), 0, 120);
+
+    if (!includeBackground || !hasCoverTextBackground(item)) {
+        return { padding: '0.25rem' };
+    }
+
+    return {
+        ...getCoverTextBackgroundVisualStyle(item.style),
+        padding: `${paddingY / fontSize}em ${paddingX / fontSize}em`,
+        boxDecorationBreak: 'clone',
+        WebkitBoxDecorationBreak: 'clone',
+    };
+};
+
+type TextGroupBackground = {
+    groupId: string;
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    style: CoverText['style'];
+};
+
 // --- Internal Helper Components ---
 
 export const Spine = ({
@@ -152,7 +231,9 @@ const DraggableCoverText = ({
     onUpdatePosition,
     onDragEnd,
     containerRef,
-    fontSizeOverride
+    fontSizeOverride,
+    includeBackground = true,
+    showSelectionFrame = true
 }: {
     item: CoverText;
     isSelected: boolean;
@@ -161,6 +242,8 @@ const DraggableCoverText = ({
     onDragEnd?: () => void;
     containerRef: React.RefObject<HTMLDivElement | null>;
     fontSizeOverride?: string;
+    includeBackground?: boolean;
+    showSelectionFrame?: boolean;
 }) => {
     const [isDragging, setIsDragging] = useState(false);
     const hasMovedRef = useRef(false);
@@ -228,12 +311,15 @@ const DraggableCoverText = ({
         <div
             className={cn(
                 "absolute cursor-move select-none whitespace-nowrap p-1 border-2",
-                isSelected ? "border-primary border-dashed bg-primary/5 z-50" : "border-transparent hover:border-primary/20 z-40"
+                isSelected && showSelectionFrame && "border-primary border-dashed bg-primary/5 z-50",
+                isSelected && !showSelectionFrame && "border-transparent z-50",
+                !isSelected && "border-transparent hover:border-primary/20 z-40"
             )}
             style={{
                 left: `${item.x}%`,
                 top: `${item.y}%`,
                 transform: 'translate(-50%, -50%)',
+                ...getCoverTextBoxStyle(item, includeBackground),
                 fontFamily: item.style.fontFamily,
                 fontSize: fontSizeOverride || `${item.style.fontSize}px`,
                 color: item.style.color,
@@ -243,6 +329,8 @@ const DraggableCoverText = ({
                 textShadow: item.style.textShadow,
                 pointerEvents: 'auto'
             }}
+            data-cover-text-id={item.id}
+            data-cover-text-group-id={item.groupId}
             onMouseDown={handleMouseDown}
             onClick={handleClick}
         >
@@ -254,10 +342,12 @@ const DraggableCoverText = ({
 // Static Text for Preview
 export const StaticCoverText = ({
     item,
-    fontSizeOverride
+    fontSizeOverride,
+    includeBackground = true
 }: {
     item: CoverText;
     fontSizeOverride?: string;
+    includeBackground?: boolean;
 }) => {
     return (
         <div
@@ -266,6 +356,7 @@ export const StaticCoverText = ({
                 left: `${item.x}%`,
                 top: `${item.y}%`,
                 transform: 'translate(-50%, -50%)',
+                ...getCoverTextBoxStyle(item, includeBackground),
                 fontFamily: item.style.fontFamily,
                 fontSize: fontSizeOverride || `${item.style.fontSize}px`,
                 color: item.style.color,
@@ -276,6 +367,8 @@ export const StaticCoverText = ({
                 pointerEvents: 'none', // Static text shouldn't block clicks
                 zIndex: 40
             }}
+            data-cover-text-id={item.id}
+            data-cover-text-group-id={item.groupId}
         >
             {item.text}
         </div>
@@ -1285,6 +1378,7 @@ export const AlbumCover = ({
     const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
     // Optimization: Local state for drag positions to avoid global re-renders
     const [dragPositions, setDragPositions] = useState<Record<string, { x: number, y: number }>>({});
+    const [textGroupBackgrounds, setTextGroupBackgrounds] = useState<TextGroupBackground[]>([]);
     const [dynamicContextMenu, setDynamicContextMenu] = useState<{
         x: number;
         y: number;
@@ -1299,6 +1393,14 @@ export const AlbumCover = ({
     const scrollToGallery = albumEditor?.scrollToGallery;
     const activeAlbumDrag = albumEditor?.activeAlbumDrag ?? null;
     const activeGalleryDrag = albumEditor?.activeGalleryDrag ?? null;
+    const textGroupBackgroundStyles = useMemo(() => {
+        const styles = new Map<string, CoverText['style']>();
+        (page.coverTexts || []).forEach((textItem) => {
+            if (!textItem.groupId || !hasCoverTextBackground(textItem) || styles.has(textItem.groupId)) return;
+            styles.set(textItem.groupId, textItem.style);
+        });
+        return styles;
+    }, [page.coverTexts]);
 
     // Canvas click handler (for deselecting)
     const handleCanvasClick = (e: React.MouseEvent) => {
@@ -1373,6 +1475,85 @@ export const AlbumCover = ({
 
         return () => observer.disconnect();
     }, []);
+
+    useLayoutEffect(() => {
+        const container = containerRef.current;
+
+        if (!container || textGroupBackgroundStyles.size === 0) {
+            setTextGroupBackgrounds(prev => prev.length === 0 ? prev : []);
+            return;
+        }
+
+        const containerRect = container.getBoundingClientRect();
+        const layoutWidth = container.offsetWidth || containerRect.width || 1;
+        const layoutHeight = container.offsetHeight || containerRect.height || 1;
+        const scaleX = containerRect.width > 0 ? containerRect.width / layoutWidth : 1;
+        const scaleY = containerRect.height > 0 ? containerRect.height / layoutHeight : 1;
+        const safeScaleX = Number.isFinite(scaleX) && scaleX > 0 ? scaleX : 1;
+        const safeScaleY = Number.isFinite(scaleY) && scaleY > 0 ? scaleY : 1;
+        const groups = new Map<string, HTMLElement[]>();
+
+        container.querySelectorAll<HTMLElement>('[data-cover-text-id]').forEach((node) => {
+            const groupId = node.dataset.coverTextGroupId;
+            if (!groupId || !textGroupBackgroundStyles.has(groupId)) return;
+            const groupNodes = groups.get(groupId) || [];
+            groupNodes.push(node);
+            groups.set(groupId, groupNodes);
+        });
+
+        const nextBackgrounds: TextGroupBackground[] = [];
+
+        Array.from(groups.entries()).forEach(([groupId, nodes]) => {
+            const style = textGroupBackgroundStyles.get(groupId);
+            if (!style || nodes.length === 0) return;
+
+            let minLeft = Number.POSITIVE_INFINITY;
+            let minTop = Number.POSITIVE_INFINITY;
+            let maxRight = Number.NEGATIVE_INFINITY;
+            let maxBottom = Number.NEGATIVE_INFINITY;
+
+            nodes.forEach((node) => {
+                const rect = node.getBoundingClientRect();
+                if (rect.width <= 0 && rect.height <= 0) return;
+
+                const left = (rect.left - containerRect.left) / safeScaleX;
+                const top = (rect.top - containerRect.top) / safeScaleY;
+                const right = left + (rect.width / safeScaleX);
+                const bottom = top + (rect.height / safeScaleY);
+
+                minLeft = Math.min(minLeft, left);
+                minTop = Math.min(minTop, top);
+                maxRight = Math.max(maxRight, right);
+                maxBottom = Math.max(maxBottom, bottom);
+            });
+
+            if (!Number.isFinite(minLeft) || !Number.isFinite(minTop) || !Number.isFinite(maxRight) || !Number.isFinite(maxBottom)) {
+                return;
+            }
+
+            const paddingX = clamp(getFiniteNumber(style.backgroundPaddingX, 12), 0, 160);
+            const paddingY = clamp(getFiniteNumber(style.backgroundPaddingY, 6), 0, 120);
+            const left = minLeft - paddingX;
+            const top = minTop - paddingY;
+            const width = Math.max(1, (maxRight - minLeft) + (paddingX * 2));
+            const height = Math.max(1, (maxBottom - minTop) + (paddingY * 2));
+
+            nextBackgrounds.push({ groupId, left, top, width, height, style });
+        });
+
+        nextBackgrounds.sort((a, b) => a.groupId.localeCompare(b.groupId));
+
+        const serialize = (items: TextGroupBackground[]) => JSON.stringify(items.map(item => ({
+            groupId: item.groupId,
+            left: Math.round(item.left * 100) / 100,
+            top: Math.round(item.top * 100) / 100,
+            width: Math.round(item.width * 100) / 100,
+            height: Math.round(item.height * 100) / 100,
+            style: item.style,
+        })));
+
+        setTextGroupBackgrounds(prev => serialize(prev) === serialize(nextBackgrounds) ? prev : nextBackgrounds);
+    }, [activeView, containerSize.height, containerSize.width, dragPositions, page.coverTexts, textGroupBackgroundStyles]);
 
     const handleUpdateTextPosition = (triggerId: string, newX: number, newY: number) => {
         // Here we update LOCAL state instead of calling onUpdatePage
@@ -2117,11 +2298,42 @@ export const AlbumCover = ({
                 </div>
             )}
             {/* Text Overlay */}
+            {renderTextGroupBackgroundOverlay()}
             {renderTextOverlay()}
             {/* Image Overlay */}
             {renderImageOverlay()}
         </>
     );
+
+    const renderTextGroupBackgroundOverlay = () => {
+        if (textGroupBackgrounds.length === 0) return null;
+
+        return textGroupBackgrounds.map((background) => {
+            const isSelected = mode === 'editor'
+                && (page.coverTexts || []).some((textItem) =>
+                    textItem.groupId === background.groupId && activeTextIds.includes(textItem.id)
+                );
+
+            return (
+                <div
+                    key={`text-group-background-${background.groupId}`}
+                    className={cn(
+                        "absolute pointer-events-none select-none box-border",
+                        isSelected ? "border-2 border-dashed border-primary" : "border-2 border-transparent"
+                    )}
+                    style={{
+                        left: `${background.left}px`,
+                        top: `${background.top}px`,
+                        width: `${background.width}px`,
+                        height: `${background.height}px`,
+                        zIndex: isSelected ? 49 : 39,
+                        ...getCoverTextBackgroundVisualStyle(background.style),
+                    }}
+                    data-cover-text-group-background-id={background.groupId}
+                />
+            );
+        });
+    };
 
     // 1. Text Overlay Renderer
     const renderTextOverlay = () => {
@@ -2157,6 +2369,7 @@ export const AlbumCover = ({
             const fontSizeCss = `${(normalizedFontSize / referenceWidth) * 100}cqw`;
 
             const isSelected = activeTextIds.includes(textItem.id);
+            const useSharedGroupBackground = !!textItem.groupId && textGroupBackgroundStyles.has(textItem.groupId);
 
             if (mode === 'editor' && onSelectText) {
                 return (
@@ -2189,6 +2402,8 @@ export const AlbumCover = ({
                         onDragEnd={handleDragEnd}
                         containerRef={containerRef}
                         fontSizeOverride={fontSizeCss}
+                        includeBackground={!useSharedGroupBackground}
+                        showSelectionFrame={!useSharedGroupBackground}
                     />
                 );
             } else {
@@ -2197,6 +2412,7 @@ export const AlbumCover = ({
                         key={textItem.id}
                         item={{ ...textItem, x: localX, y: localY }}
                         fontSizeOverride={fontSizeCss}
+                        includeBackground={!useSharedGroupBackground}
                     />
                 );
             }

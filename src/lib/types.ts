@@ -35,6 +35,8 @@ export type AlbumConfig = {
 };
 
 // New Interface for Cover Text Objects
+export type CoverTextBackgroundShape = 'square' | 'rounded' | 'pill';
+
 export interface CoverText {
   id: string;
   groupId?: string;
@@ -49,6 +51,11 @@ export interface CoverText {
     fontStyle?: string;
     textShadow?: string;
     textAlign?: 'left' | 'center' | 'right';
+    backgroundColor?: string;
+    backgroundOpacity?: number;
+    backgroundPaddingX?: number;
+    backgroundPaddingY?: number;
+    backgroundShape?: CoverTextBackgroundShape;
   };
 }
 

@@ -52,6 +52,16 @@ export const SidebarLeft = ({
     const isMultipleText = activeTexts.length > 1;
     const isLinkedText = activeTexts.some(t => !!t.groupId);
     const hasTextSelection = activeTexts.length > 0;
+    const hasTextBackground = activeTexts.some(t =>
+        !!t.style.backgroundColor
+        && t.style.backgroundColor !== 'transparent'
+        && (t.style.backgroundOpacity ?? 0.75) > 0
+    );
+    const textBackgroundColor = activeText?.style.backgroundColor || '#ffffff';
+    const textBackgroundOpacity = activeText?.style.backgroundOpacity ?? (hasTextBackground ? 0.75 : 0);
+    const textBackgroundPaddingX = activeText?.style.backgroundPaddingX ?? 12;
+    const textBackgroundPaddingY = activeText?.style.backgroundPaddingY ?? 6;
+    const textBackgroundShape = activeText?.style.backgroundShape || 'rounded';
 
     // --- Image Selection Logic ---
     const activeImages = page.coverImages?.filter(img => activeImageIds.includes(img.id)) || [];
@@ -72,6 +82,27 @@ export const SidebarLeft = ({
         });
 
         onUpdatePage({ ...page, coverTexts: newTexts });
+    };
+
+    const handleUpdateTextBackground = (updates: Partial<CoverText['style']>) => {
+        handleUpdateText({
+            backgroundColor: activeText?.style.backgroundColor || '#ffffff',
+            backgroundOpacity: hasTextBackground ? (activeText?.style.backgroundOpacity ?? 0.75) : 0.75,
+            backgroundPaddingX: activeText?.style.backgroundPaddingX ?? 12,
+            backgroundPaddingY: activeText?.style.backgroundPaddingY ?? 6,
+            backgroundShape: activeText?.style.backgroundShape || 'rounded',
+            ...updates,
+        });
+    };
+
+    const handleRemoveTextBackground = () => {
+        handleUpdateText({
+            backgroundColor: undefined,
+            backgroundOpacity: 0,
+            backgroundPaddingX: undefined,
+            backgroundPaddingY: undefined,
+            backgroundShape: undefined,
+        });
     };
 
     const handleDeleteText = () => {
@@ -294,6 +325,105 @@ export const SidebarLeft = ({
                                                 </Button>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+
+                                <Separator className="bg-border/50" />
+
+                                {/* Text Background */}
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Background</Label>
+                                        {hasTextBackground ? (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-6 px-2 text-[10px] text-destructive hover:bg-destructive/10"
+                                                onClick={handleRemoveTextBackground}
+                                            >
+                                                Remove
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-6 px-2 text-[10px]"
+                                                onClick={() => handleUpdateTextBackground({ backgroundOpacity: 0.75 })}
+                                            >
+                                                Add
+                                            </Button>
+                                        )}
+                                    </div>
+
+                                    <div className="flex items-center gap-3">
+                                        <SpineColorPicker
+                                            value={textBackgroundColor}
+                                            onChange={(c) => handleUpdateTextBackground({ backgroundColor: c, backgroundOpacity: textBackgroundOpacity || 0.75 })}
+                                            disableAlpha
+                                        />
+                                        <Input
+                                            value={textBackgroundColor}
+                                            onChange={(e) => handleUpdateTextBackground({ backgroundColor: e.target.value, backgroundOpacity: textBackgroundOpacity || 0.75 })}
+                                            className="h-8 flex-1 font-mono text-xs uppercase"
+                                            placeholder="#FFFFFF"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <Label className="text-[10px] text-muted-foreground">Center Opacity</Label>
+                                            <span className="text-[10px] font-mono text-muted-foreground">{Math.round(textBackgroundOpacity * 100)}%</span>
+                                        </div>
+                                        <Slider
+                                            value={[Math.round(textBackgroundOpacity * 100)]}
+                                            min={0}
+                                            max={100}
+                                            step={1}
+                                            onValueChange={([val]) => handleUpdateTextBackground({ backgroundOpacity: val / 100 })}
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <Label className="text-[10px] text-muted-foreground">Width Pad</Label>
+                                                <span className="text-[10px] font-mono text-muted-foreground">{textBackgroundPaddingX}px</span>
+                                            </div>
+                                            <Slider
+                                                value={[textBackgroundPaddingX]}
+                                                min={0}
+                                                max={80}
+                                                step={1}
+                                                onValueChange={([val]) => handleUpdateTextBackground({ backgroundPaddingX: val })}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <Label className="text-[10px] text-muted-foreground">Height Pad</Label>
+                                                <span className="text-[10px] font-mono text-muted-foreground">{textBackgroundPaddingY}px</span>
+                                            </div>
+                                            <Slider
+                                                value={[textBackgroundPaddingY]}
+                                                min={0}
+                                                max={60}
+                                                step={1}
+                                                onValueChange={([val]) => handleUpdateTextBackground({ backgroundPaddingY: val })}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-3 gap-1">
+                                        {(['square', 'rounded', 'pill'] as const).map((shape) => (
+                                            <Button
+                                                key={shape}
+                                                variant={textBackgroundShape === shape && hasTextBackground ? 'secondary' : 'outline'}
+                                                size="sm"
+                                                className="h-8 px-2 text-[10px] capitalize"
+                                                onClick={() => handleUpdateTextBackground({ backgroundShape: shape })}
+                                            >
+                                                {shape}
+                                            </Button>
+                                        ))}
                                     </div>
                                 </div>
                             </div>
