@@ -420,13 +420,21 @@ const sanitizeClipId = (id: string): string => {
     return id.replace(/[^a-zA-Z0-9_-]/g, '-');
 };
 
+const isCoverImageFrameLike = (item: CoverImage): boolean => {
+    return item.showPhotoGap === true
+        || !!item.imageRotationMode
+        || !!item.frameShape
+        || !!item.framePath
+        || !!item.frameTemplateId;
+};
+
 const resolveCoverImageFrameGap = (item: CoverImage, frameGap: number): number => {
-    if (item.showPhotoGap === false) return 0;
+    if (item.showPhotoGap === false || !isCoverImageFrameLike(item)) return 0;
     return Number.isFinite(frameGap) ? Math.max(0, frameGap) : 0;
 };
 
 const resolveCoverImageFrameEdgeFade = (item: CoverImage): number => {
-    if (item.showPhotoGap !== false) return 0;
+    if (item.showPhotoGap !== false || !isCoverImageFrameLike(item)) return 0;
     return normalizeFrameEdgeFade(item.frameEdgeFade);
 };
 

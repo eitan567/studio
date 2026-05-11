@@ -91,7 +91,8 @@ export const CoverEditorOverlay = ({ page, onUpdatePage, onClose, allPhotos, isC
                     panAndZoom: { scale: 1, x: 50, y: 50 },
                     rotation: 0,
                     opacity: 1,
-                    zIndex: 40
+                    zIndex: 40,
+                    showPhotoGap: false
                 };
 
                 const existingImages = localPage.coverImages || [];
