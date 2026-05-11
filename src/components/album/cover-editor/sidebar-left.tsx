@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
+import { Checkbox } from '@/components/ui/checkbox';
 import { SpineColorPicker } from '../shared/spine-color-picker';
 
 const AVAILABLE_FONTS = ['Inter', 'Serif', 'Mono', 'Cursive', 'Arial', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Impact'];
@@ -62,6 +63,7 @@ export const SidebarLeft = ({
     const textBackgroundPaddingX = activeText?.style.backgroundPaddingX ?? 12;
     const textBackgroundPaddingY = activeText?.style.backgroundPaddingY ?? 6;
     const textBackgroundShape = activeText?.style.backgroundShape || 'rounded';
+    const textBackgroundUniformOpacity = activeText?.style.backgroundUniformOpacity ?? false;
 
     // --- Image Selection Logic ---
     const activeImages = page.coverImages?.filter(img => activeImageIds.includes(img.id)) || [];
@@ -91,6 +93,7 @@ export const SidebarLeft = ({
             backgroundPaddingX: activeText?.style.backgroundPaddingX ?? 12,
             backgroundPaddingY: activeText?.style.backgroundPaddingY ?? 6,
             backgroundShape: activeText?.style.backgroundShape || 'rounded',
+            backgroundUniformOpacity: activeText?.style.backgroundUniformOpacity ?? false,
             ...updates,
         });
     };
@@ -102,6 +105,7 @@ export const SidebarLeft = ({
             backgroundPaddingX: undefined,
             backgroundPaddingY: undefined,
             backgroundShape: undefined,
+            backgroundUniformOpacity: undefined,
         });
     };
 
@@ -371,7 +375,9 @@ export const SidebarLeft = ({
 
                                     <div className="space-y-2">
                                         <div className="flex items-center justify-between">
-                                            <Label className="text-[10px] text-muted-foreground">Center Opacity</Label>
+                                            <Label className="text-[10px] text-muted-foreground">
+                                                {textBackgroundUniformOpacity ? 'Opacity' : 'Center Opacity'}
+                                            </Label>
                                             <span className="text-[10px] font-mono text-muted-foreground">{Math.round(textBackgroundOpacity * 100)}%</span>
                                         </div>
                                         <Slider
@@ -382,6 +388,14 @@ export const SidebarLeft = ({
                                             onValueChange={([val]) => handleUpdateTextBackground({ backgroundOpacity: val / 100 })}
                                         />
                                     </div>
+
+                                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                                        <Checkbox
+                                            checked={textBackgroundUniformOpacity}
+                                            onCheckedChange={(checked) => handleUpdateTextBackground({ backgroundUniformOpacity: checked === true })}
+                                        />
+                                        <span>Uniform opacity</span>
+                                    </label>
 
                                     <div className="grid grid-cols-2 gap-3">
                                         <div className="space-y-2">

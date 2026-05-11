@@ -56,6 +56,7 @@ export interface CoverText {
     backgroundPaddingX?: number;
     backgroundPaddingY?: number;
     backgroundShape?: CoverTextBackgroundShape;
+    backgroundUniformOpacity?: boolean;
   };
 }
 

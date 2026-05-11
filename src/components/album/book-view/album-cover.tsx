@@ -104,12 +104,22 @@ const getCoverTextBackgroundVisualStyle = (style: CoverText['style']): React.CSS
     const centerColor = colorWithOpacity(backgroundColor, opacity);
     const midColor = colorWithOpacity(backgroundColor, opacity * 0.45);
     const transparentColor = colorWithOpacity(backgroundColor, 0);
-
-    return {
-        backgroundImage: `radial-gradient(ellipse at center, ${centerColor} 0%, ${centerColor} 38%, ${midColor} 72%, ${transparentColor} 100%)`,
+    const commonStyle: React.CSSProperties = {
         backgroundRepeat: 'no-repeat',
         backgroundClip: 'padding-box',
         borderRadius: shape === 'pill' ? '9999px' : shape === 'rounded' ? `${fontSize * 0.35}px` : '0',
+    };
+
+    if (style.backgroundUniformOpacity) {
+        return {
+            ...commonStyle,
+            backgroundColor: centerColor,
+        };
+    }
+
+    return {
+        ...commonStyle,
+        backgroundImage: `radial-gradient(ellipse at center, ${centerColor} 0%, ${centerColor} 38%, ${midColor} 72%, ${transparentColor} 100%)`,
     };
 };
 
