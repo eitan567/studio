@@ -574,6 +574,7 @@ const PhotoGalleryCardComponent = ({
 
     // Filtered photos
     const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+    const normalizedPhotoNumberQuery = normalizedSearchQuery.replace(/^#\s*/, '');
 
     const filteredPhotos = useMemo(() => {
         const usageFilteredPhotos = hideUsedPhotos
@@ -584,8 +585,16 @@ const PhotoGalleryCardComponent = ({
             return usageFilteredPhotos;
         }
 
-        return usageFilteredPhotos.filter(photo => (photo.alt || '').toLowerCase().includes(normalizedSearchQuery));
-    }, [allPhotos, hideUsedPhotos, photoUsageDetails, normalizedSearchQuery]);
+        return usageFilteredPhotos.filter(photo => {
+            const nameMatches = (photo.alt || '').toLowerCase().includes(normalizedSearchQuery);
+            const photoNumber = chronologicalIndex[photo.id];
+            const numberMatches = typeof photoNumber === 'number'
+                && normalizedPhotoNumberQuery.length > 0
+                && String(photoNumber).includes(normalizedPhotoNumberQuery);
+
+            return nameMatches || numberMatches;
+        });
+    }, [allPhotos, chronologicalIndex, hideUsedPhotos, normalizedPhotoNumberQuery, normalizedSearchQuery, photoUsageDetails]);
 
     // Merge dimensions from cache
     const effectivePhotos = useMemo(() => {
@@ -928,7 +937,7 @@ const PhotoGalleryCardComponent = ({
                         <Input
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Search by image name..."
+                            placeholder="Search by image name or #..."
                             className="h-8 pl-7 pr-7 text-xs"
                         />
                         {searchQuery && (
