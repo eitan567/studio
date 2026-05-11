@@ -268,7 +268,7 @@ const DraggableCoverText = ({
 }) => {
     const [isDragging, setIsDragging] = useState(false);
     const hasMovedRef = useRef(false);
-    const dragOffsetRef = useRef({ x: 0, y: 0 }); // To keep mouse relative position if needed (currently centering)
+    const dragStartRef = useRef<{ pointerX: number; pointerY: number; itemX: number; itemY: number } | null>(null);
     const containerRectRef = useRef<DOMRect | null>(null);
 
     const handleMouseDown = (e: React.MouseEvent) => {
@@ -279,6 +279,12 @@ const DraggableCoverText = ({
         if (containerRef.current) {
             containerRectRef.current = containerRef.current.getBoundingClientRect();
         }
+        dragStartRef.current = {
+            pointerX: e.clientX,
+            pointerY: e.clientY,
+            itemX: item.x,
+            itemY: item.y,
+        };
 
         // If not selected, or if modifier key is pressed, handle selection immediately
         // (Standard behavior: dragging an unselected item selects it first)
@@ -303,12 +309,12 @@ const DraggableCoverText = ({
         if (!isDragging) return;
 
         const handleMouseMove = (e: MouseEvent) => {
-            if (!containerRectRef.current) return;
+            if (!containerRectRef.current || !dragStartRef.current) return;
             hasMovedRef.current = true; // Mark as moved
             const rect = containerRectRef.current;
-            // Calculate percentage position
-            let x = ((e.clientX - rect.left) / rect.width) * 100;
-            let y = ((e.clientY - rect.top) / rect.height) * 100;
+            const dragStart = dragStartRef.current;
+            const x = dragStart.itemX + (((e.clientX - dragStart.pointerX) / rect.width) * 100);
+            const y = dragStart.itemY + (((e.clientY - dragStart.pointerY) / rect.height) * 100);
             onUpdatePosition(x, y);
         };
 
@@ -318,6 +324,7 @@ const DraggableCoverText = ({
             }
             setIsDragging(false);
             containerRectRef.current = null; // Clear cache
+            dragStartRef.current = null;
         };
 
         window.addEventListener('mousemove', handleMouseMove);
@@ -561,7 +568,7 @@ const DraggableCoverImage = ({
     const [isCtrlPressed, setIsCtrlPressed] = useState(false);
 
     const hasMovedRef = useRef(false);
-    const dragOffsetRef = useRef({ x: 0, y: 0 });
+    const dragStartRef = useRef<{ pointerX: number; pointerY: number; itemX: number; itemY: number } | null>(null);
     const containerRectRef = useRef<DOMRect | null>(null);
     const startResizeRef = useRef<{
         startWidth: number,
@@ -641,14 +648,14 @@ const DraggableCoverImage = ({
         if (containerRef.current) {
             const rect = containerRef.current.getBoundingClientRect();
             containerRectRef.current = rect;
-            const centerX = rect.left + ((item.x / 100) * rect.width);
-            const centerY = rect.top + ((item.y / 100) * rect.height);
-            dragOffsetRef.current = {
-                x: e.clientX - centerX,
-                y: e.clientY - centerY
+            dragStartRef.current = {
+                pointerX: e.clientX,
+                pointerY: e.clientY,
+                itemX: item.x,
+                itemY: item.y,
             };
         } else {
-            dragOffsetRef.current = { x: 0, y: 0 };
+            dragStartRef.current = null;
         }
 
         if (!isSelected || e.ctrlKey || e.metaKey || e.shiftKey) {
@@ -796,9 +803,10 @@ const DraggableCoverImage = ({
             hasMovedRef.current = true;
 
             if (isDragging) {
-                // Preserve the pickup point inside the frame (no center snapping on drag).
-                let x = ((e.clientX - rect.left - dragOffsetRef.current.x) / rect.width) * 100;
-                let y = ((e.clientY - rect.top - dragOffsetRef.current.y) / rect.height) * 100;
+                if (!dragStartRef.current) return;
+                const dragStart = dragStartRef.current;
+                const x = dragStart.itemX + (((e.clientX - dragStart.pointerX) / rect.width) * 100);
+                const y = dragStart.itemY + (((e.clientY - dragStart.pointerY) / rect.height) * 100);
                 onUpdatePosition(x, y);
             } else if (isResizing && startResizeRef.current) {
                 const {
@@ -919,7 +927,7 @@ const DraggableCoverImage = ({
             setIsResizing(false);
             setIsRotating(false);
             containerRectRef.current = null;
-            dragOffsetRef.current = { x: 0, y: 0 };
+            dragStartRef.current = null;
             startResizeRef.current = null;
             rotateRef.current = null;
         };
