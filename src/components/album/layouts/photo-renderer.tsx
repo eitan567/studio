@@ -82,11 +82,19 @@ export const PhotoRenderer = memo(function PhotoRenderer({
     const handleKeyUp = (e: KeyboardEvent) => {
       if (!e.ctrlKey) setIsCtrlPressed(false);
     };
+    // Native drag/drop can swallow the Ctrl keyup, leaving frame panning disabled.
+    const clearCtrlSwapMode = () => setIsCtrlPressed(false);
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('dragend', clearCtrlSwapMode, true);
+    window.addEventListener('drop', clearCtrlSwapMode, true);
+    window.addEventListener('blur', clearCtrlSwapMode);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('dragend', clearCtrlSwapMode, true);
+      window.removeEventListener('drop', clearCtrlSwapMode, true);
+      window.removeEventListener('blur', clearCtrlSwapMode);
     };
   }, []);
 
@@ -498,6 +506,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({
       draggable={isCtrlPressed && !!pageId}
       onDragStart={handleDragStart}
       onDragEnd={() => {
+        setIsCtrlPressed(false);
         setActiveAlbumDrag(null);
         setActiveGalleryDrag(null);
       }}
