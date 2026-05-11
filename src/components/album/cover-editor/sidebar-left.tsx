@@ -418,7 +418,7 @@ export const SidebarLeft = ({
                                             <Slider
                                                 value={[textBackgroundPaddingLeft]}
                                                 min={0}
-                                                max={80}
+                                                max={400}
                                                 step={1}
                                                 onValueChange={([val]) => handleUpdateTextBackground({ backgroundPaddingLeft: val })}
                                             />
@@ -431,7 +431,7 @@ export const SidebarLeft = ({
                                             <Slider
                                                 value={[textBackgroundPaddingRight]}
                                                 min={0}
-                                                max={80}
+                                                max={400}
                                                 step={1}
                                                 onValueChange={([val]) => handleUpdateTextBackground({ backgroundPaddingRight: val })}
                                             />
@@ -444,7 +444,7 @@ export const SidebarLeft = ({
                                             <Slider
                                                 value={[textBackgroundPaddingTop]}
                                                 min={0}
-                                                max={60}
+                                                max={400}
                                                 step={1}
                                                 onValueChange={([val]) => handleUpdateTextBackground({ backgroundPaddingTop: val })}
                                             />
@@ -457,7 +457,7 @@ export const SidebarLeft = ({
                                             <Slider
                                                 value={[textBackgroundPaddingBottom]}
                                                 min={0}
-                                                max={60}
+                                                max={400}
                                                 step={1}
                                                 onValueChange={([val]) => handleUpdateTextBackground({ backgroundPaddingBottom: val })}
                                             />

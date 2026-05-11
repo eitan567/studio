@@ -124,14 +124,14 @@ const getCoverTextBackgroundVisualStyle = (style: CoverText['style']): React.CSS
 };
 
 const getCoverTextBackgroundPadding = (style: CoverText['style']) => {
-    const legacyPaddingX = clamp(getFiniteNumber(style.backgroundPaddingX, 12), 0, 160);
-    const legacyPaddingY = clamp(getFiniteNumber(style.backgroundPaddingY, 6), 0, 120);
+    const legacyPaddingX = clamp(getFiniteNumber(style.backgroundPaddingX, 12), 0, 400);
+    const legacyPaddingY = clamp(getFiniteNumber(style.backgroundPaddingY, 6), 0, 400);
 
     return {
-        left: clamp(getFiniteNumber(style.backgroundPaddingLeft, legacyPaddingX), 0, 160),
-        right: clamp(getFiniteNumber(style.backgroundPaddingRight, legacyPaddingX), 0, 160),
-        top: clamp(getFiniteNumber(style.backgroundPaddingTop, legacyPaddingY), 0, 120),
-        bottom: clamp(getFiniteNumber(style.backgroundPaddingBottom, legacyPaddingY), 0, 120),
+        left: clamp(getFiniteNumber(style.backgroundPaddingLeft, legacyPaddingX), 0, 400),
+        right: clamp(getFiniteNumber(style.backgroundPaddingRight, legacyPaddingX), 0, 400),
+        top: clamp(getFiniteNumber(style.backgroundPaddingTop, legacyPaddingY), 0, 400),
+        bottom: clamp(getFiniteNumber(style.backgroundPaddingBottom, legacyPaddingY), 0, 400),
     };
 };
 
