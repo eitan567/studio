@@ -60,8 +60,12 @@ export const SidebarLeft = ({
     );
     const textBackgroundColor = activeText?.style.backgroundColor || '#ffffff';
     const textBackgroundOpacity = activeText?.style.backgroundOpacity ?? (hasTextBackground ? 0.75 : 0);
-    const textBackgroundPaddingX = activeText?.style.backgroundPaddingX ?? 12;
-    const textBackgroundPaddingY = activeText?.style.backgroundPaddingY ?? 6;
+    const legacyTextBackgroundPaddingX = activeText?.style.backgroundPaddingX ?? 12;
+    const legacyTextBackgroundPaddingY = activeText?.style.backgroundPaddingY ?? 6;
+    const textBackgroundPaddingLeft = activeText?.style.backgroundPaddingLeft ?? legacyTextBackgroundPaddingX;
+    const textBackgroundPaddingRight = activeText?.style.backgroundPaddingRight ?? legacyTextBackgroundPaddingX;
+    const textBackgroundPaddingTop = activeText?.style.backgroundPaddingTop ?? legacyTextBackgroundPaddingY;
+    const textBackgroundPaddingBottom = activeText?.style.backgroundPaddingBottom ?? legacyTextBackgroundPaddingY;
     const textBackgroundShape = activeText?.style.backgroundShape || 'rounded';
     const textBackgroundUniformOpacity = activeText?.style.backgroundUniformOpacity ?? false;
 
@@ -92,6 +96,10 @@ export const SidebarLeft = ({
             backgroundOpacity: hasTextBackground ? (activeText?.style.backgroundOpacity ?? 0.75) : 0.75,
             backgroundPaddingX: activeText?.style.backgroundPaddingX ?? 12,
             backgroundPaddingY: activeText?.style.backgroundPaddingY ?? 6,
+            backgroundPaddingLeft: activeText?.style.backgroundPaddingLeft ?? legacyTextBackgroundPaddingX,
+            backgroundPaddingRight: activeText?.style.backgroundPaddingRight ?? legacyTextBackgroundPaddingX,
+            backgroundPaddingTop: activeText?.style.backgroundPaddingTop ?? legacyTextBackgroundPaddingY,
+            backgroundPaddingBottom: activeText?.style.backgroundPaddingBottom ?? legacyTextBackgroundPaddingY,
             backgroundShape: activeText?.style.backgroundShape || 'rounded',
             backgroundUniformOpacity: activeText?.style.backgroundUniformOpacity ?? false,
             ...updates,
@@ -104,6 +112,10 @@ export const SidebarLeft = ({
             backgroundOpacity: 0,
             backgroundPaddingX: undefined,
             backgroundPaddingY: undefined,
+            backgroundPaddingLeft: undefined,
+            backgroundPaddingRight: undefined,
+            backgroundPaddingTop: undefined,
+            backgroundPaddingBottom: undefined,
             backgroundShape: undefined,
             backgroundUniformOpacity: undefined,
         });
@@ -400,28 +412,54 @@ export const SidebarLeft = ({
                                     <div className="grid grid-cols-2 gap-3">
                                         <div className="space-y-2">
                                             <div className="flex items-center justify-between">
-                                                <Label className="text-[10px] text-muted-foreground">Width Pad</Label>
-                                                <span className="text-[10px] font-mono text-muted-foreground">{textBackgroundPaddingX}px</span>
+                                                <Label className="text-[10px] text-muted-foreground">Left Width Pad</Label>
+                                                <span className="text-[10px] font-mono text-muted-foreground">{textBackgroundPaddingLeft}px</span>
                                             </div>
                                             <Slider
-                                                value={[textBackgroundPaddingX]}
+                                                value={[textBackgroundPaddingLeft]}
                                                 min={0}
                                                 max={80}
                                                 step={1}
-                                                onValueChange={([val]) => handleUpdateTextBackground({ backgroundPaddingX: val })}
+                                                onValueChange={([val]) => handleUpdateTextBackground({ backgroundPaddingLeft: val })}
                                             />
                                         </div>
                                         <div className="space-y-2">
                                             <div className="flex items-center justify-between">
-                                                <Label className="text-[10px] text-muted-foreground">Height Pad</Label>
-                                                <span className="text-[10px] font-mono text-muted-foreground">{textBackgroundPaddingY}px</span>
+                                                <Label className="text-[10px] text-muted-foreground">Right Width Pad</Label>
+                                                <span className="text-[10px] font-mono text-muted-foreground">{textBackgroundPaddingRight}px</span>
                                             </div>
                                             <Slider
-                                                value={[textBackgroundPaddingY]}
+                                                value={[textBackgroundPaddingRight]}
+                                                min={0}
+                                                max={80}
+                                                step={1}
+                                                onValueChange={([val]) => handleUpdateTextBackground({ backgroundPaddingRight: val })}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <Label className="text-[10px] text-muted-foreground">Top Height Pad</Label>
+                                                <span className="text-[10px] font-mono text-muted-foreground">{textBackgroundPaddingTop}px</span>
+                                            </div>
+                                            <Slider
+                                                value={[textBackgroundPaddingTop]}
                                                 min={0}
                                                 max={60}
                                                 step={1}
-                                                onValueChange={([val]) => handleUpdateTextBackground({ backgroundPaddingY: val })}
+                                                onValueChange={([val]) => handleUpdateTextBackground({ backgroundPaddingTop: val })}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <Label className="text-[10px] text-muted-foreground">Bottom Height Pad</Label>
+                                                <span className="text-[10px] font-mono text-muted-foreground">{textBackgroundPaddingBottom}px</span>
+                                            </div>
+                                            <Slider
+                                                value={[textBackgroundPaddingBottom]}
+                                                min={0}
+                                                max={60}
+                                                step={1}
+                                                onValueChange={([val]) => handleUpdateTextBackground({ backgroundPaddingBottom: val })}
                                             />
                                         </div>
                                     </div>

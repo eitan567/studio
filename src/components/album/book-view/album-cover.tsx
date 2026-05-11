@@ -123,10 +123,21 @@ const getCoverTextBackgroundVisualStyle = (style: CoverText['style']): React.CSS
     };
 };
 
+const getCoverTextBackgroundPadding = (style: CoverText['style']) => {
+    const legacyPaddingX = clamp(getFiniteNumber(style.backgroundPaddingX, 12), 0, 160);
+    const legacyPaddingY = clamp(getFiniteNumber(style.backgroundPaddingY, 6), 0, 120);
+
+    return {
+        left: clamp(getFiniteNumber(style.backgroundPaddingLeft, legacyPaddingX), 0, 160),
+        right: clamp(getFiniteNumber(style.backgroundPaddingRight, legacyPaddingX), 0, 160),
+        top: clamp(getFiniteNumber(style.backgroundPaddingTop, legacyPaddingY), 0, 120),
+        bottom: clamp(getFiniteNumber(style.backgroundPaddingBottom, legacyPaddingY), 0, 120),
+    };
+};
+
 const getCoverTextBoxStyle = (item: CoverText, includeBackground = true): React.CSSProperties => {
     const fontSize = Math.max(1, getFiniteNumber(item.style.fontSize, 24));
-    const paddingX = clamp(getFiniteNumber(item.style.backgroundPaddingX, 12), 0, 160);
-    const paddingY = clamp(getFiniteNumber(item.style.backgroundPaddingY, 6), 0, 120);
+    const padding = getCoverTextBackgroundPadding(item.style);
 
     if (!includeBackground || !hasCoverTextBackground(item)) {
         return { padding: '0.25rem' };
@@ -134,7 +145,7 @@ const getCoverTextBoxStyle = (item: CoverText, includeBackground = true): React.
 
     return {
         ...getCoverTextBackgroundVisualStyle(item.style),
-        padding: `${paddingY / fontSize}em ${paddingX / fontSize}em`,
+        padding: `${padding.top / fontSize}em ${padding.right / fontSize}em ${padding.bottom / fontSize}em ${padding.left / fontSize}em`,
         boxDecorationBreak: 'clone',
         WebkitBoxDecorationBreak: 'clone',
     };
@@ -1541,12 +1552,11 @@ export const AlbumCover = ({
                 return;
             }
 
-            const paddingX = clamp(getFiniteNumber(style.backgroundPaddingX, 12), 0, 160);
-            const paddingY = clamp(getFiniteNumber(style.backgroundPaddingY, 6), 0, 120);
-            const left = minLeft - paddingX;
-            const top = minTop - paddingY;
-            const width = Math.max(1, (maxRight - minLeft) + (paddingX * 2));
-            const height = Math.max(1, (maxBottom - minTop) + (paddingY * 2));
+            const padding = getCoverTextBackgroundPadding(style);
+            const left = minLeft - padding.left;
+            const top = minTop - padding.top;
+            const width = Math.max(1, (maxRight - minLeft) + padding.left + padding.right);
+            const height = Math.max(1, (maxBottom - minTop) + padding.top + padding.bottom);
 
             nextBackgrounds.push({ groupId, left, top, width, height, style });
         });
