@@ -29,6 +29,9 @@ interface PhotoRendererProps {
   fitClipPolygon?: Array<[number, number]>;
   // Allow the image wrapper to overflow and rely on parent clipping
   clipOverflow?: boolean;
+  // Next.js Image sizes hint — controls which resolution is fetched from the image CDN.
+  // Pass a smaller value (e.g. "33vw") only for genuine thumbnails; default covers full-page photos.
+  sizes?: string;
 }
 
 const WHEEL_ZOOM_SENSITIVITY = 0.0006;
@@ -64,7 +67,8 @@ export const PhotoRenderer = memo(function PhotoRenderer({
   fitRotationDeg = 0,
   fitUseRotatedViewportBasis = false,
   fitClipPolygon,
-  clipOverflow = true
+  clipOverflow = true,
+  sizes = '100vw'
 }: PhotoRendererProps) {
   const { scrollToGallery, setActiveAlbumDrag, setActiveGalleryDrag } = useAlbumEditor();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -531,7 +535,7 @@ export const PhotoRenderer = memo(function PhotoRenderer({
           style={{
             transform: photo.panAndZoom?.flipHorizontal ? 'scaleX(-1)' : undefined,
           }}
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          sizes={sizes}
           draggable={false}
           priority={priority}
           loader={supabaseLoader}
