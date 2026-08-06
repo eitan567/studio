@@ -265,13 +265,35 @@ export function describeBackupPhotoRef(ref: AlbumBackupPhotoRef): string {
     );
 }
 
-export function collectRequiredPhotoRefsFromPages(pages: AlbumPage[]): AlbumBackupPhotoRef[] {
+export function collectRequiredPhotoRefsFromPages(
+    pages: AlbumPage[],
+    galleryPhotos?: Photo[]
+): AlbumBackupPhotoRef[] {
     const refsByKey = new Map<string, AlbumBackupPhotoRef>();
 
     for (const page of pages || []) {
         for (const slotPhoto of page.photos || []) {
             const ref = buildPhotoRefFromPhoto(slotPhoto);
             if (!ref) continue;
+            refsByKey.set(ref.key, ref);
+        }
+        for (const coverImg of page.coverImages || []) {
+            if (coverImg.url) {
+                const ref = buildPhotoRefFromPhoto({
+                    id: coverImg.originalId || coverImg.id,
+                    src: coverImg.url,
+                    alt: 'Cover Image',
+                    storagePath: coverImg.storagePath,
+                });
+                if (ref) refsByKey.set(ref.key, ref);
+            }
+        }
+    }
+
+    for (const photo of galleryPhotos || []) {
+        const ref = buildPhotoRefFromPhoto(photo);
+        if (!ref) continue;
+        if (!refsByKey.has(ref.key)) {
             refsByKey.set(ref.key, ref);
         }
     }
@@ -284,6 +306,7 @@ export function buildAlbumBackupPayload(params: {
     albumName: string;
     config: Partial<AlbumConfig>;
     pages: AlbumPage[];
+    galleryPhotos?: Photo[];
 }): AlbumBackupPayload {
     const normalizedPages = clonePages(params.pages || []).map((page) => normalizeAlbumPageMediaUrls(page));
 
@@ -299,7 +322,7 @@ export function buildAlbumBackupPayload(params: {
             config: params.config || {},
             pages: normalizedPages,
         },
-        requiredPhotos: collectRequiredPhotoRefsFromPages(normalizedPages),
+        requiredPhotos: collectRequiredPhotoRefsFromPages(normalizedPages, params.galleryPhotos),
     };
 }
 
@@ -425,6 +448,32 @@ export function hydratePagesFromBackup(
                 alt: normalizeText(slotPhoto.alt) || normalizeText(normalizedMatch.alt) || 'Photo',
                 width: slotPhoto.width || normalizedMatch.width,
                 height: slotPhoto.height || normalizedMatch.height,
+            };
+        }),
+        coverImages: page.coverImages?.map((coverImg) => {
+            if (!coverImg.url) return coverImg;
+            const coverRef = buildPhotoRefFromPhoto({
+                id: coverImg.originalId || coverImg.id,
+                src: coverImg.url,
+                alt: 'Cover Image',
+                storagePath: coverImg.storagePath,
+            });
+            if (!coverRef) return coverImg;
+            const match = matchBackupRefToGalleryPhoto(coverRef, lookup);
+            if (!match) return coverImg;
+            const normalizedMatch = normalizePhotoMediaUrls(match);
+            const resolvedSource =
+                normalizeText(normalizedMatch.remoteUrl) ||
+                normalizeText(normalizedMatch.src) ||
+                coverImg.url;
+            const resolvedStoragePath = normalizeStoragePath(
+                normalizedMatch.storagePath || extractSupabaseStoragePath(resolvedSource)
+            );
+            return {
+                ...coverImg,
+                url: resolvedSource,
+                originalId: normalizedMatch.id || coverImg.originalId,
+                storagePath: resolvedStoragePath || coverImg.storagePath,
             };
         }),
     }));

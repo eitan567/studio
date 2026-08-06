@@ -11,9 +11,10 @@ import {
   Pencil,
   Settings,
   Shield,
+  PackageOpen,
 } from 'lucide-react';
 import { logger } from '@/lib/logger';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { SettingsDialog } from '@/components/settings-dialog';
 import { CreateAlbumDialog } from '@/components/dashboard/create-album-dialog';
@@ -40,6 +41,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 
 import { Album } from '@/lib/types';
+import { restoreFullAlbumFromZip } from '@/lib/album-full-backup';
 
 import { AdminSettingsDialog } from '@/components/admin/admin-settings-dialog';
 
@@ -48,8 +50,11 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [navigatingId, setNavigatingId] = useState<string | null>(null);
+  const [isFullRestoring, setIsFullRestoring] = useState(false);
+  const [fullRestoreProgressLabel, setFullRestoreProgressLabel] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
+  const fullRestoreInputRef = useRef<HTMLInputElement>(null);
   const { user, isAdmin } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
@@ -100,6 +105,39 @@ export default function DashboardPage() {
     }
   };
 
+  const handleFullRestoreFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    event.target.value = '';
+    if (!selectedFile) return;
+
+    setIsFullRestoring(true);
+    setFullRestoreProgressLabel('Reading ZIP file...');
+
+    try {
+      const result = await restoreFullAlbumFromZip(selectedFile, (progress) => {
+        setFullRestoreProgressLabel(progress.label || 'Processing...');
+      });
+
+      toast({
+        title: 'Full Restore Complete!',
+        description: `Album "${result.albumName}" created with ${result.photosUploaded} photos and ${result.pagesCount} pages. Redirecting...`,
+      });
+
+      await fetchAlbums();
+
+      // Navigate to the newly created album
+      router.push(`/album/${result.albumId}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to restore album from ZIP.';
+      toast({
+        title: 'Full Restore Failed',
+        description: message,
+        variant: 'destructive',
+      });
+      setIsFullRestoring(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -117,6 +155,24 @@ export default function DashboardPage() {
           <p className="mt-4 text-muted-foreground animate-pulse">Deleting album...</p>
         </div>
       )}
+
+      {/* Full-screen loading overlay during full restore */}
+      {isFullRestoring && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="mt-4 text-foreground font-medium text-lg">{fullRestoreProgressLabel || 'Restoring full album...'}</p>
+          <p className="mt-1 text-sm text-muted-foreground animate-pulse">Uploading photos & creating new album...</p>
+        </div>
+      )}
+
+      <input
+        ref={fullRestoreInputRef}
+        type="file"
+        accept=".zip,application/zip"
+        className="hidden"
+        onChange={handleFullRestoreFile}
+      />
+
       {/* Full-screen grid background — fills entire main area */}
       <div
         className="h-full flex flex-col bg-muted/30 dark:bg-muted/10"
@@ -160,6 +216,22 @@ export default function DashboardPage() {
                 onClick={() => setSettingsOpen(true)}
               >
                 <Settings className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="outline"
+                className="gap-2"
+                title="Restore Full Album from ZIP"
+                onClick={() => fullRestoreInputRef.current?.click()}
+                disabled={isFullRestoring}
+              >
+                {isFullRestoring ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <PackageOpen className="h-4 w-4 text-primary" />
+                )}
+                <span className="hidden sm:inline">
+                  {isFullRestoring ? 'Restoring...' : 'Full Restore'}
+                </span>
               </Button>
               <CreateAlbumDialog onAlbumCreated={fetchAlbums} />
             </div>

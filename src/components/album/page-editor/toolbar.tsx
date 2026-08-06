@@ -15,6 +15,9 @@ import {
     X,
     Pencil,
     Shield,
+    Archive,
+    PackageOpen,
+    ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -23,6 +26,13 @@ import { ModeToggle } from '@/components/mode-toggle';
 import { AdminSettingsDialog } from '@/components/admin/admin-settings-dialog';
 import { UserNav } from '@/components/user-nav';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface AlbumEditorToolbarProps {
     albumName: string;
@@ -34,6 +44,8 @@ interface AlbumEditorToolbarProps {
     onExportBackup: () => void;
     onImportBackup: () => void;
     isImportingBackup?: boolean;
+    onFullBackup?: () => void;
+    isFullBackupInProgress?: boolean;
     showManualSaveButton?: boolean;
     onSaveNow?: () => void;
     disableManualSaveButton?: boolean;
@@ -52,6 +64,8 @@ export function AlbumEditorToolbar({
     onExportBackup,
     onImportBackup,
     isImportingBackup = false,
+    onFullBackup,
+    isFullBackupInProgress = false,
     showManualSaveButton = false,
     onSaveNow,
     disableManualSaveButton = false,
@@ -191,14 +205,44 @@ export function AlbumEditorToolbar({
                     <span className="hidden sm:inline">Book View</span>
                 </Button>
                 <div className="h-4 w-px bg-border mx-1" />
-                <Button variant="ghost" size="sm" className="gap-2" onClick={onExportBackup}>
-                    <Download className="h-4 w-4" />
-                    <span className="hidden sm:inline">Backup</span>
-                </Button>
-                <Button variant="ghost" size="sm" className="gap-2" onClick={onImportBackup} disabled={isImportingBackup}>
-                    {isImportingBackup ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                    <span className="hidden sm:inline">{isImportingBackup ? 'Restoring...' : 'Restore'}</span>
-                </Button>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="gap-2" disabled={isFullBackupInProgress}>
+                            {isFullBackupInProgress ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <Download className="h-4 w-4" />
+                            )}
+                            <span className="hidden sm:inline">
+                                {isFullBackupInProgress ? 'Backing up...' : 'Backup'}
+                            </span>
+                            <ChevronDown className="h-3 w-3" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={onExportBackup}>
+                            <Download className="h-4 w-4 mr-2" />
+                            Backup (JSON)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={onFullBackup} disabled={isFullBackupInProgress}>
+                            {isFullBackupInProgress ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                                <Archive className="h-4 w-4 mr-2" />
+                            )}
+                            Full Backup (ZIP)
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={onImportBackup} disabled={isImportingBackup}>
+                            {isImportingBackup ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                                <Upload className="h-4 w-4 mr-2" />
+                            )}
+                            Restore (JSON)
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
                 <div className="h-4 w-px bg-border mx-1" />
                 {showManualSaveButton && (
                     <>
