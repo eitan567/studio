@@ -146,12 +146,15 @@ function buildPhotoRefFromPhoto(photo: Photo): AlbumBackupPhotoRef | null {
         extractFileNameFromValue(alt);
     const sourceUrlKey = normalizeUrlForLookup(sourceUrl);
 
+    // Prioritize content-based keys (storagePath, sourceUrlKey, fileName) so page slots
+    // correctly match and deduplicate with gallery photos instead of using slot IDs.
     const key =
         normalizeLookupKey(storagePath) ||
-        normalizeLookupKey(originalId) ||
         normalizeLookupKey(sourceUrlKey) ||
         normalizeLookupKey(fileName) ||
-        normalizeLookupKey(alt);
+        normalizeLookupKey(explicitOriginalId) ||
+        normalizeLookupKey(alt) ||
+        normalizeLookupKey(originalId);
 
     if (!key) return null;
 
