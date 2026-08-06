@@ -105,6 +105,10 @@ import {
   parseAlbumBackupPayload,
 } from '@/lib/album-backup';
 import type { AlbumBackupPayload, AlbumBackupPhotoRef } from '@/lib/album-backup';
+import {
+  createFullAlbumBackupZip,
+  downloadFullBackupZip,
+} from '@/lib/album-full-backup';
 
 // Parse layout ID helper removed (now in useAlbumPageEditor or used via import if needed)
 
@@ -1338,6 +1342,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
   const [exportProgress, setExportProgress] = useState<{ current: number; total: number; label?: string } | null>(null);
   const exporterRef = useRef<AlbumExporterRef>(null);
   const backupImportInputRef = useRef<HTMLInputElement>(null);
+  const [isFullBackupInProgress, setIsFullBackupInProgress] = useState(false);
 
   const handleExportConfirm = (options: ExportOptions) => {
     setExportDialogOpen(false);
@@ -1711,6 +1716,52 @@ export function PageEditor({ albumId }: PageEditorProps) {
     });
   }, [albumId, albumName, config, albumPages, toast]);
 
+  const handleFullBackup = useCallback(async () => {
+    if (albumPages.length === 0 && allPhotos.length === 0) {
+      toast({
+        title: 'No photos or pages to back up',
+        description: 'Upload photos or create album pages before creating a full backup.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsFullBackupInProgress(true);
+    try {
+      const zipBlob = await createFullAlbumBackupZip({
+        albumId,
+        albumName,
+        config,
+        pages: albumPages,
+        galleryPhotos: allPhotos,
+        onProgress: (progress) => {
+          if (progress.phase === 'downloading') {
+            toast({
+              title: 'Full Backup',
+              description: progress.label || `Downloading photos ${progress.current}/${progress.total}...`,
+            });
+          }
+        },
+      });
+
+      downloadFullBackupZip(zipBlob, albumName);
+
+      toast({
+        title: 'Full backup downloaded',
+        description: 'ZIP file with full resolution photos and album data saved.',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create full backup.';
+      toast({
+        title: 'Full backup failed',
+        description: message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsFullBackupInProgress(false);
+    }
+  }, [albumId, albumName, config, albumPages, allPhotos, toast]);
+
   const handleRequestImportBackup = useCallback(() => {
     if (allPhotos.length === 0) {
       toast({
@@ -1999,6 +2050,8 @@ export function PageEditor({ albumId }: PageEditorProps) {
           onExportBackup={handleExportBackup}
           onImportBackup={handleRequestImportBackup}
           isImportingBackup={isImportingBackup}
+          onFullBackup={handleFullBackup}
+          isFullBackupInProgress={isFullBackupInProgress}
           showManualSaveButton={isManualSaveMode}
           onSaveNow={handleManualSaveNow}
           disableManualSaveButton={isSaving || isLoadingPhotos || !hasUnsavedChanges}
