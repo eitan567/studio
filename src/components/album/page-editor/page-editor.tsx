@@ -1727,6 +1727,8 @@ export function PageEditor({ albumId }: PageEditorProps) {
     }
 
     setIsFullBackupInProgress(true);
+    let lastToastStep = -1;
+    let lastPhase = '';
     try {
       const zipBlob = await createFullAlbumBackupZip({
         albumId,
@@ -1735,10 +1737,13 @@ export function PageEditor({ albumId }: PageEditorProps) {
         pages: albumPages,
         galleryPhotos: allPhotos,
         onProgress: (progress) => {
-          if (progress.phase === 'downloading') {
+          const step = Math.floor((progress.current / Math.max(progress.total, 1)) * 5);
+          if (step !== lastToastStep || progress.phase !== lastPhase) {
+            lastToastStep = step;
+            lastPhase = progress.phase;
             toast({
               title: 'Full Backup',
-              description: progress.label || `Downloading photos ${progress.current}/${progress.total}...`,
+              description: progress.label || `Processing...`,
             });
           }
         },
@@ -1751,11 +1756,13 @@ export function PageEditor({ albumId }: PageEditorProps) {
         description: 'ZIP file with full resolution photos and album data saved.',
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to create full backup.';
+      console.error('[FullBackup] FULL BACKUP FAILED WITH EXCEPTION:', error);
+      const message = error instanceof Error ? `${error.name}: ${error.message}` : 'Failed to create full backup.';
       toast({
         title: 'Full backup failed',
-        description: message,
+        description: `${message} (פירוט מלא נרשם ב-Console בדפדפן - לחץ F12)`,
         variant: 'destructive',
+        duration: 20000,
       });
     } finally {
       setIsFullBackupInProgress(false);

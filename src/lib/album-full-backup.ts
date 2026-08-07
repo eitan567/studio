@@ -65,6 +65,173 @@ function resolvePhotoDownloadUrl(ref: AlbumBackupPhotoRef): string | null {
     return null;
 }
 
+// CRC32 calculation table for ZIP format
+const crcTable = new Uint32Array(256);
+for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let k = 0; k < 8; k++) {
+        c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    }
+    crcTable[i] = c;
+}
+
+function calculateCRC32(buffer: Uint8Array): number {
+    let crc = 0xFFFFFFFF;
+    for (let i = 0; i < buffer.length; i++) {
+        crc = (crc >>> 8) ^ crcTable[(crc ^ buffer[i]) & 0xFF];
+    }
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+async function calculateBlobCRC32(blob: Blob): Promise<number> {
+    const arrayBuffer = await blob.arrayBuffer();
+    return calculateCRC32(new Uint8Array(arrayBuffer));
+}
+
+function getDosDateTime(date: Date = new Date()): { dosDate: number; dosTime: number } {
+    const year = Math.max(1980, date.getFullYear());
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const seconds = Math.floor(date.getSeconds() / 2);
+
+    const dosDate = ((year - 1980) << 9) | (month << 5) | day;
+    const dosTime = (hours << 11) | (minutes << 5) | seconds;
+
+    return { dosDate, dosTime };
+}
+
+interface ZipEntryInfo {
+    fileName: string;
+    crc32: number;
+    uncompressedSize: number;
+    offset: number;
+    dosDate: number;
+    dosTime: number;
+}
+
+/**
+ * FastZipBuilder creates STORE (uncompressed) ZIP files without allocating giant single-block ArrayBuffers.
+ * Blobs are passed directly to browser's Blob constructor, eliminating V8 ArrayBuffer allocation errors.
+ */
+class FastZipBuilder {
+    private parts: (Blob | Uint8Array)[] = [];
+    private entries: ZipEntryInfo[] = [];
+    private currentOffset = 0;
+    private encoder = new TextEncoder();
+
+    public async addFile(fileName: string, data: Blob | string | Uint8Array): Promise<void> {
+        let blob: Blob;
+        let crc32: number;
+
+        if (typeof data === 'string') {
+            const bytes = this.encoder.encode(data);
+            blob = new Blob([bytes]);
+            crc32 = calculateCRC32(bytes);
+        } else if (data instanceof Uint8Array) {
+            blob = new Blob([data]);
+            crc32 = calculateCRC32(data);
+        } else {
+            blob = data;
+            crc32 = await calculateBlobCRC32(blob);
+        }
+
+        const fileNameBytes = this.encoder.encode(fileName);
+        const { dosDate, dosTime } = getDosDateTime();
+        const uncompressedSize = blob.size;
+        const offset = this.currentOffset;
+
+        // Local File Header (30 bytes + fileNameBytes.length)
+        const header = new Uint8Array(30 + fileNameBytes.length);
+        const view = new DataView(header.buffer);
+
+        view.setUint32(0, 0x04034b50, true);   // Signature PK\x03\x04
+        view.setUint16(4, 20, true);           // Version needed (2.0)
+        view.setUint16(6, 0x0800, true);       // General bit flag (UTF-8 filename)
+        view.setUint16(8, 0, true);            // Compression method (0 = STORE)
+        view.setUint16(10, dosTime, true);
+        view.setUint16(12, dosDate, true);
+        view.setUint32(14, crc32, true);
+        view.setUint32(18, uncompressedSize, true); // Compressed size
+        view.setUint32(22, uncompressedSize, true); // Uncompressed size
+        view.setUint16(26, fileNameBytes.length, true);
+        view.setUint16(28, 0, true);           // Extra field length
+
+        header.set(fileNameBytes, 30);
+
+        this.parts.push(header);
+        this.parts.push(blob);
+
+        this.currentOffset += header.length + uncompressedSize;
+
+        this.entries.push({
+            fileName,
+            crc32,
+            uncompressedSize,
+            offset,
+            dosDate,
+            dosTime,
+        });
+    }
+
+    public getEntryCount(): number {
+        return this.entries.length;
+    }
+
+    public buildBlob(): Blob {
+        const centralDirectoryStart = this.currentOffset;
+        let centralDirectorySize = 0;
+
+        for (const entry of this.entries) {
+            const fileNameBytes = this.encoder.encode(entry.fileName);
+            // Central Directory Header (46 bytes + fileNameBytes.length)
+            const cdHeader = new Uint8Array(46 + fileNameBytes.length);
+            const view = new DataView(cdHeader.buffer);
+
+            view.setUint32(0, 0x02014b50, true); // Signature PK\x01\x02
+            view.setUint16(4, 20, true);         // Version made by
+            view.setUint16(6, 20, true);         // Version needed
+            view.setUint16(8, 0x0800, true);     // General bit flag (UTF-8 filename)
+            view.setUint16(10, 0, true);         // Compression method (0 = STORE)
+            view.setUint16(12, entry.dosTime, true);
+            view.setUint16(14, entry.dosDate, true);
+            view.setUint32(16, entry.crc32, true);
+            view.setUint32(20, entry.uncompressedSize, true); // Compressed size
+            view.setUint32(24, entry.uncompressedSize, true); // Uncompressed size
+            view.setUint16(28, fileNameBytes.length, true);
+            view.setUint16(30, 0, true);         // Extra field length
+            view.setUint16(32, 0, true);         // File comment length
+            view.setUint16(34, 0, true);         // Disk number start
+            view.setUint16(36, 0, true);         // Internal file attributes
+            view.setUint32(38, 0, true);         // External file attributes
+            view.setUint32(42, entry.offset, true); // Relative offset of local header
+
+            cdHeader.set(fileNameBytes, 46);
+
+            this.parts.push(cdHeader);
+            centralDirectorySize += cdHeader.length;
+        }
+
+        // End of Central Directory (EOCD) record (22 bytes)
+        const eocd = new Uint8Array(22);
+        const eocdView = new DataView(eocd.buffer);
+
+        eocdView.setUint32(0, 0x06054b50, true); // EOCD signature PK\x05\x06
+        eocdView.setUint16(4, 0, true);          // Disk number
+        eocdView.setUint16(6, 0, true);          // Disk with central directory
+        eocdView.setUint16(8, this.entries.length, true);  // Entries on this disk
+        eocdView.setUint16(10, this.entries.length, true); // Total entries
+        eocdView.setUint32(12, centralDirectorySize, true);
+        eocdView.setUint32(16, centralDirectoryStart, true);
+        eocdView.setUint16(20, 0, true);          // Comment length
+
+        this.parts.push(eocd);
+
+        return new Blob(this.parts, { type: 'application/zip' });
+    }
+}
+
 export async function createFullAlbumBackupZip(params: {
     albumId?: string | null;
     albumName: string;
@@ -75,6 +242,7 @@ export async function createFullAlbumBackupZip(params: {
 }): Promise<Blob> {
     const { albumId, albumName, config, pages, galleryPhotos, onProgress } = params;
 
+    console.log(`[FullBackup] Starting full backup for album "${albumName}" (ID: ${albumId || 'new'})...`);
     onProgress?.({ phase: 'preparing', current: 0, total: 1, label: 'Building backup payload...' });
 
     const payload = buildAlbumBackupPayload({
@@ -86,43 +254,15 @@ export async function createFullAlbumBackupZip(params: {
     });
 
     const requiredPhotos = payload.requiredPhotos || [];
-    const photoEntries: PhotoFileEntry[] = [];
+    console.log(`[FullBackup] Album backup payload built. Required photos count: ${requiredPhotos.length}`);
 
-    // Download each photo
-    const total = requiredPhotos.length;
+    const zipBuilder = new FastZipBuilder();
+
+    // 1. Pre-assign unique file names for every photo ref synchronously so ref.fileName in album.json matches zip file entries
+    const usedFileNames = new Set<string>();
     for (let i = 0; i < requiredPhotos.length; i++) {
         const ref = requiredPhotos[i];
-        const url = resolvePhotoDownloadUrl(ref);
-        onProgress?.({
-            phase: 'downloading',
-            current: i + 1,
-            total,
-            label: `Downloading photo ${i + 1}/${total}: ${ref.fileName || ref.storagePath || 'photo'}`,
-        });
-
-        if (!url) continue;
-
-        try {
-            const response = await fetch(url);
-            if (!response.ok) continue;
-            const blob = await response.blob();
-            const fileName = getFileNameFromRef(ref, i);
-            photoEntries.push({ ref, fileName, blob });
-        } catch {
-            // Skip photos that fail to download
-        }
-    }
-
-    // Create ZIP
-    onProgress?.({ phase: 'zipping', current: 0, total: 1, label: 'Creating ZIP file...' });
-
-    const zip = new JSZip();
-
-    // Add photos in photos/ folder and ensure ref.fileName matches zip entry filename
-    const usedFileNames = new Set<string>();
-    for (const entry of photoEntries) {
-        let fileName = entry.fileName;
-        // Ensure unique file names
+        let fileName = getFileNameFromRef(ref, i);
         if (usedFileNames.has(fileName)) {
             const ext = fileName.includes('.') ? '.' + fileName.split('.').pop() : '';
             const base = fileName.includes('.') ? fileName.slice(0, fileName.lastIndexOf('.')) : fileName;
@@ -131,15 +271,62 @@ export async function createFullAlbumBackupZip(params: {
             fileName = `${base}_${counter}${ext}`;
         }
         usedFileNames.add(fileName);
-        entry.ref.fileName = fileName; // Ensure ref.fileName matches zip filename
-        zip.file(`photos/${fileName}`, entry.blob);
+        ref.fileName = fileName;
     }
 
-    // Add album.json (now containing updated ref.fileName entries)
-    zip.file('album.json', JSON.stringify(payload, null, 2));
+    // 2. Add album.json (now containing accurate ref.fileName for every photo ref)
+    await zipBuilder.addFile('album.json', JSON.stringify(payload, null, 2));
 
-    const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+    // 3. Download photos in concurrent batches directly into zip structure without storing intermediate array
+    const total = requiredPhotos.length;
+    let completedCount = 0;
+    let successCount = 0;
+    let failCount = 0;
+    const CONCURRENCY = 6;
 
+    for (let i = 0; i < total; i += CONCURRENCY) {
+        const chunk = requiredPhotos.slice(i, i + CONCURRENCY);
+        await Promise.all(
+            chunk.map(async (ref) => {
+                const url = resolvePhotoDownloadUrl(ref);
+                if (url) {
+                    try {
+                        console.log(`[FullBackup] Downloading photo (${completedCount + 1}/${total}): ${ref.fileName} from ${url}`);
+                        const response = await fetch(url);
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            await zipBuilder.addFile(`photos/${ref.fileName}`, blob);
+                            successCount++;
+                        } else {
+                            failCount++;
+                            console.warn(`[FullBackup] Photo download HTTP error ${response.status} for ${ref.fileName}`);
+                        }
+                    } catch (err) {
+                        failCount++;
+                        console.error(`[FullBackup] Network/fetch error downloading photo ${ref.fileName}:`, err);
+                    }
+                } else {
+                    failCount++;
+                    console.warn(`[FullBackup] Could not resolve download URL for photo:`, ref);
+                }
+                completedCount++;
+                onProgress?.({
+                    phase: 'downloading',
+                    current: completedCount,
+                    total,
+                    label: `Downloading photos (${completedCount}/${total})...`,
+                });
+            })
+        );
+    }
+
+    console.log(`[FullBackup] Photo downloads completed. Success: ${successCount}, Failed/Skipped: ${failCount}`);
+
+    // 4. Create ZIP Blob instantly using chunked Blob construction
+    onProgress?.({ phase: 'zipping', current: 0, total: 100, label: 'Finalizing ZIP file...' });
+    const zipBlob = zipBuilder.buildBlob();
+
+    console.log(`[FullBackup] ZIP file generated successfully! Files count: ${zipBuilder.getEntryCount()}, Total size: ${(zipBlob.size / (1024 * 1024)).toFixed(2)} MB`);
     onProgress?.({ phase: 'done', current: 1, total: 1, label: 'Full backup ready!' });
 
     return zipBlob;
