@@ -1864,13 +1864,13 @@ export function PageEditor({ albumId }: PageEditorProps) {
 
   const handleImportBackupFile = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
-    event.target.value = '';
     if (!selectedFile) return;
 
     setIsImportingBackup(true);
 
     try {
       const rawText = await selectedFile.text();
+      event.target.value = '';
 
       let parsedJson: unknown;
       try {
@@ -2114,7 +2114,7 @@ export function PageEditor({ albumId }: PageEditorProps) {
                 <AlertTriangle className="h-5 w-5 text-destructive" />
                 <span>Missing Photos In Gallery</span>
               </AlertDialogTitle>
-              <AlertDialogDescription>
+              <AlertDialogDescription asChild>
                 <div className="space-y-3 text-left">
                   <p>
                     The backup file requires <strong>{pendingBackupImport?.requiredCount ?? 0}</strong> photo(s).

@@ -107,7 +107,6 @@ export default function DashboardPage() {
 
   const handleFullRestoreFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
-    event.target.value = '';
     if (!selectedFile) return;
 
     setIsFullRestoring(true);
@@ -128,12 +127,15 @@ export default function DashboardPage() {
       // Navigate to the newly created album
       router.push(`/album/${result.albumId}`);
     } catch (error) {
+      console.error('[FullRestore] Error restoring album from ZIP:', error);
       const message = error instanceof Error ? error.message : 'Failed to restore album from ZIP.';
       toast({
         title: 'Full Restore Failed',
         description: message,
         variant: 'destructive',
       });
+    } finally {
+      event.target.value = '';
       setIsFullRestoring(false);
     }
   };

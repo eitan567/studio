@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import { ZipReader, BlobReader, Uint8ArrayReader, TextWriter, BlobWriter } from '@zip.js/zip.js';
 import { saveAs } from 'file-saver';
 import type { Photo, AlbumConfig, AlbumPage } from '@/lib/types';
 import {
@@ -349,61 +350,150 @@ export interface FullRestoreResult {
     pagesCount: number;
 }
 
-export async function restoreFullAlbumFromZip(
-    zipFile: File,
-    onProgress?: (progress: FullRestoreProgress) => void,
-): Promise<FullRestoreResult> {
-    onProgress?.({ phase: 'extracting', current: 0, total: 1, label: 'Reading ZIP file...' });
-
-    const zip = await JSZip.loadAsync(zipFile);
-
-    // Extract album.json
-    const albumJsonFile = zip.file('album.json');
-    if (!albumJsonFile) {
-        throw new Error('Invalid backup ZIP: missing album.json');
+async function readBlobAsArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
+    // Attempt 1: Native blob.arrayBuffer() (standard in modern browsers)
+    try {
+        return await blob.arrayBuffer();
+    } catch (e1) {
+        console.warn('[FullBackup] blob.arrayBuffer() failed, attempting FileReader fallback:', e1);
     }
 
-    const albumJsonText = await albumJsonFile.async('string');
+    // Attempt 2: FileReader API (standard DOM event reader)
+    try {
+        return await new Promise<ArrayBuffer>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                if (reader.result instanceof ArrayBuffer) {
+                    resolve(reader.result);
+                } else {
+                    reject(new Error('FileReader returned invalid result type.'));
+                }
+            };
+            reader.onerror = () => reject(reader.error || new Error('FileReader failed.'));
+            reader.readAsArrayBuffer(blob);
+        });
+    } catch (e2) {
+        console.warn('[FullBackup] FileReader failed, attempting Response stream fallback:', e2);
+    }
+
+    // Attempt 3: Response stream API (Fetch Response wrapper)
+    try {
+        return await new Response(blob).arrayBuffer();
+    } catch (e3) {
+        console.error('[FullBackup] All buffer reading attempts failed:', e3);
+        const detail = e3 instanceof Error ? e3.message : String(e3);
+        throw new Error(
+            `Could not read the ZIP file (${detail}). Please make sure the file is valid and not open in another application.`
+        );
+    }
+}
+
+export async function restoreFullAlbumFromZip(
+    zipFile: File | Blob | ArrayBuffer | Uint8Array,
+    onProgress?: (progress: FullRestoreProgress) => void,
+): Promise<FullRestoreResult> {
+    onProgress?.({ phase: 'extracting', current: 0, total: 1, label: 'Reading ZIP archive...' });
+
+    let reader: ZipReader<unknown>;
+    if (zipFile instanceof Blob) {
+        reader = new ZipReader(new BlobReader(zipFile));
+    } else if (zipFile instanceof Uint8Array) {
+        reader = new ZipReader(new Uint8ArrayReader(zipFile));
+    } else if (zipFile instanceof ArrayBuffer) {
+        reader = new ZipReader(new Uint8ArrayReader(new Uint8Array(zipFile)));
+    } else {
+        throw new Error('Unsupported ZIP input type');
+    }
+
+    let entries;
+    try {
+        entries = await reader.getEntries();
+    } catch (err) {
+        await reader.close().catch(() => {});
+        const detail = err instanceof Error ? err.message : String(err);
+        throw new Error(`Failed to read ZIP archive (${detail}). The file may be corrupted.`);
+    }
+
+    // Find album.json inside the ZIP
+    const albumEntry = entries.find(
+        (e) => !e.directory && 'getData' in e && (e.filename === 'album.json' || e.filename.endsWith('/album.json'))
+    );
+
+    if (!albumEntry || !('getData' in albumEntry)) {
+        await reader.close().catch(() => {});
+        throw new Error('Invalid backup ZIP: missing album.json file');
+    }
+
+    let albumJsonText: string;
+    try {
+        albumJsonText = await albumEntry.getData(new TextWriter());
+    } catch (err) {
+        await reader.close().catch(() => {});
+        const detail = err instanceof Error ? err.message : String(err);
+        throw new Error(`Failed to read album.json from ZIP: ${detail}`);
+    }
+
     let parsedJson: unknown;
     try {
         parsedJson = JSON.parse(albumJsonText);
     } catch {
+        await reader.close().catch(() => {});
         throw new Error('Invalid backup ZIP: album.json is not valid JSON');
     }
 
     const backupPayload = parseAlbumBackupPayload(parsedJson);
 
-    // Collect photo files from the ZIP
-    const photoFiles: { name: string; file: JSZip.JSZipObject }[] = [];
-    zip.folder('photos')?.forEach((relativePath, file) => {
-        if (!file.dir) {
-            photoFiles.push({ name: relativePath, file });
-        }
-    });
+    // Collect photo entries
+    const photoEntries = entries.filter(
+        (e) => !e.directory && 'getData' in e && (e.filename.startsWith('photos/') || e.filename.includes('/photos/'))
+    );
 
-    onProgress?.({
-        phase: 'extracting',
-        current: 1,
-        total: 1,
-        label: `Found ${photoFiles.length} photo(s) in backup`,
-    });
+    const extractedPhotos: { name: string; blob: Blob }[] = [];
+    const totalPhotos = photoEntries.length;
 
-    // Upload each photo
-    const uploadedPhotos: Photo[] = [];
-    const total = photoFiles.length;
+    for (let i = 0; i < totalPhotos; i++) {
+        const photoEntry = photoEntries[i];
+        const cleanName = photoEntry.filename.substring(photoEntry.filename.lastIndexOf('photos/') + 7);
+        if (!cleanName) continue;
 
-    for (let i = 0; i < photoFiles.length; i++) {
-        const photoEntry = photoFiles[i];
         onProgress?.({
-            phase: 'uploading',
+            phase: 'extracting',
             current: i + 1,
-            total,
-            label: `Uploading photo ${i + 1}/${total}: ${photoEntry.name}`,
+            total: totalPhotos,
+            label: `Extracting photo ${i + 1}/${totalPhotos}: ${cleanName}`,
         });
 
         try {
-            const blob = await photoEntry.file.async('blob');
+            if ('getData' in photoEntry) {
+                const photoBlob = await photoEntry.getData(new BlobWriter());
+                extractedPhotos.push({ name: cleanName, blob: photoBlob });
+            }
+        } catch (extractErr) {
+            console.warn(`[FullBackup] Could not extract ${photoEntry.filename} from ZIP:`, extractErr);
+        }
+    }
 
+    await reader.close().catch(() => {});
+
+    onProgress?.({
+        phase: 'extracting',
+        current: totalPhotos,
+        total: totalPhotos,
+        label: `Extracted ${extractedPhotos.length} photo(s) from backup`,
+    });
+
+    // Upload each extracted photo
+    const uploadedPhotos: Photo[] = [];
+    for (let i = 0; i < extractedPhotos.length; i++) {
+        const photoEntry = extractedPhotos[i];
+        onProgress?.({
+            phase: 'uploading',
+            current: i + 1,
+            total: extractedPhotos.length,
+            label: `Uploading photo ${i + 1}/${extractedPhotos.length}: ${photoEntry.name}`,
+        });
+
+        try {
             // Determine a reasonable MIME type from the file extension
             const ext = photoEntry.name.split('.').pop()?.toLowerCase() || 'jpg';
             const mimeMap: Record<string, string> = {
@@ -420,7 +510,7 @@ export async function restoreFullAlbumFromZip(
                 avif: 'image/avif',
             };
             const mimeType = mimeMap[ext] || 'image/jpeg';
-            const file = new File([blob], photoEntry.name, { type: mimeType });
+            const file = new File([photoEntry.blob], photoEntry.name, { type: mimeType });
 
             const formData = new FormData();
             formData.append('file', file);
@@ -444,11 +534,12 @@ export async function restoreFullAlbumFromZip(
                     height: data.photo.height || undefined,
                     remoteUrl: data.photo.url || data.url || '',
                     storagePath: data.photo.storage_path || data.photo.storagePath || undefined,
+                    originalFileName: photoEntry.name,
                 };
                 uploadedPhotos.push(photo);
             }
-        } catch {
-            // Skip photos that fail to upload
+        } catch (uploadErr) {
+            console.warn(`[FullBackup] Failed to upload ${photoEntry.name}:`, uploadErr);
         }
     }
 

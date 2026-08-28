@@ -209,15 +209,17 @@ function buildGalleryPhotoLookup(galleryPhotos: Photo[]): GalleryPhotoLookup {
         const storagePath = normalizeStoragePath(
             normalizedPhoto.storagePath || extractSupabaseStoragePath(sourceUrl || normalizedPhoto.src)
         );
-        const fileName =
-            extractFileNameFromValue(storagePath) ||
-            extractFileNameFromValue(sourceUrl) ||
-            extractFileNameFromValue(normalizedPhoto.alt);
 
         addLookupEntry(lookup.byId, normalizedPhoto.id, normalizedPhoto);
         addLookupEntry(lookup.byStoragePath, storagePath, normalizedPhoto);
         addLookupEntry(lookup.byUrl, normalizeUrlForLookup(sourceUrl), normalizedPhoto);
-        addLookupEntry(lookup.byFileName, fileName, normalizedPhoto);
+
+        // Index ALL potential filename keys (storage path, URL, alt, and originalFileName)
+        addLookupEntry(lookup.byFileName, extractFileNameFromValue(storagePath), normalizedPhoto);
+        addLookupEntry(lookup.byFileName, extractFileNameFromValue(sourceUrl), normalizedPhoto);
+        addLookupEntry(lookup.byFileName, extractFileNameFromValue(normalizedPhoto.alt), normalizedPhoto);
+        addLookupEntry(lookup.byFileName, normalizedPhoto.originalFileName, normalizedPhoto);
+
         addLookupEntry(lookup.byAlt, normalizedPhoto.alt, normalizedPhoto);
     }
 
@@ -234,10 +236,16 @@ function matchBackupRefToGalleryPhoto(ref: AlbumBackupPhotoRef, lookup: GalleryP
     const byUrl = getSingleMatch(lookup.byUrl, normalizeUrlForLookup(ref.sourceUrl));
     if (byUrl) return byUrl;
 
-    const byFileName = getSingleMatch(lookup.byFileName, ref.fileName, true);
+    const byFileName = getSingleMatch(lookup.byFileName, ref.fileName);
     if (byFileName) return byFileName;
 
-    const byAlt = getSingleMatch(lookup.byAlt, ref.alt, true);
+    const byKeyFileName = getSingleMatch(lookup.byFileName, extractFileNameFromValue(ref.key));
+    if (byKeyFileName) return byKeyFileName;
+
+    const byStoragePathFileName = getSingleMatch(lookup.byFileName, extractFileNameFromValue(ref.storagePath));
+    if (byStoragePathFileName) return byStoragePathFileName;
+
+    const byAlt = getSingleMatch(lookup.byAlt, ref.alt);
     if (byAlt) return byAlt;
 
     return null;

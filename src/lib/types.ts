@@ -20,6 +20,7 @@ export type Photo = {
   originalId?: string; // Reference to original gallery photo ID
   remoteUrl?: string; // Server URL (if src is a local blob for optimistic UI)
   storagePath?: string; // Stable Supabase storage key (user_id/file.ext)
+  originalFileName?: string; // Original filename from backup/ZIP upload
 };
 
 export type AlbumConfig = {
